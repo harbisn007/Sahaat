@@ -89,4 +89,215 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ============ Rooms ============
+
+import { and, desc } from "drizzle-orm";
+import {
+  rooms,
+  roomParticipants,
+  audioMessages,
+  reactions,
+  type InsertRoom,
+  type InsertRoomParticipant,
+  type InsertAudioMessage,
+  type InsertReaction,
+} from "../drizzle/schema";
+
+export async function getAllRooms() {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.isActive, "true"))
+    .orderBy(desc(rooms.createdAt));
+}
+
+export async function getRoomById(roomId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1);
+  return result[0] || null;
+}
+
+export async function createRoom(data: InsertRoom) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(rooms).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function updateRoom(roomId: number, data: Partial<InsertRoom>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(rooms).set(data).where(eq(rooms.id, roomId));
+}
+
+export async function deleteRoom(roomId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(rooms).set({ isActive: "false" }).where(eq(rooms.id, roomId));
+}
+
+// ============ Room Participants ============
+
+export async function getRoomParticipants(roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db.select().from(roomParticipants).where(eq(roomParticipants.roomId, roomId));
+}
+
+export async function getPlayerCount(roomId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  // Count only non-creator players (role = 'player', not 'creator')
+  const players = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.role, "player"),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  return players.length;
+}
+
+export async function getTotalPlayerCount(roomId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  // Count all players including creator
+  const players = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.status, "accepted")
+      )
+    )
+    .then((results) =>
+      results.filter((p) => p.role === "player" || p.role === "creator")
+    );
+
+  return players.length;
+}
+
+export async function getViewerCount(roomId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const viewers = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.role, "viewer"),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  return viewers.length;
+}
+
+export async function addParticipant(data: InsertRoomParticipant) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(roomParticipants).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function updateParticipantStatus(
+  participantId: number,
+  status: "pending" | "accepted" | "rejected"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(roomParticipants).set({ status }).where(eq(roomParticipants.id, participantId));
+}
+
+export async function getPendingPlayerRequests(roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.role, "player"),
+        eq(roomParticipants.status, "pending")
+      )
+    );
+}
+
+// ============ Audio Messages ============
+
+export async function getRoomAudioMessages(roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(audioMessages)
+    .where(eq(audioMessages.roomId, roomId))
+    .orderBy(desc(audioMessages.createdAt));
+}
+
+export async function addAudioMessage(data: InsertAudioMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(audioMessages).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function getLastTaroukMessage(roomId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select()
+    .from(audioMessages)
+    .where(and(eq(audioMessages.roomId, roomId), eq(audioMessages.messageType, "tarouk")))
+    .orderBy(desc(audioMessages.createdAt))
+    .limit(1);
+
+  return result[0] || null;
+}
+
+// ============ Reactions ============
+
+export async function addReaction(data: InsertReaction) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(reactions).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function getRecentReactions(roomId: number, limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(reactions)
+    .where(eq(reactions.roomId, roomId))
+    .orderBy(desc(reactions.createdAt))
+    .limit(limit);
+}

@@ -29,10 +29,10 @@ const schemeFromBundleId = `manus${timestamp}`;
 const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "ساحات المحاورة",
-  appSlug: "sahaat-muhawara",
+  appSlug: "{{project_name}}",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "",
+  logoUrl: "https://s3.manus.space/manus-artifacts/c6e9c1f2-d2e9-4d3c-8c3e-5f5a0b3e4d2a.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
