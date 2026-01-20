@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
+import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
 
@@ -36,11 +37,30 @@ export default function RoomScreen() {
   const { isRecording, isPreparing, startRecording, stopRecording, cancelRecording } =
     useAudioRecorder();
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
+  const { 
+    isPlaying: isSheelohaPlaying, 
+    isProcessing: isSheelohaProcessing, 
+    playTarouk: playSheeloha, 
+    stopTarouk: stopSheeloha 
+  } = useTaroukPlayer();
 
   const { data: audioMessages, refetch: refetchAudio } = trpc.audio.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 5000 }
   );
+
+  // Track the last Tarouk message URI
+  const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
+
+  // Update last Tarouk URI when audio messages change
+  useEffect(() => {
+    if (audioMessages && audioMessages.length > 0) {
+      const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
+      if (taroukMessages.length > 0) {
+        setLastTaroukUri(taroukMessages[taroukMessages.length - 1].audioUrl);
+      }
+    }
+  }, [audioMessages]);
 
   useEffect(() => {
     if (roomData && username) {
@@ -263,23 +283,57 @@ export default function RoomScreen() {
                 backgroundColor={colors.success}
               />
 
-              {/* Sheeloha Button (Creator only) */}
+              {/* Sheeloha Button (Creator only) - Plays last Tarouk with effects */}
               {isCreator && (
                 <TouchableOpacity
-                  className="bg-warning rounded-xl py-4 items-center"
-                  onPress={() => Alert.alert("قريباً", "ميزة شيلوها قيد التطوير")}
+                  className="rounded-xl py-4 items-center"
+                  style={{
+                    backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
+                    opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
+                  }}
+                  onPress={() => {
+                    if (!lastTaroukUri) {
+                      Alert.alert("تنبيه", "لا توجد رسائل طاروق لتشغيلها");
+                      return;
+                    }
+                    if (isSheelohaPlaying) {
+                      stopSheeloha();
+                    } else {
+                      playSheeloha(lastTaroukUri);
+                    }
+                  }}
+                  disabled={isSheelohaProcessing}
                 >
-                  <Text className="text-background font-bold text-base">🔁 شيلوها</Text>
+                  <Text className="text-background font-bold text-base">
+                    {isSheelohaProcessing 
+                      ? "جاري التحضير..." 
+                      : isSheelohaPlaying 
+                        ? "⏸️ إيقاف شيلوها" 
+                        : "🔁 شيلوها"}
+                  </Text>
+                  {lastTaroukUri && !isSheelohaPlaying && (
+                    <Text className="text-background/70 text-xs mt-1">
+                      (ترديد جماعي + تسريع)
+                    </Text>
+                  )}
                 </TouchableOpacity>
               )}
 
-              {/* Khalloha Button (Creator only) */}
+              {/* Khalloha Button (Creator only) - Stops Sheeloha playback */}
               {isCreator && (
                 <TouchableOpacity
-                  className="bg-error rounded-xl py-4 items-center"
+                  className="rounded-xl py-4 items-center"
+                  style={{
+                    backgroundColor: colors.error,
+                    opacity: isSheelohaPlaying ? 1 : 0.5,
+                  }}
                   onPress={() => {
-                    stop();
-                    Alert.alert("تم الإيقاف", "تم إيقاف التشغيل");
+                    if (isSheelohaPlaying) {
+                      stopSheeloha();
+                      Alert.alert("تم الإيقاف", "تم إيقاف تشغيل شيلوها");
+                    } else {
+                      stop();
+                    }
                   }}
                 >
                   <Text className="text-background font-bold text-base">⏹️ خلوها</Text>
