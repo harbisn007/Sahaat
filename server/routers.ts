@@ -168,16 +168,26 @@ export const appRouter = router({
           throw new Error("Participant not found");
         }
 
-        const status = input.accept ? "accepted" : "rejected";
-        await db.updateParticipantStatus(input.participantId, status);
-
-        // If accepting a player, check if we've reached the limit (2 players)
-        if (input.accept && participant.role === "player") {
-          const acceptedPlayersCount = await db.getAcceptedPlayersCount(participant.roomId);
+        if (input.accept) {
+          // Accept the request
+          await db.updateParticipantStatus(input.participantId, "accepted");
           
-          // If we now have 2 players, reject all other pending player requests
-          if (acceptedPlayersCount >= 2) {
-            await db.rejectAllPendingPlayerRequests(participant.roomId);
+          // If accepting a player, check if we've reached the limit (2 players)
+          if (participant.role === "player") {
+            const acceptedPlayersCount = await db.getAcceptedPlayersCount(participant.roomId);
+            
+            // If we now have 2 players, reject all other pending player requests
+            if (acceptedPlayersCount >= 2) {
+              await db.rejectAllPendingPlayerRequests(participant.roomId);
+            }
+          }
+        } else {
+          // Reject the request - convert player to viewer
+          if (participant.role === "player") {
+            await db.updateParticipantRole(input.participantId, "viewer");
+            await db.updateParticipantStatus(input.participantId, "accepted");
+          } else {
+            await db.updateParticipantStatus(input.participantId, "rejected");
           }
         }
 

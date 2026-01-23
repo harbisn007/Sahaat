@@ -317,3 +317,12 @@
 - [x] تعديل handleRejectRequest لاستخدام leaveRoomMutation
 - [x] إيجاد userId من participantId
 - [x] إضافة logging مفصّل
+
+## تعديل نظام الصلاحيات
+- [x] إخفاء أزرار اللاعب قبل قبول الطلب
+- [x] إضافة isApproved state
+- [x] تعديل isPlayer ليشمل فقط اللاعبين المقبولين
+- [x] تعديل handleRejectRequest لتحويل المرفوض إلى viewer
+- [x] تعديل backend respondToRequest لتحويل role
+- [x] إضافة updateParticipantRole في server/db.ts
+- [x] رسالة "بانتظار قبول طلبك" غير موجودة

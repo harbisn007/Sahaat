@@ -41,6 +41,7 @@ export default function RoomScreen() {
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
 
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
+  const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
@@ -156,8 +157,11 @@ export default function RoomScreen() {
   useEffect(() => {
     if (roomData && username) {
       const participant = roomData.participants.find((p) => p.username === username);
-      if (participant && participant.status === "accepted") {
+      if (participant) {
+        console.log("[RoomScreen] Participant found:", participant);
         setUserRole(participant.role);
+        setIsApproved(participant.status === "accepted");
+        console.log("[RoomScreen] Role:", participant.role, "Status:", participant.status, "Approved:", participant.status === "accepted");
       }
     }
   }, [roomData, username]);
@@ -180,30 +184,16 @@ export default function RoomScreen() {
     try {
       console.log("[RoomScreen] Rejecting request for participant:", participantId);
       
-      // Find the participant to get their userId
-      const participant = roomData?.participants.find(p => p.id === participantId);
-      if (!participant) {
-        Alert.alert("خطأ", "لم يتم العثور على المستخدم");
-        return;
-      }
-      
-      // First reject the request
+      // Reject the request - this will convert the player to a viewer
       await respondToRequestMutation.mutateAsync({
         participantId,
         accept: false,
       });
-      console.log("[RoomScreen] Request rejected, now removing participant from room");
-      
-      // Then remove the participant from the room completely
-      await leaveRoomMutation.mutateAsync({
-        roomId,
-        userId: participant.userId,
-      });
-      console.log("[RoomScreen] Participant removed successfully");
+      console.log("[RoomScreen] Request rejected, participant converted to viewer");
       
       await refetch();
       await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب وإخراج المستخدم من الغرفة");
+      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مشاهد");
     } catch (error) {
       console.error("[RoomScreen] Error rejecting request:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
@@ -395,8 +385,11 @@ export default function RoomScreen() {
   }
 
   const isCreator = userRole === "creator";
-  const isPlayer = userRole === "player" || isCreator;
+  // isPlayer includes creator OR approved player
+  const isPlayer = isCreator || (userRole === "player" && isApproved);
   const isViewer = userRole === "viewer";
+  
+  console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
   return (
     <ScreenContainer>

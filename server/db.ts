@@ -240,6 +240,16 @@ export async function updateParticipantStatus(
   await db.update(roomParticipants).set({ status }).where(eq(roomParticipants.id, participantId));
 }
 
+export async function updateParticipantRole(
+  participantId: number,
+  role: "creator" | "player" | "viewer"
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.update(roomParticipants).set({ role }).where(eq(roomParticipants.id, participantId));
+}
+
 export async function getPendingPlayerRequests(roomId: number) {
   const db = await getDb();
   if (!db) return [];
