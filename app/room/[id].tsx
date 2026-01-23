@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
+import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -81,6 +82,9 @@ export default function RoomScreen() {
     playTarouk: playSheeloha, 
     stopTarouk: stopSheeloha 
   } = useTaroukPlayer();
+  
+  // Clap sound player for sheeloha button
+  const clapSoundPlayer = useAudioPlayer("");
 
   const { data: audioMessages, refetch: refetchAudio } = trpc.audio.list.useQuery(
     { roomId },
@@ -648,6 +652,11 @@ export default function RoomScreen() {
                   }
                   
                   try {
+                    // Play clapping sound effect
+                    const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
+                    clapSoundPlayer.replace(clapSoundPath);
+                    clapSoundPlayer.play();
+                    
                     // Create broadcast to play at all users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
                     await createSheelohaBroadcastMutation.mutateAsync({
