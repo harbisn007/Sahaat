@@ -311,3 +311,9 @@
 - [x] تقليل padding و spacing (px-3 py-1 بدلاً من px-4 py-2)
 - [x] تصغير حجم الخط (text-xs بدلاً من text-sm)
 - [x] تقليل عرض الفقاعة (80% بدلاً من 85%)
+
+## إخراج صاحب الطلب من الغرفة عند الرفض
+- [x] فحص handleRejectRequest الحالي
+- [x] تعديل handleRejectRequest لاستخدام leaveRoomMutation
+- [x] إيجاد userId من participantId
+- [x] إضافة logging مفصّل

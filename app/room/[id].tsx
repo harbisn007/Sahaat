@@ -178,13 +178,34 @@ export default function RoomScreen() {
 
   const handleRejectRequest = async (participantId: number) => {
     try {
+      console.log("[RoomScreen] Rejecting request for participant:", participantId);
+      
+      // Find the participant to get their userId
+      const participant = roomData?.participants.find(p => p.id === participantId);
+      if (!participant) {
+        Alert.alert("خطأ", "لم يتم العثور على المستخدم");
+        return;
+      }
+      
+      // First reject the request
       await respondToRequestMutation.mutateAsync({
         participantId,
         accept: false,
       });
+      console.log("[RoomScreen] Request rejected, now removing participant from room");
+      
+      // Then remove the participant from the room completely
+      await leaveRoomMutation.mutateAsync({
+        roomId,
+        userId: participant.userId,
+      });
+      console.log("[RoomScreen] Participant removed successfully");
+      
+      await refetch();
       await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب");
+      Alert.alert("تم الرفض", "تم رفض الطلب وإخراج المستخدم من الغرفة");
     } catch (error) {
+      console.error("[RoomScreen] Error rejecting request:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
     }
   };
