@@ -5,7 +5,7 @@ import { useColors } from "@/hooks/use-colors";
 interface RecordingButtonProps {
   isRecording: boolean;
   isPreparing: boolean;
-  label: string;
+  label?: string; // اختياري الآن
   onPress?: () => void;
   onPressIn?: () => void;
   onPressOut?: () => void;
@@ -14,6 +14,7 @@ interface RecordingButtonProps {
   recordingDuration?: string;
   icon?: string; // أيقونة المايكروفون (مثل "🎙️" أو "🎤")
   iconSize?: number; // حجم الأيقونة
+  showLabel?: boolean; // إظهار النص أم لا
 }
 
 export function RecordingButton({
@@ -28,6 +29,7 @@ export function RecordingButton({
   recordingDuration,
   icon,
   iconSize = 24,
+  showLabel = true,
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -78,13 +80,20 @@ export function RecordingButton({
           {icon ? (
             <View className="items-center gap-1">
               <Text style={{ fontSize: iconSize }}>{icon}</Text>
-              <Text className="text-background font-bold" style={{ fontSize: 10 }}>
-                {isPreparing 
-                  ? "جاري..." 
-                  : isRecording 
-                    ? recordingDuration || "00:00" 
-                    : label}
-              </Text>
+              {showLabel && (
+                <Text className="text-background font-bold" style={{ fontSize: 10 }}>
+                  {isPreparing 
+                    ? "جاري..." 
+                    : isRecording 
+                      ? recordingDuration || "00:00" 
+                      : label}
+                </Text>
+              )}
+              {!showLabel && isRecording && (
+                <Text className="text-background font-bold" style={{ fontSize: 10 }}>
+                  {recordingDuration || "00:00"}
+                </Text>
+              )}
             </View>
           ) : (
             <Text className="text-background font-bold text-xs text-center">

@@ -330,23 +330,42 @@ export default function RoomScreen() {
   };
 
   const handleReaction = async (reactionType: string) => {
-    if (!username) return;
+    if (!username) {
+      console.error("[RoomScreen] Cannot send reaction: username is missing");
+      Alert.alert("خطأ", "الاسم غير موجود");
+      return;
+    }
 
     try {
-      console.log("[RoomScreen] Sending reaction:", reactionType);
-      await createReactionMutation.mutateAsync({
+      console.log("[RoomScreen] Sending reaction:", {
+        reactionType,
+        roomId,
+        userId,
+        username,
+      });
+      
+      const result = await createReactionMutation.mutateAsync({
         roomId,
         userId,
         username,
         reactionType: reactionType as any,
       });
-      console.log("[RoomScreen] Reaction sent successfully");
+      
+      console.log("[RoomScreen] Reaction sent successfully:", result);
+      
       // Refetch reactions immediately to show the new reaction
       await refetchReactions();
       console.log("[RoomScreen] Reactions refetched");
-    } catch (error) {
+    } catch (error: any) {
       console.error("[RoomScreen] Failed to send reaction:", error);
-      Alert.alert("خطأ", "فشل إرسال التفاعل");
+      console.error("[RoomScreen] Error details:", {
+        message: error?.message,
+        cause: error?.cause,
+        stack: error?.stack,
+      });
+      
+      const errorMessage = error?.message || "خطأ غير معروف";
+      Alert.alert("فشل إرسال التفاعل", errorMessage);
     }
   };
 
@@ -392,7 +411,7 @@ export default function RoomScreen() {
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
   return (
-    <ScreenContainer>
+    <ScreenContainer containerClassName="bg-[#6D4C41]">
       {/* Header */}
       <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
         {/* Left: Exit/Close button */}
@@ -454,7 +473,13 @@ export default function RoomScreen() {
       )}
 
       {/* Messages Feed - Takes most of the screen */}
-      <View className="flex-1 px-4 pt-4">
+      <View 
+        className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
+        style={{
+          borderWidth: 2,
+          borderColor: "#FFD700", // ذهبي
+        }}
+      >
         {/* Role Badge */}
         <View className="items-center mb-3">
           <View
@@ -479,7 +504,7 @@ export default function RoomScreen() {
             ref={scrollViewRef}
             className="flex-1"
             showsVerticalScrollIndicator={true}
-            contentContainerStyle={{ paddingBottom: 8 }}
+            contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 8 }}
           >
               {combinedFeed.map((item) => {
                 if (item.type === "audio") {
@@ -531,10 +556,13 @@ export default function RoomScreen() {
             <View className="flex-row gap-2 flex-1">
               {/* Sheeloha Button */}
               <TouchableOpacity
-                className="rounded-lg py-2 px-3 items-center justify-center flex-1"
+                className="rounded-lg items-center justify-center"
                 style={{
-                  backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
+                  backgroundColor: "#5D4037", // بني داكن
                   opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 8,
                 }}
                 onPress={() => {
                   console.log("[RoomScreen] Sheeloha button pressed");
@@ -553,17 +581,18 @@ export default function RoomScreen() {
                 }}
                 disabled={isSheelohaProcessing}
               >
-                <Text className="text-background font-bold text-xs">
-                  {isSheelohaPlaying ? "⏸️" : "🔁"} شيلوها
-                </Text>
+                <Text style={{ fontSize: 32 }}>{isSheelohaPlaying ? "⏸️" : "🔁"}</Text>
               </TouchableOpacity>
 
               {/* Khalloha Button */}
               <TouchableOpacity
-                className="rounded-lg py-2 px-3 items-center justify-center flex-1"
+                className="rounded-lg items-center justify-center"
                 style={{
-                  backgroundColor: colors.error,
+                  backgroundColor: "#5D4037", // بني داكن
                   opacity: isSheelohaPlaying ? 1 : 0.5,
+                  flex: 1,
+                  paddingVertical: 12,
+                  paddingHorizontal: 8,
                 }}
                 onPress={() => {
                   if (isSheelohaPlaying) {
@@ -573,7 +602,7 @@ export default function RoomScreen() {
                   }
                 }}
               >
-                <Text className="text-background font-bold text-xs">⏹️ خلوها</Text>
+                <Text style={{ fontSize: 32 }}>⏹️</Text>
               </TouchableOpacity>
             </View>
           )}
@@ -594,13 +623,14 @@ export default function RoomScreen() {
                 <RecordingButton
                   isRecording={isRecording && recordingType === "comment"}
                   isPreparing={isPreparing}
-                  label="تعليق"
                   pressAndHold={true}
                   onPressIn={() => handleStartRecording("comment")}
                   onPressOut={() => handleStopRecording()}
                   recordingDuration={formattedDuration}
-                  icon="🎙️"
-                  iconSize={32}
+                  icon="🎙️💬"
+                  iconSize={28}
+                  showLabel={false}
+                  backgroundColor="#5D4037"
                 />
               </View>
 
@@ -608,14 +638,14 @@ export default function RoomScreen() {
                 <RecordingButton
                   isRecording={isRecording && recordingType === "tarouk"}
                   isPreparing={isPreparing}
-                  label="طاروق"
                   pressAndHold={true}
                   onPressIn={() => handleStartRecording("tarouk")}
                   onPressOut={() => handleStopRecording()}
-                  backgroundColor={colors.success}
+                  backgroundColor="#5D4037"
                   recordingDuration={formattedDuration}
                   icon="🎤"
-                  iconSize={48}
+                  iconSize={40}
+                  showLabel={false}
                 />
               </View>
             </View>

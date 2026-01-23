@@ -404,10 +404,21 @@ export async function getLastTaroukMessage(roomId: number) {
 
 export async function addReaction(data: InsertReaction) {
   const db = await getDb();
-  if (!db) throw new Error("Database not available");
-
-  const result = await db.insert(reactions).values(data);
-  return Number(result[0].insertId);
+  if (!db) {
+    console.error("[DB] Cannot add reaction: database not available");
+    throw new Error("Database not available");
+  }
+  
+  try {
+    console.log("[DB] Inserting reaction:", data);
+    const result = await db.insert(reactions).values(data);
+    const reactionId = Number(result[0].insertId);
+    console.log("[DB] Reaction inserted with ID:", reactionId);
+    return reactionId;
+  } catch (error) {
+    console.error("[DB] Failed to insert reaction:", error);
+    throw error;
+  }
 }
 
 export async function getRecentReactions(roomId: number, limit: number = 50) {

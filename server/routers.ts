@@ -320,8 +320,15 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
-        const reactionId = await db.addReaction(input);
-        return { reactionId };
+        try {
+          console.log("[API] Creating reaction:", input);
+          const reactionId = await db.addReaction(input);
+          console.log("[API] Reaction created with ID:", reactionId);
+          return { reactionId };
+        } catch (error) {
+          console.error("[API] Failed to create reaction:", error);
+          throw new Error("فشل حفظ التفاعل في قاعدة البيانات");
+        }
       }),
 
     // Get recent reactions for a room
