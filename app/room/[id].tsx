@@ -178,19 +178,19 @@ export default function RoomScreen() {
 
   const handleDeleteRoom = async () => {
     Alert.alert(
-      "حذف الغرفة",
-      "هل أنت متأكد من حذف الغرفة؟ سيتم حذف جميع المحتويات وإخراج جميع المستخدمين.",
+      "إغلاق الجلسة",
+      "هل أنت متأكد من إغلاق الجلسة؟",
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "حذف",
+          text: "إغلاق",
           style: "destructive",
           onPress: async () => {
             try {
               await deleteRoomMutation.mutateAsync({ roomId });
               router.replace("/");
             } catch (error) {
-              Alert.alert("خطأ", "حدث خطأ أثناء حذف الغرفة");
+              Alert.alert("خطأ", "حدث خطأ أثناء إغلاق الجلسة");
             }
           },
         },
@@ -309,22 +309,14 @@ export default function RoomScreen() {
     <ScreenContainer>
       {/* Header */}
       <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
-        <TouchableOpacity onPress={() => router.back()} className="pr-4">
-          <Text className="text-2xl text-foreground">←</Text>
-        </TouchableOpacity>
-        <View className="flex-1">
-          <Text className="text-xl font-bold text-foreground text-center">{roomData.name}</Text>
-          <Text className="text-sm text-muted text-center">
-            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
-          </Text>
-        </View>
+        {/* Left: Exit/Close button */}
         {isCreator ? (
           <TouchableOpacity 
             onPress={handleDeleteRoom}
             className="px-3 py-1 rounded-lg"
             style={{ backgroundColor: colors.error }}
           >
-            <Text className="text-background text-xs font-semibold">حذف</Text>
+            <Text className="text-background text-xs font-semibold">إغلاق</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
@@ -332,9 +324,20 @@ export default function RoomScreen() {
             className="px-3 py-1 rounded-lg"
             style={{ backgroundColor: colors.error }}
           >
-            <Text className="text-background text-xs font-semibold">غادر</Text>
+            <Text className="text-background text-xs font-semibold">خروج</Text>
           </TouchableOpacity>
         )}
+        
+        {/* Center: Room info */}
+        <View className="flex-1">
+          <Text className="text-xl font-bold text-foreground text-center">{roomData.name}</Text>
+          <Text className="text-sm text-muted text-center">
+            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
+          </Text>
+        </View>
+        
+        {/* Right: Empty space for balance */}
+        <View style={{ width: 60 }} />
       </View>
 
       {/* Pending Requests (Only for creator) */}
