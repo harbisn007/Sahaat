@@ -194,6 +194,8 @@ export default function RoomScreen() {
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
+  const [clapIntervalId, setClapIntervalId] = useState<number | null>(null);
+  
   useEffect(() => {
     if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return;
 
@@ -205,16 +207,46 @@ export default function RoomScreen() {
       latestBroadcast &&
       !playedBroadcastIds.has(latestBroadcast.id)
     ) {
-      console.log("[RoomScreen] Auto-playing sheeloha broadcast:", {
+      console.log("[RoomScreen] Auto-playing sheeloha broadcast with clapping:", {
         id: latestBroadcast.id,
         audioUrl: latestBroadcast.audioUrl,
         username: latestBroadcast.username
       });
-      // Mark as played and auto-play the broadcast for everyone
+      
+      // Mark as played
       setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
+      
+      // Play clapping sound in loop
+      const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
+      clapSoundPlayer.replace(clapSoundPath);
+      clapSoundPlayer.play();
+      
+      // Get clap duration (approximately 4.88 seconds from ffmpeg output)
+      const clapDuration = 4880; // milliseconds
+      
+      // Repeat clapping every clapDuration
+      const intervalId = setInterval(() => {
+        console.log("[RoomScreen] Repeating clap sound");
+        clapSoundPlayer.replace(clapSoundPath);
+        clapSoundPlayer.play();
+      }, clapDuration);
+      
+      setClapIntervalId(intervalId);
+      
+      // Play tarouk audio
       playSheeloha(latestBroadcast.audioUrl);
     }
-  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha]);
+  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, clapSoundPlayer]);
+  
+  // Stop clapping when tarouk stops
+  useEffect(() => {
+    if (!isSheelohaPlaying && clapIntervalId) {
+      console.log("[RoomScreen] Stopping clap sound (tarouk ended)");
+      clearInterval(clapIntervalId);
+      setClapIntervalId(null);
+      clapSoundPlayer.pause();
+    }
+  }, [isSheelohaPlaying, clapIntervalId, clapSoundPlayer]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -652,12 +684,7 @@ export default function RoomScreen() {
                   }
                   
                   try {
-                    // Play clapping sound effect
-                    const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
-                    clapSoundPlayer.replace(clapSoundPath);
-                    clapSoundPlayer.play();
-                    
-                    // Create broadcast to play at all users
+                    // Create broadcast to play at all users (clapping will be played in useEffect)
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
