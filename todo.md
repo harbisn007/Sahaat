@@ -382,3 +382,13 @@
 - [x] جميع الاختبارات نجحت (23/23)
 - [x] حفظ checkpoint
 - [ ] اختبار السيناريو على الجوال (يحتاج اختبار من المستخدم)
+
+## إصلاح خطأ AudioRecorder على Android
+- [x] فحص use-audio-recorder hook
+- [x] إضافة release() قبل prepareToRecordAsync()
+- [x] إضافة release() بعد stop() لتحرير الموارد
+- [x] إضافة release() في useEffect cleanup
+- [x] إضافة try-catch لمعالجة الأخطاء
+- [x] جميع الاختبارات نجحت (23/23)
+- [x] حفظ checkpoint
+- [ ] اختبار على Android (يحتاج اختبار من المستخدم)

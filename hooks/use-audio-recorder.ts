@@ -37,8 +37,16 @@ export function useAudioRecorder() {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
+      // Release native recorder
+      if (Platform.OS !== "web") {
+        try {
+          expoRecorder.release();
+        } catch (e) {
+          console.log("[useAudioRecorder] Recorder already released");
+        }
+      }
     };
-  }, []);
+  }, [expoRecorder]);
 
   // Auto-stop at max duration for native
   useEffect(() => {
@@ -138,6 +146,14 @@ export function useAudioRecorder() {
         // Native implementation using expo-audio's recorder
         console.log("[useAudioRecorder] Using expo-audio recorder...");
         
+        // Release any existing recorder session first
+        try {
+          await expoRecorder.release();
+          console.log("[useAudioRecorder] Previous recorder released");
+        } catch (e) {
+          console.log("[useAudioRecorder] No previous recorder to release");
+        }
+        
         // Set audio mode for recording
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,
@@ -208,13 +224,22 @@ export function useAudioRecorder() {
         }
         
         const uri = expoRecorder.uri;
-
         const durationSeconds = Math.floor(recorderState.durationMillis / 1000);
-
-        return {
+        
+        const result = {
           uri,
           duration: durationSeconds,
         };
+        
+        // Release recorder after stopping to free resources
+        try {
+          await expoRecorder.release();
+          console.log("[useAudioRecorder] Recorder released after stop");
+        } catch (e) {
+          console.log("[useAudioRecorder] Failed to release recorder:", e);
+        }
+        
+        return result;
       }
     } catch (error) {
       console.error("Failed to stop recording:", error);
