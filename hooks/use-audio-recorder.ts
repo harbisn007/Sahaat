@@ -1,5 +1,10 @@
-import { useState, useRef } from "react";
-import { useAudioRecorder as useExpoAudioRecorder, AudioModule } from "expo-audio";
+import { useState, useRef, useEffect } from "react";
+import { 
+  useAudioRecorder as useExpoAudioRecorder, 
+  useAudioRecorderState,
+  RecordingPresets,
+  AudioModule 
+} from "expo-audio";
 import { Platform } from "react-native";
 
 export interface AudioRecording {
@@ -8,16 +13,42 @@ export interface AudioRecording {
 }
 
 export function useAudioRecorder() {
-  const [isRecording, setIsRecording] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const recordingRef = useRef<any>(null);
-  const timerRef = useRef<any>(null);
-  const maxDuration = 60; // 60 seconds max
-  
+  const maxDuration = 60; // seconds
+
+  // Use expo-audio's built-in recorder for native platforms
+  const expoRecorder = useExpoAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const recorderState = useAudioRecorderState(expoRecorder);
+
   // Web-specific refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [webRecordingDuration, setWebRecordingDuration] = useState(0);
+  const [webIsRecording, setWebIsRecording] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  // Auto-stop at max duration for native
+  useEffect(() => {
+    if (Platform.OS !== "web" && recorderState.isRecording) {
+      const durationSeconds = Math.floor(recorderState.durationMillis / 1000);
+      if (durationSeconds >= maxDuration) {
+        stopRecording();
+      }
+    }
+  }, [recorderState.durationMillis, recorderState.isRecording]);
 
   const requestPermissions = async () => {
     try {
@@ -35,13 +66,14 @@ export function useAudioRecorder() {
         }
         
         console.log("[useAudioRecorder] Requesting microphone permission...");
-        // Web: Request microphone permission
+        // Request permission by attempting to get user media
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("[useAudioRecorder] Microphone permission granted");
         // Stop the stream immediately, we just needed to request permission
         stream.getTracks().forEach(track => track.stop());
         return true;
       } else {
+        // Native: Request recording permissions
         const { granted } = await AudioModule.requestRecordingPermissionsAsync();
         return granted;
       }
@@ -71,6 +103,7 @@ export function useAudioRecorder() {
         console.log("[useAudioRecorder] Using web MediaRecorder...");
         // Web implementation using MediaRecorder
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
         const mediaRecorder = new MediaRecorder(stream);
         
         audioChunksRef.current = [];
@@ -84,13 +117,13 @@ export function useAudioRecorder() {
         mediaRecorder.start();
         mediaRecorderRef.current = mediaRecorder;
         
-        setIsRecording(true);
+        setWebIsRecording(true);
         setIsPreparing(false);
-        setRecordingDuration(0);
+        setWebRecordingDuration(0);
         
         // Start timer
         timerRef.current = setInterval(() => {
-          setRecordingDuration((prev) => {
+          setWebRecordingDuration((prev) => {
             const newDuration = prev + 1;
             // Auto-stop at max duration
             if (newDuration >= maxDuration) {
@@ -102,168 +135,111 @@ export function useAudioRecorder() {
         
         return true;
       } else {
-        // Native implementation
-        // Set audio mode
+        // Native implementation using expo-audio's recorder
+        console.log("[useAudioRecorder] Using expo-audio recorder...");
+        
+        // Set audio mode for recording
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
         });
-
-        // Create and start recording
-        const recording = await AudioModule.startRecordingAsync();
-
-        recordingRef.current = recording as any;
-        setIsRecording(true);
+        
+        // Prepare and start recording
+        await expoRecorder.prepareToRecordAsync();
+        expoRecorder.record();
+        
         setIsPreparing(false);
-        setRecordingDuration(0);
         
-        // Start timer
-        timerRef.current = setInterval(() => {
-          setRecordingDuration((prev) => {
-            const newDuration = prev + 1;
-            // Auto-stop at max duration
-            if (newDuration >= maxDuration) {
-              stopRecording();
-            }
-            return newDuration;
-          });
-        }, 1000);
-        
+        console.log("[useAudioRecorder] Recording started successfully");
         return true;
       }
     } catch (error) {
       console.error("[useAudioRecorder] Failed to start recording:", error);
       console.error("[useAudioRecorder] Error details:", error instanceof Error ? error.message : String(error));
       setIsPreparing(false);
-      setIsRecording(false);
-      return false;
+      throw error;
     }
   };
 
   const stopRecording = async (): Promise<AudioRecording | null> => {
     try {
-      setIsRecording(false);
-      
-      // Clear timer
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      const duration = recordingDuration;
-      setRecordingDuration(0);
-
       if (Platform.OS === "web") {
+        setWebIsRecording(false);
+        
+        // Clear timer
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+
         // Web implementation
         return new Promise((resolve) => {
-          if (!mediaRecorderRef.current) {
+          const mediaRecorder = mediaRecorderRef.current;
+          if (!mediaRecorder) {
             resolve(null);
             return;
           }
-          
-          const mediaRecorder = mediaRecorderRef.current;
-          
+
           mediaRecorder.onstop = () => {
-            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-            const audioUrl = URL.createObjectURL(audioBlob);
+            const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+            const uri = URL.createObjectURL(audioBlob);
             
             // Stop all tracks
-            if (mediaRecorder.stream) {
-              mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+              streamRef.current = null;
             }
             
-            mediaRecorderRef.current = null;
-            audioChunksRef.current = [];
-            
             resolve({
-              uri: audioUrl,
-              duration,
+              uri,
+              duration: webRecordingDuration,
             });
           };
-          
+
           mediaRecorder.stop();
+          mediaRecorderRef.current = null;
         });
       } else {
-        // Native implementation
-        if (!recordingRef.current) {
+        // Native implementation using expo-audio's recorder
+        await expoRecorder.stop();
+        
+        if (!expoRecorder.uri) {
           return null;
         }
-
-        const result = await AudioModule.stopRecordingAsync();
         
-        // Reset audio mode
-        await AudioModule.setAudioModeAsync({
-          allowsRecording: false,
-          playsInSilentMode: true,
-        });
+        const uri = expoRecorder.uri;
 
-        recordingRef.current = null;
-
-        if (!result || !result.uri) {
-          throw new Error("Recording URI is null");
-        }
-
-        // Duration in seconds
-        const recordedDuration = result.durationMillis ? Math.floor(result.durationMillis / 1000) : 0;
+        const durationSeconds = Math.floor(recorderState.durationMillis / 1000);
 
         return {
-          uri: result.uri,
-          duration: recordedDuration,
+          uri,
+          duration: durationSeconds,
         };
       }
     } catch (error) {
       console.error("Failed to stop recording:", error);
-      recordingRef.current = null;
-      mediaRecorderRef.current = null;
       return null;
-    }
-  };
-
-  const cancelRecording = async () => {
-    try {
-      if (Platform.OS === "web") {
-        if (mediaRecorderRef.current) {
-          mediaRecorderRef.current.stop();
-          if (mediaRecorderRef.current.stream) {
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-          }
-          mediaRecorderRef.current = null;
-          audioChunksRef.current = [];
-        }
-      } else {
-        if (recordingRef.current) {
-          await AudioModule.stopRecordingAsync();
-          recordingRef.current = null;
-        }
-      }
-      
-      setIsRecording(false);
-      setIsPreparing(false);
-      
-      // Clear timer
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      setRecordingDuration(0);
-    } catch (error) {
-      console.error("Failed to cancel recording:", error);
     }
   };
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
+
+  // Return appropriate values based on platform
+  const isRecording = Platform.OS === "web" ? webIsRecording : recorderState.isRecording;
+  const recordingDuration = Platform.OS === "web" 
+    ? webRecordingDuration 
+    : Math.floor(recorderState.durationMillis / 1000);
 
   return {
     isRecording,
     isPreparing,
     recordingDuration,
-    maxDuration,
     formattedDuration: formatDuration(recordingDuration),
     startRecording,
     stopRecording,
-    cancelRecording,
   };
 }

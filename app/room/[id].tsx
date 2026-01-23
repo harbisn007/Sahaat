@@ -43,7 +43,7 @@ export default function RoomScreen() {
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
-  const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, cancelRecording } =
+  const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
     useAudioRecorder();
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
   const { 
