@@ -77,6 +77,8 @@ export default function RoomScreen() {
 
   // Track the last Tarouk message URI
   const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
+  // Track the last played message ID to avoid replaying
+  const [lastPlayedMessageId, setLastPlayedMessageId] = useState<number | null>(null);
 
   // Update last Tarouk URI when audio messages change
   useEffect(() => {
@@ -87,6 +89,25 @@ export default function RoomScreen() {
       }
     }
   }, [audioMessages]);
+
+  // Auto-play new messages for all users except the sender
+  useEffect(() => {
+    if (!audioMessages || audioMessages.length === 0 || !username) return;
+
+    // Get the latest message
+    const latestMessage = audioMessages[audioMessages.length - 1];
+
+    // Check if it's a new message that hasn't been played yet
+    if (
+      latestMessage &&
+      latestMessage.id !== lastPlayedMessageId &&
+      latestMessage.username !== username // Don't auto-play for the sender
+    ) {
+      // Auto-play the new message
+      setLastPlayedMessageId(latestMessage.id);
+      handlePlayAudio(latestMessage.audioUrl);
+    }
+  }, [audioMessages, username, lastPlayedMessageId]);
 
   useEffect(() => {
     if (roomData && username) {
