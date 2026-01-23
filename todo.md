@@ -326,3 +326,7 @@
 - [x] تعديل backend respondToRequest لتحويل role
 - [x] إضافة updateParticipantRole في server/db.ts
 - [x] رسالة "بانتظار قبول طلبك" غير موجودة
+
+## إزالة رسالة "بانتظار موافقة منشئ الساحة"
+- [x] البحث عن الرسالة في app/(tabs)/index.tsx
+- [x] حذف Alert.alert من handleJoinAsPlayer

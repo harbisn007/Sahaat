@@ -71,7 +71,6 @@ export default function HomeScreen() {
       });
 
       router.push(`/room/${roomId}`);
-      Alert.alert("تم إرسال الطلب", "في انتظار موافقة منشئ الساحة");
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام");
     }
