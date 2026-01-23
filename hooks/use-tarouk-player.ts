@@ -16,35 +16,54 @@ export function useTaroukPlayer() {
     isProcessing: false,
   });
 
-  const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [webStopFn, setWebStopFn] = useState<(() => void) | null>(null);
   
-  // Native audio player (only used on native platforms)
-  const nativePlayer = useAudioPlayer(pendingUri || "");
+  // Native audio player with empty source initially
+  const nativePlayer = useAudioPlayer("");
   const nativeStatus = useAudioPlayerStatus(nativePlayer);
 
+  // Initialize audio mode once on mount
   useEffect(() => {
-    // Set audio mode for playback
-    AudioModule.setAudioModeAsync({
-      playsInSilentMode: true,
-      allowsRecording: false,
-    });
+    const initAudioMode = async () => {
+      try {
+        await AudioModule.setAudioModeAsync({
+          playsInSilentMode: true,
+          allowsRecording: false,
+        });
+        console.log("[useTaroukPlayer] Audio mode initialized");
+      } catch (error) {
+        console.error("[useTaroukPlayer] Failed to set audio mode:", error);
+      }
+    };
+    initAudioMode();
+
+    // Cleanup on unmount
+    return () => {
+      try {
+        if (Platform.OS !== "web") {
+          nativePlayer.remove();
+        }
+      } catch (e) {
+        console.log("[useTaroukPlayer] Cleanup error:", e);
+      }
+    };
   }, []);
 
   // Auto-reset when native playback finishes
   useEffect(() => {
-    if (Platform.OS !== "web" && pendingUri) {
-      if (nativeStatus.playing === false && nativeStatus.currentTime > 0 && nativeStatus.currentTime >= nativeStatus.duration) {
-        console.log("[useTaroukPlayer] Native playback finished");
-        setState({
-          isPlaying: false,
-          currentUri: null,
-          isProcessing: false,
-        });
-        setPendingUri(null);
+    if (Platform.OS !== "web" && state.currentUri) {
+      if (nativeStatus.playing === false && nativeStatus.currentTime > 0 && nativeStatus.duration > 0) {
+        if (nativeStatus.currentTime >= nativeStatus.duration - 0.1) {
+          console.log("[useTaroukPlayer] Native playback finished");
+          setState({
+            isPlaying: false,
+            currentUri: null,
+            isProcessing: false,
+          });
+        }
       }
     }
-  }, [nativeStatus.playing, nativeStatus.currentTime, nativeStatus.duration, pendingUri]);
+  }, [nativeStatus.playing, nativeStatus.currentTime, nativeStatus.duration, state.currentUri]);
 
   /**
    * Play audio with Tarouk effects (echo + speed up)
@@ -52,7 +71,7 @@ export function useTaroukPlayer() {
    * On native: Uses expo-audio with playback rate adjustment
    */
   const playTarouk = useCallback(async (audioUri: string) => {
-    console.log("[useTaroukPlayer] playTarouk called with URI:", audioUri);
+    console.log("[useTaroukPlayer] playTarouk called with URI:", audioUri.substring(0, 100));
     
     // Stop any current playback
     await stopTarouk();
@@ -90,29 +109,36 @@ export function useTaroukPlayer() {
       } else {
         console.log("[useTaroukPlayer] Using native expo-audio");
         // Native platform: Use expo-audio with playback rate
-        setPendingUri(audioUri);
+        
+        // Replace the player source
+        console.log("[useTaroukPlayer] Replacing player source");
+        nativePlayer.replace(audioUri);
         
         // Wait for player to be ready
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         // Set playback rate for speed effect (if supported)
         try {
           // Note: setPlaybackRate might not be available on all platforms
           if (typeof nativePlayer.setPlaybackRate === 'function') {
             nativePlayer.setPlaybackRate(TAROUK_EFFECTS.speed.playbackRate);
+            console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.speed.playbackRate);
           }
         } catch (e) {
           console.warn("[useTaroukPlayer] setPlaybackRate not supported:", e);
         }
 
+        // Start playback
+        console.log("[useTaroukPlayer] Starting native playback");
         nativePlayer.play();
-        console.log("[useTaroukPlayer] Native playback started");
 
         setState({
           isPlaying: true,
           currentUri: audioUri,
           isProcessing: false,
         });
+        
+        console.log("[useTaroukPlayer] Native playback started successfully");
       }
     } catch (error) {
       console.error("[useTaroukPlayer] Failed to play Tarouk audio:", error);
@@ -121,7 +147,6 @@ export function useTaroukPlayer() {
         currentUri: null,
         isProcessing: false,
       });
-      setPendingUri(null);
     }
   }, [nativePlayer]);
 
@@ -136,13 +161,13 @@ export function useTaroukPlayer() {
       setWebStopFn(null);
     }
 
-    if (pendingUri && Platform.OS !== "web") {
+    if (state.currentUri && Platform.OS !== "web") {
       try {
         nativePlayer.pause();
+        console.log("[useTaroukPlayer] Native playback paused");
       } catch (e) {
         console.warn("[useTaroukPlayer] Error pausing native player:", e);
       }
-      setPendingUri(null);
     }
 
     setState({
@@ -150,7 +175,7 @@ export function useTaroukPlayer() {
       currentUri: null,
       isProcessing: false,
     });
-  }, [webStopFn, pendingUri, nativePlayer]);
+  }, [webStopFn, state.currentUri, nativePlayer]);
 
   return {
     isPlaying: state.isPlaying,

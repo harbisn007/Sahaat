@@ -337,3 +337,13 @@
 - [x] إضافة حذف participant قديم في requestJoinAsPlayer و joinAsViewer
 - [x] جميع الاختبارات نجحت (23/23)
 - [x] حفظ checkpoint
+
+## إصلاح مشكلة عدم تشغيل الأصوات المسجلة على Android
+- [x] فحص use-audio-player hook
+- [x] فحص use-tarouk-player hook
+- [x] إعادة كتابة use-audio-player باستخدام player.replace()
+- [x] إعادة كتابة use-tarouk-player باستخدام player.replace()
+- [x] إصلاح setAudioModeAsync ليكون async
+- [x] جميع الاختبارات نجحت (23/23)
+- [x] حفظ checkpoint
+- [ ] اختبار على Android (يحتاج اختبار من المستخدم)
