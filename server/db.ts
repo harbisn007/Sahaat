@@ -317,7 +317,43 @@ export async function removeParticipant(roomId: number, userId: number) {
     );
 }
 
+export async function deleteAllRooms() {
+  const db = await getDb();
+  if (!db) return;
 
+  // Delete all data in order (foreign key constraints)
+  // 1. Delete all reactions
+  await db.delete(reactions);
+  
+  // 2. Delete all audio messages
+  await db.delete(audioMessages);
+  
+  // 3. Delete all participants
+  await db.delete(roomParticipants);
+  
+  // 4. Delete all rooms
+  await db.delete(rooms);
+  
+  console.log("[DB] All rooms and related data deleted on server restart");
+}
+
+export async function getUserActiveRoom(creatorId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const userRooms = await db
+    .select()
+    .from(rooms)
+    .where(
+      and(
+        eq(rooms.creatorId, creatorId),
+        eq(rooms.isActive, "true")
+      )
+    )
+    .limit(1);
+
+  return userRooms[0] || null;
+}
 
 // ============ Audio Messages ============
 

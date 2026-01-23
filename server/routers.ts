@@ -208,6 +208,18 @@ export const appRouter = router({
         await db.deleteRoom(input.roomId);
         return { success: true };
       }),
+
+    // Get user's active room
+    getUserActiveRoom: publicProcedure
+      .input(
+        z.object({
+          creatorId: z.number(),
+        })
+      )
+      .query(async ({ input }) => {
+        const activeRoom = await db.getUserActiveRoom(input.creatorId);
+        return activeRoom;
+      }),
   }),
 
   // Audio messages router

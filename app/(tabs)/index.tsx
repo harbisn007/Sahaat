@@ -26,9 +26,15 @@ export default function HomeScreen() {
   const [userId] = useState(() => Math.floor(Math.random() * 1000000));
 
   const { data: rooms, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery();
+  const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
+    { creatorId: userId },
+    { refetchInterval: 3000 }
+  );
   const createRoomMutation = trpc.rooms.create.useMutation();
   const joinAsPlayerMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
   const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
+  
+  const hasActiveRoom = !!activeRoom;
 
   useEffect(() => {
     if (!userLoading && !username) {
@@ -47,10 +53,11 @@ export default function HomeScreen() {
       });
 
       await refetch();
+      await refetchActiveRoom();
       router.push(`/room/${result.roomId}`);
+      setShowCreateModal(false);
     } catch (error) {
-      console.error("Failed to create room:", error);
-      throw error;
+      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الغرفة");
     }
   };
 
@@ -112,11 +119,32 @@ export default function HomeScreen() {
       {/* Create Room Button */}
       <View className="px-6 py-4">
         <TouchableOpacity
-          className="bg-primary rounded-xl py-3 items-center"
-          onPress={() => setShowCreateModal(true)}
+          className="rounded-xl py-3 items-center"
+          style={{ backgroundColor: hasActiveRoom ? '#9CA3AF' : '#0a7ea4' }}
+          onPress={() => {
+            if (hasActiveRoom) {
+              Alert.alert(
+                "غرفة نشطة موجودة",
+                "لديك غرفة نشطة بالفعل. يرجى إغلاق الغرفة الحالية قبل إنشاء غرفة جديدة."
+              );
+            } else {
+              setShowCreateModal(true);
+            }
+          }}
+          disabled={hasActiveRoom}
         >
-          <Text className="text-background font-semibold text-base">➕ إنشاء غرفة جديدة</Text>
+          <Text className="text-background font-semibold text-base">
+            {hasActiveRoom ? "🚫 لديك غرفة نشطة" : "➥ إنشاء غرفة جديدة"}
+          </Text>
         </TouchableOpacity>
+        {hasActiveRoom && activeRoom && (
+          <TouchableOpacity
+            className="mt-2 bg-primary rounded-xl py-3 items-center"
+            onPress={() => router.push(`/room/${activeRoom.id}`)}
+          >
+            <Text className="text-background font-semibold text-base">📍 انتقل إلى غرفتك: {activeRoom.name}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Rooms List */}
