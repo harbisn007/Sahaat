@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, View, Animated, Pressable } from "react-native";
+import { TouchableOpacity, Text, View, Animated } from "react-native";
 import { useEffect, useRef } from "react";
 import { useColors } from "@/hooks/use-colors";
 
@@ -51,22 +51,21 @@ export function RecordingButton({
   if (pressAndHold) {
     return (
       <Animated.View style={{ transform: [{ scale: pulseAnim }], flex: 1 }}>
-        <Pressable
+        <TouchableOpacity
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           disabled={isPreparing}
-          style={({ pressed }) => ([
-            {
-              flex: 1,
-              backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
-              opacity: isPreparing ? 0.6 : pressed ? 0.9 : 1,
-              borderRadius: 8,
-              paddingVertical: 10,
-              paddingHorizontal: 8,
-              alignItems: "center",
-              justifyContent: "center",
-            },
-          ])}
+          activeOpacity={0.8}
+          style={{
+            flex: 1,
+            backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
+            opacity: isPreparing ? 0.6 : 1,
+            borderRadius: 8,
+            paddingVertical: 10,
+            paddingHorizontal: 8,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
         >
           <Text className="text-background font-bold text-xs text-center">
             {isPreparing 
@@ -75,7 +74,7 @@ export function RecordingButton({
                 ? "⏺ اترك" 
                 : label}
           </Text>
-        </Pressable>
+        </TouchableOpacity>
       </Animated.View>
     );
   }

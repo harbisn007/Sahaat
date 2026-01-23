@@ -148,24 +148,28 @@ export default function RoomScreen() {
     }
   };
 
-  const handleStartRecording = async (type: "comment" | "tarouk") => {
+  const handleStartRecording = (type: "comment" | "tarouk") => {
     setRecordingType(type);
-    const success = await startRecording();
-    if (!success) {
-      Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات الميكروفون.");
-      setRecordingType(null);
-    }
+    // Start recording asynchronously without blocking
+    startRecording().then((success) => {
+      if (!success) {
+        Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات الميكروفون.");
+        setRecordingType(null);
+      }
+    });
   };
 
-  const handleStopRecording = async () => {
-    const recording = await stopRecording();
-    if (recording && recordingType && username) {
-      // In a real app, upload to S3 first
-      // For now, we'll use a placeholder URL
-      Alert.alert("نجاح", "تم حفظ التسجيل بنجاح");
-      await refetchAudio();
-    }
-    setRecordingType(null);
+  const handleStopRecording = () => {
+    // Stop recording asynchronously
+    stopRecording().then(async (recording) => {
+      if (recording && recordingType && username) {
+        // In a real app, upload to S3 first
+        // For now, we'll use a placeholder URL
+        Alert.alert("نجاح", "تم حفظ التسجيل بنجاح");
+        await refetchAudio();
+      }
+      setRecordingType(null);
+    });
   };
 
   const handleReaction = async (reactionType: string) => {
