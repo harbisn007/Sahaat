@@ -12,6 +12,8 @@ interface RecordingButtonProps {
   backgroundColor?: string;
   pressAndHold?: boolean;
   recordingDuration?: string;
+  icon?: string; // أيقونة المايكروفون (مثل "🎙️" أو "🎤")
+  iconSize?: number; // حجم الأيقونة
 }
 
 export function RecordingButton({
@@ -24,6 +26,8 @@ export function RecordingButton({
   backgroundColor,
   pressAndHold = false,
   recordingDuration,
+  icon,
+  iconSize = 24,
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -71,13 +75,26 @@ export function RecordingButton({
             justifyContent: "center",
           }}
         >
-          <Text className="text-background font-bold text-xs text-center">
-            {isPreparing 
-              ? "جاري..." 
-              : isRecording 
-                ? recordingDuration || "00:00" 
-                : label}
-          </Text>
+          {icon ? (
+            <View className="items-center gap-1">
+              <Text style={{ fontSize: iconSize }}>{icon}</Text>
+              <Text className="text-background font-bold" style={{ fontSize: 10 }}>
+                {isPreparing 
+                  ? "جاري..." 
+                  : isRecording 
+                    ? recordingDuration || "00:00" 
+                    : label}
+              </Text>
+            </View>
+          ) : (
+            <Text className="text-background font-bold text-xs text-center">
+              {isPreparing 
+                ? "جاري..." 
+                : isRecording 
+                  ? recordingDuration || "00:00" 
+                  : label}
+            </Text>
+          )}
         </TouchableOpacity>
       </Animated.View>
     );

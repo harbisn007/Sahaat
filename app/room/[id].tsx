@@ -520,6 +520,8 @@ export default function RoomScreen() {
                   onPressIn={() => handleStartRecording("comment")}
                   onPressOut={() => handleStopRecording()}
                   recordingDuration={formattedDuration}
+                  icon="🎙️"
+                  iconSize={32}
                 />
               </View>
 
@@ -533,6 +535,8 @@ export default function RoomScreen() {
                   onPressOut={() => handleStopRecording()}
                   backgroundColor={colors.success}
                   recordingDuration={formattedDuration}
+                  icon="🎤"
+                  iconSize={48}
                 />
               </View>
             </View>
