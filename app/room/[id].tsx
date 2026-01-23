@@ -91,9 +91,22 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 3000 }
   );
 
-  // Combine audio messages and reactions into a single feed
+  // Filter messages: only show messages sent AFTER user joined
+  const filteredAudioMessages = (audioMessages || []).filter((msg) => {
+    const messageTime = new Date(msg.createdAt).getTime();
+    const joinTime = joinedAt.getTime();
+    return messageTime >= joinTime;
+  });
+
+  const filteredReactions = (reactions || []).filter((reaction) => {
+    const reactionTime = new Date(reaction.createdAt).getTime();
+    const joinTime = joinedAt.getTime();
+    return reactionTime >= joinTime;
+  });
+
+  // Combine filtered audio messages and reactions into a single feed
   const combinedFeed = [
-    ...(audioMessages || []).map((msg) => ({
+    ...filteredAudioMessages.map((msg) => ({
       type: "audio" as const,
       id: `audio-${msg.id}`,
       timestamp: msg.createdAt,
@@ -102,7 +115,7 @@ export default function RoomScreen() {
       audioUrl: msg.audioUrl,
       duration: msg.duration,
     })),
-    ...(reactions || []).map((reaction) => ({
+    ...filteredReactions.map((reaction) => ({
       type: "reaction" as const,
       id: `reaction-${reaction.id}`,
       timestamp: reaction.createdAt,
@@ -114,23 +127,20 @@ export default function RoomScreen() {
 
   // Track the last Tarouk message URI
   const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
-  // Track the last played message ID to avoid replaying
-  const [lastPlayedMessageId, setLastPlayedMessageId] = useState<number | null>(null);
+  // Track when user joined the room
+  const [joinedAt] = useState<Date>(new Date());
+  // Track played message IDs to avoid replaying
+  const [playedMessageIds, setPlayedMessageIds] = useState<Set<number>>(new Set());
   // Reactions picker state
   const [showReactionsPicker, setShowReactionsPicker] = useState(false);
 
-  // Update last Tarouk URI when audio messages change
+  // Update last Tarouk URI when filtered audio messages change
   useEffect(() => {
-    console.log("[RoomScreen] useEffect triggered - audioMessages changed");
-    if (audioMessages && audioMessages.length > 0) {
-      const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
-      console.log("[RoomScreen] Total audio messages:", audioMessages.length);
+    console.log("[RoomScreen] useEffect triggered - filteredAudioMessages changed");
+    if (filteredAudioMessages && filteredAudioMessages.length > 0) {
+      const taroukMessages = filteredAudioMessages.filter(msg => msg.messageType === "tarouk");
+      console.log("[RoomScreen] Total filtered audio messages:", filteredAudioMessages.length);
       console.log("[RoomScreen] Tarouk messages count:", taroukMessages.length);
-      console.log("[RoomScreen] All tarouk messages:", taroukMessages.map(m => ({
-        id: m.id,
-        username: m.username,
-        audioUrl: m.audioUrl.substring(0, 50) + "..."
-      })));
       if (taroukMessages.length > 0) {
         const lastTarouk = taroukMessages[taroukMessages.length - 1];
         console.log("[RoomScreen] Setting lastTaroukUri to:", {
@@ -144,21 +154,21 @@ export default function RoomScreen() {
         console.log("[RoomScreen] No tarouk messages found");
       }
     } else {
-      console.log("[RoomScreen] No audio messages or empty array");
+      console.log("[RoomScreen] No filtered audio messages or empty array");
     }
-  }, [audioMessages]);
+  }, [filteredAudioMessages]);
 
   // Auto-play new messages for ALL users (including sender)
   useEffect(() => {
-    if (!audioMessages || audioMessages.length === 0) return;
+    if (!filteredAudioMessages || filteredAudioMessages.length === 0) return;
 
     // Get the latest message
-    const latestMessage = audioMessages[audioMessages.length - 1];
+    const latestMessage = filteredAudioMessages[filteredAudioMessages.length - 1];
 
     // Check if it's a new message that hasn't been played yet
     if (
       latestMessage &&
-      latestMessage.id !== lastPlayedMessageId
+      !playedMessageIds.has(latestMessage.id)
     ) {
       console.log("[RoomScreen] Auto-playing new message:", {
         id: latestMessage.id,
@@ -166,11 +176,11 @@ export default function RoomScreen() {
         username: latestMessage.username,
         messageType: latestMessage.messageType
       });
-      // Auto-play the new message for everyone
-      setLastPlayedMessageId(latestMessage.id);
+      // Mark as played and auto-play the new message for everyone
+      setPlayedMessageIds(prev => new Set(prev).add(latestMessage.id));
       play(latestMessage.audioUrl);
     }
-  }, [audioMessages, lastPlayedMessageId]);
+  }, [filteredAudioMessages, playedMessageIds, play]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {

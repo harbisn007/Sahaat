@@ -88,7 +88,6 @@ export function MessageBubble({
             messageType={messageType || "comment"}
             duration={duration || 0}
             isPlaying={isPlaying || false}
-            onPlay={onPlay}
           />
         )}
 
