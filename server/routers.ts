@@ -179,7 +179,7 @@ export const appRouter = router({
           userId: z.number(),
           username: z.string(),
           messageType: z.enum(["comment", "tarouk"]),
-          audioUrl: z.string().url(),
+          audioUrl: z.string(), // Accept local URIs for now
           duration: z.number(),
         })
       )
@@ -195,6 +195,31 @@ export const appRouter = router({
         return db.getLastTaroukMessage(input.roomId);
       }),
   }),
+
+  // Upload audio file
+  uploadAudio: publicProcedure
+    .input(
+      z.object({
+        base64Data: z.string(),
+        fileName: z.string(),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { storagePut } = await import("./storage");
+      
+      // Convert base64 to buffer
+      const buffer = Buffer.from(input.base64Data, "base64");
+      
+      // Generate unique file key
+      const timestamp = Date.now();
+      const randomSuffix = Math.random().toString(36).substring(7);
+      const fileKey = `audio/${timestamp}-${randomSuffix}-${input.fileName}`;
+      
+      // Upload to S3
+      const { url } = await storagePut(fileKey, buffer, "audio/mp4");
+      
+      return { url };
+    }),
 
   // Reactions router
   reactions: router({

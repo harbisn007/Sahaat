@@ -31,6 +31,8 @@ export default function RoomScreen() {
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
   const createReactionMutation = trpc.reactions.create.useMutation();
+  const createAudioMutation = trpc.audio.create.useMutation();
+  const uploadAudioMutation = trpc.uploadAudio.useMutation();
 
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
   const [userId] = useState(() => Math.floor(Math.random() * 1000000));
@@ -163,10 +165,35 @@ export default function RoomScreen() {
     // Stop recording asynchronously
     stopRecording().then(async (recording) => {
       if (recording && recordingType && username) {
-        // In a real app, upload to S3 first
-        // For now, we'll use a placeholder URL
-        Alert.alert("نجاح", "تم حفظ التسجيل بنجاح");
-        await refetchAudio();
+        try {
+          // Read file as base64
+          const FileSystem = await import("expo-file-system/legacy");
+          const base64Data = await FileSystem.readAsStringAsync(recording.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          
+          // Upload to S3
+          const { url } = await uploadAudioMutation.mutateAsync({
+            base64Data,
+            fileName: `recording-${Date.now()}.m4a`,
+          });
+          
+          // Save to database with S3 URL
+          await createAudioMutation.mutateAsync({
+            roomId,
+            userId,
+            username,
+            messageType: recordingType,
+            audioUrl: url,
+            duration: 0, // Duration will be calculated on playback
+          });
+          
+          // Refresh audio messages
+          await refetchAudio();
+        } catch (error) {
+          console.error("Failed to save audio message:", error);
+          Alert.alert("خطأ", "فشل حفظ الرسالة الصوتية");
+        }
       }
       setRecordingType(null);
     });
