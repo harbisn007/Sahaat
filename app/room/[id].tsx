@@ -32,6 +32,8 @@ export default function RoomScreen() {
   );
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
+  const leaveRoomMutation = trpc.rooms.leaveRoom.useMutation();
+  const deleteRoomMutation = trpc.rooms.deleteRoom.useMutation();
   const createReactionMutation = trpc.reactions.create.useMutation();
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
@@ -152,6 +154,50 @@ export default function RoomScreen() {
     }
   };
 
+  const handleLeaveRoom = async () => {
+    Alert.alert(
+      "مغادرة الغرفة",
+      "هل أنت متأكد من مغادرة الغرفة؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "غادر",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leaveRoomMutation.mutateAsync({ roomId, userId });
+              router.replace("/");
+            } catch (error) {
+              Alert.alert("خطأ", "حدث خطأ أثناء مغادرة الغرفة");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleDeleteRoom = async () => {
+    Alert.alert(
+      "حذف الغرفة",
+      "هل أنت متأكد من حذف الغرفة؟ سيتم حذف جميع المحتويات وإخراج جميع المستخدمين.",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "حذف",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteRoomMutation.mutateAsync({ roomId });
+              router.replace("/");
+            } catch (error) {
+              Alert.alert("خطأ", "حدث خطأ أثناء حذف الغرفة");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleStartRecording = async (type: "comment" | "tarouk") => {
     setRecordingType(type);
     const success = await startRecording();
@@ -269,10 +315,26 @@ export default function RoomScreen() {
         <View className="flex-1">
           <Text className="text-xl font-bold text-foreground text-center">{roomData.name}</Text>
           <Text className="text-sm text-muted text-center">
-            {roomData.playerCount} لاعبين · {roomData.viewerCount} مشاهدين
+            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
           </Text>
         </View>
-        <View className="w-8" />
+        {isCreator ? (
+          <TouchableOpacity 
+            onPress={handleDeleteRoom}
+            className="px-3 py-1 rounded-lg"
+            style={{ backgroundColor: colors.error }}
+          >
+            <Text className="text-background text-xs font-semibold">حذف</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            onPress={handleLeaveRoom}
+            className="px-3 py-1 rounded-lg"
+            style={{ backgroundColor: colors.error }}
+          >
+            <Text className="text-background text-xs font-semibold">غادر</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Pending Requests (Only for creator) */}

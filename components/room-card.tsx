@@ -8,6 +8,8 @@ interface RoomCardProps {
     creatorName: string;
     playerCount: number;
     viewerCount: number;
+    acceptedPlayersCount: number;
+    isRoomFull: boolean;
   };
   onJoinAsPlayer: () => void;
   onJoinAsViewer: () => void;
@@ -15,7 +17,7 @@ interface RoomCardProps {
 
 export function RoomCard({ room, onJoinAsPlayer, onJoinAsViewer }: RoomCardProps) {
   const colors = useColors();
-  const isPlayersFull = room.playerCount >= 2;
+  const isPlayersFull = room.isRoomFull;
 
   return (
     <View className="bg-surface rounded-2xl p-4 mb-3 border border-border shadow-sm">
@@ -30,7 +32,7 @@ export function RoomCard({ room, onJoinAsPlayer, onJoinAsViewer }: RoomCardProps
         <View className="flex-row items-center gap-1">
           <Text className="text-sm text-muted">🎮</Text>
           <Text className="text-sm text-foreground">
-            {room.playerCount}/2 لاعبين
+            {room.acceptedPlayersCount}/2 لاعبين
           </Text>
         </View>
         <View className="flex-row items-center gap-1">

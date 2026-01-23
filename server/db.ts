@@ -141,7 +141,18 @@ export async function deleteRoom(roomId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  await db.update(rooms).set({ isActive: "false" }).where(eq(rooms.id, roomId));
+  // Delete all related data in order (foreign key constraints)
+  // 1. Delete reactions
+  await db.delete(reactions).where(eq(reactions.roomId, roomId));
+  
+  // 2. Delete audio messages
+  await db.delete(audioMessages).where(eq(audioMessages.roomId, roomId));
+  
+  // 3. Delete participants
+  await db.delete(roomParticipants).where(eq(roomParticipants.roomId, roomId));
+  
+  // 4. Delete the room itself
+  await db.delete(rooms).where(eq(rooms.id, roomId));
 }
 
 // ============ Room Participants ============
@@ -244,6 +255,69 @@ export async function getPendingPlayerRequests(roomId: number) {
       )
     );
 }
+
+export async function getAcceptedPlayersCount(roomId: number): Promise<number> {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const players = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.role, "player"),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  return players.length;
+}
+
+export async function rejectAllPendingPlayerRequests(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(roomParticipants)
+    .set({ status: "rejected" })
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.role, "player"),
+        eq(roomParticipants.status, "pending")
+      )
+    );
+}
+
+export async function getParticipantById(participantId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const participants = await db
+    .select()
+    .from(roomParticipants)
+    .where(eq(roomParticipants.id, participantId))
+    .limit(1);
+
+  return participants[0] || null;
+}
+
+export async function removeParticipant(roomId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .delete(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.userId, userId)
+      )
+    );
+}
+
+
 
 // ============ Audio Messages ============
 

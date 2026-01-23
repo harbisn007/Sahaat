@@ -30,11 +30,14 @@ export const appRouter = router({
         rooms.map(async (room) => {
           const totalPlayerCount = await db.getTotalPlayerCount(room.id);
           const viewerCount = await db.getViewerCount(room.id);
+          const acceptedPlayersCount = await db.getAcceptedPlayersCount(room.id);
           
           return {
             ...room,
             playerCount: totalPlayerCount,
             viewerCount,
+            acceptedPlayersCount,
+            isRoomFull: acceptedPlayersCount >= 2,
           };
         })
       );
@@ -54,12 +57,15 @@ export const appRouter = router({
         const participants = await db.getRoomParticipants(input.roomId);
         const totalPlayerCount = await db.getTotalPlayerCount(input.roomId);
         const viewerCount = await db.getViewerCount(input.roomId);
+        const acceptedPlayersCount = await db.getAcceptedPlayersCount(input.roomId);
 
         return {
           ...room,
           participants,
           playerCount: totalPlayerCount,
           viewerCount,
+          acceptedPlayersCount,
+          isRoomFull: acceptedPlayersCount >= 2,
         };
       }),
 
@@ -156,8 +162,50 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // Get participant info to find roomId
+        const participant = await db.getParticipantById(input.participantId);
+        if (!participant) {
+          throw new Error("Participant not found");
+        }
+
         const status = input.accept ? "accepted" : "rejected";
         await db.updateParticipantStatus(input.participantId, status);
+
+        // If accepting a player, check if we've reached the limit (2 players)
+        if (input.accept && participant.role === "player") {
+          const acceptedPlayersCount = await db.getAcceptedPlayersCount(participant.roomId);
+          
+          // If we now have 2 players, reject all other pending player requests
+          if (acceptedPlayersCount >= 2) {
+            await db.rejectAllPendingPlayerRequests(participant.roomId);
+          }
+        }
+
+        return { success: true };
+      }),
+
+    // Leave room (for players and viewers)
+    leaveRoom: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        await db.removeParticipant(input.roomId, input.userId);
+        return { success: true };
+      }),
+
+    // Delete room (for creator only)
+    deleteRoom: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        await db.deleteRoom(input.roomId);
         return { success: true };
       }),
   }),
