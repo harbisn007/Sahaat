@@ -11,6 +11,7 @@ import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
+import { ReactionsPicker } from "@/components/reactions-picker";
 
 export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -79,6 +80,8 @@ export default function RoomScreen() {
   const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
   // Track the last played message ID to avoid replaying
   const [lastPlayedMessageId, setLastPlayedMessageId] = useState<number | null>(null);
+  // Reactions picker state
+  const [showReactionsPicker, setShowReactionsPicker] = useState(false);
 
   // Update last Tarouk URI when audio messages change
   useEffect(() => {
@@ -261,11 +264,12 @@ export default function RoomScreen() {
         </View>
       )}
 
-      <ScrollView className="flex-1 px-6 py-4">
+      {/* Messages Feed - Takes most of the screen */}
+      <View className="flex-1 px-4 pt-4">
         {/* Role Badge */}
-        <View className="items-center mb-6">
+        <View className="items-center mb-3">
           <View
-            className="px-6 py-2 rounded-full"
+            className="px-4 py-1 rounded-full"
             style={{
               backgroundColor: isCreator
                 ? colors.primary
@@ -274,24 +278,19 @@ export default function RoomScreen() {
                 : colors.muted,
             }}
           >
-            <Text className="text-background font-bold">
-              {isCreator ? "🎮 منشئ الغرفة" : isPlayer ? "🎮 لاعب" : "👁️ مشاهد"}
+            <Text className="text-background font-semibold text-sm">
+              {isCreator ? "🎮 منشئ" : isPlayer ? "🎮 لاعب" : "👁️ مشاهد"}
             </Text>
           </View>
         </View>
 
-        {/* Messages Feed (Audio + Reactions) */}
-        {combinedFeed.length > 0 && (
-          <View className="bg-surface rounded-2xl mb-4 border border-border overflow-hidden">
-            <View className="px-4 py-3 border-b border-border">
-              <Text className="text-lg font-bold text-foreground text-center">
-                💬 الرسائل والتفاعلات
-              </Text>
-            </View>
-            <ScrollView 
-              className="max-h-96"
-              showsVerticalScrollIndicator={true}
-            >
+        {/* Messages ScrollView */}
+        {combinedFeed.length > 0 ? (
+          <ScrollView 
+            className="flex-1"
+            showsVerticalScrollIndicator={true}
+            contentContainerStyle={{ paddingBottom: 8 }}
+          >
               {combinedFeed.map((item) => {
                 if (item.type === "audio") {
                   return (
@@ -316,31 +315,33 @@ export default function RoomScreen() {
                   );
                 }
               })}
-            </ScrollView>
+          </ScrollView>
+        ) : (
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-muted text-center">
+              💬 لم يتم إرسال رسائل بعد
+            </Text>
           </View>
         )}
+      </View>
 
-        {/* Audio Controls (For Players Only) */}
-        {isPlayer && (
-          <View className="bg-surface rounded-2xl p-6 mb-4 border border-border">
-            <Text className="text-lg font-bold text-foreground mb-4 text-center">
-              التحكم الصوتي
-            </Text>
-
-            <View className="flex-row gap-3">
-              {/* Left Column: Sheeloha & Khalloha (Creator only) */}
+      {/* Bottom Controls - Compact fixed bar */}
+      {isPlayer && (
+          <View className="bg-surface px-4 py-3 border-t border-border">
+            <View className="flex-row items-center gap-2">
+              {/* Left: Sheeloha & Khalloha (Creator only) */}
               {isCreator && (
-                <View className="flex-1 gap-3">
-                  {/* Sheeloha Button - Plays last Tarouk with effects */}
+                <View className="flex-row gap-2 flex-1">
+                  {/* Sheeloha Button */}
                   <TouchableOpacity
-                    className="rounded-xl py-4 items-center flex-1"
+                    className="rounded-lg py-2 px-3 items-center justify-center flex-1"
                     style={{
                       backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
                       opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
                     }}
                     onPress={() => {
                       if (!lastTaroukUri) {
-                        Alert.alert("تنبيه", "لا توجد رسائل طاروق لتشغيلها");
+                        Alert.alert("تنبيه", "لا توجد رسائل طاروق");
                         return;
                       }
                       if (isSheelohaPlaying) {
@@ -351,23 +352,14 @@ export default function RoomScreen() {
                     }}
                     disabled={isSheelohaProcessing}
                   >
-                    <Text className="text-background font-bold text-sm text-center">
-                      {isSheelohaProcessing 
-                        ? "جاري التحضير..." 
-                        : isSheelohaPlaying 
-                          ? "⏸️ إيقاف شيلوها" 
-                          : "🔁 شيلوها"}
+                    <Text className="text-background font-bold text-xs">
+                      {isSheelohaPlaying ? "⏸️" : "🔁"} شيلوها
                     </Text>
-                    {lastTaroukUri && !isSheelohaPlaying && (
-                      <Text className="text-background/70 text-xs mt-1 text-center">
-                        (ترديد + تسريع)
-                      </Text>
-                    )}
                   </TouchableOpacity>
 
-                  {/* Khalloha Button - Stops Sheeloha playback */}
+                  {/* Khalloha Button */}
                   <TouchableOpacity
-                    className="rounded-xl py-4 items-center flex-1"
+                    className="rounded-lg py-2 px-3 items-center justify-center flex-1"
                     style={{
                       backgroundColor: colors.error,
                       opacity: isSheelohaPlaying ? 1 : 0.5,
@@ -375,37 +367,43 @@ export default function RoomScreen() {
                     onPress={() => {
                       if (isSheelohaPlaying) {
                         stopSheeloha();
-                        Alert.alert("تم الإيقاف", "تم إيقاف تشغيل شيلوها");
                       } else {
                         stop();
                       }
                     }}
                   >
-                    <Text className="text-background font-bold text-sm">⏹️ خلوها</Text>
+                    <Text className="text-background font-bold text-xs">⏹️ خلوها</Text>
                   </TouchableOpacity>
                 </View>
               )}
 
-              {/* Right Column: Comment & Tarouk */}
-              <View className="flex-1 gap-3">
-                {/* Comment Button - Press and Hold */}
+              {/* Center: Reactions Button */}
+              <TouchableOpacity
+                className="rounded-full w-12 h-12 items-center justify-center"
+                style={{ backgroundColor: colors.primary }}
+                onPress={() => setShowReactionsPicker(true)}
+              >
+                <Text className="text-2xl">😊</Text>
+              </TouchableOpacity>
+
+              {/* Right: Comment & Tarouk */}
+              <View className="flex-row gap-2 flex-1">
                 <View className="flex-1">
                   <RecordingButton
                     isRecording={isRecording && recordingType === "comment"}
                     isPreparing={isPreparing}
-                    label="🎤 تعليق"
+                    label="🎤"
                     pressAndHold={true}
                     onPressIn={() => handleStartRecording("comment")}
                     onPressOut={() => handleStopRecording()}
                   />
                 </View>
 
-                {/* Tarouk Button - Press and Hold */}
                 <View className="flex-1">
                   <RecordingButton
                     isRecording={isRecording && recordingType === "tarouk"}
                     isPreparing={isPreparing}
-                    label="🔊 طاروق"
+                    label="🔊"
                     pressAndHold={true}
                     onPressIn={() => handleStartRecording("tarouk")}
                     onPressOut={() => handleStopRecording()}
@@ -417,53 +415,12 @@ export default function RoomScreen() {
           </View>
         )}
 
-        {/* Reactions (For Everyone) */}
-        <View className="bg-surface rounded-2xl p-6 border border-border">
-          <Text className="text-lg font-bold text-foreground mb-4 text-center">
-            التفاعلات
-          </Text>
-
-          <View className="flex-row flex-wrap justify-center gap-3">
-            {[
-              { emoji: "👏", type: "clap" },
-              { emoji: "😂", type: "laugh" },
-              { emoji: "😮", type: "wow" },
-              { emoji: "❤️", type: "love" },
-              { emoji: "🔥", type: "fire" },
-              { emoji: "👍", type: "thumbsup" },
-              { emoji: "🤔", type: "thinking" },
-              { emoji: "💖", type: "heart" },
-            ].map((reaction, index) => (
-              <TouchableOpacity
-                key={index}
-                className="w-16 h-16 bg-background rounded-2xl items-center justify-center border border-border"
-                onPress={() => handleReaction(reaction.type)}
-              >
-                <Text className="text-3xl">{reaction.emoji}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Participants List */}
-        <View className="mt-6 bg-surface rounded-2xl p-6 border border-border">
-          <Text className="text-lg font-bold text-foreground mb-4">المشاركون</Text>
-          {roomData.participants
-            .filter((p) => p.status === "accepted")
-            .map((participant) => (
-              <View key={participant.id} className="flex-row items-center justify-between py-2">
-                <Text className="text-foreground">{participant.username}</Text>
-                <Text className="text-muted text-sm">
-                  {participant.role === "creator"
-                    ? "منشئ"
-                    : participant.role === "player"
-                    ? "لاعب"
-                    : "مشاهد"}
-                </Text>
-              </View>
-            ))}
-        </View>
-      </ScrollView>
+      {/* Reactions Picker Modal */}
+      <ReactionsPicker
+        visible={showReactionsPicker}
+        onClose={() => setShowReactionsPicker(false)}
+        onSelect={handleReaction}
+      />
     </ScreenContainer>
   );
 }
