@@ -25,7 +25,7 @@ export default function RoomScreen() {
 
   const { data: roomData, isLoading, refetch } = trpc.rooms.getById.useQuery(
     { roomId },
-    { enabled: roomId > 0 }
+    { enabled: roomId > 0, refetchInterval: 3000 }
   );
 
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(

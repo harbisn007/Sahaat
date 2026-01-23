@@ -283,3 +283,8 @@
 - [x] تعديل useEffect للتشغيل التلقائي
 - [x] إزالة شرط "latestMessage.username !== username"
 - [x] الآن جميع المستخدمين يسمعون الرسالة فور إرسالها
+
+## تحديث الصفحة تلقائياً بعد قبول اللاعب
+- [x] فحص refetchInterval الحالي
+- [x] إضافة refetchInterval: 3000 لـ roomData query
+- [x] الآن الصفحة تتحدث كل 3 ثوانٍ
