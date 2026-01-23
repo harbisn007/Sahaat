@@ -91,7 +91,7 @@ export async function getUserByOpenId(openId: string) {
 
 // ============ Rooms ============
 
-import { and, desc } from "drizzle-orm";
+import { and, asc, desc } from "drizzle-orm";
 import {
   rooms,
   roomParticipants,
@@ -408,6 +408,6 @@ export async function getRecentReactions(roomId: number, limit: number = 50) {
     .select()
     .from(reactions)
     .where(eq(reactions.roomId, roomId))
-    .orderBy(desc(reactions.createdAt))
+    .orderBy(asc(reactions.createdAt))
     .limit(limit);
 }

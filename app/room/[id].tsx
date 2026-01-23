@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
@@ -12,6 +12,7 @@ import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
+import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
 
 export default function RoomScreen() {
@@ -20,6 +21,7 @@ export default function RoomScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const roomId = parseInt(id || "0");
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const { data: roomData, isLoading, refetch } = trpc.rooms.getById.useQuery(
     { roomId },
@@ -116,6 +118,15 @@ export default function RoomScreen() {
       handlePlayAudio(latestMessage.audioUrl);
     }
   }, [audioMessages, username, lastPlayedMessageId]);
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (combinedFeed.length > 0) {
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [combinedFeed.length]);
 
   useEffect(() => {
     if (roomData && username) {
@@ -389,6 +400,7 @@ export default function RoomScreen() {
         {/* Messages ScrollView */}
         {combinedFeed.length > 0 ? (
           <ScrollView 
+            ref={scrollViewRef}
             className="flex-1"
             showsVerticalScrollIndicator={true}
             contentContainerStyle={{ paddingBottom: 8 }}
@@ -408,11 +420,12 @@ export default function RoomScreen() {
                   );
                 } else {
                   return (
-                    <MessageBubble
+                    <ReactionMessage
                       key={item.id}
-                      type="reaction"
                       username={item.username}
                       reactionType={item.reactionType}
+                      createdAt={item.createdAt}
+                      isOwnMessage={item.username === username}
                     />
                   );
                 }
