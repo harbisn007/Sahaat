@@ -367,31 +367,27 @@ export default function RoomScreen() {
 
               {/* Right Column: Comment & Tarouk */}
               <View className="flex-1 gap-3">
-                {/* Comment Button */}
+                {/* Comment Button - Press and Hold */}
                 <View className="flex-1">
                   <RecordingButton
                     isRecording={isRecording && recordingType === "comment"}
                     isPreparing={isPreparing}
                     label="🎤 تعليق"
-                    onPress={() =>
-                      isRecording && recordingType === "comment"
-                        ? handleStopRecording()
-                        : handleStartRecording("comment")
-                    }
+                    pressAndHold={true}
+                    onPressIn={() => handleStartRecording("comment")}
+                    onPressOut={() => handleStopRecording()}
                   />
                 </View>
 
-                {/* Tarouk Button */}
+                {/* Tarouk Button - Press and Hold */}
                 <View className="flex-1">
                   <RecordingButton
                     isRecording={isRecording && recordingType === "tarouk"}
                     isPreparing={isPreparing}
                     label="🔊 طاروق"
-                    onPress={() =>
-                      isRecording && recordingType === "tarouk"
-                        ? handleStopRecording()
-                        : handleStartRecording("tarouk")
-                    }
+                    pressAndHold={true}
+                    onPressIn={() => handleStartRecording("tarouk")}
+                    onPressOut={() => handleStopRecording()}
                     backgroundColor={colors.success}
                   />
                 </View>
