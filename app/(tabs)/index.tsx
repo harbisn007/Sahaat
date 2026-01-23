@@ -160,8 +160,10 @@ export default function HomeScreen() {
             renderItem={({ item }) => (
               <RoomCard
                 room={item}
+                currentUserId={userId}
                 onJoinAsPlayer={() => handleJoinAsPlayer(item.id)}
                 onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                onDirectEnter={() => router.push(`/room/${item.id}`)}
               />
             )}
             refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} />}

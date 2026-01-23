@@ -10,15 +10,55 @@ interface RoomCardProps {
     viewerCount: number;
     acceptedPlayersCount: number;
     isRoomFull: boolean;
+    creatorId: number;
   };
+  currentUserId: number;
   onJoinAsPlayer: () => void;
   onJoinAsViewer: () => void;
+  onDirectEnter: () => void;
 }
 
-export function RoomCard({ room, onJoinAsPlayer, onJoinAsViewer }: RoomCardProps) {
+export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, onDirectEnter }: RoomCardProps) {
   const colors = useColors();
   const isPlayersFull = room.isRoomFull;
+  const isCreator = room.creatorId === currentUserId;
 
+  // If creator, make the whole card clickable
+  if (isCreator) {
+    return (
+      <TouchableOpacity
+        className="bg-surface rounded-2xl p-4 mb-3 border-2 shadow-sm"
+        style={{ borderColor: colors.primary }}
+        onPress={onDirectEnter}
+        activeOpacity={0.7}
+      >
+        {/* Room Info */}
+        <View className="mb-3">
+          <View className="flex-row items-center gap-2 mb-1">
+            <Text className="text-lg font-bold text-foreground">{room.name}</Text>
+            <Text className="text-base">👑</Text>
+          </View>
+          <Text className="text-sm" style={{ color: colors.primary }}>غرفتك - اضغط للدخول</Text>
+        </View>
+
+        {/* Stats */}
+        <View className="flex-row gap-4">
+          <View className="flex-row items-center gap-1">
+            <Text className="text-sm text-muted">🎮</Text>
+            <Text className="text-sm text-foreground">
+              {room.acceptedPlayersCount}/2 لاعبين
+            </Text>
+          </View>
+          <View className="flex-row items-center gap-1">
+            <Text className="text-sm text-muted">👁️</Text>
+            <Text className="text-sm text-foreground">{room.viewerCount} مشاهدين</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // For non-creators, show the buttons
   return (
     <View className="bg-surface rounded-2xl p-4 mb-3 border border-border shadow-sm">
       {/* Room Info */}
