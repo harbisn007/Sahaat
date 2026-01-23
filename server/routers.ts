@@ -222,8 +222,12 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // الحصول على اسم الساحة قبل الحذف
+        const room = await db.getRoomById(input.roomId);
+        const roomName = room?.name || "ساحة غير معروفة";
+        
         await db.deleteRoom(input.roomId);
-        return { success: true };
+        return { success: true, roomName };
       }),
 
     // Get user's active room

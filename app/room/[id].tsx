@@ -23,10 +23,41 @@ export default function RoomScreen() {
   const roomId = parseInt(id || "0");
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const { data: roomData, isLoading, refetch } = trpc.rooms.getById.useQuery(
+  // State
+  const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
+  const [isApproved, setIsApproved] = useState(false);
+  const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
+  const [savedRoomName, setSavedRoomName] = useState<string>("");
+
+  const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 3000 }
   );
+
+  // حفظ اسم الساحة عند أول تحميل
+  useEffect(() => {
+    if (roomData?.name && !savedRoomName) {
+      setSavedRoomName(roomData.name);
+    }
+  }, [roomData?.name, savedRoomName]);
+
+  // التحقق من حذف الساحة وإخراج المشاركين
+  useEffect(() => {
+    // إذا كان هناك خطأ أو لم تعد roomData موجودة بعد التحميل
+    if (!isLoading && savedRoomName && !roomData) {
+      Alert.alert(
+        "تم إغلاق الساحة",
+        `تم إغلاق ساحة: ${savedRoomName}`,
+        [
+          {
+            text: "حسناً",
+            onPress: () => router.replace("/"),
+          },
+        ],
+        { cancelable: false }
+      );
+    }
+  }, [isLoading, roomData, savedRoomName]);
 
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
@@ -39,10 +70,6 @@ export default function RoomScreen() {
   const createReactionMutation = trpc.reactions.create.useMutation();
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
-
-  const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
-  const [isApproved, setIsApproved] = useState(false);
-  const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
     useAudioRecorder();
