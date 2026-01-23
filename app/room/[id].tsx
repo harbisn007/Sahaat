@@ -110,9 +110,9 @@ export default function RoomScreen() {
     }
   }, [audioMessages]);
 
-  // Auto-play new messages for all users except the sender
+  // Auto-play new messages for ALL users (including sender)
   useEffect(() => {
-    if (!audioMessages || audioMessages.length === 0 || !username) return;
+    if (!audioMessages || audioMessages.length === 0) return;
 
     // Get the latest message
     const latestMessage = audioMessages[audioMessages.length - 1];
@@ -120,14 +120,19 @@ export default function RoomScreen() {
     // Check if it's a new message that hasn't been played yet
     if (
       latestMessage &&
-      latestMessage.id !== lastPlayedMessageId &&
-      latestMessage.username !== username // Don't auto-play for the sender
+      latestMessage.id !== lastPlayedMessageId
     ) {
-      // Auto-play the new message
+      console.log("[RoomScreen] Auto-playing new message:", {
+        id: latestMessage.id,
+        audioUrl: latestMessage.audioUrl,
+        username: latestMessage.username,
+        messageType: latestMessage.messageType
+      });
+      // Auto-play the new message for everyone
       setLastPlayedMessageId(latestMessage.id);
-      handlePlayAudio(latestMessage.audioUrl);
+      play(latestMessage.audioUrl);
     }
-  }, [audioMessages, username, lastPlayedMessageId]);
+  }, [audioMessages, lastPlayedMessageId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
