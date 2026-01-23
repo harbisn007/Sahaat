@@ -22,8 +22,22 @@ export function useAudioRecorder() {
   const requestPermissions = async () => {
     try {
       if (Platform.OS === "web") {
+        // Check if running on HTTPS (required for getUserMedia)
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+          console.error("[useAudioRecorder] getUserMedia requires HTTPS");
+          throw new Error("يتطلب التسجيل الصوتي اتصال آمن (HTTPS). يرجى استخدام تطبيق Expo Go على هاتفك.");
+        }
+        
+        // Check if getUserMedia is available
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.error("[useAudioRecorder] getUserMedia is not supported");
+          throw new Error("متصفحك لا يدعم التسجيل الصوتي.");
+        }
+        
+        console.log("[useAudioRecorder] Requesting microphone permission...");
         // Web: Request microphone permission
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log("[useAudioRecorder] Microphone permission granted");
         // Stop the stream immediately, we just needed to request permission
         stream.getTracks().forEach(track => track.stop());
         return true;
@@ -32,22 +46,29 @@ export function useAudioRecorder() {
         return granted;
       }
     } catch (error) {
-      console.error("Failed to request audio permissions:", error);
-      return false;
+      console.error("[useAudioRecorder] Failed to request audio permissions:", error);
+      if (error instanceof Error && error.message.includes("يتطلب")) {
+        throw error; // Re-throw custom error messages
+      }
+      throw new Error("فشل الحصول على أذونات المايكروفون. تأكد من السماح بالوصول.");
     }
   };
 
   const startRecording = async (): Promise<boolean> => {
     try {
+      console.log("[useAudioRecorder] startRecording called, platform:", Platform.OS);
       setIsPreparing(true);
 
       // Request permissions
+      console.log("[useAudioRecorder] Requesting permissions...");
       const hasPermission = await requestPermissions();
+      console.log("[useAudioRecorder] Permission granted:", hasPermission);
       if (!hasPermission) {
         throw new Error("Audio recording permission not granted");
       }
 
       if (Platform.OS === "web") {
+        console.log("[useAudioRecorder] Using web MediaRecorder...");
         // Web implementation using MediaRecorder
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         const mediaRecorder = new MediaRecorder(stream);
@@ -111,7 +132,8 @@ export function useAudioRecorder() {
         return true;
       }
     } catch (error) {
-      console.error("Failed to start recording:", error);
+      console.error("[useAudioRecorder] Failed to start recording:", error);
+      console.error("[useAudioRecorder] Error details:", error instanceof Error ? error.message : String(error));
       setIsPreparing(false);
       setIsRecording(false);
       return false;

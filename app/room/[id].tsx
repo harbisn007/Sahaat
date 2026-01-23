@@ -210,10 +210,21 @@ export default function RoomScreen() {
   };
 
   const handleStartRecording = async (type: "comment" | "tarouk") => {
+    console.log("[RoomScreen] handleStartRecording called with type:", type);
     setRecordingType(type);
-    const success = await startRecording();
-    if (!success) {
-      Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات الميكروفون.");
+    try {
+      console.log("[RoomScreen] Calling startRecording...");
+      const success = await startRecording();
+      console.log("[RoomScreen] startRecording returned:", success);
+      if (!success) {
+        console.error("[RoomScreen] Recording failed");
+        Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
+        setRecordingType(null);
+      }
+    } catch (error) {
+      console.error("[RoomScreen] Recording error:", error);
+      const errorMessage = error instanceof Error ? error.message : "فشل بدء التسجيل";
+      Alert.alert("خطأ", errorMessage);
       setRecordingType(null);
     }
   };
