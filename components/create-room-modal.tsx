@@ -26,12 +26,12 @@ export function CreateRoomModal({ visible, onClose, onSubmit }: CreateRoomModalP
     const trimmedName = roomName.trim();
 
     if (trimmedName.length < 3) {
-      Alert.alert("خطأ", "يجب أن يكون اسم الغرفة 3 أحرف على الأقل");
+      Alert.alert("خطأ", "يجب أن يكون اسم الساحة 3 أحرف على الأقل");
       return;
     }
 
     if (trimmedName.length > 100) {
-      Alert.alert("خطأ", "يجب أن لا يزيد اسم الغرفة عن 100 حرف");
+      Alert.alert("خطأ", "يجب أن لا يزيد اسم الساحة عن 100 حرف");
       return;
     }
 
@@ -41,7 +41,7 @@ export function CreateRoomModal({ visible, onClose, onSubmit }: CreateRoomModalP
       setRoomName("");
       onClose();
     } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الغرفة");
+      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الساحة");
     } finally {
       setIsLoading(false);
     }
@@ -64,13 +64,13 @@ export function CreateRoomModal({ visible, onClose, onSubmit }: CreateRoomModalP
           <View className="bg-background rounded-2xl p-6 shadow-lg">
             {/* Title */}
             <Text className="text-xl font-bold text-foreground mb-4 text-center">
-              إنشاء غرفة جديدة
+              إنشاء ساحة جديدة
             </Text>
 
             {/* Input */}
             <TextInput
               className="w-full bg-surface border border-border rounded-xl px-4 py-3 text-foreground text-base mb-4"
-              placeholder="اسم الغرفة"
+              placeholder="اسم الساحة"
               placeholderTextColor={colors.muted}
               value={roomName}
               onChangeText={setRoomName}

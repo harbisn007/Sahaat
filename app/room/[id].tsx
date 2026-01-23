@@ -167,8 +167,8 @@ export default function RoomScreen() {
 
   const handleLeaveRoom = async () => {
     Alert.alert(
-      "مغادرة الغرفة",
-      "هل أنت متأكد من مغادرة الغرفة؟",
+      "مغادرة الساحة",
+      "هل أنت متأكد من مغادرة الساحة؟",
       [
         { text: "إلغاء", style: "cancel" },
         {
@@ -179,7 +179,7 @@ export default function RoomScreen() {
               await leaveRoomMutation.mutateAsync({ roomId, userId });
               router.replace("/");
             } catch (error) {
-              Alert.alert("خطأ", "حدث خطأ أثناء مغادرة الغرفة");
+              Alert.alert("خطأ", "حدث خطأ أثناء مغادرة الساحة");
             }
           },
         },
@@ -300,7 +300,7 @@ export default function RoomScreen() {
     return (
       <ScreenContainer>
         <View className="flex-1 justify-center items-center px-6">
-          <Text className="text-xl text-foreground mb-4">الغرفة غير موجودة</Text>
+          <Text className="text-xl text-foreground mb-4">الساحة غير موجودة</Text>
           <TouchableOpacity
             className="bg-primary px-6 py-3 rounded-xl"
             onPress={() => router.back()}

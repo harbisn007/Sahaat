@@ -38,7 +38,7 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
             <Text className="text-lg font-bold text-foreground">{room.name}</Text>
             <Text className="text-base">👑</Text>
           </View>
-          <Text className="text-sm" style={{ color: colors.primary }}>غرفتك - اضغط للدخول</Text>
+          <Text className="text-sm" style={{ color: colors.primary }}>ساحتك - اضغط للدخول</Text>
         </View>
 
         {/* Stats */}

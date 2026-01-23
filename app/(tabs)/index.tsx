@@ -56,7 +56,7 @@ export default function HomeScreen() {
       router.push(`/room/${result.roomId}`);
       setShowCreateModal(false);
     } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الغرفة");
+      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الساحة");
     }
   };
 
@@ -71,7 +71,7 @@ export default function HomeScreen() {
       });
 
       router.push(`/room/${roomId}`);
-      Alert.alert("تم إرسال الطلب", "في انتظار موافقة منشئ الغرفة");
+      Alert.alert("تم إرسال الطلب", "في انتظار موافقة منشئ الساحة");
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام");
     }
@@ -123,8 +123,8 @@ export default function HomeScreen() {
           onPress={() => {
             if (hasActiveRoom) {
               Alert.alert(
-                "غرفة نشطة موجودة",
-                "لديك غرفة نشطة بالفعل. يرجى إغلاق الغرفة الحالية قبل إنشاء غرفة جديدة."
+                "ساحة نشطة موجودة",
+                "لديك ساحة نشطة بالفعل. يرجى إغلاق الساحة الحالية قبل إنشاء ساحة جديدة."
               );
             } else {
               setShowCreateModal(true);
@@ -133,7 +133,7 @@ export default function HomeScreen() {
           disabled={hasActiveRoom}
         >
           <Text className="text-background font-semibold text-base">
-            {hasActiveRoom ? "🚫 لديك غرفة نشطة" : "➥ إنشاء غرفة جديدة"}
+            {hasActiveRoom ? "🚫 لديك ساحة نشطة" : "➥ إنشاء ساحة جديدة"}
           </Text>
         </TouchableOpacity>
         {hasActiveRoom && activeRoom && (
@@ -170,8 +170,8 @@ export default function HomeScreen() {
           />
         ) : (
           <View className="flex-1 justify-center items-center">
-            <Text className="text-muted text-center">لا توجد غرف متاحة</Text>
-            <Text className="text-muted text-center mt-2">قم بإنشاء غرفة جديدة!</Text>
+            <Text className="text-muted text-center">لا توجد ساحات متاحة</Text>
+            <Text className="text-muted text-center mt-2">قم بإنشاء ساحة جديدة!</Text>
           </View>
         )}
       </View>
