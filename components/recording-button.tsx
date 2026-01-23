@@ -50,33 +50,31 @@ export function RecordingButton({
 
   if (pressAndHold) {
     return (
-      <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <Animated.View style={{ transform: [{ scale: pulseAnim }], flex: 1 }}>
         <Pressable
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           disabled={isPreparing}
           style={({ pressed }) => ([
             {
+              flex: 1,
               backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
               opacity: isPreparing ? 0.6 : pressed ? 0.9 : 1,
-              borderRadius: 12,
-              paddingVertical: 16,
+              borderRadius: 8,
+              paddingVertical: 10,
+              paddingHorizontal: 8,
               alignItems: "center",
+              justifyContent: "center",
             },
           ])}
         >
-          <View className="flex-row items-center gap-2">
-            {isRecording && (
-              <View className="w-3 h-3 rounded-full bg-background animate-pulse" />
-            )}
-            <Text className="text-background font-bold text-base">
-              {isPreparing 
-                ? "جاري التحضير..." 
-                : isRecording 
-                  ? "🎤 جاري التسجيل... (اترك للإرسال)" 
-                  : `👆 اضغط مع الاستمرار ${label}`}
-            </Text>
-          </View>
+          <Text className="text-background font-bold text-xs text-center">
+            {isPreparing 
+              ? "جاري..." 
+              : isRecording 
+                ? "⏺ اترك" 
+                : label}
+          </Text>
         </Pressable>
       </Animated.View>
     );

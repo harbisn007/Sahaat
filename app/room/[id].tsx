@@ -392,7 +392,7 @@ export default function RoomScreen() {
                   <RecordingButton
                     isRecording={isRecording && recordingType === "comment"}
                     isPreparing={isPreparing}
-                    label="🎤"
+                    label="تعليق"
                     pressAndHold={true}
                     onPressIn={() => handleStartRecording("comment")}
                     onPressOut={() => handleStopRecording()}
@@ -403,7 +403,7 @@ export default function RoomScreen() {
                   <RecordingButton
                     isRecording={isRecording && recordingType === "tarouk"}
                     isPreparing={isPreparing}
-                    label="🔊"
+                    label="طاروق"
                     pressAndHold={true}
                     onPressIn={() => handleStartRecording("tarouk")}
                     onPressOut={() => handleStopRecording()}
