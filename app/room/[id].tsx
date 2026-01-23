@@ -95,8 +95,17 @@ export default function RoomScreen() {
   useEffect(() => {
     if (audioMessages && audioMessages.length > 0) {
       const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
+      console.log("[RoomScreen] Total audio messages:", audioMessages.length);
+      console.log("[RoomScreen] Tarouk messages:", taroukMessages.length);
       if (taroukMessages.length > 0) {
-        setLastTaroukUri(taroukMessages[taroukMessages.length - 1].audioUrl);
+        const lastTarouk = taroukMessages[taroukMessages.length - 1];
+        console.log("[RoomScreen] Last Tarouk message:", {
+          id: lastTarouk.id,
+          audioUrl: lastTarouk.audioUrl,
+          username: lastTarouk.username,
+          createdAt: lastTarouk.createdAt
+        });
+        setLastTaroukUri(lastTarouk.audioUrl);
       }
     }
   }, [audioMessages]);
@@ -482,8 +491,8 @@ export default function RoomScreen() {
         }}
       >
         <View className="flex-row items-center gap-2 justify-center">
-          {/* Left: Sheeloha & Khalloha (Creator only) */}
-          {isCreator && (
+          {/* Left: Sheeloha & Khalloha (Players only) */}
+          {isPlayer && (
             <View className="flex-row gap-2 flex-1">
               {/* Sheeloha Button */}
               <TouchableOpacity
