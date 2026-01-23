@@ -14,11 +14,23 @@ export function useAudioRecorder() {
   const recordingRef = useRef<any>(null);
   const timerRef = useRef<any>(null);
   const maxDuration = 60; // 60 seconds max
+  
+  // Web-specific refs
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   const requestPermissions = async () => {
     try {
-      const { granted } = await AudioModule.requestRecordingPermissionsAsync();
-      return granted;
+      if (Platform.OS === "web") {
+        // Web: Request microphone permission
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        // Stop the stream immediately, we just needed to request permission
+        stream.getTracks().forEach(track => track.stop());
+        return true;
+      } else {
+        const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+        return granted;
+      }
     } catch (error) {
       console.error("Failed to request audio permissions:", error);
       return false;
@@ -35,33 +47,69 @@ export function useAudioRecorder() {
         throw new Error("Audio recording permission not granted");
       }
 
-      // Set audio mode
-      await AudioModule.setAudioModeAsync({
-        allowsRecording: true,
-        playsInSilentMode: true,
-      });
-
-      // Create and start recording
-      const recording = await AudioModule.startRecordingAsync();
-
-      recordingRef.current = recording as any;
-      setIsRecording(true);
-      setIsPreparing(false);
-      setRecordingDuration(0);
-      
-      // Start timer
-      timerRef.current = setInterval(() => {
-        setRecordingDuration((prev) => {
-          const newDuration = prev + 1;
-          // Auto-stop at max duration
-          if (newDuration >= maxDuration) {
-            stopRecording();
+      if (Platform.OS === "web") {
+        // Web implementation using MediaRecorder
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mediaRecorder = new MediaRecorder(stream);
+        
+        audioChunksRef.current = [];
+        
+        mediaRecorder.ondataavailable = (event) => {
+          if (event.data.size > 0) {
+            audioChunksRef.current.push(event.data);
           }
-          return newDuration;
+        };
+        
+        mediaRecorder.start();
+        mediaRecorderRef.current = mediaRecorder;
+        
+        setIsRecording(true);
+        setIsPreparing(false);
+        setRecordingDuration(0);
+        
+        // Start timer
+        timerRef.current = setInterval(() => {
+          setRecordingDuration((prev) => {
+            const newDuration = prev + 1;
+            // Auto-stop at max duration
+            if (newDuration >= maxDuration) {
+              stopRecording();
+            }
+            return newDuration;
+          });
+        }, 1000);
+        
+        return true;
+      } else {
+        // Native implementation
+        // Set audio mode
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
         });
-      }, 1000);
-      
-      return true;
+
+        // Create and start recording
+        const recording = await AudioModule.startRecordingAsync();
+
+        recordingRef.current = recording as any;
+        setIsRecording(true);
+        setIsPreparing(false);
+        setRecordingDuration(0);
+        
+        // Start timer
+        timerRef.current = setInterval(() => {
+          setRecordingDuration((prev) => {
+            const newDuration = prev + 1;
+            // Auto-stop at max duration
+            if (newDuration >= maxDuration) {
+              stopRecording();
+            }
+            return newDuration;
+          });
+        }, 1000);
+        
+        return true;
+      }
     } catch (error) {
       console.error("Failed to start recording:", error);
       setIsPreparing(false);
@@ -72,10 +120,6 @@ export function useAudioRecorder() {
 
   const stopRecording = async (): Promise<AudioRecording | null> => {
     try {
-      if (!recordingRef.current) {
-        return null;
-      }
-
       setIsRecording(false);
       
       // Clear timer
@@ -83,42 +127,93 @@ export function useAudioRecorder() {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
+      const duration = recordingDuration;
       setRecordingDuration(0);
 
-      const result = await AudioModule.stopRecordingAsync();
-      
-      // Reset audio mode
-      await AudioModule.setAudioModeAsync({
-        allowsRecording: false,
-        playsInSilentMode: true,
-      });
+      if (Platform.OS === "web") {
+        // Web implementation
+        return new Promise((resolve) => {
+          if (!mediaRecorderRef.current) {
+            resolve(null);
+            return;
+          }
+          
+          const mediaRecorder = mediaRecorderRef.current;
+          
+          mediaRecorder.onstop = () => {
+            const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            // Stop all tracks
+            if (mediaRecorder.stream) {
+              mediaRecorder.stream.getTracks().forEach(track => track.stop());
+            }
+            
+            mediaRecorderRef.current = null;
+            audioChunksRef.current = [];
+            
+            resolve({
+              uri: audioUrl,
+              duration,
+            });
+          };
+          
+          mediaRecorder.stop();
+        });
+      } else {
+        // Native implementation
+        if (!recordingRef.current) {
+          return null;
+        }
 
-      recordingRef.current = null;
+        const result = await AudioModule.stopRecordingAsync();
+        
+        // Reset audio mode
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+        });
 
-      if (!result || !result.uri) {
-        throw new Error("Recording URI is null");
+        recordingRef.current = null;
+
+        if (!result || !result.uri) {
+          throw new Error("Recording URI is null");
+        }
+
+        // Duration in seconds
+        const recordedDuration = result.durationMillis ? Math.floor(result.durationMillis / 1000) : 0;
+
+        return {
+          uri: result.uri,
+          duration: recordedDuration,
+        };
       }
-
-      // Duration in seconds
-      const duration = result.durationMillis ? Math.floor(result.durationMillis / 1000) : 0;
-
-      return {
-        uri: result.uri,
-        duration,
-      };
     } catch (error) {
       console.error("Failed to stop recording:", error);
       recordingRef.current = null;
+      mediaRecorderRef.current = null;
       return null;
     }
   };
 
   const cancelRecording = async () => {
     try {
-      if (recordingRef.current) {
-        await AudioModule.stopRecordingAsync();
-        recordingRef.current = null;
+      if (Platform.OS === "web") {
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stop();
+          if (mediaRecorderRef.current.stream) {
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+          }
+          mediaRecorderRef.current = null;
+          audioChunksRef.current = [];
+        }
+      } else {
+        if (recordingRef.current) {
+          await AudioModule.stopRecordingAsync();
+          recordingRef.current = null;
+        }
       }
+      
       setIsRecording(false);
       setIsPreparing(false);
       

@@ -230,16 +230,36 @@ export default function RoomScreen() {
       const recording = await stopRecording();
       
       if (recording && username) {
-        // Read file as base64
-        const FileSystem = await import("expo-file-system/legacy");
-        const base64Data = await FileSystem.readAsStringAsync(recording.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
+        let base64Data: string;
+        
+        if (Platform.OS === "web") {
+          // Web: Convert Blob URL to base64
+          const response = await fetch(recording.uri);
+          const blob = await response.blob();
+          const reader = new FileReader();
+          
+          base64Data = await new Promise<string>((resolve, reject) => {
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              // Remove data URL prefix (e.g., "data:audio/webm;base64,")
+              const base64 = result.split(',')[1];
+              resolve(base64);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+          });
+        } else {
+          // Native: Read file as base64
+          const FileSystem = await import("expo-file-system/legacy");
+          base64Data = await FileSystem.readAsStringAsync(recording.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+        }
         
         // Upload to S3
         const { url } = await uploadAudioMutation.mutateAsync({
           base64Data,
-          fileName: `recording-${Date.now()}.m4a`,
+          fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
         });
         
         // Save to database with S3 URL
