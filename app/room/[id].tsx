@@ -478,7 +478,11 @@ export default function RoomScreen() {
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
   return (
-    <ScreenContainer containerClassName="bg-[#6D4C41]">
+    <ScreenContainer 
+      className="p-0" 
+      containerClassName="bg-[#4A3728]"
+      style={{ backgroundImage: 'url(/assets/images/background-pattern.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+    >
       {/* Header */}
       <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
         {/* Left: Exit/Close button */}
