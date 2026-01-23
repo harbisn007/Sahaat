@@ -80,6 +80,7 @@ export default function RoomScreen() {
       timestamp: reaction.createdAt,
       username: reaction.username,
       reactionType: reaction.reactionType,
+      createdAt: reaction.createdAt,
     })),
   ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
