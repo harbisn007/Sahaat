@@ -10,6 +10,7 @@ import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
+import { MessageBubble } from "@/components/message-bubble";
 
 export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -48,6 +49,31 @@ export default function RoomScreen() {
     { roomId },
     { enabled: roomId > 0, refetchInterval: 5000 }
   );
+
+  const { data: reactions } = trpc.reactions.list.useQuery(
+    { roomId },
+    { enabled: roomId > 0, refetchInterval: 3000 }
+  );
+
+  // Combine audio messages and reactions into a single feed
+  const combinedFeed = [
+    ...(audioMessages || []).map((msg) => ({
+      type: "audio" as const,
+      id: `audio-${msg.id}`,
+      timestamp: msg.createdAt,
+      username: msg.username,
+      messageType: msg.messageType,
+      audioUrl: msg.audioUrl,
+      duration: msg.duration,
+    })),
+    ...(reactions || []).map((reaction) => ({
+      type: "reaction" as const,
+      id: `reaction-${reaction.id}`,
+      timestamp: reaction.createdAt,
+      username: reaction.username,
+      reactionType: reaction.reactionType,
+    })),
+  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
   // Track the last Tarouk message URI
   const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
@@ -233,20 +259,43 @@ export default function RoomScreen() {
           </View>
         </View>
 
-        {/* Audio Messages List */}
-        {audioMessages && audioMessages.length > 0 && (
-          <View className="bg-surface rounded-2xl p-4 mb-4 border border-border">
-            <Text className="text-lg font-bold text-foreground mb-3">الرسائل الصوتية</Text>
-            {audioMessages.map((msg) => (
-              <AudioMessage
-                key={msg.id}
-                username={msg.username}
-                messageType={msg.messageType}
-                duration={msg.duration}
-                isPlaying={currentUri === msg.audioUrl && isPlaying}
-                onPlay={() => handlePlayAudio(msg.audioUrl)}
-              />
-            ))}
+        {/* Messages Feed (Audio + Reactions) */}
+        {combinedFeed.length > 0 && (
+          <View className="bg-surface rounded-2xl mb-4 border border-border overflow-hidden">
+            <View className="px-4 py-3 border-b border-border">
+              <Text className="text-lg font-bold text-foreground text-center">
+                💬 الرسائل والتفاعلات
+              </Text>
+            </View>
+            <ScrollView 
+              className="max-h-96"
+              showsVerticalScrollIndicator={true}
+            >
+              {combinedFeed.map((item) => {
+                if (item.type === "audio") {
+                  return (
+                    <MessageBubble
+                      key={item.id}
+                      type="audio"
+                      username={item.username}
+                      messageType={item.messageType}
+                      duration={item.duration}
+                      isPlaying={currentUri === item.audioUrl && isPlaying}
+                      onPlay={() => handlePlayAudio(item.audioUrl)}
+                    />
+                  );
+                } else {
+                  return (
+                    <MessageBubble
+                      key={item.id}
+                      type="reaction"
+                      username={item.username}
+                      reactionType={item.reactionType}
+                    />
+                  );
+                }
+              })}
+            </ScrollView>
           </View>
         )}
 
@@ -257,88 +306,96 @@ export default function RoomScreen() {
               التحكم الصوتي
             </Text>
 
-            <View className="gap-3">
-              {/* Comment Button */}
-              <RecordingButton
-                isRecording={isRecording && recordingType === "comment"}
-                isPreparing={isPreparing}
-                label="🎤 تسجيل تعليق"
-                onPress={() =>
-                  isRecording && recordingType === "comment"
-                    ? handleStopRecording()
-                    : handleStartRecording("comment")
-                }
-              />
-
-              {/* Tarouk Button */}
-              <RecordingButton
-                isRecording={isRecording && recordingType === "tarouk"}
-                isPreparing={isPreparing}
-                label="🔊 طاروق"
-                onPress={() =>
-                  isRecording && recordingType === "tarouk"
-                    ? handleStopRecording()
-                    : handleStartRecording("tarouk")
-                }
-                backgroundColor={colors.success}
-              />
-
-              {/* Sheeloha Button (Creator only) - Plays last Tarouk with effects */}
+            <View className="flex-row gap-3">
+              {/* Left Column: Sheeloha & Khalloha (Creator only) */}
               {isCreator && (
-                <TouchableOpacity
-                  className="rounded-xl py-4 items-center"
-                  style={{
-                    backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
-                    opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
-                  }}
-                  onPress={() => {
-                    if (!lastTaroukUri) {
-                      Alert.alert("تنبيه", "لا توجد رسائل طاروق لتشغيلها");
-                      return;
-                    }
-                    if (isSheelohaPlaying) {
-                      stopSheeloha();
-                    } else {
-                      playSheeloha(lastTaroukUri);
-                    }
-                  }}
-                  disabled={isSheelohaProcessing}
-                >
-                  <Text className="text-background font-bold text-base">
-                    {isSheelohaProcessing 
-                      ? "جاري التحضير..." 
-                      : isSheelohaPlaying 
-                        ? "⏸️ إيقاف شيلوها" 
-                        : "🔁 شيلوها"}
-                  </Text>
-                  {lastTaroukUri && !isSheelohaPlaying && (
-                    <Text className="text-background/70 text-xs mt-1">
-                      (ترديد جماعي + تسريع)
+                <View className="flex-1 gap-3">
+                  {/* Sheeloha Button - Plays last Tarouk with effects */}
+                  <TouchableOpacity
+                    className="rounded-xl py-4 items-center flex-1"
+                    style={{
+                      backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
+                      opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
+                    }}
+                    onPress={() => {
+                      if (!lastTaroukUri) {
+                        Alert.alert("تنبيه", "لا توجد رسائل طاروق لتشغيلها");
+                        return;
+                      }
+                      if (isSheelohaPlaying) {
+                        stopSheeloha();
+                      } else {
+                        playSheeloha(lastTaroukUri);
+                      }
+                    }}
+                    disabled={isSheelohaProcessing}
+                  >
+                    <Text className="text-background font-bold text-sm text-center">
+                      {isSheelohaProcessing 
+                        ? "جاري التحضير..." 
+                        : isSheelohaPlaying 
+                          ? "⏸️ إيقاف شيلوها" 
+                          : "🔁 شيلوها"}
                     </Text>
-                  )}
-                </TouchableOpacity>
+                    {lastTaroukUri && !isSheelohaPlaying && (
+                      <Text className="text-background/70 text-xs mt-1 text-center">
+                        (ترديد + تسريع)
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Khalloha Button - Stops Sheeloha playback */}
+                  <TouchableOpacity
+                    className="rounded-xl py-4 items-center flex-1"
+                    style={{
+                      backgroundColor: colors.error,
+                      opacity: isSheelohaPlaying ? 1 : 0.5,
+                    }}
+                    onPress={() => {
+                      if (isSheelohaPlaying) {
+                        stopSheeloha();
+                        Alert.alert("تم الإيقاف", "تم إيقاف تشغيل شيلوها");
+                      } else {
+                        stop();
+                      }
+                    }}
+                  >
+                    <Text className="text-background font-bold text-sm">⏹️ خلوها</Text>
+                  </TouchableOpacity>
+                </View>
               )}
 
-              {/* Khalloha Button (Creator only) - Stops Sheeloha playback */}
-              {isCreator && (
-                <TouchableOpacity
-                  className="rounded-xl py-4 items-center"
-                  style={{
-                    backgroundColor: colors.error,
-                    opacity: isSheelohaPlaying ? 1 : 0.5,
-                  }}
-                  onPress={() => {
-                    if (isSheelohaPlaying) {
-                      stopSheeloha();
-                      Alert.alert("تم الإيقاف", "تم إيقاف تشغيل شيلوها");
-                    } else {
-                      stop();
+              {/* Right Column: Comment & Tarouk */}
+              <View className="flex-1 gap-3">
+                {/* Comment Button */}
+                <View className="flex-1">
+                  <RecordingButton
+                    isRecording={isRecording && recordingType === "comment"}
+                    isPreparing={isPreparing}
+                    label="🎤 تعليق"
+                    onPress={() =>
+                      isRecording && recordingType === "comment"
+                        ? handleStopRecording()
+                        : handleStartRecording("comment")
                     }
-                  }}
-                >
-                  <Text className="text-background font-bold text-base">⏹️ خلوها</Text>
-                </TouchableOpacity>
-              )}
+                  />
+                </View>
+
+                {/* Tarouk Button */}
+                <View className="flex-1">
+                  <RecordingButton
+                    isRecording={isRecording && recordingType === "tarouk"}
+                    isPreparing={isPreparing}
+                    label="🔊 طاروق"
+                    onPress={() =>
+                      isRecording && recordingType === "tarouk"
+                        ? handleStopRecording()
+                        : handleStartRecording("tarouk")
+                    }
+                    backgroundColor={colors.success}
+                  />
+                </View>
+              </View>
             </View>
           </View>
         )}

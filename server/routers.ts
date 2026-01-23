@@ -228,6 +228,13 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return db.getRecentReactions(input.roomId, input.limit);
       }),
+
+    // List all reactions for a room
+    list: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getRecentReactions(input.roomId, 100);
+      }),
   }),
 });
 
