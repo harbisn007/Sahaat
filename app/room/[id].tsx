@@ -93,20 +93,30 @@ export default function RoomScreen() {
 
   // Update last Tarouk URI when audio messages change
   useEffect(() => {
+    console.log("[RoomScreen] useEffect triggered - audioMessages changed");
     if (audioMessages && audioMessages.length > 0) {
       const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
       console.log("[RoomScreen] Total audio messages:", audioMessages.length);
-      console.log("[RoomScreen] Tarouk messages:", taroukMessages.length);
+      console.log("[RoomScreen] Tarouk messages count:", taroukMessages.length);
+      console.log("[RoomScreen] All tarouk messages:", taroukMessages.map(m => ({
+        id: m.id,
+        username: m.username,
+        audioUrl: m.audioUrl.substring(0, 50) + "..."
+      })));
       if (taroukMessages.length > 0) {
         const lastTarouk = taroukMessages[taroukMessages.length - 1];
-        console.log("[RoomScreen] Last Tarouk message:", {
+        console.log("[RoomScreen] Setting lastTaroukUri to:", {
           id: lastTarouk.id,
           audioUrl: lastTarouk.audioUrl,
           username: lastTarouk.username,
           createdAt: lastTarouk.createdAt
         });
         setLastTaroukUri(lastTarouk.audioUrl);
+      } else {
+        console.log("[RoomScreen] No tarouk messages found");
       }
+    } else {
+      console.log("[RoomScreen] No audio messages or empty array");
     }
   }, [audioMessages]);
 
@@ -507,13 +517,17 @@ export default function RoomScreen() {
                   opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
                 }}
                 onPress={() => {
+                  console.log("[RoomScreen] Sheeloha button pressed");
+                  console.log("[RoomScreen] Current lastTaroukUri:", lastTaroukUri);
                   if (!lastTaroukUri) {
                     Alert.alert("تنبيه", "لا توجد رسائل طاروق");
                     return;
                   }
                   if (isSheelohaPlaying) {
+                    console.log("[RoomScreen] Stopping Sheeloha");
                     stopSheeloha();
                   } else {
+                    console.log("[RoomScreen] Playing Sheeloha with URI:", lastTaroukUri);
                     playSheeloha(lastTaroukUri);
                   }
                 }}

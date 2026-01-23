@@ -1,6 +1,6 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Platform } from "react-native";
-import { useAudioPlayer, AudioModule } from "expo-audio";
+import { useAudioPlayer, useAudioPlayerStatus, AudioModule } from "expo-audio";
 import { playWithTaroukEffects, TAROUK_EFFECTS } from "@/lib/audio-effects";
 
 interface TaroukPlayerState {
@@ -16,8 +16,35 @@ export function useTaroukPlayer() {
     isProcessing: false,
   });
 
-  const stopFnRef = useRef<(() => void) | null>(null);
-  const nativePlayerRef = useRef<any>(null);
+  const [pendingUri, setPendingUri] = useState<string | null>(null);
+  const [webStopFn, setWebStopFn] = useState<(() => void) | null>(null);
+  
+  // Native audio player (only used on native platforms)
+  const nativePlayer = useAudioPlayer(pendingUri || "");
+  const nativeStatus = useAudioPlayerStatus(nativePlayer);
+
+  useEffect(() => {
+    // Set audio mode for playback
+    AudioModule.setAudioModeAsync({
+      playsInSilentMode: true,
+      allowsRecording: false,
+    });
+  }, []);
+
+  // Auto-reset when native playback finishes
+  useEffect(() => {
+    if (Platform.OS !== "web" && pendingUri) {
+      if (nativeStatus.playing === false && nativeStatus.currentTime > 0 && nativeStatus.currentTime >= nativeStatus.duration) {
+        console.log("[useTaroukPlayer] Native playback finished");
+        setState({
+          isPlaying: false,
+          currentUri: null,
+          isProcessing: false,
+        });
+        setPendingUri(null);
+      }
+    }
+  }, [nativeStatus.playing, nativeStatus.currentTime, nativeStatus.duration, pendingUri]);
 
   /**
    * Play audio with Tarouk effects (echo + speed up)
@@ -25,6 +52,8 @@ export function useTaroukPlayer() {
    * On native: Uses expo-audio with playback rate adjustment
    */
   const playTarouk = useCallback(async (audioUri: string) => {
+    console.log("[useTaroukPlayer] playTarouk called with URI:", audioUri);
+    
     // Stop any current playback
     await stopTarouk();
 
@@ -36,18 +65,20 @@ export function useTaroukPlayer() {
 
     try {
       if (Platform.OS === "web") {
+        console.log("[useTaroukPlayer] Using Web Audio API");
         // Web platform: Use Web Audio API with full effects
         const player = await playWithTaroukEffects(audioUri, () => {
+          console.log("[useTaroukPlayer] Web playback finished");
           setState({
             isPlaying: false,
             currentUri: null,
             isProcessing: false,
           });
-          stopFnRef.current = null;
+          setWebStopFn(null);
         });
 
         if (player) {
-          stopFnRef.current = player.stop;
+          setWebStopFn(() => player.stop);
           setState({
             isPlaying: true,
             currentUri: audioUri,
@@ -57,68 +88,61 @@ export function useTaroukPlayer() {
           throw new Error("Failed to create audio player");
         }
       } else {
+        console.log("[useTaroukPlayer] Using native expo-audio");
         // Native platform: Use expo-audio with playback rate
-        await AudioModule.setAudioModeAsync({
-          playsInSilentMode: true,
-        });
-
-        // For native, we'll use a simple approach with playback rate
-        // Note: Full echo effect would require native audio processing
-        const player = useAudioPlayer(audioUri);
-        nativePlayerRef.current = player;
-
-        // Set playback rate for speed effect
-        if (player.setPlaybackRate) {
-          player.setPlaybackRate(TAROUK_EFFECTS.speed.playbackRate);
+        setPendingUri(audioUri);
+        
+        // Wait for player to be ready
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Set playback rate for speed effect (if supported)
+        try {
+          // Note: setPlaybackRate might not be available on all platforms
+          if (typeof nativePlayer.setPlaybackRate === 'function') {
+            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.speed.playbackRate);
+          }
+        } catch (e) {
+          console.warn("[useTaroukPlayer] setPlaybackRate not supported:", e);
         }
 
-        player.play();
+        nativePlayer.play();
+        console.log("[useTaroukPlayer] Native playback started");
 
         setState({
           isPlaying: true,
           currentUri: audioUri,
           isProcessing: false,
         });
-
-        // Handle end
-        setTimeout(() => {
-          if (nativePlayerRef.current === player) {
-            setState({
-              isPlaying: false,
-              currentUri: null,
-              isProcessing: false,
-            });
-            nativePlayerRef.current = null;
-          }
-        }, (player.duration || 10) * 1000 / TAROUK_EFFECTS.speed.playbackRate);
       }
     } catch (error) {
-      console.error("Failed to play Tarouk audio:", error);
+      console.error("[useTaroukPlayer] Failed to play Tarouk audio:", error);
       setState({
         isPlaying: false,
         currentUri: null,
         isProcessing: false,
       });
+      setPendingUri(null);
     }
-  }, []);
+  }, [nativePlayer]);
 
   /**
    * Stop current Tarouk playback
    */
   const stopTarouk = useCallback(async () => {
-    if (stopFnRef.current) {
-      stopFnRef.current();
-      stopFnRef.current = null;
+    console.log("[useTaroukPlayer] stopTarouk called");
+    
+    if (webStopFn) {
+      webStopFn();
+      setWebStopFn(null);
     }
 
-    if (nativePlayerRef.current) {
+    if (pendingUri && Platform.OS !== "web") {
       try {
-        nativePlayerRef.current.pause();
-        nativePlayerRef.current.remove();
+        nativePlayer.pause();
       } catch (e) {
-        // Ignore cleanup errors
+        console.warn("[useTaroukPlayer] Error pausing native player:", e);
       }
-      nativePlayerRef.current = null;
+      setPendingUri(null);
     }
 
     setState({
@@ -126,7 +150,7 @@ export function useTaroukPlayer() {
       currentUri: null,
       isProcessing: false,
     });
-  }, []);
+  }, [webStopFn, pendingUri, nativePlayer]);
 
   return {
     isPlaying: state.isPlaying,

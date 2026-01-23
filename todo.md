@@ -288,3 +288,15 @@
 - [x] فحص refetchInterval الحالي
 - [x] إضافة refetchInterval: 3000 لـ roomData query
 - [x] الآن الصفحة تتحدث كل 3 ثوانٍ
+
+## إصلاح مشكلة شيلوها (يحتفظ بأول رسالة)
+- [x] فحص useEffect الذي يحدث lastTaroukUri
+- [x] إضافة logging مفصّل لتتبع التحديثات
+- [x] إضافة logging لزر شيلوها
+- [x] useEffect يبدو صحيحاً - المشكلة قد تكون في use-tarouk-player
+
+## إصلاح مشكلة الأصوات على Android
+- [x] فحص سبب عدم تشغيل الأصوات على Android
+- [x] المشكلة: use-tarouk-player يستخدم useAudioPlayer داخل دالة
+- [x] إعادة كتابة use-tarouk-player بشكل صحيح
+- [x] إضافة logging مفصّل
