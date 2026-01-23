@@ -58,23 +58,23 @@ export function MessageBubble({
 
   // Audio message bubble
   return (
-    <View className="px-4 py-2">
+    <View className="px-3 py-1">
       <View 
-        className="rounded-2xl p-3 max-w-[85%]"
+        className="rounded-xl p-2 max-w-[80%]"
         style={{ backgroundColor: colors.surface }}
       >
         {/* Header */}
-        <View className="flex-row items-center justify-between mb-2">
-          <Text className="text-sm font-bold text-foreground">{username}</Text>
+        <View className="flex-row items-center justify-between mb-1">
+          <Text className="text-xs font-bold text-foreground">{username}</Text>
           {messageType && (
             <View 
-              className="px-2 py-1 rounded-lg"
+              className="px-1.5 py-0.5 rounded"
               style={{ 
                 backgroundColor: messageType === "tarouk" ? colors.success : colors.primary,
                 opacity: 0.8,
               }}
             >
-              <Text className="text-xs text-background font-semibold">
+              <Text className="text-[10px] text-background font-semibold">
                 {messageType === "tarouk" ? "طاروق" : "تعليق"}
               </Text>
             </View>
@@ -94,7 +94,7 @@ export function MessageBubble({
 
         {/* Timestamp */}
         {timestamp && (
-          <Text className="text-xs text-muted mt-1 text-left">{timestamp}</Text>
+          <Text className="text-[10px] text-muted mt-0.5 text-left">{timestamp}</Text>
         )}
       </View>
     </View>

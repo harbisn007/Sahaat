@@ -58,7 +58,7 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 5000 }
   );
 
-  const { data: reactions } = trpc.reactions.list.useQuery(
+  const { data: reactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 3000 }
   );
@@ -322,14 +322,20 @@ export default function RoomScreen() {
     if (!username) return;
 
     try {
+      console.log("[RoomScreen] Sending reaction:", reactionType);
       await createReactionMutation.mutateAsync({
         roomId,
         userId,
         username,
         reactionType: reactionType as any,
       });
+      console.log("[RoomScreen] Reaction sent successfully");
+      // Refetch reactions immediately to show the new reaction
+      await refetchReactions();
+      console.log("[RoomScreen] Reactions refetched");
     } catch (error) {
-      console.error("Failed to send reaction:", error);
+      console.error("[RoomScreen] Failed to send reaction:", error);
+      Alert.alert("خطأ", "فشل إرسال التفاعل");
     }
   };
 

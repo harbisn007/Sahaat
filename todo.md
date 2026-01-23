@@ -300,3 +300,14 @@
 - [x] المشكلة: use-tarouk-player يستخدم useAudioPlayer داخل دالة
 - [x] إعادة كتابة use-tarouk-player بشكل صحيح
 - [x] إضافة logging مفصّل
+
+## التأكد من ظهور التفاعلات في صفحة المحادثة
+- [x] فحص كود combinedFeed
+- [x] التحقق من عرض ReactionMessage
+- [x] الكود صحيح - أضفت refetch فوري بعد إرسال التفاعل
+
+## تصغير حجم فقاعات الرسائل الصوتية
+- [x] فحص MessageBubble component
+- [x] تقليل padding و spacing (px-3 py-1 بدلاً من px-4 py-2)
+- [x] تصغير حجم الخط (text-xs بدلاً من text-sm)
+- [x] تقليل عرض الفقاعة (80% بدلاً من 85%)
