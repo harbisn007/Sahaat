@@ -29,6 +29,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
+  // Track when user joined the room
+  const [joinedAt] = useState<Date>(new Date());
 
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
@@ -137,8 +139,6 @@ export default function RoomScreen() {
 
   // Track the last Tarouk message URI
   const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
-  // Track when user joined the room
-  const [joinedAt] = useState<Date>(new Date());
   // Track played message IDs to avoid replaying
   const [playedMessageIds, setPlayedMessageIds] = useState<Set<number>>(new Set());
   // Reactions picker state
