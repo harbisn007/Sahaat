@@ -150,53 +150,58 @@ export default function RoomScreen() {
     }
   };
 
-  const handleStartRecording = (type: "comment" | "tarouk") => {
+  const handleStartRecording = async (type: "comment" | "tarouk") => {
     setRecordingType(type);
-    // Start recording asynchronously without blocking
-    startRecording().then((success) => {
-      if (!success) {
-        Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات الميكروفون.");
-        setRecordingType(null);
-      }
-    });
+    const success = await startRecording();
+    if (!success) {
+      Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات الميكروفون.");
+      setRecordingType(null);
+    }
   };
 
-  const handleStopRecording = () => {
-    // Stop recording asynchronously
-    stopRecording().then(async (recording) => {
-      if (recording && recordingType && username) {
-        try {
-          // Read file as base64
-          const FileSystem = await import("expo-file-system/legacy");
-          const base64Data = await FileSystem.readAsStringAsync(recording.uri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          
-          // Upload to S3
-          const { url } = await uploadAudioMutation.mutateAsync({
-            base64Data,
-            fileName: `recording-${Date.now()}.m4a`,
-          });
-          
-          // Save to database with S3 URL
-          await createAudioMutation.mutateAsync({
-            roomId,
-            userId,
-            username,
-            messageType: recordingType,
-            audioUrl: url,
-            duration: 0, // Duration will be calculated on playback
-          });
-          
-          // Refresh audio messages
-          await refetchAudio();
-        } catch (error) {
-          console.error("Failed to save audio message:", error);
-          Alert.alert("خطأ", "فشل حفظ الرسالة الصوتية");
-        }
+  const handleStopRecording = async () => {
+    // Capture the current recording type before it gets reset
+    const currentRecordingType = recordingType;
+    
+    if (!currentRecordingType) {
+      return;
+    }
+    
+    try {
+      const recording = await stopRecording();
+      
+      if (recording && username) {
+        // Read file as base64
+        const FileSystem = await import("expo-file-system/legacy");
+        const base64Data = await FileSystem.readAsStringAsync(recording.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        
+        // Upload to S3
+        const { url } = await uploadAudioMutation.mutateAsync({
+          base64Data,
+          fileName: `recording-${Date.now()}.m4a`,
+        });
+        
+        // Save to database with S3 URL
+        await createAudioMutation.mutateAsync({
+          roomId,
+          userId,
+          username,
+          messageType: currentRecordingType,
+          audioUrl: url,
+          duration: 0, // Duration will be calculated on playback
+        });
+        
+        // Refresh audio messages
+        await refetchAudio();
       }
+    } catch (error) {
+      console.error("Failed to save audio message:", error);
+      Alert.alert("خطأ", "فشل حفظ الرسالة الصوتية");
+    } finally {
       setRecordingType(null);
-    });
+    }
   };
 
   const handleReaction = async (reactionType: string) => {
@@ -357,96 +362,97 @@ export default function RoomScreen() {
       </View>
 
       {/* Bottom Controls - Compact fixed bar */}
-      {isPlayer && (
-          <View className="bg-surface px-4 py-3 border-t border-border">
-            <View className="flex-row items-center gap-2">
-              {/* Left: Sheeloha & Khalloha (Creator only) */}
-              {isCreator && (
-                <View className="flex-row gap-2 flex-1">
-                  {/* Sheeloha Button */}
-                  <TouchableOpacity
-                    className="rounded-lg py-2 px-3 items-center justify-center flex-1"
-                    style={{
-                      backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
-                      opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
-                    }}
-                    onPress={() => {
-                      if (!lastTaroukUri) {
-                        Alert.alert("تنبيه", "لا توجد رسائل طاروق");
-                        return;
-                      }
-                      if (isSheelohaPlaying) {
-                        stopSheeloha();
-                      } else {
-                        playSheeloha(lastTaroukUri);
-                      }
-                    }}
-                    disabled={isSheelohaProcessing}
-                  >
-                    <Text className="text-background font-bold text-xs">
-                      {isSheelohaPlaying ? "⏸️" : "🔁"} شيلوها
-                    </Text>
-                  </TouchableOpacity>
-
-                  {/* Khalloha Button */}
-                  <TouchableOpacity
-                    className="rounded-lg py-2 px-3 items-center justify-center flex-1"
-                    style={{
-                      backgroundColor: colors.error,
-                      opacity: isSheelohaPlaying ? 1 : 0.5,
-                    }}
-                    onPress={() => {
-                      if (isSheelohaPlaying) {
-                        stopSheeloha();
-                      } else {
-                        stop();
-                      }
-                    }}
-                  >
-                    <Text className="text-background font-bold text-xs">⏹️ خلوها</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* Center: Reactions Button */}
+      {/* Players see all controls, Viewers see only reactions */}
+      <View className="bg-surface px-4 py-3 border-t border-border">
+        <View className="flex-row items-center gap-2 justify-center">
+          {/* Left: Sheeloha & Khalloha (Creator only) */}
+          {isCreator && (
+            <View className="flex-row gap-2 flex-1">
+              {/* Sheeloha Button */}
               <TouchableOpacity
-                className="rounded-full w-12 h-12 items-center justify-center"
-                style={{ backgroundColor: colors.primary }}
-                onPress={() => setShowReactionsPicker(true)}
+                className="rounded-lg py-2 px-3 items-center justify-center flex-1"
+                style={{
+                  backgroundColor: isSheelohaPlaying ? colors.error : colors.warning,
+                  opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
+                }}
+                onPress={() => {
+                  if (!lastTaroukUri) {
+                    Alert.alert("تنبيه", "لا توجد رسائل طاروق");
+                    return;
+                  }
+                  if (isSheelohaPlaying) {
+                    stopSheeloha();
+                  } else {
+                    playSheeloha(lastTaroukUri);
+                  }
+                }}
+                disabled={isSheelohaProcessing}
               >
-                <Text className="text-2xl">😊</Text>
+                <Text className="text-background font-bold text-xs">
+                  {isSheelohaPlaying ? "⏸️" : "🔁"} شيلوها
+                </Text>
               </TouchableOpacity>
 
-              {/* Right: Comment & Tarouk */}
-              <View className="flex-row gap-2 flex-1">
-                <View className="flex-1">
-                  <RecordingButton
-                    isRecording={isRecording && recordingType === "comment"}
-                    isPreparing={isPreparing}
-                    label="تعليق"
-                    pressAndHold={true}
-                    onPressIn={() => handleStartRecording("comment")}
-                    onPressOut={() => handleStopRecording()}
-                    recordingDuration={formattedDuration}
-                  />
-                </View>
+              {/* Khalloha Button */}
+              <TouchableOpacity
+                className="rounded-lg py-2 px-3 items-center justify-center flex-1"
+                style={{
+                  backgroundColor: colors.error,
+                  opacity: isSheelohaPlaying ? 1 : 0.5,
+                }}
+                onPress={() => {
+                  if (isSheelohaPlaying) {
+                    stopSheeloha();
+                  } else {
+                    stop();
+                  }
+                }}
+              >
+                <Text className="text-background font-bold text-xs">⏹️ خلوها</Text>
+              </TouchableOpacity>
+            </View>
+          )}
 
-                <View className="flex-1">
-                  <RecordingButton
-                    isRecording={isRecording && recordingType === "tarouk"}
-                    isPreparing={isPreparing}
-                    label="طاروق"
-                    pressAndHold={true}
-                    onPressIn={() => handleStartRecording("tarouk")}
-                    onPressOut={() => handleStopRecording()}
-                    backgroundColor={colors.success}
-                    recordingDuration={formattedDuration}
-                  />
-                </View>
+          {/* Center: Reactions Button (for all users) */}
+          <TouchableOpacity
+            className="rounded-full w-12 h-12 items-center justify-center"
+            style={{ backgroundColor: colors.primary }}
+            onPress={() => setShowReactionsPicker(true)}
+          >
+            <Text className="text-2xl">😊</Text>
+          </TouchableOpacity>
+
+          {/* Right: Comment & Tarouk (Players only) */}
+          {isPlayer && (
+            <View className="flex-row gap-2 flex-1">
+              <View className="flex-1">
+                <RecordingButton
+                  isRecording={isRecording && recordingType === "comment"}
+                  isPreparing={isPreparing}
+                  label="تعليق"
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("comment")}
+                  onPressOut={() => handleStopRecording()}
+                  recordingDuration={formattedDuration}
+                />
+              </View>
+
+              <View className="flex-1">
+                <RecordingButton
+                  isRecording={isRecording && recordingType === "tarouk"}
+                  isPreparing={isPreparing}
+                  label="طاروق"
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("tarouk")}
+                  onPressOut={() => handleStopRecording()}
+                  backgroundColor={colors.success}
+                  recordingDuration={formattedDuration}
+                />
               </View>
             </View>
-          </View>
-        )}
+          )}
+        </View>
+      </View>
 
       {/* Reactions Picker Modal */}
       <ReactionsPicker
