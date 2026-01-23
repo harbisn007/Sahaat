@@ -10,7 +10,10 @@ export interface AudioRecording {
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
   const recordingRef = useRef<any>(null);
+  const timerRef = useRef<any>(null);
+  const maxDuration = 60; // 60 seconds max
 
   const requestPermissions = async () => {
     try {
@@ -44,6 +47,20 @@ export function useAudioRecorder() {
       recordingRef.current = recording as any;
       setIsRecording(true);
       setIsPreparing(false);
+      setRecordingDuration(0);
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingDuration((prev) => {
+          const newDuration = prev + 1;
+          // Auto-stop at max duration
+          if (newDuration >= maxDuration) {
+            stopRecording();
+          }
+          return newDuration;
+        });
+      }, 1000);
+      
       return true;
     } catch (error) {
       console.error("Failed to start recording:", error);
@@ -60,6 +77,13 @@ export function useAudioRecorder() {
       }
 
       setIsRecording(false);
+      
+      // Clear timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setRecordingDuration(0);
 
       const result = await AudioModule.stopRecordingAsync();
       
@@ -97,14 +121,30 @@ export function useAudioRecorder() {
       }
       setIsRecording(false);
       setIsPreparing(false);
+      
+      // Clear timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      setRecordingDuration(0);
     } catch (error) {
       console.error("Failed to cancel recording:", error);
     }
   };
 
+  const formatDuration = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return {
     isRecording,
     isPreparing,
+    recordingDuration,
+    maxDuration,
+    formattedDuration: formatDuration(recordingDuration),
     startRecording,
     stopRecording,
     cancelRecording,

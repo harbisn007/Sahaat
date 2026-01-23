@@ -11,6 +11,7 @@ interface RecordingButtonProps {
   onPressOut?: () => void;
   backgroundColor?: string;
   pressAndHold?: boolean;
+  recordingDuration?: string;
 }
 
 export function RecordingButton({
@@ -22,6 +23,7 @@ export function RecordingButton({
   onPressOut,
   backgroundColor,
   pressAndHold = false,
+  recordingDuration,
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -71,7 +73,7 @@ export function RecordingButton({
             {isPreparing 
               ? "جاري..." 
               : isRecording 
-                ? "⏺ اترك" 
+                ? recordingDuration || "00:00" 
                 : label}
           </Text>
         </TouchableOpacity>

@@ -36,7 +36,7 @@ export default function RoomScreen() {
   const [userId] = useState(() => Math.floor(Math.random() * 1000000));
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
-  const { isRecording, isPreparing, startRecording, stopRecording, cancelRecording } =
+  const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, cancelRecording } =
     useAudioRecorder();
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
   const { 
@@ -400,6 +400,7 @@ export default function RoomScreen() {
                     pressAndHold={true}
                     onPressIn={() => handleStartRecording("comment")}
                     onPressOut={() => handleStopRecording()}
+                    recordingDuration={formattedDuration}
                   />
                 </View>
 
@@ -412,6 +413,7 @@ export default function RoomScreen() {
                     onPressIn={() => handleStartRecording("tarouk")}
                     onPressOut={() => handleStopRecording()}
                     backgroundColor={colors.success}
+                    recordingDuration={formattedDuration}
                   />
                 </View>
               </View>
