@@ -16,7 +16,7 @@ import { ReactionsPicker } from "@/components/reactions-picker";
 
 export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { username } = useUser();
+  const { username, userId } = useUser();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const roomId = parseInt(id || "0");
@@ -39,7 +39,6 @@ export default function RoomScreen() {
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
 
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
-  const [userId] = useState(() => Math.floor(Math.random() * 1000000));
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, cancelRecording } =

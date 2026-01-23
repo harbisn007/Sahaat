@@ -21,9 +21,8 @@ import { trpc } from "@/lib/trpc";
  * - Custom colors defined in tailwind.config.js
  */
 export default function HomeScreen() {
-  const { username, isLoading: userLoading } = useUser();
+  const { username, userId, isLoading: userLoading } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [userId] = useState(() => Math.floor(Math.random() * 1000000));
 
   const { data: rooms, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery();
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
