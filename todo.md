@@ -330,3 +330,10 @@
 ## إزالة رسالة "بانتظار موافقة منشئ الساحة"
 - [x] البحث عن الرسالة في app/(tabs)/index.tsx
 - [x] حذف Alert.alert من handleJoinAsPlayer
+
+## إصلاح ثغرة اللاعب العائد
+- [x] فحص كود leaveRoom
+- [x] التأكد من حذف السجل عند المغادرة (بدلاً من تغيير status فقط)
+- [x] إضافة حذف participant قديم في requestJoinAsPlayer و joinAsViewer
+- [x] جميع الاختبارات نجحت (23/23)
+- [x] حفظ checkpoint

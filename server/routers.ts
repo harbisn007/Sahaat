@@ -108,6 +108,10 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // Remove any existing participant record for this user in this room
+        // This ensures returning players start fresh with "pending" status
+        await db.removeParticipant(input.roomId, input.userId);
+
         // Check if room already has 1 additional player (creator + 1 player = 2 total)
         const playerCount = await db.getPlayerCount(input.roomId);
         if (playerCount >= 1) {
@@ -135,6 +139,9 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // Remove any existing participant record for this user in this room
+        await db.removeParticipant(input.roomId, input.userId);
+
         const participantId = await db.addParticipant({
           roomId: input.roomId,
           userId: input.userId,
