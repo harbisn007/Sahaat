@@ -406,3 +406,16 @@
 - [x] جميع الاختبارات نجحت (23/23)
 - [x] حفظ checkpoint
 - [ ] اختبار على الجوال (يحتاج اختبار من المستخدم)
+
+## إصلاح زر شيلوها
+- [x] فحص منطق lastTaroukUri الحالي
+- [x] تغيير lastTaroukUri ليستخدم audioMessages بدلاً من filteredAudioMessages
+- [x] إنشاء جدول sheeloha_broadcasts
+- [x] إضافة دوال createSheelohaBroadcast و getRecentSheelohaBroadcasts
+- [x] إضافة sheeloha router في server/routers.ts
+- [x] تعديل زر شيلوها لإنشاء broadcast
+- [x] إضافة polling للاستماع للـ broadcasts (refetchInterval: 2000ms)
+- [x] إضافة useEffect للتشغيل التلقائي عند الجميع
+- [x] جميع الاختبارات نجحت (23/23)
+- [x] حفظ checkpoint
+- [ ] اختبار على الجوال (يحتاج اختبار من المستخدم)

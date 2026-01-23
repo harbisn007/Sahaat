@@ -69,6 +69,16 @@ export const reactions = mysqlTable("reactions", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
+// Sheeloha broadcasts table (for broadcasting "شيلوها" button press to all users)
+export const sheelohaBroadcasts = mysqlTable("sheeloha_broadcasts", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  userId: int("userId").notNull(),
+  username: varchar("username", { length: 50 }).notNull(),
+  audioUrl: text("audioUrl").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type Room = typeof rooms.$inferSelect;
 export type InsertRoom = typeof rooms.$inferInsert;
 
@@ -80,3 +90,6 @@ export type InsertAudioMessage = typeof audioMessages.$inferInsert;
 
 export type Reaction = typeof reactions.$inferSelect;
 export type InsertReaction = typeof reactions.$inferInsert;
+
+export type SheelohaBroadcast = typeof sheelohaBroadcasts.$inferSelect;
+export type InsertSheelohaBroadcast = typeof sheelohaBroadcasts.$inferInsert;

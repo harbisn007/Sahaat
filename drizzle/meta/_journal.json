@@ -15,6 +15,13 @@
       "when": 1768930813148,
       "tag": "0001_white_chameleon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1769208883302,
+      "tag": "0002_good_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

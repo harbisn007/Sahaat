@@ -349,6 +349,38 @@ export const appRouter = router({
         return db.getRecentReactions(input.roomId, 100);
       }),
   }),
+
+  // Sheeloha broadcasts router
+  sheeloha: router({
+    // Create a sheeloha broadcast (when someone presses "شيلوها" button)
+    broadcast: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+          username: z.string(),
+          audioUrl: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          console.log("[API] Creating sheeloha broadcast:", input);
+          const broadcastId = await db.createSheelohaBroadcast(input);
+          console.log("[API] Sheeloha broadcast created with ID:", broadcastId);
+          return { broadcastId };
+        } catch (error) {
+          console.error("[API] Failed to create sheeloha broadcast:", error);
+          throw new Error("فشل بث شيلوها");
+        }
+      }),
+
+    // Get recent sheeloha broadcasts for a room
+    list: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getRecentSheelohaBroadcasts(input.roomId, 10);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

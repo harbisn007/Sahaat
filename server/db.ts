@@ -97,10 +97,12 @@ import {
   roomParticipants,
   audioMessages,
   reactions,
+  sheelohaBroadcasts,
   type InsertRoom,
   type InsertRoomParticipant,
   type InsertAudioMessage,
   type InsertReaction,
+  type InsertSheelohaBroadcast,
 } from "../drizzle/schema";
 
 export async function getAllRooms() {
@@ -430,5 +432,37 @@ export async function getRecentReactions(roomId: number, limit: number = 50) {
     .from(reactions)
     .where(eq(reactions.roomId, roomId))
     .orderBy(asc(reactions.createdAt))
+    .limit(limit);
+}
+
+// Sheeloha broadcasts functions
+export async function createSheelohaBroadcast(data: InsertSheelohaBroadcast) {
+  const db = await getDb();
+  if (!db) {
+    console.error("[DB] Cannot create sheeloha broadcast: database not available");
+    throw new Error("Database not available");
+  }
+  
+  try {
+    console.log("[DB] Inserting sheeloha broadcast:", data);
+    const result = await db.insert(sheelohaBroadcasts).values(data);
+    const broadcastId = Number(result[0].insertId);
+    console.log("[DB] Sheeloha broadcast inserted with ID:", broadcastId);
+    return broadcastId;
+  } catch (error) {
+    console.error("[DB] Failed to insert sheeloha broadcast:", error);
+    throw error;
+  }
+}
+
+export async function getRecentSheelohaBroadcasts(roomId: number, limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(sheelohaBroadcasts)
+    .where(eq(sheelohaBroadcasts.roomId, roomId))
+    .orderBy(desc(sheelohaBroadcasts.createdAt))
     .limit(limit);
 }

@@ -70,6 +70,7 @@ export default function RoomScreen() {
   const createReactionMutation = trpc.reactions.create.useMutation();
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
+  const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
     useAudioRecorder();
@@ -89,6 +90,11 @@ export default function RoomScreen() {
   const { data: reactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 3000 }
+  );
+
+  const { data: sheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
+    { roomId },
+    { enabled: roomId > 0, refetchInterval: 2000 } // Fast polling for real-time broadcast
   );
 
   // Filter messages: only show messages sent AFTER user joined
@@ -134,12 +140,12 @@ export default function RoomScreen() {
   // Reactions picker state
   const [showReactionsPicker, setShowReactionsPicker] = useState(false);
 
-  // Update last Tarouk URI when filtered audio messages change
+  // Update last Tarouk URI when audio messages change (use ALL messages, not filtered)
   useEffect(() => {
-    console.log("[RoomScreen] useEffect triggered - filteredAudioMessages changed");
-    if (filteredAudioMessages && filteredAudioMessages.length > 0) {
-      const taroukMessages = filteredAudioMessages.filter(msg => msg.messageType === "tarouk");
-      console.log("[RoomScreen] Total filtered audio messages:", filteredAudioMessages.length);
+    console.log("[RoomScreen] useEffect triggered - audioMessages changed");
+    if (audioMessages && audioMessages.length > 0) {
+      const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
+      console.log("[RoomScreen] Total audio messages:", audioMessages.length);
       console.log("[RoomScreen] Tarouk messages count:", taroukMessages.length);
       if (taroukMessages.length > 0) {
         const lastTarouk = taroukMessages[taroukMessages.length - 1];
@@ -154,9 +160,9 @@ export default function RoomScreen() {
         console.log("[RoomScreen] No tarouk messages found");
       }
     } else {
-      console.log("[RoomScreen] No filtered audio messages or empty array");
+      console.log("[RoomScreen] No audio messages or empty array");
     }
-  }, [filteredAudioMessages]);
+  }, [audioMessages]);
 
   // Auto-play new messages for ALL users (including sender)
   useEffect(() => {
@@ -181,6 +187,30 @@ export default function RoomScreen() {
       play(latestMessage.audioUrl);
     }
   }, [filteredAudioMessages, playedMessageIds, play]);
+
+  // Listen for sheeloha broadcasts and auto-play for ALL users
+  const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
+  useEffect(() => {
+    if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return;
+
+    // Get the latest broadcast
+    const latestBroadcast = sheelohaBroadcasts[0]; // Already sorted by desc(createdAt)
+
+    // Check if it's a new broadcast that hasn't been played yet
+    if (
+      latestBroadcast &&
+      !playedBroadcastIds.has(latestBroadcast.id)
+    ) {
+      console.log("[RoomScreen] Auto-playing sheeloha broadcast:", {
+        id: latestBroadcast.id,
+        audioUrl: latestBroadcast.audioUrl,
+        username: latestBroadcast.username
+      });
+      // Mark as played and auto-play the broadcast for everyone
+      setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
+      playSheeloha(latestBroadcast.audioUrl);
+    }
+  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -601,19 +631,31 @@ export default function RoomScreen() {
                   paddingVertical: 12,
                   paddingHorizontal: 8,
                 }}
-                onPress={() => {
+                onPress={async () => {
                   console.log("[RoomScreen] Sheeloha button pressed");
                   console.log("[RoomScreen] Current lastTaroukUri:", lastTaroukUri);
                   if (!lastTaroukUri) {
                     Alert.alert("تنبيه", "لا توجد رسائل طاروق");
                     return;
                   }
-                  if (isSheelohaPlaying) {
-                    console.log("[RoomScreen] Stopping Sheeloha");
-                    stopSheeloha();
-                  } else {
-                    console.log("[RoomScreen] Playing Sheeloha with URI:", lastTaroukUri);
-                    playSheeloha(lastTaroukUri);
+                  if (!username) {
+                    Alert.alert("خطأ", "يجب تسجيل الدخول");
+                    return;
+                  }
+                  
+                  try {
+                    // Create broadcast to play at all users
+                    console.log("[RoomScreen] Broadcasting sheeloha to all users");
+                    await createSheelohaBroadcastMutation.mutateAsync({
+                      roomId,
+                      userId,
+                      username,
+                      audioUrl: lastTaroukUri!, // Already checked above
+                    });
+                    console.log("[RoomScreen] Sheeloha broadcast created successfully");
+                  } catch (error) {
+                    console.error("[RoomScreen] Failed to broadcast sheeloha:", error);
+                    Alert.alert("خطأ", "فشل بث شيلوها");
                   }
                 }}
                 disabled={isSheelohaProcessing}
