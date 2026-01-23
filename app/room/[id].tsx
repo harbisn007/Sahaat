@@ -1,6 +1,7 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { useState, useEffect } from "react";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
 import { trpc } from "@/lib/trpc";
@@ -17,6 +18,7 @@ export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { username } = useUser();
   const colors = useColors();
+  const insets = useSafeAreaInsets();
   const roomId = parseInt(id || "0");
 
   const { data: roomData, isLoading, refetch } = trpc.rooms.getById.useQuery(
@@ -363,7 +365,13 @@ export default function RoomScreen() {
 
       {/* Bottom Controls - Compact fixed bar */}
       {/* Players see all controls, Viewers see only reactions */}
-      <View className="bg-surface px-4 py-3 border-t border-border">
+      <View 
+        className="bg-surface px-4 border-t border-border"
+        style={{
+          paddingTop: 12,
+          paddingBottom: Platform.OS === "web" ? 12 : Math.max(insets.bottom + 8, 20),
+        }}
+      >
         <View className="flex-row items-center gap-2 justify-center">
           {/* Left: Sheeloha & Khalloha (Creator only) */}
           {isCreator && (
