@@ -517,7 +517,7 @@
 - [x] خفض playbackRate من 1.02 إلى 0.98 (نبرة أعمق)
 - [x] تغيير clapDuration من 15000ms إلى 30000ms
 - [x] اختبار الوحدات (23/23 نجحت)
-- [ ] حفظ checkpoint
+- [x] حفظ checkpoint
 
 ## إضافة reverb + تحسين echo + خفض الصوت
 - [x] إضافة reverb (convolver) لإحساس بالمساحة الكبيرة (2.5s decay, 40% wet)
@@ -530,14 +530,14 @@
 - [x] تحديث playWithTaroukEffects
 - [x] تحديث playWithTaroukAndClapEffects
 - [x] اختبار الوحدات (23/23 نجحت)
-- [ ] حفظ checkpoint
+- [x] حفظ checkpoint
 
 ## إصلاح رسائل البث التلقائية (broadcast messages)
 - [x] فحص الكود الحالي لرسائل البث
 - [x] تحديد المشكلة: playedBroadcastIds يمنع تشغيل broadcasts الجديدة
 - [x] إصلاح: الاحتفاظ بآخر 5 broadcast IDs فقط
 - [x] اختبار الوحدات (23/23 نجحت)
-- [ ] حفظ checkpoint
+- [x] حفظ checkpoint
 
 ## إضافة زر "إعادة تشغيل" لآخر broadcast
 - [ ] إضافة state لتخزين آخر broadcast
@@ -553,4 +553,12 @@
 - [x] تحميل joinedAt من AsyncStorage عند البدء
 - [x] إضافة isJoinedAtLoaded لمنع الفلترة قبل التحميل
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## إصلاح crash على Android عند تسجيل الصوت
+- [x] فحص use-audio-recorder.ts
+- [x] فحص permissions على Android
+- [x] تحديد السبب: لا يوجد RECORD_AUDIO permission
+- [x] إصلاح: إضافة RECORD_AUDIO إلى permissions
+- [ ] اختبار على Android
 - [ ] حفظ checkpoint
