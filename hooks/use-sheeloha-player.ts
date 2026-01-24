@@ -1,5 +1,6 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Platform } from "react-native";
+import { useAudioPlayer } from "expo-audio";
 
 /**
  * Sheeloha Effect Configuration
@@ -12,10 +13,8 @@ const SHEELOHA_CONFIG = {
   copies: 3,
   // Delay between each copy start (in ms)
   delayBetweenCopies: 80,
-  // Volume reduction for distance effect (0-1)
-  distanceVolume: 0.7,
-  // Additional volume reduction per copy
-  volumeDecay: 0.15,
+  // Volume for each copy (decreasing for distance effect)
+  volumes: [0.8, 0.6, 0.4],
 };
 
 interface SheelohaPlayerState {
@@ -33,193 +32,154 @@ export function useSheelohaPlayer() {
     isProcessing: false,
   });
 
-  // Store audio elements for cleanup
-  const audioElementsRef = useRef<HTMLAudioElement[]>([]);
+  // Use expo-audio players for native
+  const player1 = useAudioPlayer("");
+  const player2 = useAudioPlayer("");
+  const player3 = useAudioPlayer("");
+  
+  // Store timeouts for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Store web audio elements
+  const webAudioRef = useRef<HTMLAudioElement[]>([]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      timeoutsRef.current.forEach(t => clearTimeout(t));
+      webAudioRef.current.forEach(a => {
+        try { a.pause(); a.src = ""; } catch(e) {}
+      });
+    };
+  }, []);
 
   /**
-   * Stop all playing audio and cleanup
+   * Stop all playing audio
    */
   const stopSheeloha = useCallback(() => {
     console.log("[useSheelohaPlayer] Stopping all audio");
     
-    // Clear all timeouts
-    timeoutsRef.current.forEach(timeout => clearTimeout(timeout));
+    // Clear timeouts
+    timeoutsRef.current.forEach(t => clearTimeout(t));
     timeoutsRef.current = [];
     
-    // Stop and cleanup all audio elements
-    audioElementsRef.current.forEach(audio => {
-      try {
-        audio.pause();
-        audio.currentTime = 0;
-        audio.src = "";
-      } catch (e) {
-        console.warn("[useSheelohaPlayer] Error stopping audio:", e);
-      }
+    // Stop web audio
+    webAudioRef.current.forEach(a => {
+      try { a.pause(); a.currentTime = 0; } catch(e) {}
     });
-    audioElementsRef.current = [];
+    webAudioRef.current = [];
     
-    setState({
-      isPlaying: false,
-      isProcessing: false,
-    });
-  }, []);
+    // Stop native players
+    if (Platform.OS !== "web") {
+      try {
+        player1.pause();
+        player2.pause();
+        player3.pause();
+      } catch(e) {}
+    }
+    
+    setState({ isPlaying: false, isProcessing: false });
+  }, [player1, player2, player3]);
 
   /**
-   * Play Sheeloha effect on Web using HTML5 Audio
+   * Play on Web using simple HTML5 Audio (most reliable)
    */
-  const playSheelohaWeb = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] Playing on Web:", audioUri.substring(0, 50));
+  const playOnWeb = useCallback(async (audioUri: string) => {
+    console.log("[useSheelohaPlayer] Playing on Web:", audioUri);
     
-    // Cleanup previous playback
     stopSheeloha();
+    setState({ isPlaying: true, isProcessing: false });
     
-    setState({ isPlaying: false, isProcessing: true });
+    const audios: HTMLAudioElement[] = [];
+    let finishedCount = 0;
     
-    try {
-      const audioElements: HTMLAudioElement[] = [];
-      let completedCount = 0;
+    for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
+      const audio = new Audio();
+      audio.crossOrigin = "anonymous";
+      audio.volume = SHEELOHA_CONFIG.volumes[i];
       
-      // Create 3 audio elements with staggered start
-      for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-        const audio = new Audio(audioUri);
-        
-        // Calculate volume with distance effect and decay
-        const volume = SHEELOHA_CONFIG.distanceVolume - (i * SHEELOHA_CONFIG.volumeDecay);
-        audio.volume = Math.max(0.2, volume);
-        
-        // Add low-pass filter effect for distance (if supported)
-        // Note: This requires Web Audio API for full effect
-        
-        audio.onended = () => {
-          completedCount++;
-          console.log(`[useSheelohaPlayer] Copy ${i + 1} finished (${completedCount}/${SHEELOHA_CONFIG.copies})`);
-          
-          // All copies finished
-          if (completedCount >= SHEELOHA_CONFIG.copies) {
-            console.log("[useSheelohaPlayer] All copies finished");
-            setState({ isPlaying: false, isProcessing: false });
-            audioElementsRef.current = [];
-          }
-        };
-        
-        audio.onerror = (e) => {
-          console.error(`[useSheelohaPlayer] Error playing copy ${i + 1}:`, e);
-        };
-        
-        audioElements.push(audio);
-        
-        // Schedule playback with delay
-        const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
-        const timeout = setTimeout(() => {
-          console.log(`[useSheelohaPlayer] Starting copy ${i + 1} with volume ${audio.volume.toFixed(2)}`);
-          audio.play().catch(e => console.error("[useSheelohaPlayer] Play error:", e));
-        }, delay);
-        
-        timeoutsRef.current.push(timeout);
-      }
+      audio.onended = () => {
+        finishedCount++;
+        console.log(`[useSheelohaPlayer] Copy ${i+1} ended (${finishedCount}/${SHEELOHA_CONFIG.copies})`);
+        if (finishedCount >= SHEELOHA_CONFIG.copies) {
+          setState({ isPlaying: false, isProcessing: false });
+        }
+      };
       
-      audioElementsRef.current = audioElements;
-      setState({ isPlaying: true, isProcessing: false });
+      audio.onerror = (e) => {
+        console.error(`[useSheelohaPlayer] Audio ${i+1} error:`, e);
+      };
       
-    } catch (error) {
-      console.error("[useSheelohaPlayer] Failed to play:", error);
-      setState({ isPlaying: false, isProcessing: false });
+      audio.src = audioUri;
+      audios.push(audio);
+      
+      // Schedule with delay
+      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
+      const timeout = setTimeout(() => {
+        console.log(`[useSheelohaPlayer] Starting copy ${i+1} at +${delay}ms, volume: ${audio.volume}`);
+        audio.play().catch(e => {
+          console.error(`[useSheelohaPlayer] Play error for copy ${i+1}:`, e);
+        });
+      }, delay);
+      
+      timeoutsRef.current.push(timeout);
     }
+    
+    webAudioRef.current = audios;
   }, [stopSheeloha]);
 
   /**
-   * Play Sheeloha effect on Native using expo-audio
-   * Note: Native implementation is simpler due to platform limitations
+   * Play on Native using expo-audio
    */
-  const playSheelohaAudioApi = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] Playing with Web Audio API:", audioUri.substring(0, 50));
+  const playOnNative = useCallback(async (audioUri: string) => {
+    console.log("[useSheelohaPlayer] Playing on Native:", audioUri);
     
     stopSheeloha();
-    setState({ isPlaying: false, isProcessing: true });
+    setState({ isPlaying: true, isProcessing: false });
     
-    try {
-      // Use Web Audio API for better control
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      const audioContext = new AudioContext();
+    const players = [player1, player2, player3];
+    
+    for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
+      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
       
-      // Fetch and decode audio
-      const response = await fetch(audioUri);
-      const arrayBuffer = await response.arrayBuffer();
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      const timeout = setTimeout(() => {
+        console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms`);
+        try {
+          players[i].replace(audioUri);
+          players[i].volume = SHEELOHA_CONFIG.volumes[i];
+          players[i].play();
+        } catch (e) {
+          console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
+        }
+      }, delay);
       
-      let completedCount = 0;
-      
-      // Create 3 sources with staggered start and distance effect
-      for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-        const source = audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        
-        // Create gain node for volume control (distance effect)
-        const gainNode = audioContext.createGain();
-        const volume = SHEELOHA_CONFIG.distanceVolume - (i * SHEELOHA_CONFIG.volumeDecay);
-        gainNode.gain.value = Math.max(0.2, volume);
-        
-        // Create low-pass filter for distance effect (muffled sound)
-        const filter = audioContext.createBiquadFilter();
-        filter.type = "lowpass";
-        // Reduce high frequencies more for each copy (sounds farther)
-        filter.frequency.value = 8000 - (i * 1500);
-        
-        // Connect: source -> filter -> gain -> output
-        source.connect(filter);
-        filter.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        source.onended = () => {
-          completedCount++;
-          if (completedCount >= SHEELOHA_CONFIG.copies) {
-            console.log("[useSheelohaPlayer] All copies finished (Web Audio API)");
-            setState({ isPlaying: false, isProcessing: false });
-            audioContext.close();
-          }
-        };
-        
-        // Start with delay
-        const delaySeconds = (i * SHEELOHA_CONFIG.delayBetweenCopies) / 1000;
-        source.start(audioContext.currentTime + delaySeconds);
-        console.log(`[useSheelohaPlayer] Started copy ${i + 1} at +${delaySeconds}s, volume: ${volume.toFixed(2)}, filter: ${filter.frequency.value}Hz`);
-      }
-      
-      setState({ isPlaying: true, isProcessing: false });
-      
-    } catch (error) {
-      console.error("[useSheelohaPlayer] Web Audio API error:", error);
-      // Fallback to simple HTML5 Audio
-      playSheelohaWeb(audioUri);
+      timeoutsRef.current.push(timeout);
     }
-  }, [stopSheeloha, playSheelohaWeb]);
+    
+    // Auto-stop after estimated duration (10 seconds max)
+    const stopTimeout = setTimeout(() => {
+      setState({ isPlaying: false, isProcessing: false });
+    }, 10000);
+    timeoutsRef.current.push(stopTimeout);
+    
+  }, [stopSheeloha, player1, player2, player3]);
 
   /**
-   * Main play function - chooses implementation based on platform
+   * Main play function
    */
   const playSheeloha = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] playSheeloha called");
+    console.log("[useSheelohaPlayer] playSheeloha called with:", audioUri);
     
     if (!audioUri) {
-      console.warn("[useSheelohaPlayer] No audio URI provided");
+      console.warn("[useSheelohaPlayer] No audio URI provided!");
       return;
     }
     
     if (Platform.OS === "web") {
-      // Try Web Audio API first for better effects
-      try {
-        await playSheelohaAudioApi(audioUri);
-      } catch (e) {
-        // Fallback to simple HTML5 Audio
-        await playSheelohaWeb(audioUri);
-      }
+      await playOnWeb(audioUri);
     } else {
-      // Native: Use simpler approach with expo-audio
-      // For now, use the same web approach (works on native web view)
-      await playSheelohaWeb(audioUri);
+      await playOnNative(audioUri);
     }
-  }, [playSheelohaAudioApi, playSheelohaWeb]);
+  }, [playOnWeb, playOnNative]);
 
   return {
     isPlaying: state.isPlaying,
