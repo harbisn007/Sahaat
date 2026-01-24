@@ -780,12 +780,12 @@ export default function RoomScreen() {
                   }}
                   disabled={isSheelohaProcessing}
                 >
-                  <Text style={{ fontSize: 18 }}>👏</Text>
-                  <Text style={{ fontSize: 16 }}>🗣️</Text>
+                  <Text style={{ fontSize: 28 }}>👏</Text>
+                  <Text style={{ fontSize: 28 }}>🗣️</Text>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
-                    color: '#FFFFFF',
+                    color: colors.muted,
                     fontSize: 9,
                     fontWeight: '700',
                     textAlign: 'center',
@@ -817,11 +817,11 @@ export default function RoomScreen() {
                   }
                   }}
                 >
-                  <Text style={{ fontSize: 24 }}>✋</Text>
+                  <Text style={{ fontSize: 28 }}>✋</Text>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
-                    color: '#FFFFFF',
+                    color: colors.muted,
                     fontSize: 9,
                     fontWeight: '700',
                     textAlign: 'center',
@@ -846,11 +846,11 @@ export default function RoomScreen() {
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
-              <Text style={{ fontSize: 24 }}>😊</Text>
+                  <Text style={{ fontSize: 28 }}>😊</Text>
             </TouchableOpacity>
             <Text 
               style={{ 
-                color: '#FFFFFF',
+                color: colors.muted,
                 fontSize: 9,
                 fontWeight: '700',
                 textAlign: 'center',
@@ -884,7 +884,7 @@ export default function RoomScreen() {
                 </View>
                 <Text 
                   style={{ 
-                    color: '#FFFFFF',
+                    color: colors.muted,
                     fontSize: 8,
                     fontWeight: '700',
                     textAlign: 'center',
@@ -915,7 +915,7 @@ export default function RoomScreen() {
                 </View>
                 <Text 
                   style={{ 
-                    color: '#FFFFFF',
+                    color: colors.muted,
                     fontSize: 9,
                     fontWeight: '700',
                     textAlign: 'center',

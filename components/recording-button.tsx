@@ -1,4 +1,4 @@
-import { TouchableOpacity, Text, View, Animated, Platform } from "react-native";
+import { Pressable, Text, View, Animated, Platform } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
@@ -129,14 +129,13 @@ export function RecordingButton({
             </View>
           </Animated.View>
         )}
-        <TouchableOpacity
+        <Pressable
           onPressIn={onPressIn}
           onPressOut={onPressOut}
           disabled={isPreparing}
-          activeOpacity={0.8}
-          style={{
+          style={({ pressed }) => ({
             flex: 1,
-            backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
+            backgroundColor: pressed || isRecording ? colors.error : backgroundColor || colors.primary,
             opacity: isPreparing ? 0.6 : 1,
             borderRadius: 8,
             paddingVertical: 8,
@@ -144,7 +143,7 @@ export function RecordingButton({
             alignItems: "center",
             justifyContent: "center",
             minHeight,
-          }}
+          })}
         >
           {icon ? (
             <View className="items-center gap-0.5">
@@ -235,7 +234,7 @@ export function RecordingButton({
                   : label}
             </Text>
           )}
-        </TouchableOpacity>
+        </Pressable>
       </Animated.View>
     );
     
@@ -249,14 +248,14 @@ export function RecordingButton({
 
   return (
     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-      <TouchableOpacity
+      <Pressable
         className="rounded-xl py-4 items-center"
-        style={{
-          backgroundColor: isRecording
+        style={({ pressed }) => ({
+          backgroundColor: pressed || isRecording
             ? colors.error
             : backgroundColor || colors.primary,
           opacity: isPreparing ? 0.6 : 1,
-        }}
+        })}
         onPress={onPress}
         disabled={isPreparing}
       >
@@ -268,7 +267,7 @@ export function RecordingButton({
             {isPreparing ? "جاري التحضير..." : isRecording ? "⏹ إيقاف التسجيل" : label}
           </Text>
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 }
