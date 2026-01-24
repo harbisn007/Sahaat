@@ -718,3 +718,11 @@
 - [x] إصلاح المشكلة (useMemo يحسب تلقائياً عند تغيير audioMessages)
 - [x] إصلاح setShowReactionsPicker → setIsReactionsPickerOpen
 - [ ] اختبار على Android
+
+## إصلاح زر شيلوها (المشكلة لا تزال موجودة)
+- [x] فحص useTaroukPlayer hook
+- [x] فحص كيف يستخدم useTaroukPlayer الـ uri
+- [x] فحص audioMessages query (هل يتحدث؟)
+- [x] فحص useMemo (هل يُعيد الحساب؟)
+- [x] إصلاح المشكلة (تغيير dependency لـ audioMessages.length + last id)
+- [ ] اختبار على Android

@@ -177,6 +177,7 @@ export default function RoomScreen() {
   const [isReactionsPickerOpen, setIsReactionsPickerOpen] = useState(false);
 
   // Compute last Tarouk URI directly from audioMessages using useMemo
+  // Use audioMessages.length and last message id as dependencies to force re-compute
   const lastTaroukUri = useMemo(() => {
     console.log("[RoomScreen] useMemo triggered - computing lastTaroukUri");
     if (!audioMessages || audioMessages.length === 0) {
@@ -202,7 +203,10 @@ export default function RoomScreen() {
     });
     
     return lastTarouk.audioUrl;
-  }, [audioMessages]);
+  }, [
+    audioMessages?.length,
+    audioMessages?.[audioMessages.length - 1]?.id,
+  ]);
 
   // Auto-play new messages for ALL users (including sender)
   useEffect(() => {
