@@ -16,6 +16,8 @@ import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
 import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -788,8 +790,8 @@ export default function RoomScreen() {
                   disabled={isSheelohaProcessing}
                 >
                   <View style={{ flexDirection: 'row', gap: 2 }}>
-                    <Text style={{ fontSize: 24 }}>👏</Text>
-                    <Text style={{ fontSize: 24 }}>👏</Text>
+                    <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
+                    <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
                   </View>
                 </TouchableOpacity>
                 <Text 
@@ -826,7 +828,7 @@ export default function RoomScreen() {
                   }
                   }}
                 >
-                  <Text style={{ fontSize: 28, color: '#FFD700' }}>✋</Text>
+                  <MaterialIcons name="pan-tool" size={28} color="#FFD700" />
                 </TouchableOpacity>
                 <Text 
                   style={{ 
@@ -855,7 +857,7 @@ export default function RoomScreen() {
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
-                  <Text style={{ fontSize: 28, color: '#FFD700' }}>😊</Text>
+                  <MaterialIcons name="emoji-emotions" size={28} color="#FFD700" />
             </TouchableOpacity>
             <Text 
               style={{ 
@@ -883,8 +885,12 @@ color: colors.muted,
                     onPressOut={() => handleStopRecording()}
                     onCancelRecording={handleCancelRecording}
                     recordingDuration={formattedDuration}
-                    icon="🎵 💬"
-                    iconSize={28}
+                    iconComponent={
+                      <View style={{ flexDirection: 'row', gap: 4 }}>
+                        <MaterialIcons name="music-note" size={22} color="#FFD700" />
+                        <MaterialIcons name="chat" size={22} color="#FFD700" />
+                      </View>
+                    }
                     label=""
                     showLabel={false}
                     backgroundColor="#5D4037"
@@ -915,8 +921,9 @@ color: colors.muted,
                     onCancelRecording={handleCancelRecording}
                     backgroundColor="#5D4037"
                     recordingDuration={formattedDuration}
-                    icon="🎤"
-                    iconSize={28}
+                    iconComponent={
+                      <MaterialCommunityIcons name="microphone-variant" size={28} color="#FFD700" />
+                    }
                     label=""
                     showLabel={false}
                     minHeight={60}

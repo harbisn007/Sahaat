@@ -15,6 +15,7 @@ interface RecordingButtonProps {
   pressAndHold?: boolean;
   recordingDuration?: string;
   icon?: string; // أيقونة المايكروفون (مثل "🎙️" أو "🎤")
+  iconComponent?: React.ReactNode; // أيقونة SVG مخصصة
   iconSize?: number; // حجم الأيقونة
   showLabel?: boolean; // إظهار النص أم لا
   minHeight?: number; // الحد الأدنى للارتفاع
@@ -32,6 +33,7 @@ export function RecordingButton({
   pressAndHold = false,
   recordingDuration,
   icon,
+  iconComponent,
   iconSize = 24,
   showLabel = true,
   minHeight = 48,
@@ -145,9 +147,9 @@ export function RecordingButton({
             minHeight,
           })}
         >
-          {icon ? (
+          {(icon || iconComponent) ? (
             <View className="items-center gap-0.5">
-              <Text style={{ fontSize: iconSize, color: '#FFD700' }}>{icon}</Text>
+              {iconComponent ? iconComponent : <Text style={{ fontSize: iconSize, color: '#FFD700' }}>{icon}</Text>}
               {showLabel && minHeight < 50 && (
                 <View className="items-center">
                   {isPreparing ? (
