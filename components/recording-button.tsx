@@ -17,6 +17,7 @@ interface RecordingButtonProps {
   icon?: string; // أيقونة المايكروفون (مثل "🎙️" أو "🎤")
   iconSize?: number; // حجم الأيقونة
   showLabel?: boolean; // إظهار النص أم لا
+  minHeight?: number; // الحد الأدنى للارتفاع
 }
 
 export function RecordingButton({
@@ -33,6 +34,7 @@ export function RecordingButton({
   icon,
   iconSize = 24,
   showLabel = true,
+  minHeight = 48,
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -136,12 +138,12 @@ export function RecordingButton({
             flex: 1,
             backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
             opacity: isPreparing ? 0.6 : 1,
-            borderRadius: 6,
-            paddingVertical: 10,
-            paddingHorizontal: 6,
+            borderRadius: 8,
+            paddingVertical: 8,
+            paddingHorizontal: 4,
             alignItems: "center",
             justifyContent: "center",
-            minHeight: 48,
+            minHeight,
           }}
         >
           {icon ? (
