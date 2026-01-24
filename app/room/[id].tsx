@@ -81,7 +81,8 @@ export default function RoomScreen() {
   const { 
     isPlaying: isSheelohaPlaying, 
     isProcessing: isSheelohaProcessing, 
-    playTarouk: playSheeloha, 
+    playTarouk: playSheeloha,
+    playTaroukWithClap: playSheelohaWithClap,
     stopTarouk: stopSheeloha 
   } = useTaroukPlayer();
   
@@ -216,27 +217,37 @@ export default function RoomScreen() {
       // Mark as played
       setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
       
-      // Play clapping sound in loop
+      // Get clap sound path
       const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
-      clapSoundPlayer.replace(clapSoundPath);
-      clapSoundPlayer.play();
       
-      // Get clap duration (approximately 4.88 seconds from ffmpeg output)
-      const clapDuration = 4880; // milliseconds
-      
-      // Repeat clapping every clapDuration
-      const intervalId = setInterval(() => {
-        console.log("[RoomScreen] Repeating clap sound");
+      // On web: play merged audio (tarouk + clapping)
+      // On native: play separately (clapping in loop + tarouk)
+      if (Platform.OS === "web") {
+        console.log("[RoomScreen] Playing merged audio (web)");
+        playSheelohaWithClap(latestBroadcast.audioUrl, clapSoundPath);
+      } else {
+        console.log("[RoomScreen] Playing separately (native)");
+        // Play clapping sound in loop
         clapSoundPlayer.replace(clapSoundPath);
         clapSoundPlayer.play();
-      }, clapDuration);
-      
-      setClapIntervalId(intervalId);
-      
-      // Play tarouk audio
-      playSheeloha(latestBroadcast.audioUrl);
+        
+        // Get clap duration (approximately 4.88 seconds from ffmpeg output)
+        const clapDuration = 4880; // milliseconds
+        
+        // Repeat clapping every clapDuration
+        const intervalId = setInterval(() => {
+          console.log("[RoomScreen] Repeating clap sound");
+          clapSoundPlayer.replace(clapSoundPath);
+          clapSoundPlayer.play();
+        }, clapDuration);
+        
+        setClapIntervalId(intervalId);
+        
+        // Play tarouk audio
+        playSheeloha(latestBroadcast.audioUrl);
+      }
     }
-  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, clapSoundPlayer]);
+  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, playSheelohaWithClap, clapSoundPlayer]);
   
   // Stop clapping when tarouk stops
   useEffect(() => {

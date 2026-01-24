@@ -12,10 +12,10 @@
 export const TAROUK_EFFECTS = {
   // Chorus settings (multiple voices effect)
   chorus: {
-    delayTime: 0.03, // 30ms delay for chorus effect (shorter than echo)
-    feedback: 0.2, // 20% feedback for subtle layering
-    wetMix: 0.6, // 60% wet signal for stronger chorus
-    numberOfVoices: 4, // Number of layered voices
+    delayTime: 0.02, // 20ms delay for tighter chorus (10 voices)
+    feedback: 0.15, // 15% feedback for natural layering
+    wetMix: 0.75, // 75% wet signal for very strong chorus (10 voices)
+    numberOfVoices: 10, // Number of layered voices (like 10 men singing)
   },
   // Slow down settings (deeper, more powerful voice)
   speed: {
@@ -104,31 +104,19 @@ export async function playWithTaroukEffects(
     source.buffer = audioBuffer;
     source.playbackRate.value = TAROUK_EFFECTS.speed.playbackRate;
 
-    // Create delays for chorus effect (multiple voices)
-    const delay1 = audioContext.createDelay(1.0);
-    delay1.delayTime.value = TAROUK_EFFECTS.chorus.delayTime;
-
-    const delay2 = audioContext.createDelay(1.0);
-    delay2.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * 1.5;
-
-    const delay3 = audioContext.createDelay(1.0);
-    delay3.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * 2;
-
-    const delay4 = audioContext.createDelay(1.0);
-    delay4.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * 2.5;
-
-    // Create gains for each voice (more balanced for chorus)
-    const gain1 = audioContext.createGain();
-    gain1.gain.value = 0.8;
-
-    const gain2 = audioContext.createGain();
-    gain2.gain.value = 0.75;
-
-    const gain3 = audioContext.createGain();
-    gain3.gain.value = 0.7;
-
-    const gain4 = audioContext.createGain();
-    gain4.gain.value = 0.65;
+    // Create 10 delays for chorus effect (10 voices like 10 men singing)
+    const delays = [];
+    const gains = [];
+    
+    for (let i = 0; i < 10; i++) {
+      const delay = audioContext.createDelay(1.0);
+      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.3);
+      delays.push(delay);
+      
+      const gain = audioContext.createGain();
+      gain.gain.value = 0.9 - (i * 0.03); // Gradual decrease from 0.9 to 0.63
+      gains.push(gain);
+    }
 
     // Create master gain
     const masterGain = audioContext.createGain();
@@ -138,25 +126,12 @@ export async function playWithTaroukEffects(
     // Original signal
     source.connect(masterGain);
 
-    // Voice 1
-    source.connect(delay1);
-    delay1.connect(gain1);
-    gain1.connect(masterGain);
-
-    // Voice 2
-    source.connect(delay2);
-    delay2.connect(gain2);
-    gain2.connect(masterGain);
-
-    // Voice 3
-    source.connect(delay3);
-    delay3.connect(gain3);
-    gain3.connect(masterGain);
-
-    // Voice 4
-    source.connect(delay4);
-    delay4.connect(gain4);
-    gain4.connect(masterGain);
+    // Connect all 10 voices
+    for (let i = 0; i < 10; i++) {
+      source.connect(delays[i]);
+      delays[i].connect(gains[i]);
+      gains[i].connect(masterGain);
+    }
 
     // Connect to output
     masterGain.connect(audioContext.destination);
@@ -179,6 +154,126 @@ export async function playWithTaroukEffects(
     };
   } catch (error) {
     console.error("Failed to play with Tarouk effects:", error);
+    return null;
+  }
+}
+
+/**
+ * Play audio with Tarouk effects AND clapping sound merged together
+ * Uses Web Audio API to mix both sounds as one
+ */
+export async function playWithTaroukAndClapEffects(
+  audioUri: string,
+  clapSoundUri: string,
+  onEnd?: () => void
+): Promise<{ stop: () => void } | null> {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const audioContext = new AudioContext();
+
+    // Fetch and decode both audio files
+    const [taroukResponse, clapResponse] = await Promise.all([
+      fetch(audioUri),
+      fetch(clapSoundUri),
+    ]);
+    
+    const [taroukArrayBuffer, clapArrayBuffer] = await Promise.all([
+      taroukResponse.arrayBuffer(),
+      clapResponse.arrayBuffer(),
+    ]);
+    
+    const [taroukBuffer, clapBuffer] = await Promise.all([
+      audioContext.decodeAudioData(taroukArrayBuffer),
+      audioContext.decodeAudioData(clapArrayBuffer),
+    ]);
+
+    // Create source for Tarouk
+    const taroukSource = audioContext.createBufferSource();
+    taroukSource.buffer = taroukBuffer;
+    taroukSource.playbackRate.value = TAROUK_EFFECTS.speed.playbackRate;
+
+    // Create 10 delays for chorus effect (10 voices like 10 men singing)
+    const delays = [];
+    const gains = [];
+    
+    for (let i = 0; i < 10; i++) {
+      const delay = audioContext.createDelay(1.0);
+      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.3);
+      delays.push(delay);
+      
+      const gain = audioContext.createGain();
+      gain.gain.value = 0.9 - (i * 0.03);
+      gains.push(gain);
+    }
+
+    // Create master gain for Tarouk
+    const taroukGain = audioContext.createGain();
+    taroukGain.gain.value = 0.7; // Slightly lower to make room for clapping
+
+    // Connect Tarouk nodes
+    taroukSource.connect(taroukGain);
+    for (let i = 0; i < 10; i++) {
+      taroukSource.connect(delays[i]);
+      delays[i].connect(gains[i]);
+      gains[i].connect(taroukGain);
+    }
+
+    // Create source for clapping (looped)
+    const clapSource = audioContext.createBufferSource();
+    clapSource.buffer = clapBuffer;
+    clapSource.loop = true; // Loop the clapping
+
+    // Create gain for clapping
+    const clapGain = audioContext.createGain();
+    clapGain.gain.value = 0.5; // Mix clapping at 50% volume
+
+    // Connect clapping
+    clapSource.connect(clapGain);
+
+    // Create final mixer
+    const mixer = audioContext.createGain();
+    mixer.gain.value = 1.0;
+
+    // Mix both sounds
+    taroukGain.connect(mixer);
+    clapGain.connect(mixer);
+
+    // Connect to output
+    mixer.connect(audioContext.destination);
+
+    // Start both sources at the same time
+    const startTime = audioContext.currentTime;
+    taroukSource.start(startTime);
+    clapSource.start(startTime);
+
+    // Stop clapping when Tarouk ends
+    taroukSource.onended = () => {
+      try {
+        clapSource.stop();
+      } catch (e) {
+        console.log("Clap source already stopped");
+      }
+      audioContext.close();
+      onEnd?.();
+    };
+
+    return {
+      stop: () => {
+        try {
+          taroukSource.stop();
+          clapSource.stop();
+        } catch (e) {
+          console.log("Sources already stopped");
+        }
+        audioContext.close();
+        onEnd?.();
+      },
+    };
+  } catch (error) {
+    console.error("Failed to play with Tarouk and clap effects:", error);
     return null;
   }
 }
