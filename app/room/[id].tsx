@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
+import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
@@ -112,16 +113,13 @@ export default function RoomScreen() {
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
     useAudioRecorder();
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
+  // Sheeloha player - plays tarouk 3 times overlapping with distance effect
   const { 
     isPlaying: isSheelohaPlaying, 
     isProcessing: isSheelohaProcessing, 
-    playTarouk: playSheeloha,
-    playTaroukWithClap: playSheelohaWithClap,
-    stopTarouk: stopSheeloha 
-  } = useTaroukPlayer();
-  
-  // Clap sound player for sheeloha button
-  const clapSoundPlayer = useAudioPlayer("");
+    playSheeloha,
+    stopSheeloha 
+  } = useSheelohaPlayer();
 
   const { data: audioMessages, refetch: refetchAudio } = trpc.audio.list.useQuery(
     { roomId },
@@ -241,8 +239,8 @@ export default function RoomScreen() {
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
-  const [clapIntervalId, setClapIntervalId] = useState<number | null>(null);
   
+  // Auto-play sheeloha broadcasts from other users
   useEffect(() => {
     if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return;
 
@@ -254,7 +252,7 @@ export default function RoomScreen() {
       latestBroadcast &&
       !playedBroadcastIds.has(latestBroadcast.id)
     ) {
-      console.log("[RoomScreen] Auto-playing sheeloha broadcast with clapping:", {
+      console.log("[RoomScreen] Auto-playing sheeloha broadcast:", {
         id: latestBroadcast.id,
         audioUrl: latestBroadcast.audioUrl,
         username: latestBroadcast.username
@@ -263,55 +261,17 @@ export default function RoomScreen() {
       // Mark as played and clear old IDs (keep only the latest 5)
       setPlayedBroadcastIds(prev => {
         const newSet = new Set(prev).add(latestBroadcast.id);
-        // Keep only the latest 5 broadcast IDs to prevent memory leak
         if (newSet.size > 5) {
           const arr = Array.from(newSet);
-          return new Set(arr.slice(-5)); // Keep last 5
+          return new Set(arr.slice(-5));
         }
         return newSet;
       });
       
-      // Get clap sound path
-      const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
-      
-      // On web: play merged audio (tarouk + clapping)
-      // On native: play separately (clapping in loop + tarouk)
-      if (Platform.OS === "web") {
-        console.log("[RoomScreen] Playing merged audio (web)");
-        playSheelohaWithClap(latestBroadcast.audioUrl, clapSoundPath);
-      } else {
-        console.log("[RoomScreen] Playing separately (native)");
-        // Play clapping sound in loop
-        clapSoundPlayer.replace(clapSoundPath);
-        clapSoundPlayer.play();
-        
-        // Get clap duration (30 seconds for very spaced clapping)
-        const clapDuration = 30000; // milliseconds
-        
-        // Repeat clapping every clapDuration
-        const intervalId = setInterval(() => {
-          console.log("[RoomScreen] Repeating clap sound");
-          clapSoundPlayer.replace(clapSoundPath);
-          clapSoundPlayer.play();
-        }, clapDuration);
-        
-        setClapIntervalId(intervalId);
-        
-        // Play tarouk audio
-        playSheeloha(latestBroadcast.audioUrl);
-      }
+      // Play sheeloha effect (3 overlapping copies with distance effect)
+      playSheeloha(latestBroadcast.audioUrl);
     }
-  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, playSheelohaWithClap, clapSoundPlayer]);
-  
-  // Stop clapping when tarouk stops
-  useEffect(() => {
-    if (!isSheelohaPlaying && clapIntervalId) {
-      console.log("[RoomScreen] Stopping clap sound (tarouk ended)");
-      clearInterval(clapIntervalId);
-      setClapIntervalId(null);
-      clapSoundPlayer.pause();
-    }
-  }, [isSheelohaPlaying, clapIntervalId, clapSoundPlayer]);
+  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -764,17 +724,9 @@ export default function RoomScreen() {
                   }
                   
                   try {
-                    console.log("[RoomScreen] Playing sheeloha immediately for button presser");
-                    // Play immediately for the person who pressed the button
-                    const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
-                    if (Platform.OS === "web") {
-                      playSheelohaWithClap(lastTaroukUri!, clapSoundPath);
-                    } else {
-                      // On native, play clapping + tarouk
-                      clapSoundPlayer.replace(clapSoundPath);
-                      clapSoundPlayer.play();
-                      playSheeloha(lastTaroukUri!);
-                    }
+                    console.log("[RoomScreen] Playing sheeloha effect (3 overlapping copies)");
+                    // Play sheeloha effect immediately
+                    playSheeloha(lastTaroukUri!);
                     
                     // Also broadcast to other users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
