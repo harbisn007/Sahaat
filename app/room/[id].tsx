@@ -787,13 +787,16 @@ export default function RoomScreen() {
                   }}
                   disabled={isSheelohaProcessing}
                 >
-                  <Text style={{ fontSize: 28, color: '#FFD700' }}>👏👏</Text>
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    <Text style={{ fontSize: 24 }}>👏</Text>
+                    <Text style={{ fontSize: 24 }}>👏</Text>
+                  </View>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
                     fontSize: 9,
-                    fontWeight: '800',
+                    fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
@@ -829,7 +832,7 @@ export default function RoomScreen() {
                   style={{ 
                     color: colors.muted,
                     fontSize: 9,
-                    fontWeight: '800',
+                    fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
@@ -856,14 +859,14 @@ export default function RoomScreen() {
             </TouchableOpacity>
             <Text 
               style={{ 
-                color: colors.muted,
-                fontSize: 9,
-                fontWeight: '800',
-                textAlign: 'center',
-                marginTop: 4,
-              }}
-            >
-              تفاعل
+color: colors.muted,
+                    fontSize: 9,
+                    fontWeight: '900',
+                    textAlign: 'center',
+                    marginTop: 4,
+                  }}
+                >
+                  تفاعل
             </Text>
           </View>
 
@@ -880,7 +883,7 @@ export default function RoomScreen() {
                     onPressOut={() => handleStopRecording()}
                     onCancelRecording={handleCancelRecording}
                     recordingDuration={formattedDuration}
-                    icon="🎵💬"
+                    icon="🎵 💬"
                     iconSize={28}
                     label=""
                     showLabel={false}
@@ -892,7 +895,7 @@ export default function RoomScreen() {
                   style={{ 
                     color: colors.muted,
                     fontSize: 8,
-                    fontWeight: '800',
+                    fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
@@ -923,7 +926,7 @@ export default function RoomScreen() {
                   style={{ 
                     color: colors.muted,
                     fontSize: 9,
-                    fontWeight: '800',
+                    fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
