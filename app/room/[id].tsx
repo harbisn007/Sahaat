@@ -231,8 +231,8 @@ export default function RoomScreen() {
         clapSoundPlayer.replace(clapSoundPath);
         clapSoundPlayer.play();
         
-        // Get clap duration (10 seconds for more spaced clapping)
-        const clapDuration = 10000; // milliseconds
+        // Get clap duration (15 seconds for more spaced clapping)
+        const clapDuration = 15000; // milliseconds
         
         // Repeat clapping every clapDuration
         const intervalId = setInterval(() => {
