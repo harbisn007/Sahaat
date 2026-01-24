@@ -136,18 +136,27 @@ export function RecordingButton({
             flex: 1,
             backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
             opacity: isPreparing ? 0.6 : 1,
-            borderRadius: 8,
-            paddingVertical: 10,
+            borderRadius: 4,
+            paddingVertical: 14,
             paddingHorizontal: 8,
             alignItems: "center",
             justifyContent: "center",
+            minHeight: 56,
           }}
         >
           {icon ? (
-            <View className="items-center gap-1">
+            <View className="items-center gap-0.5">
               <Text style={{ fontSize: iconSize }}>{icon}</Text>
               {showLabel && (
-                <Text className="text-background font-bold" style={{ fontSize: 10 }}>
+                <Text 
+                  style={{ 
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                    lineHeight: 14,
+                  }}
+                >
                   {isPreparing 
                     ? "جاري..." 
                     : isRecording 
@@ -156,13 +165,27 @@ export function RecordingButton({
                 </Text>
               )}
               {!showLabel && isRecording && (
-                <Text className="text-background font-bold" style={{ fontSize: 10 }}>
+                <Text 
+                  style={{ 
+                    color: '#FFFFFF',
+                    fontSize: 11,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                  }}
+                >
                   {recordingDuration || "00:00"}
                 </Text>
               )}
             </View>
           ) : (
-            <Text className="text-background font-bold text-xs text-center">
+            <Text 
+              style={{ 
+                color: '#FFFFFF',
+                fontSize: 11,
+                fontWeight: '700',
+                textAlign: 'center',
+              }}
+            >
               {isPreparing 
                 ? "جاري..." 
                 : isRecording 

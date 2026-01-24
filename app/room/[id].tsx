@@ -735,13 +735,14 @@ export default function RoomScreen() {
             <View className="flex-row gap-2 flex-1">
               {/* Sheeloha Button */}
               <TouchableOpacity
-                className="rounded-lg items-center justify-center"
+                className="rounded items-center justify-center"
                 style={{
-                  backgroundColor: "#5D4037", // بني داكن
+                  backgroundColor: "#5D4037",
                   opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingVertical: 14,
                   paddingHorizontal: 8,
+                  minHeight: 56,
                 }}
                 onPress={async () => {
                   console.log("[RoomScreen] Sheeloha button pressed");
@@ -756,13 +757,12 @@ export default function RoomScreen() {
                   }
                   
                   try {
-                    // Create broadcast to play at all users (clapping will be played in useEffect)
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
                       userId,
                       username,
-                      audioUrl: lastTaroukUri!, // Already checked above
+                      audioUrl: lastTaroukUri!,
                     });
                     console.log("[RoomScreen] Sheeloha broadcast created successfully");
                   } catch (error) {
@@ -772,18 +772,28 @@ export default function RoomScreen() {
                 }}
                 disabled={isSheelohaProcessing}
               >
-                <Text style={{ fontSize: 32 }}>{isSheelohaPlaying ? "⏸️" : "🔁"}</Text>
+                <Text 
+                  style={{ 
+                    color: '#FFFFFF',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                  }}
+                >
+                  شيلوها
+                </Text>
               </TouchableOpacity>
 
               {/* Khalloha Button */}
               <TouchableOpacity
-                className="rounded-lg items-center justify-center"
+                className="rounded items-center justify-center"
                 style={{
-                  backgroundColor: "#5D4037", // بني داكن
+                  backgroundColor: "#5D4037",
                   opacity: isSheelohaPlaying ? 1 : 0.5,
                   flex: 1,
-                  paddingVertical: 12,
+                  paddingVertical: 14,
                   paddingHorizontal: 8,
+                  minHeight: 56,
                 }}
                 onPress={() => {
                   if (isSheelohaPlaying) {
@@ -793,7 +803,16 @@ export default function RoomScreen() {
                   }
                 }}
               >
-                <Text style={{ fontSize: 32 }}>⏹️</Text>
+                <Text 
+                  style={{ 
+                    color: '#FFFFFF',
+                    fontSize: 13,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                  }}
+                >
+                  خلوها
+                </Text>
               </TouchableOpacity>
             </View>
           )}
@@ -809,37 +828,48 @@ export default function RoomScreen() {
 
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (
-            <View className="flex-row gap-2 flex-1">
-              <View className="flex-1">
-                <RecordingButton
-                  isRecording={isRecording && recordingType === "comment"}
-                  isPreparing={isPreparing}
-                  pressAndHold={true}
-                  onPressIn={() => handleStartRecording("comment")}
-                  onPressOut={() => handleStopRecording()}
-                  onCancelRecording={handleCancelRecording}
-                  recordingDuration={formattedDuration}
-                  icon="🎙️💬"
-                  iconSize={28}
-                  showLabel={false}
-                  backgroundColor="#5D4037"
-                />
-              </View>
+            <View 
+              className="flex-1 rounded p-1.5"
+              style={{ 
+                backgroundColor: '#3E2723',
+                borderWidth: 1,
+                borderColor: '#5D4037',
+              }}
+            >
+              <View className="flex-row gap-1.5">
+                <View className="flex-1">
+                  <RecordingButton
+                    isRecording={isRecording && recordingType === "comment"}
+                    isPreparing={isPreparing}
+                    pressAndHold={true}
+                    onPressIn={() => handleStartRecording("comment")}
+                    onPressOut={() => handleStopRecording()}
+                    onCancelRecording={handleCancelRecording}
+                    recordingDuration={formattedDuration}
+                    icon="🎙️"
+                    iconSize={22}
+                    label="للتعليقات\nوالموال"
+                    showLabel={true}
+                    backgroundColor="#5D4037"
+                  />
+                </View>
 
-              <View className="flex-1">
-                <RecordingButton
-                  isRecording={isRecording && recordingType === "tarouk"}
-                  isPreparing={isPreparing}
-                  pressAndHold={true}
-                  onPressIn={() => handleStartRecording("tarouk")}
-                  onPressOut={() => handleStopRecording()}
-                  onCancelRecording={handleCancelRecording}
-                  backgroundColor="#5D4037"
-                  recordingDuration={formattedDuration}
-                  icon="🎤"
-                  iconSize={40}
-                  showLabel={false}
-                />
+                <View className="flex-1">
+                  <RecordingButton
+                    isRecording={isRecording && recordingType === "tarouk"}
+                    isPreparing={isPreparing}
+                    pressAndHold={true}
+                    onPressIn={() => handleStartRecording("tarouk")}
+                    onPressOut={() => handleStopRecording()}
+                    onCancelRecording={handleCancelRecording}
+                    backgroundColor="#5D4037"
+                    recordingDuration={formattedDuration}
+                    icon="🎤"
+                    iconSize={22}
+                    label="طاروق"
+                    showLabel={true}
+                  />
+                </View>
               </View>
             </View>
           )}
