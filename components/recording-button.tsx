@@ -136,40 +136,79 @@ export function RecordingButton({
             flex: 1,
             backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
             opacity: isPreparing ? 0.6 : 1,
-            borderRadius: 4,
-            paddingVertical: 14,
-            paddingHorizontal: 8,
+            borderRadius: 6,
+            paddingVertical: 10,
+            paddingHorizontal: 6,
             alignItems: "center",
             justifyContent: "center",
-            minHeight: 56,
+            minHeight: 48,
           }}
         >
           {icon ? (
             <View className="items-center gap-0.5">
               <Text style={{ fontSize: iconSize }}>{icon}</Text>
               {showLabel && (
-                <Text 
-                  style={{ 
-                    color: '#FFFFFF',
-                    fontSize: 11,
-                    fontWeight: '700',
-                    textAlign: 'center',
-                    lineHeight: 14,
-                  }}
-                >
-                  {isPreparing 
-                    ? "جاري..." 
-                    : isRecording 
-                      ? recordingDuration || "00:00" 
-                      : label}
-                </Text>
+                <View className="items-center">
+                  {isPreparing ? (
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textAlign: 'center',
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      جاري...
+                    </Text>
+                  ) : isRecording ? (
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {recordingDuration || "00:00"}
+                    </Text>
+                  ) : label?.includes('\n') ? (
+                    label.split('\n').map((line, i) => (
+                      <Text 
+                        key={i}
+                        style={{ 
+                          color: '#FFFFFF',
+                          fontSize: 10,
+                          fontWeight: '800',
+                          textAlign: 'center',
+                          letterSpacing: 0.3,
+                          lineHeight: 13,
+                        }}
+                      >
+                        {line}
+                      </Text>
+                    ))
+                  ) : (
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textAlign: 'center',
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  )}
+                </View>
               )}
               {!showLabel && isRecording && (
                 <Text 
                   style={{ 
                     color: '#FFFFFF',
-                    fontSize: 11,
-                    fontWeight: '700',
+                    fontSize: 10,
+                    fontWeight: '800',
                     textAlign: 'center',
                   }}
                 >
@@ -181,9 +220,10 @@ export function RecordingButton({
             <Text 
               style={{ 
                 color: '#FFFFFF',
-                fontSize: 11,
-                fontWeight: '700',
+                fontSize: 10,
+                fontWeight: '800',
                 textAlign: 'center',
+                letterSpacing: 0.3,
               }}
             >
               {isPreparing 
