@@ -146,14 +146,6 @@ export function useAudioRecorder() {
         // Native implementation using expo-audio's recorder
         console.log("[useAudioRecorder] Using expo-audio recorder...");
         
-        // Release any existing recorder session first
-        try {
-          await expoRecorder.release();
-          console.log("[useAudioRecorder] Previous recorder released");
-        } catch (e) {
-          console.log("[useAudioRecorder] No previous recorder to release");
-        }
-        
         // Set audio mode for recording
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,

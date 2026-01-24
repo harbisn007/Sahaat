@@ -570,4 +570,10 @@
 - [x] تحديد المشكلة: delayPressIn={0} و delayPressOut={0}
 - [x] إصلاح: إزالة delay props
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## إصلاح "Cannot use shared object that was already released"
+- [x] فحص use-audio-recorder.ts (startRecording)
+- [x] إزالة release() قبل prepareToRecordAsync()
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint
