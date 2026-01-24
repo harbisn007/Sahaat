@@ -576,4 +576,11 @@
 - [x] فحص use-audio-recorder.ts (startRecording)
 - [x] إزالة release() قبل prepareToRecordAsync()
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## إصلاح "Audio Recorder has already been prepared"
+- [x] فحص use-audio-recorder.ts (startRecording)
+- [x] إضافة try-catch حول prepareToRecordAsync
+- [x] التحقق من حالة recorder قبل prepare (ignore error)
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint

@@ -153,7 +153,12 @@ export function useAudioRecorder() {
         });
         
         // Prepare and start recording
-        await expoRecorder.prepareToRecordAsync();
+        try {
+          await expoRecorder.prepareToRecordAsync();
+        } catch (prepareError) {
+          // If already prepared, that's okay - just continue
+          console.log("[useAudioRecorder] Recorder already prepared, continuing...");
+        }
         expoRecorder.record();
         
         setIsPreparing(false);
