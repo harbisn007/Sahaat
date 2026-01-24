@@ -501,4 +501,14 @@
 ## تعديل تكرار التصفيق إلى 15 ثانية
 - [x] تغيير clapDuration من 10000ms إلى 15000ms
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## تغيير التأثير الصوتي إلى صدى متوسط + تغيير النبرة
+- [x] استبدال chorus بـ echo (صدى متوسط: 180ms, 35% feedback)
+- [x] إضافة pitch shift طفيف (1.02x = نبرة أعلى قليلاً)
+- [x] تحديث TAROUK_EFFECTS
+- [x] تحديث playWithTaroukEffects
+- [x] تحديث playWithTaroukAndClapEffects
+- [x] تحديث use-tarouk-player.ts
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint

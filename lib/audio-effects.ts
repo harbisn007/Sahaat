@@ -10,16 +10,16 @@
 
 // Audio effect configuration for Tarouk
 export const TAROUK_EFFECTS = {
-  // Chorus settings (multiple voices effect)
-  chorus: {
-    delayTime: 0.01, // 10ms delay for natural chorus (5 voices)
-    feedback: 0.1, // 10% feedback for subtle layering
-    wetMix: 0.5, // 50% wet signal for balanced chorus
-    numberOfVoices: 5, // Number of layered voices (natural group singing)
+  // Echo settings (medium echo effect)
+  echo: {
+    delayTime: 0.18, // 180ms delay for medium echo
+    feedback: 0.35, // 35% feedback for 2-3 repetitions
+    wetMix: 0.45, // 45% wet signal for balanced echo
+    numberOfEchoes: 3, // Number of echo repetitions
   },
-  // Speed settings (normal speed, no distortion)
-  speed: {
-    playbackRate: 1.0, // Normal playback speed (no slowdown)
+  // Pitch shift settings (slight pitch change)
+  pitch: {
+    playbackRate: 1.02, // 2% faster = slightly higher pitch (subtle difference)
   },
 };
 
@@ -49,20 +49,20 @@ export function createTaroukAudioContext() {
 
   const audioContext = new AudioContext();
 
-  // Create delay node for chorus effect
+  // Create delay node for echo effect
   const delayNode = audioContext.createDelay(1.0);
-  delayNode.delayTime.value = TAROUK_EFFECTS.chorus.delayTime;
+  delayNode.delayTime.value = TAROUK_EFFECTS.echo.delayTime;
 
-  // Create feedback gain for chorus layering
+  // Create feedback gain for echo repetitions
   const feedbackGain = audioContext.createGain();
-  feedbackGain.gain.value = TAROUK_EFFECTS.chorus.feedback;
+  feedbackGain.gain.value = TAROUK_EFFECTS.echo.feedback;
 
   // Create wet/dry mix gains
   const wetGain = audioContext.createGain();
-  wetGain.gain.value = TAROUK_EFFECTS.chorus.wetMix;
+  wetGain.gain.value = TAROUK_EFFECTS.echo.wetMix;
 
   const dryGain = audioContext.createGain();
-  dryGain.gain.value = 1 - TAROUK_EFFECTS.chorus.wetMix;
+  dryGain.gain.value = 1 - TAROUK_EFFECTS.echo.wetMix;
 
   // Create output gain
   const outputGain = audioContext.createGain();
@@ -75,8 +75,16 @@ export function createTaroukAudioContext() {
     wetGain,
     dryGain,
     outputGain,
-    playbackRate: TAROUK_EFFECTS.speed.playbackRate,
   };
+}
+
+/**
+ * Set playback rate for pitch shift on native platforms
+ */
+export function applyPitchShift(player: any) {
+  if (player && player.playbackRate !== undefined) {
+    player.playbackRate = TAROUK_EFFECTS.pitch.playbackRate;
+  }
 }
 
 /**
@@ -99,22 +107,23 @@ export async function playWithTaroukEffects(
     const arrayBuffer = await response.arrayBuffer();
     const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
-    // Create source
+    // Set playback rate (pitch shift)
     const source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
-    source.playbackRate.value = TAROUK_EFFECTS.speed.playbackRate;
+    source.playbackRate.value = TAROUK_EFFECTS.pitch.playbackRate;
 
-    // Create 5 delays for chorus effect (natural group singing)
+    // Create echo delays
     const delays = [];
     const gains = [];
     
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < TAROUK_EFFECTS.echo.numberOfEchoes; i++) {
       const delay = audioContext.createDelay(1.0);
-      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.5);
+      delay.delayTime.value = TAROUK_EFFECTS.echo.delayTime * (i + 1); // 0.18s, 0.36s, 0.54s
       delays.push(delay);
       
       const gain = audioContext.createGain();
-      gain.gain.value = 0.85 - (i * 0.05); // Gradual decrease from 0.85 to 0.65
+      // Each echo is quieter: 0.35, 0.12, 0.04
+      gain.gain.value = Math.pow(TAROUK_EFFECTS.echo.feedback, i + 1);
       gains.push(gain);
     }
 
@@ -122,18 +131,31 @@ export async function playWithTaroukEffects(
     const masterGain = audioContext.createGain();
     masterGain.gain.value = 0.8;
 
+    // Create wet/dry mix
+    const dryGain = audioContext.createGain();
+    dryGain.gain.value = 1 - TAROUK_EFFECTS.echo.wetMix; // 55% dry
+    
+    const wetGain = audioContext.createGain();
+    wetGain.gain.value = TAROUK_EFFECTS.echo.wetMix; // 45% wet
+
     // Connect nodes
-    // Original signal
-    source.connect(masterGain);
+    // Dry signal (original)
+    source.connect(dryGain);
+    dryGain.connect(masterGain);
 
-    // Connect all 5 voices
-    for (let i = 0; i < 5; i++) {
-      source.connect(delays[i]);
-      delays[i].connect(gains[i]);
-      gains[i].connect(masterGain);
-    }
-
-    // Connect to output
+    // Wet signal (echo)
+    const echoDelay = audioContext.createDelay(1.0);
+    echoDelay.delayTime.value = TAROUK_EFFECTS.echo.delayTime;
+    
+    const echoFeedback = audioContext.createGain();
+    echoFeedback.gain.value = TAROUK_EFFECTS.echo.feedback;
+    
+    // Echo feedback loop
+    source.connect(echoDelay);
+    echoDelay.connect(echoFeedback);
+    echoFeedback.connect(echoDelay); // Feedback loop
+    echoDelay.connect(wetGain);
+    wetGain.connect(masterGain);  // Connect to output
     masterGain.connect(audioContext.destination);
 
     // Start playback
@@ -193,33 +215,34 @@ export async function playWithTaroukAndClapEffects(
     // Create source for Tarouk
     const taroukSource = audioContext.createBufferSource();
     taroukSource.buffer = taroukBuffer;
-    taroukSource.playbackRate.value = TAROUK_EFFECTS.speed.playbackRate;
+    taroukSource.playbackRate.value = TAROUK_EFFECTS.pitch.playbackRate;
 
-    // Create 5 delays for chorus effect (natural group singing)
-    const delays = [];
-    const gains = [];
+    // Create echo effect
+    const taroukDryGain = audioContext.createGain();
+    taroukDryGain.gain.value = 1 - TAROUK_EFFECTS.echo.wetMix;
     
-    for (let i = 0; i < 5; i++) {
-      const delay = audioContext.createDelay(1.0);
-      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.5);
-      delays.push(delay);
-      
-      const gain = audioContext.createGain();
-      gain.gain.value = 0.85 - (i * 0.05);
-      gains.push(gain);
-    }
+    const taroukWetGain = audioContext.createGain();
+    taroukWetGain.gain.value = TAROUK_EFFECTS.echo.wetMix;
+    
+    const taroukEchoDelay = audioContext.createDelay(1.0);
+    taroukEchoDelay.delayTime.value = TAROUK_EFFECTS.echo.delayTime;
+    
+    const taroukEchoFeedback = audioContext.createGain();
+    taroukEchoFeedback.gain.value = TAROUK_EFFECTS.echo.feedback;
 
     // Create master gain for Tarouk
     const taroukGain = audioContext.createGain();
     taroukGain.gain.value = 0.7; // Slightly lower to make room for clapping
 
-    // Connect Tarouk nodes
-    taroukSource.connect(taroukGain);
-    for (let i = 0; i < 5; i++) {
-      taroukSource.connect(delays[i]);
-      delays[i].connect(gains[i]);
-      gains[i].connect(taroukGain);
-    }
+    // Connect Tarouk nodes (echo)
+    taroukSource.connect(taroukDryGain);
+    taroukDryGain.connect(taroukGain);
+    
+    taroukSource.connect(taroukEchoDelay);
+    taroukEchoDelay.connect(taroukEchoFeedback);
+    taroukEchoFeedback.connect(taroukEchoDelay);
+    taroukEchoDelay.connect(taroukWetGain);
+    taroukWetGain.connect(taroukGain);
 
     // Create source for clapping (looped)
     const clapSource = audioContext.createBufferSource();
@@ -282,5 +305,5 @@ export async function playWithTaroukAndClapEffects(
  * Simple audio player with speed adjustment for native platforms
  */
 export function getPlaybackRateForTarouk(): number {
-  return TAROUK_EFFECTS.speed.playbackRate;
+  return TAROUK_EFFECTS.pitch.playbackRate;
 }

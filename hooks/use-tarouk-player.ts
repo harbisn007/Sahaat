@@ -120,8 +120,8 @@ export function useTaroukPlayer() {
         // Set playback rate for speed effect (if supported)
         try {
           if (typeof nativePlayer.setPlaybackRate === 'function') {
-            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.speed.playbackRate);
-            console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.speed.playbackRate);
+            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
+            console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.pitch.playbackRate);
           }
         } catch (e) {
           console.warn("[useTaroukPlayer] setPlaybackRate not supported:", e);
@@ -205,8 +205,8 @@ export function useTaroukPlayer() {
         try {
           // Note: setPlaybackRate might not be available on all platforms
           if (typeof nativePlayer.setPlaybackRate === 'function') {
-            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.speed.playbackRate);
-            console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.speed.playbackRate);
+            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
+            console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.pitch.playbackRate);
           }
         } catch (e) {
           console.warn("[useTaroukPlayer] setPlaybackRate not supported:", e);
