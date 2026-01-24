@@ -590,4 +590,12 @@
 - [x] إعادة release() قبل prepareToRecordAsync()
 - [x] التأكد من prepare قبل record
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## إصلاح crash عند الضغط على أزرار التسجيل
+- [x] إزالة release() قبل prepareToRecordAsync()
+- [x] إضافة state flag (isPrepared) للتحقق من حالة recorder
+- [x] prepare فقط إذا لم يكن prepared
+- [x] إعادة تعيين isPrepared بعد release
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint

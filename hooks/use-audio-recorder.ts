@@ -14,6 +14,7 @@ export interface AudioRecording {
 
 export function useAudioRecorder() {
   const [isPreparing, setIsPreparing] = useState(false);
+  const [isPrepared, setIsPrepared] = useState(false);
   const maxDuration = 60; // seconds
 
   // Use expo-audio's built-in recorder for native platforms
@@ -153,17 +154,14 @@ export function useAudioRecorder() {
         });
         
         // Prepare and start recording
-        // Always release first to ensure clean state
-        try {
-          await expoRecorder.release();
-          console.log("[useAudioRecorder] Previous recorder released");
-        } catch (releaseError) {
-          console.log("[useAudioRecorder] No previous recorder to release");
+        if (!isPrepared) {
+          await expoRecorder.prepareToRecordAsync();
+          setIsPrepared(true);
+          console.log("[useAudioRecorder] Recorder prepared successfully");
+        } else {
+          console.log("[useAudioRecorder] Recorder already prepared, reusing...");
         }
         
-        // Now prepare and start recording
-        await expoRecorder.prepareToRecordAsync();
-        console.log("[useAudioRecorder] Recorder prepared successfully");
         expoRecorder.record();
         console.log("[useAudioRecorder] Recording started");
         
@@ -237,6 +235,7 @@ export function useAudioRecorder() {
         // Release recorder after stopping to free resources
         try {
           await expoRecorder.release();
+          setIsPrepared(false);
           console.log("[useAudioRecorder] Recorder released after stop");
         } catch (e) {
           console.log("[useAudioRecorder] Failed to release recorder:", e);
