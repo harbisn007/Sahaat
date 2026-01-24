@@ -787,14 +787,13 @@ export default function RoomScreen() {
                   }}
                   disabled={isSheelohaProcessing}
                 >
-                  <Text style={{ fontSize: 28 }}>👏</Text>
-                  <Text style={{ fontSize: 28 }}>🗣️</Text>
+                  <Text style={{ fontSize: 28, color: '#FFD700' }}>👏👏</Text>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
                     fontSize: 9,
-                    fontWeight: '700',
+                    fontWeight: '800',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
@@ -824,13 +823,13 @@ export default function RoomScreen() {
                   }
                   }}
                 >
-                  <Text style={{ fontSize: 28 }}>✋</Text>
+                  <Text style={{ fontSize: 28, color: '#FFD700' }}>✋</Text>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
                     fontSize: 9,
-                    fontWeight: '700',
+                    fontWeight: '800',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
@@ -853,13 +852,13 @@ export default function RoomScreen() {
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
-                  <Text style={{ fontSize: 28 }}>😊</Text>
+                  <Text style={{ fontSize: 28, color: '#FFD700' }}>😊</Text>
             </TouchableOpacity>
             <Text 
               style={{ 
                 color: colors.muted,
                 fontSize: 9,
-                fontWeight: '700',
+                fontWeight: '800',
                 textAlign: 'center',
                 marginTop: 4,
               }}
@@ -893,7 +892,7 @@ export default function RoomScreen() {
                   style={{ 
                     color: colors.muted,
                     fontSize: 8,
-                    fontWeight: '700',
+                    fontWeight: '800',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
@@ -924,7 +923,7 @@ export default function RoomScreen() {
                   style={{ 
                     color: colors.muted,
                     fontSize: 9,
-                    fontWeight: '700',
+                    fontWeight: '800',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
