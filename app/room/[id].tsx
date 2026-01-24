@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
@@ -171,35 +171,37 @@ export default function RoomScreen() {
     })),
   ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-  // Track the last Tarouk message URI
-  const [lastTaroukUri, setLastTaroukUri] = useState<string | null>(null);
   // Track played message IDs to avoid replaying
   const [playedMessageIds, setPlayedMessageIds] = useState<Set<number>>(new Set());
   // Reactions picker state
-  const [showReactionsPicker, setShowReactionsPicker] = useState(false);
+  const [isReactionsPickerOpen, setIsReactionsPickerOpen] = useState(false);
 
-  // Update last Tarouk URI when audio messages change (use ALL messages, not filtered)
-  useEffect(() => {
-    console.log("[RoomScreen] useEffect triggered - audioMessages changed");
-    if (audioMessages && audioMessages.length > 0) {
-      const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
-      console.log("[RoomScreen] Total audio messages:", audioMessages.length);
-      console.log("[RoomScreen] Tarouk messages count:", taroukMessages.length);
-      if (taroukMessages.length > 0) {
-        const lastTarouk = taroukMessages[taroukMessages.length - 1];
-        console.log("[RoomScreen] Setting lastTaroukUri to:", {
-          id: lastTarouk.id,
-          audioUrl: lastTarouk.audioUrl,
-          username: lastTarouk.username,
-          createdAt: lastTarouk.createdAt
-        });
-        setLastTaroukUri(lastTarouk.audioUrl);
-      } else {
-        console.log("[RoomScreen] No tarouk messages found");
-      }
-    } else {
-      console.log("[RoomScreen] No audio messages or empty array");
+  // Compute last Tarouk URI directly from audioMessages using useMemo
+  const lastTaroukUri = useMemo(() => {
+    console.log("[RoomScreen] useMemo triggered - computing lastTaroukUri");
+    if (!audioMessages || audioMessages.length === 0) {
+      console.log("[RoomScreen] No audio messages");
+      return null;
     }
+    
+    const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
+    console.log("[RoomScreen] Total audio messages:", audioMessages.length);
+    console.log("[RoomScreen] Tarouk messages count:", taroukMessages.length);
+    
+    if (taroukMessages.length === 0) {
+      console.log("[RoomScreen] No tarouk messages found");
+      return null;
+    }
+    
+    const lastTarouk = taroukMessages[taroukMessages.length - 1];
+    console.log("[RoomScreen] Last Tarouk URI:", {
+      id: lastTarouk.id,
+      audioUrl: lastTarouk.audioUrl,
+      username: lastTarouk.username,
+      createdAt: lastTarouk.createdAt
+    });
+    
+    return lastTarouk.audioUrl;
   }, [audioMessages]);
 
   // Auto-play new messages for ALL users (including sender)
@@ -838,7 +840,7 @@ export default function RoomScreen() {
                 minHeight: 60,
                 borderRadius: 8,
               }}
-              onPress={() => setShowReactionsPicker(true)}
+              onPress={() => setIsReactionsPickerOpen(true)}
             >
               <Text style={{ fontSize: 24 }}>😊</Text>
             </TouchableOpacity>
@@ -926,8 +928,8 @@ export default function RoomScreen() {
 
       {/* Reactions Picker Modal */}
       <ReactionsPicker
-        visible={showReactionsPicker}
-        onClose={() => setShowReactionsPicker(false)}
+        visible={isReactionsPickerOpen}
+        onClose={() => setIsReactionsPickerOpen(false)}
         onSelect={handleReaction}
       />
     </ScreenContainer>

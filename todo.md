@@ -710,3 +710,11 @@
 - [x] رفع زر الأيقونات (😊) ليتناسب معها
 - [x] إضافة نص "تفاعل" تحت زر الأيقونات
 - [ ] اختبار على Android
+
+## إصلاح زر شيلوها (مشكلة عدم التحديث)
+- [x] فحص useEffect dependency (audioMessages)
+- [x] فحص تحديث lastTaroukUri عند إضافة رسالة جديدة
+- [x] استبدال useState+useEffect بـ useMemo
+- [x] إصلاح المشكلة (useMemo يحسب تلقائياً عند تغيير audioMessages)
+- [x] إصلاح setShowReactionsPicker → setIsReactionsPickerOpen
+- [ ] اختبار على Android
