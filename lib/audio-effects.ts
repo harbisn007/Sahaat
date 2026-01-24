@@ -12,14 +12,14 @@
 export const TAROUK_EFFECTS = {
   // Chorus settings (multiple voices effect)
   chorus: {
-    delayTime: 0.02, // 20ms delay for tighter chorus (10 voices)
-    feedback: 0.15, // 15% feedback for natural layering
-    wetMix: 0.75, // 75% wet signal for very strong chorus (10 voices)
-    numberOfVoices: 10, // Number of layered voices (like 10 men singing)
+    delayTime: 0.01, // 10ms delay for natural chorus (5 voices)
+    feedback: 0.1, // 10% feedback for subtle layering
+    wetMix: 0.5, // 50% wet signal for balanced chorus
+    numberOfVoices: 5, // Number of layered voices (natural group singing)
   },
-  // Slow down settings (deeper, more powerful voice)
+  // Speed settings (normal speed, no distortion)
   speed: {
-    playbackRate: 0.9, // 10% slower playback for deeper sound
+    playbackRate: 1.0, // Normal playback speed (no slowdown)
   },
 };
 
@@ -104,17 +104,17 @@ export async function playWithTaroukEffects(
     source.buffer = audioBuffer;
     source.playbackRate.value = TAROUK_EFFECTS.speed.playbackRate;
 
-    // Create 10 delays for chorus effect (10 voices like 10 men singing)
+    // Create 5 delays for chorus effect (natural group singing)
     const delays = [];
     const gains = [];
     
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
       const delay = audioContext.createDelay(1.0);
-      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.3);
+      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.5);
       delays.push(delay);
       
       const gain = audioContext.createGain();
-      gain.gain.value = 0.9 - (i * 0.03); // Gradual decrease from 0.9 to 0.63
+      gain.gain.value = 0.85 - (i * 0.05); // Gradual decrease from 0.85 to 0.65
       gains.push(gain);
     }
 
@@ -126,8 +126,8 @@ export async function playWithTaroukEffects(
     // Original signal
     source.connect(masterGain);
 
-    // Connect all 10 voices
-    for (let i = 0; i < 10; i++) {
+    // Connect all 5 voices
+    for (let i = 0; i < 5; i++) {
       source.connect(delays[i]);
       delays[i].connect(gains[i]);
       gains[i].connect(masterGain);
@@ -195,17 +195,17 @@ export async function playWithTaroukAndClapEffects(
     taroukSource.buffer = taroukBuffer;
     taroukSource.playbackRate.value = TAROUK_EFFECTS.speed.playbackRate;
 
-    // Create 10 delays for chorus effect (10 voices like 10 men singing)
+    // Create 5 delays for chorus effect (natural group singing)
     const delays = [];
     const gains = [];
     
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
       const delay = audioContext.createDelay(1.0);
-      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.3);
+      delay.delayTime.value = TAROUK_EFFECTS.chorus.delayTime * (1 + i * 0.5);
       delays.push(delay);
       
       const gain = audioContext.createGain();
-      gain.gain.value = 0.9 - (i * 0.03);
+      gain.gain.value = 0.85 - (i * 0.05);
       gains.push(gain);
     }
 
@@ -215,7 +215,7 @@ export async function playWithTaroukAndClapEffects(
 
     // Connect Tarouk nodes
     taroukSource.connect(taroukGain);
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 5; i++) {
       taroukSource.connect(delays[i]);
       delays[i].connect(gains[i]);
       gains[i].connect(taroukGain);
