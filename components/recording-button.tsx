@@ -148,7 +148,7 @@ export function RecordingButton({
           {icon ? (
             <View className="items-center gap-0.5">
               <Text style={{ fontSize: iconSize }}>{icon}</Text>
-              {showLabel && (
+              {showLabel && minHeight < 50 && (
                 <View className="items-center">
                   {isPreparing ? (
                     <Text 

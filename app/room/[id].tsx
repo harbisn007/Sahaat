@@ -202,7 +202,14 @@ export default function RoomScreen() {
       createdAt: lastTarouk.createdAt
     });
     
-    return lastTarouk.audioUrl;
+    const uri = lastTarouk.audioUrl;
+    console.log("[RoomScreen] lastTaroukUri updated:", {
+      uri,
+      taroukCount: taroukMessages.length,
+      lastTaroukId: lastTarouk.id,
+      lastTaroukUsername: lastTarouk.username,
+    });
+    return uri;
   }, [
     audioMessages?.length,
     audioMessages?.[audioMessages.length - 1]?.id,
@@ -875,7 +882,7 @@ export default function RoomScreen() {
                     onCancelRecording={handleCancelRecording}
                     recordingDuration={formattedDuration}
                     icon="🎵💬"
-                    iconSize={16}
+                    iconSize={28}
                     label=""
                     showLabel={false}
                     backgroundColor="#5D4037"
@@ -907,7 +914,7 @@ export default function RoomScreen() {
                     backgroundColor="#5D4037"
                     recordingDuration={formattedDuration}
                     icon="🎤"
-                    iconSize={20}
+                    iconSize={28}
                     label=""
                     showLabel={false}
                     minHeight={60}
