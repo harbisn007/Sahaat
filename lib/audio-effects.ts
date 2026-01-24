@@ -10,16 +10,27 @@
 
 // Audio effect configuration for Tarouk
 export const TAROUK_EFFECTS = {
-  // Echo settings (medium echo effect)
+  // Echo settings (strong echo for distant sound)
   echo: {
-    delayTime: 0.18, // 180ms delay for medium echo
-    feedback: 0.35, // 35% feedback for 2-3 repetitions
-    wetMix: 0.45, // 45% wet signal for balanced echo
-    numberOfEchoes: 3, // Number of echo repetitions
+    delayTime: 0.28, // 280ms delay for distant echo
+    feedback: 0.5, // 50% feedback for 3-4 repetitions
+    wetMix: 0.6, // 60% wet signal for strong echo
+    numberOfEchoes: 4, // Number of echo repetitions
+  },
+  // Reverb settings (room ambience)
+  reverb: {
+    enabled: true,
+    wetMix: 0.4, // 40% reverb for spacious sound
+    decayTime: 2.5, // 2.5 seconds decay (large hall)
   },
   // Pitch shift settings (slight pitch change)
   pitch: {
-    playbackRate: 1.02, // 2% faster = slightly higher pitch (subtle difference)
+    playbackRate: 0.98, // 2% slower = slightly lower pitch (deeper voice)
+  },
+  // Volume settings (quieter for distant effect)
+  volume: {
+    master: 0.6, // 60% volume (sounds farther away)
+    clap: 0.35, // 35% clap volume
   },
 };
 
@@ -88,7 +99,31 @@ export function applyPitchShift(player: any) {
 }
 
 /**
- * Play audio with Tarouk effects (chorus + slow down)
+ * Create reverb impulse response (simulates room acoustics)
+ */
+function createReverbImpulse(
+  audioContext: AudioContext,
+  decayTime: number
+): AudioBuffer {
+  const sampleRate = audioContext.sampleRate;
+  const length = sampleRate * decayTime;
+  const impulse = audioContext.createBuffer(2, length, sampleRate);
+  const leftChannel = impulse.getChannelData(0);
+  const rightChannel = impulse.getChannelData(1);
+
+  for (let i = 0; i < length; i++) {
+    // Exponential decay
+    const decay = Math.exp(-i / (sampleRate * (decayTime / 3)));
+    // Random noise for natural reverb
+    leftChannel[i] = (Math.random() * 2 - 1) * decay;
+    rightChannel[i] = (Math.random() * 2 - 1) * decay;
+  }
+
+  return impulse;
+}
+
+/**
+ * Play audio with Tarouk effects (echo + reverb + pitch shift)
  * Uses Web Audio API for real-time processing
  */
 export async function playWithTaroukEffects(
@@ -127,22 +162,31 @@ export async function playWithTaroukEffects(
       gains.push(gain);
     }
 
-    // Create master gain
-    const masterGain = audioContext.createGain();
-    masterGain.gain.value = 0.8;
+    // Create reverb (convolver for room ambience)
+    const convolver = audioContext.createConvolver();
+    convolver.buffer = createReverbImpulse(audioContext, TAROUK_EFFECTS.reverb.decayTime);
+    
+    const reverbWet = audioContext.createGain();
+    reverbWet.gain.value = TAROUK_EFFECTS.reverb.wetMix; // 40% reverb
+    
+    const reverbDry = audioContext.createGain();
+    reverbDry.gain.value = 1 - TAROUK_EFFECTS.reverb.wetMix; // 60% dry
 
-    // Create wet/dry mix
+    // Create master gain (lower volume for distant effect)
+    const masterGain = audioContext.createGain();
+    masterGain.gain.value = TAROUK_EFFECTS.volume.master; // 0.6
+
+    // Create wet/dry mix for echo
     const dryGain = audioContext.createGain();
-    dryGain.gain.value = 1 - TAROUK_EFFECTS.echo.wetMix; // 55% dry
+    dryGain.gain.value = 1 - TAROUK_EFFECTS.echo.wetMix; // 40% dry
     
     const wetGain = audioContext.createGain();
-    wetGain.gain.value = TAROUK_EFFECTS.echo.wetMix; // 45% wet
+    wetGain.gain.value = TAROUK_EFFECTS.echo.wetMix; // 60% wet
 
     // Connect nodes
     // Dry signal (original)
     source.connect(dryGain);
-    dryGain.connect(masterGain);
-
+    
     // Wet signal (echo)
     const echoDelay = audioContext.createDelay(1.0);
     echoDelay.delayTime.value = TAROUK_EFFECTS.echo.delayTime;
@@ -155,7 +199,22 @@ export async function playWithTaroukEffects(
     echoDelay.connect(echoFeedback);
     echoFeedback.connect(echoDelay); // Feedback loop
     echoDelay.connect(wetGain);
-    wetGain.connect(masterGain);  // Connect to output
+    
+    // Mix dry + wet (echo)
+    const echoMix = audioContext.createGain();
+    dryGain.connect(echoMix);
+    wetGain.connect(echoMix);
+    
+    // Apply reverb
+    echoMix.connect(reverbDry);
+    echoMix.connect(convolver);
+    convolver.connect(reverbWet);
+    
+    // Mix reverb dry + wet
+    reverbDry.connect(masterGain);
+    reverbWet.connect(masterGain);
+    
+    // Connect to output
     masterGain.connect(audioContext.destination);
 
     // Start playback
@@ -217,6 +276,16 @@ export async function playWithTaroukAndClapEffects(
     taroukSource.buffer = taroukBuffer;
     taroukSource.playbackRate.value = TAROUK_EFFECTS.pitch.playbackRate;
 
+    // Create reverb for Tarouk
+    const taroukConvolver = audioContext.createConvolver();
+    taroukConvolver.buffer = createReverbImpulse(audioContext, TAROUK_EFFECTS.reverb.decayTime);
+    
+    const taroukReverbWet = audioContext.createGain();
+    taroukReverbWet.gain.value = TAROUK_EFFECTS.reverb.wetMix;
+    
+    const taroukReverbDry = audioContext.createGain();
+    taroukReverbDry.gain.value = 1 - TAROUK_EFFECTS.reverb.wetMix;
+
     // Create echo effect
     const taroukDryGain = audioContext.createGain();
     taroukDryGain.gain.value = 1 - TAROUK_EFFECTS.echo.wetMix;
@@ -230,28 +299,40 @@ export async function playWithTaroukAndClapEffects(
     const taroukEchoFeedback = audioContext.createGain();
     taroukEchoFeedback.gain.value = TAROUK_EFFECTS.echo.feedback;
 
-    // Create master gain for Tarouk
+    // Create master gain for Tarouk (lower volume for distant effect)
     const taroukGain = audioContext.createGain();
-    taroukGain.gain.value = 0.7; // Slightly lower to make room for clapping
+    taroukGain.gain.value = TAROUK_EFFECTS.volume.master; // 0.6
 
     // Connect Tarouk nodes (echo)
     taroukSource.connect(taroukDryGain);
-    taroukDryGain.connect(taroukGain);
     
     taroukSource.connect(taroukEchoDelay);
     taroukEchoDelay.connect(taroukEchoFeedback);
     taroukEchoFeedback.connect(taroukEchoDelay);
     taroukEchoDelay.connect(taroukWetGain);
-    taroukWetGain.connect(taroukGain);
+    
+    // Mix dry + wet (echo)
+    const taroukEchoMix = audioContext.createGain();
+    taroukDryGain.connect(taroukEchoMix);
+    taroukWetGain.connect(taroukEchoMix);
+    
+    // Apply reverb
+    taroukEchoMix.connect(taroukReverbDry);
+    taroukEchoMix.connect(taroukConvolver);
+    taroukConvolver.connect(taroukReverbWet);
+    
+    // Mix reverb dry + wet
+    taroukReverbDry.connect(taroukGain);
+    taroukReverbWet.connect(taroukGain);
 
     // Create source for clapping (looped)
     const clapSource = audioContext.createBufferSource();
     clapSource.buffer = clapBuffer;
     clapSource.loop = true; // Loop the clapping
 
-    // Create gain for clapping
+    // Create gain for clapping (lower volume for distant effect)
     const clapGain = audioContext.createGain();
-    clapGain.gain.value = 0.5; // Mix clapping at 50% volume
+    clapGain.gain.value = TAROUK_EFFECTS.volume.clap; // 0.35 (35% volume)
 
     // Connect clapping
     clapSource.connect(clapGain);

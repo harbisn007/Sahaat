@@ -511,4 +511,23 @@
 - [x] تحديث playWithTaroukAndClapEffects
 - [x] تحديث use-tarouk-player.ts
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## خفض النبرة + إبطاء التصفيق
+- [x] خفض playbackRate من 1.02 إلى 0.98 (نبرة أعمق)
+- [x] تغيير clapDuration من 15000ms إلى 30000ms
+- [x] اختبار الوحدات (23/23 نجحت)
+- [ ] حفظ checkpoint
+
+## إضافة reverb + تحسين echo + خفض الصوت
+- [x] إضافة reverb (convolver) لإحساس بالمساحة الكبيرة (2.5s decay, 40% wet)
+- [x] زيادة echo delay من 180ms إلى 280ms
+- [x] زيادة echo feedback من 35% إلى 50%
+- [x] زيادة wetMix من 45% إلى 60%
+- [x] خفض masterGain للطاروق من 0.8 إلى 0.6
+- [x] خفض clapGain من 0.5 إلى 0.35
+- [x] إضافة createReverbImpulse function
+- [x] تحديث playWithTaroukEffects
+- [x] تحديث playWithTaroukAndClapEffects
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint
