@@ -178,17 +178,17 @@ export default function RoomScreen() {
   // Reactions picker state
   const [isReactionsPickerOpen, setIsReactionsPickerOpen] = useState(false);
 
-  // Compute last Tarouk URI directly from audioMessages using useMemo
-  // Use audioMessages.length and last message id as dependencies to force re-compute
+  // Compute last Tarouk URI directly from audioMessages
+  // Filter tarouk messages first, then get the last one
   const lastTaroukUri = useMemo(() => {
-    console.log("[RoomScreen] useMemo triggered - computing lastTaroukUri");
+    console.log("[RoomScreen] Computing lastTaroukUri...");
     if (!audioMessages || audioMessages.length === 0) {
       console.log("[RoomScreen] No audio messages");
       return null;
     }
     
+    // Filter only tarouk messages
     const taroukMessages = audioMessages.filter(msg => msg.messageType === "tarouk");
-    console.log("[RoomScreen] Total audio messages:", audioMessages.length);
     console.log("[RoomScreen] Tarouk messages count:", taroukMessages.length);
     
     if (taroukMessages.length === 0) {
@@ -196,26 +196,16 @@ export default function RoomScreen() {
       return null;
     }
     
+    // Get the LAST tarouk message (most recent)
     const lastTarouk = taroukMessages[taroukMessages.length - 1];
-    console.log("[RoomScreen] Last Tarouk URI:", {
+    console.log("[RoomScreen] Last Tarouk:", {
       id: lastTarouk.id,
       audioUrl: lastTarouk.audioUrl,
       username: lastTarouk.username,
-      createdAt: lastTarouk.createdAt
     });
     
-    const uri = lastTarouk.audioUrl;
-    console.log("[RoomScreen] lastTaroukUri updated:", {
-      uri,
-      taroukCount: taroukMessages.length,
-      lastTaroukId: lastTarouk.id,
-      lastTaroukUsername: lastTarouk.username,
-    });
-    return uri;
-  }, [
-    audioMessages?.length,
-    audioMessages?.[audioMessages.length - 1]?.id,
-  ]);
+    return lastTarouk.audioUrl;
+  }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
   // Auto-play new messages for ALL users (including sender)
   useEffect(() => {
@@ -774,6 +764,19 @@ export default function RoomScreen() {
                   }
                   
                   try {
+                    console.log("[RoomScreen] Playing sheeloha immediately for button presser");
+                    // Play immediately for the person who pressed the button
+                    const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");
+                    if (Platform.OS === "web") {
+                      playSheelohaWithClap(lastTaroukUri!, clapSoundPath);
+                    } else {
+                      // On native, play clapping + tarouk
+                      clapSoundPlayer.replace(clapSoundPath);
+                      clapSoundPlayer.play();
+                      playSheeloha(lastTaroukUri!);
+                    }
+                    
+                    // Also broadcast to other users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
@@ -859,17 +862,6 @@ export default function RoomScreen() {
             >
                   <MaterialIcons name="emoji-emotions" size={28} color="#FFD700" />
             </TouchableOpacity>
-            <Text 
-              style={{ 
-color: colors.muted,
-                    fontSize: 9,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  تفاعل
-            </Text>
           </View>
 
           {/* Right: Comment & Tarouk (Players only) */}
