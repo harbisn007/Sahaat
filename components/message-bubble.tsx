@@ -56,45 +56,45 @@ export function MessageBubble({
     );
   }
 
-  // Audio message bubble
+  // Audio message bubble - simplified and compact
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
   return (
-    <View className="px-3 py-1">
+    <View className="px-2 py-0.5">
       <View 
-        className="rounded-xl p-2 max-w-[80%]"
+        className="rounded-lg px-2 py-1 max-w-[75%]"
         style={{ backgroundColor: colors.surface }}
       >
-        {/* Header */}
-        <View className="flex-row items-center justify-between mb-1">
-          <Text className="text-xs font-bold text-foreground">{username}</Text>
+        <View className="flex-row items-center gap-1.5">
+          {/* Username */}
+          <Text className="text-[11px] font-bold text-foreground flex-shrink">
+            {username}
+          </Text>
+          
+          {/* Message Type Badge */}
           {messageType && (
             <View 
-              className="px-1.5 py-0.5 rounded"
+              className="px-1 py-0.5 rounded"
               style={{ 
                 backgroundColor: messageType === "tarouk" ? colors.success : colors.primary,
-                opacity: 0.8,
+                opacity: 0.9,
               }}
             >
-              <Text className="text-[10px] text-background font-semibold">
+              <Text className="text-[9px] text-background font-bold">
                 {messageType === "tarouk" ? "طاروق" : "تعليق"}
               </Text>
             </View>
           )}
+          
+          {/* Duration */}
+          <Text className="text-[10px] text-muted font-mono">
+            {formatDuration(duration || 0)}
+          </Text>
         </View>
-
-        {/* Audio Player */}
-        {onPlay && (
-          <AudioMessage
-            username=""
-            messageType={messageType || "comment"}
-            duration={duration || 0}
-            isPlaying={isPlaying || false}
-          />
-        )}
-
-        {/* Timestamp */}
-        {timestamp && (
-          <Text className="text-[10px] text-muted mt-0.5 text-left">{timestamp}</Text>
-        )}
       </View>
     </View>
   );

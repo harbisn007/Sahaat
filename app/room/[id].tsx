@@ -206,26 +206,31 @@ export default function RoomScreen() {
   useEffect(() => {
     if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
 
-    // Get the latest message
-    const latestMessage = filteredAudioMessages[filteredAudioMessages.length - 1];
+    // Find all unplayed messages
+    const unplayedMessages = filteredAudioMessages.filter(
+      (msg) => !playedMessageIds.has(msg.id)
+    );
 
-    // Check if it's a new message that hasn't been played yet
-    if (
-      latestMessage &&
-      !playedMessageIds.has(latestMessage.id)
-    ) {
-      const messageTime = new Date(latestMessage.createdAt).getTime();
-      const joinTime = joinedAt.getTime();
-      
-      // Only auto-play if message was sent AFTER user joined
-      if (messageTime >= joinTime) {
-        console.log("[RoomScreen] Auto-playing new message (after join)");
-        setPlayedMessageIds(prev => new Set(prev).add(latestMessage.id));
-        play(latestMessage.audioUrl);
-      } else {
-        console.log("[RoomScreen] Skipping auto-play for old message (before join)");
-        setPlayedMessageIds(prev => new Set(prev).add(latestMessage.id));
-      }
+    if (unplayedMessages.length === 0) return;
+
+    // Play the first unplayed message
+    const nextMessage = unplayedMessages[0];
+    const messageTime = new Date(nextMessage.createdAt).getTime();
+    const joinTime = joinedAt.getTime();
+    
+    // Only auto-play if message was sent AFTER user joined
+    if (messageTime >= joinTime) {
+      console.log("[RoomScreen] Auto-playing new message:", {
+        id: nextMessage.id,
+        username: nextMessage.username,
+        messageType: nextMessage.messageType,
+      });
+      setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
+      play(nextMessage.audioUrl);
+    } else {
+      console.log("[RoomScreen] Skipping old message (before join):", nextMessage.id);
+      // Mark as "played" to avoid checking again
+      setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
     }
   }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
 
@@ -419,6 +424,18 @@ export default function RoomScreen() {
       const errorMessage = error instanceof Error ? error.message : "فشل بدء التسجيل";
       Alert.alert("خطأ", errorMessage);
       setRecordingType(null);
+    }
+  };
+
+  const handleCancelRecording = async () => {
+    console.log("[RoomScreen] Canceling recording...");
+    try {
+      // Stop recording without saving
+      await stopRecording();
+      setRecordingType(null);
+      console.log("[RoomScreen] Recording canceled successfully");
+    } catch (error) {
+      console.error("[RoomScreen] Error canceling recording:", error);
     }
   };
 
@@ -800,6 +817,7 @@ export default function RoomScreen() {
                   pressAndHold={true}
                   onPressIn={() => handleStartRecording("comment")}
                   onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
                   recordingDuration={formattedDuration}
                   icon="🎙️💬"
                   iconSize={28}
@@ -815,6 +833,7 @@ export default function RoomScreen() {
                   pressAndHold={true}
                   onPressIn={() => handleStartRecording("tarouk")}
                   onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
                   backgroundColor="#5D4037"
                   recordingDuration={formattedDuration}
                   icon="🎤"

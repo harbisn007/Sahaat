@@ -1,6 +1,7 @@
-import { TouchableOpacity, Text, View, Animated } from "react-native";
-import { useEffect, useRef } from "react";
+import { TouchableOpacity, Text, View, Animated, Platform } from "react-native";
+import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 
 interface RecordingButtonProps {
   isRecording: boolean;
@@ -9,6 +10,7 @@ interface RecordingButtonProps {
   onPress?: () => void;
   onPressIn?: () => void;
   onPressOut?: () => void;
+  onCancelRecording?: () => void; // جديد: إلغاء التسجيل بالسحب
   backgroundColor?: string;
   pressAndHold?: boolean;
   recordingDuration?: string;
@@ -24,6 +26,7 @@ export function RecordingButton({
   onPress,
   onPressIn,
   onPressOut,
+  onCancelRecording,
   backgroundColor,
   pressAndHold = false,
   recordingDuration,
@@ -33,6 +36,9 @@ export function RecordingButton({
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
+  const [showCancelHint, setShowCancelHint] = useState(false);
+  const cancelHintOpacity = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (isRecording) {
@@ -51,14 +57,76 @@ export function RecordingButton({
           }),
         ])
       ).start();
+      
+      // Show cancel hint after 1 second
+      setTimeout(() => {
+        setShowCancelHint(true);
+        Animated.timing(cancelHintOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }).start();
+      }, 1000);
     } else {
       pulseAnim.setValue(1);
+      setShowCancelHint(false);
+      cancelHintOpacity.setValue(0);
+      translateY.setValue(0);
     }
   }, [isRecording]);
+  
+  // Pan gesture for canceling recording
+  const panGesture = Gesture.Pan()
+    .enabled(isRecording && pressAndHold)
+    .onUpdate((event) => {
+      // Only respond to downward swipes
+      if (event.translationY > 0) {
+        translateY.setValue(event.translationY);
+      }
+    })
+    .onEnd((event) => {
+      // Cancel if swiped down more than 50px
+      if (event.translationY > 50) {
+        if (onCancelRecording) {
+          onCancelRecording();
+        }
+      }
+      // Reset position
+      Animated.spring(translateY, {
+        toValue: 0,
+        useNativeDriver: true,
+      }).start();
+    });
 
   if (pressAndHold) {
-    return (
-      <Animated.View style={{ transform: [{ scale: pulseAnim }], flex: 1 }}>
+    const buttonContent = (
+      <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], flex: 1 }}>
+        {showCancelHint && (
+          <Animated.View 
+            style={{ 
+              position: 'absolute',
+              top: -30,
+              left: 0,
+              right: 0,
+              alignItems: 'center',
+              opacity: cancelHintOpacity,
+              zIndex: 10,
+            }}
+          >
+            <View 
+              style={{
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderRadius: 8,
+              }}
+            >
+              <Text style={{ color: '#fff', fontSize: 10 }}>
+                ↓ اسحب للأسفل لإلغاء
+              </Text>
+            </View>
+          </Animated.View>
+        )}
         <TouchableOpacity
           onPressIn={onPressIn}
           onPressOut={onPressOut}
@@ -105,6 +173,13 @@ export function RecordingButton({
         </TouchableOpacity>
       </Animated.View>
     );
+    
+    // Wrap with GestureDetector on Native only
+    if (Platform.OS !== "web") {
+      return <GestureDetector gesture={panGesture}>{buttonContent}</GestureDetector>;
+    }
+    
+    return buttonContent;
   }
 
   return (
