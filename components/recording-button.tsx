@@ -64,8 +64,6 @@ export function RecordingButton({
           onPressOut={onPressOut}
           disabled={isPreparing}
           activeOpacity={0.8}
-          delayPressIn={0}
-          delayPressOut={0}
           style={{
             flex: 1,
             backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,

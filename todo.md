@@ -560,5 +560,14 @@
 - [x] فحص permissions على Android
 - [x] تحديد السبب: لا يوجد RECORD_AUDIO permission
 - [x] إصلاح: إضافة RECORD_AUDIO إلى permissions
-- [ ] اختبار على Android
+- [ ] اختبار على Android (يحتاج rebuild)
+- [x] حفظ checkpoint
+
+## فحص crash بعد تغيير شكل الأزرار
+- [x] البحث عن آخر تغييرات على الأزرار (commit 71b1874)
+- [x] فحص RecordingButton component
+- [x] فحص app/room/[id].tsx (زر التسجيل)
+- [x] تحديد المشكلة: delayPressIn={0} و delayPressOut={0}
+- [x] إصلاح: إزالة delay props
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint
