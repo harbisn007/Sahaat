@@ -598,4 +598,38 @@
 - [x] prepare فقط إذا لم يكن prepared
 - [x] إعادة تعيين isPrepared بعد release
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## إصلاح crash الجذري في AudioRecorder
+- [ ] فحص المشكلة: expo-audio useAudioRecorder غير مستقر
+- [ ] الحل: استخدام AudioRecorder مباشرة بدلاً من useAudioRecorder hook
+- [ ] إنشاء recorder جديد في كل startRecording
+- [ ] release في stopRecording
+- [ ] اختبار الوحدات
+- [ ] حفظ checkpoint
+
+## إصلاح أخطاء TypeScript في use-audio-recorder
+- [ ] إزالة recorderState (لم يعد موجوداً)
+- [ ] إصلاح auto-stop logic
+- [ ] إصلاح startRecording لإنشاء AudioRecorder جديد
+- [ ] إصلاح stopRecording لاستخدام recorderRef
+- [ ] إصلاح جميع أخطاء TypeScript (20 خطأ)
+
+## إيقاف auto-play للرسائل القديمة
+- [ ] تعطيل auto-play للرسائل المرسلة قبل انضمام المستخدم
+- [ ] التأكد من عمل auto-play فقط للرسائل الجديدة
+- [ ] اختبار الوحدات
+- [ ] حفظ checkpoint
+
+## إصلاح أخطاء TypeScript في use-audio-recorder
+- [x] إزالة recorderState (لم يعد موجوداً)
+- [x] إصلاح auto-stop logic
+- [x] إصلاح startRecording لإنشاء AudioRecorder جديد
+- [x] إصلاح stopRecording لاستخدام recorderRef
+- [x] إصلاح جميع أخطاء TypeScript (20 خطأ)
+
+## إيقاف auto-play للرسائل القديمة
+- [x] تعطيل auto-play للرسائل المرسلة قبل انضمام المستخدم
+- [x] التأكد من عمل auto-play فقط للرسائل الجديدة
+- [ ] اختبار الوحدات
 - [ ] حفظ checkpoint

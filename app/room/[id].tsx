@@ -204,7 +204,7 @@ export default function RoomScreen() {
 
   // Auto-play new messages for ALL users (including sender)
   useEffect(() => {
-    if (!filteredAudioMessages || filteredAudioMessages.length === 0) return;
+    if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
 
     // Get the latest message
     const latestMessage = filteredAudioMessages[filteredAudioMessages.length - 1];
@@ -214,17 +214,20 @@ export default function RoomScreen() {
       latestMessage &&
       !playedMessageIds.has(latestMessage.id)
     ) {
-      console.log("[RoomScreen] Auto-playing new message:", {
-        id: latestMessage.id,
-        audioUrl: latestMessage.audioUrl,
-        username: latestMessage.username,
-        messageType: latestMessage.messageType
-      });
-      // Mark as played and auto-play the new message for everyone
-      setPlayedMessageIds(prev => new Set(prev).add(latestMessage.id));
-      play(latestMessage.audioUrl);
+      const messageTime = new Date(latestMessage.createdAt).getTime();
+      const joinTime = joinedAt.getTime();
+      
+      // Only auto-play if message was sent AFTER user joined
+      if (messageTime >= joinTime) {
+        console.log("[RoomScreen] Auto-playing new message (after join)");
+        setPlayedMessageIds(prev => new Set(prev).add(latestMessage.id));
+        play(latestMessage.audioUrl);
+      } else {
+        console.log("[RoomScreen] Skipping auto-play for old message (before join)");
+        setPlayedMessageIds(prev => new Set(prev).add(latestMessage.id));
+      }
     }
-  }, [filteredAudioMessages, playedMessageIds, play]);
+  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());

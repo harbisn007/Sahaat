@@ -1,7 +1,5 @@
 import { useState, useRef, useEffect } from "react";
 import { 
-  useAudioRecorder as useExpoAudioRecorder, 
-  useAudioRecorderState,
   RecordingPresets,
   AudioModule 
 } from "expo-audio";
@@ -14,12 +12,13 @@ export interface AudioRecording {
 
 export function useAudioRecorder() {
   const [isPreparing, setIsPreparing] = useState(false);
-  const [isPrepared, setIsPrepared] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
   const maxDuration = 60; // seconds
 
-  // Use expo-audio's built-in recorder for native platforms
-  const expoRecorder = useExpoAudioRecorder(RecordingPresets.HIGH_QUALITY);
-  const recorderState = useAudioRecorderState(expoRecorder);
+  // Use ref to store recorder instance (Native only)
+  const recorderRef = useRef<InstanceType<typeof AudioModule.AudioRecorder> | null>(null);
+  const recordingStartTimeRef = useRef<number>(0);
 
   // Web-specific refs
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -39,25 +38,25 @@ export function useAudioRecorder() {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
       // Release native recorder
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== "web" && recorderRef.current) {
         try {
-          expoRecorder.release();
+          recorderRef.current.release();
+          recorderRef.current = null;
         } catch (e) {
           console.log("[useAudioRecorder] Recorder already released");
         }
       }
     };
-  }, [expoRecorder]);
+  }, []);
 
   // Auto-stop at max duration for native
   useEffect(() => {
-    if (Platform.OS !== "web" && recorderState.isRecording) {
-      const durationSeconds = Math.floor(recorderState.durationMillis / 1000);
-      if (durationSeconds >= maxDuration) {
+    if (Platform.OS !== "web" && isRecording) {
+      if (recordingDuration >= maxDuration) {
         stopRecording();
       }
     }
-  }, [recorderState.durationMillis, recorderState.isRecording]);
+  }, [recordingDuration, isRecording]);
 
   const requestPermissions = async () => {
     try {
@@ -153,17 +152,27 @@ export function useAudioRecorder() {
           playsInSilentMode: true,
         });
         
-        // Prepare and start recording
-        if (!isPrepared) {
-          await expoRecorder.prepareToRecordAsync();
-          setIsPrepared(true);
-          console.log("[useAudioRecorder] Recorder prepared successfully");
-        } else {
-          console.log("[useAudioRecorder] Recorder already prepared, reusing...");
-        }
+        // Create new AudioRecorder instance for each recording session
+        console.log("[useAudioRecorder] Creating new AudioRecorder instance...");
+        const recorder = new AudioModule.AudioRecorder(
+          RecordingPresets.HIGH_QUALITY
+        );
+        recorderRef.current = recorder;
         
-        expoRecorder.record();
+        // Prepare and start recording
+        await recorder.prepareToRecordAsync();
+        console.log("[useAudioRecorder] Recorder prepared successfully");
+        
+        recorder.record();
         console.log("[useAudioRecorder] Recording started");
+        
+        // Start timer for duration tracking
+        recordingStartTimeRef.current = Date.now();
+        const timerInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
+          setRecordingDuration(elapsed);
+        }, 1000);
+        timerRef.current = timerInterval;
         
         setIsPreparing(false);
         
@@ -218,24 +227,29 @@ export function useAudioRecorder() {
         });
       } else {
         // Native implementation using expo-audio's recorder
-        await expoRecorder.stop();
-        
-        if (!expoRecorder.uri) {
+        if (!recorderRef.current) {
+          console.error("[useAudioRecorder] No recorder instance to stop");
           return null;
         }
         
-        const uri = expoRecorder.uri;
-        const durationSeconds = Math.floor(recorderState.durationMillis / 1000);
+        await recorderRef.current.stop();
+        
+        if (!recorderRef.current.uri) {
+          return null;
+        }
+        
+        const uri = recorderRef.current.uri;
+        const duration = recordingDuration;
         
         const result = {
           uri,
-          duration: durationSeconds,
+          duration,
         };
         
         // Release recorder after stopping to free resources
         try {
-          await expoRecorder.release();
-          setIsPrepared(false);
+          await recorderRef.current.release();
+          recorderRef.current = null;
           console.log("[useAudioRecorder] Recorder released after stop");
         } catch (e) {
           console.log("[useAudioRecorder] Failed to release recorder:", e);
@@ -255,11 +269,7 @@ export function useAudioRecorder() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // Return appropriate values based on platform
-  const isRecording = Platform.OS === "web" ? webIsRecording : recorderState.isRecording;
-  const recordingDuration = Platform.OS === "web" 
-    ? webRecordingDuration 
-    : Math.floor(recorderState.durationMillis / 1000);
+  // Return values (already using unified state)
 
   return {
     isRecording,
