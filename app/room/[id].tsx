@@ -3,6 +3,7 @@ import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { useState, useEffect, useRef } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
 import { trpc } from "@/lib/trpc";
@@ -29,13 +30,44 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
-  // Track when user joined the room
-  const [joinedAt] = useState<Date>(new Date());
+  // Track when user joined the room (persist across reloads)
+  const [joinedAt, setJoinedAt] = useState<Date>(new Date());
+  const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
 
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 3000 }
   );
+
+  // Load joinedAt from AsyncStorage on mount
+  useEffect(() => {
+    const loadJoinedAt = async () => {
+      try {
+        const storageKey = `joinedAt_${roomId}_${userId}`;
+        const stored = await AsyncStorage.getItem(storageKey);
+        
+        if (stored) {
+          console.log("[RoomScreen] Loaded joinedAt from storage:", stored);
+          setJoinedAt(new Date(stored));
+        } else {
+          // First time joining - save current time
+          const now = new Date();
+          await AsyncStorage.setItem(storageKey, now.toISOString());
+          console.log("[RoomScreen] Saved new joinedAt to storage:", now.toISOString());
+          setJoinedAt(now);
+        }
+        
+        setIsJoinedAtLoaded(true);
+      } catch (error) {
+        console.error("[RoomScreen] Failed to load joinedAt:", error);
+        setIsJoinedAtLoaded(true);
+      }
+    };
+    
+    if (roomId > 0 && userId > 0) {
+      loadJoinedAt();
+    }
+  }, [roomId, userId]);
 
   // حفظ اسم الساحة عند أول تحميل
   useEffect(() => {
@@ -105,13 +137,14 @@ export default function RoomScreen() {
   );
 
   // Filter messages: only show messages sent AFTER user joined
-  const filteredAudioMessages = (audioMessages || []).filter((msg) => {
+  // Wait until joinedAt is loaded from storage to avoid filtering issues
+  const filteredAudioMessages = !isJoinedAtLoaded ? [] : (audioMessages || []).filter((msg) => {
     const messageTime = new Date(msg.createdAt).getTime();
     const joinTime = joinedAt.getTime();
     return messageTime >= joinTime;
   });
 
-  const filteredReactions = (reactions || []).filter((reaction) => {
+  const filteredReactions = !isJoinedAtLoaded ? [] : (reactions || []).filter((reaction) => {
     const reactionTime = new Date(reaction.createdAt).getTime();
     const joinTime = joinedAt.getTime();
     return reactionTime >= joinTime;
