@@ -655,3 +655,16 @@
 - [x] تقليل padding و spacing
 - [x] تقليل حجم الخط
 - [ ] اختبار على Android
+
+## إصلاح زر شيلوها (آخر رسالة طاروق)
+- [x] فحص منطق lastTaroukUri الحالي
+- [x] الكود صحيح بالفعل (يأخذ آخر رسالة)
+- [ ] اختبار على Android
+
+## إصلاح خطأ الأيقونات (validation)
+- [x] فحص رسالة الخطأ من الـ backend
+- [x] فحص الـ validation schema في الـ backend
+- [x] فحص القيم المرسلة من الـ frontend
+- [x] إصلاح mismatch بين frontend و backend
+- [x] إضافة type mapping للأيقونات
+- [ ] اختبار إرسال جميع الأيقونات

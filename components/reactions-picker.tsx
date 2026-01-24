@@ -8,21 +8,21 @@ interface ReactionsPickerProps {
 }
 
 const REACTIONS = [
-  { emoji: "👏", label: "تصفيق" },
-  { emoji: "😂", label: "ضحك" },
-  { emoji: "😮", label: "اندهاش" },
-  { emoji: "👍", label: "إعجاب" },
-  { emoji: "🔥", label: "نار" },
-  { emoji: "✅", label: "موافق" },
-  { emoji: "🤔", label: "تفكير" },
-  { emoji: "❤️", label: "حب" },
+  { emoji: "👏", label: "تصفيق", type: "clap" },
+  { emoji: "😂", label: "ضحك", type: "laugh" },
+  { emoji: "😮", label: "اندهاش", type: "wow" },
+  { emoji: "👍", label: "إعجاب", type: "thumbsup" },
+  { emoji: "🔥", label: "نار", type: "fire" },
+  { emoji: "✅", label: "موافق", type: "love" },
+  { emoji: "🤔", label: "تفكير", type: "thinking" },
+  { emoji: "❤️", label: "حب", type: "heart" },
 ];
 
 export function ReactionsPicker({ visible, onClose, onSelect }: ReactionsPickerProps) {
   const colors = useColors();
 
-  const handleSelect = (emoji: string) => {
-    onSelect(emoji);
+  const handleSelect = (type: string) => {
+    onSelect(type);
     onClose();
   };
 
@@ -50,7 +50,7 @@ export function ReactionsPicker({ visible, onClose, onSelect }: ReactionsPickerP
             {REACTIONS.map((reaction) => (
               <Pressable
                 key={reaction.emoji}
-                onPress={() => handleSelect(reaction.emoji)}
+                onPress={() => handleSelect(reaction.type)}
                 className="items-center justify-center w-16 h-16 rounded-2xl"
                 style={({ pressed }) => ({
                   backgroundColor: pressed ? colors.primary + "20" : colors.background,
