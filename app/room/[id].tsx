@@ -214,8 +214,16 @@ export default function RoomScreen() {
         username: latestBroadcast.username
       });
       
-      // Mark as played
-      setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
+      // Mark as played and clear old IDs (keep only the latest 5)
+      setPlayedBroadcastIds(prev => {
+        const newSet = new Set(prev).add(latestBroadcast.id);
+        // Keep only the latest 5 broadcast IDs to prevent memory leak
+        if (newSet.size > 5) {
+          const arr = Array.from(newSet);
+          return new Set(arr.slice(-5)); // Keep last 5
+        }
+        return newSet;
+      });
       
       // Get clap sound path
       const clapSoundPath = require("@/assets/sounds/sheeloha-claps.mp3");

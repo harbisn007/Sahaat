@@ -531,3 +531,10 @@
 - [x] تحديث playWithTaroukAndClapEffects
 - [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint
+
+## إصلاح رسائل البث التلقائية (broadcast messages)
+- [x] فحص الكود الحالي لرسائل البث
+- [x] تحديد المشكلة: playedBroadcastIds يمنع تشغيل broadcasts الجديدة
+- [x] إصلاح: الاحتفاظ بآخر 5 broadcast IDs فقط
+- [x] اختبار الوحدات (23/23 نجحت)
+- [ ] حفظ checkpoint
