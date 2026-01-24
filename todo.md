@@ -774,3 +774,9 @@
 - [x] فحص وتشخيص سبب عدم ظهور الصوت
 - [x] إعادة كتابة useSheelohaPlayer بطريقة أبسط
 - [x] استخدام expo-audio للهاتف + HTML5 Audio للويب
+
+
+## إصلاح lastTaroukUri
+- [x] زر شيلوها لا يتعرف على أحدث رسالة طاروق
+- [x] إصلاح: أخذ taroukMessages[0] بدلاً من taroukMessages[length-1]
+- [x] السبب: الخادم يرتب بـ desc(createdAt) فالأحدث أولاً

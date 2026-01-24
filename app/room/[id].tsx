@@ -194,8 +194,8 @@ export default function RoomScreen() {
       return null;
     }
     
-    // Get the LAST tarouk message (most recent)
-    const lastTarouk = taroukMessages[taroukMessages.length - 1];
+    // Get the FIRST tarouk message (most recent, since array is sorted desc by createdAt)
+    const lastTarouk = taroukMessages[0];
     console.log("[RoomScreen] Last Tarouk:", {
       id: lastTarouk.id,
       audioUrl: lastTarouk.audioUrl,
