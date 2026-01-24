@@ -583,4 +583,11 @@
 - [x] إضافة try-catch حول prepareToRecordAsync
 - [x] التحقق من حالة recorder قبل prepare (ignore error)
 - [x] اختبار الوحدات (23/23 نجحت)
+- [x] حفظ checkpoint
+
+## إصلاح IllegalStateException عند record()
+- [x] فحص use-audio-recorder.ts
+- [x] إعادة release() قبل prepareToRecordAsync()
+- [x] التأكد من prepare قبل record
+- [x] اختبار الوحدات (23/23 نجحت)
 - [ ] حفظ checkpoint

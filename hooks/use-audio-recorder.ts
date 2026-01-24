@@ -153,13 +153,19 @@ export function useAudioRecorder() {
         });
         
         // Prepare and start recording
+        // Always release first to ensure clean state
         try {
-          await expoRecorder.prepareToRecordAsync();
-        } catch (prepareError) {
-          // If already prepared, that's okay - just continue
-          console.log("[useAudioRecorder] Recorder already prepared, continuing...");
+          await expoRecorder.release();
+          console.log("[useAudioRecorder] Previous recorder released");
+        } catch (releaseError) {
+          console.log("[useAudioRecorder] No previous recorder to release");
         }
+        
+        // Now prepare and start recording
+        await expoRecorder.prepareToRecordAsync();
+        console.log("[useAudioRecorder] Recorder prepared successfully");
         expoRecorder.record();
+        console.log("[useAudioRecorder] Recording started");
         
         setIsPreparing(false);
         
