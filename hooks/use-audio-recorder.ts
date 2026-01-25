@@ -147,10 +147,12 @@ export function useAudioRecorder() {
         console.log("[useAudioRecorder] Using expo-audio recorder...");
         
         // Set audio mode for recording
+        // المستخدم يسمع الأصوات الأخرة لكن لا تُسجل في الملف
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
         });
+        // المايكروفون سيسجل الصوت فقط بدون الأصوات المشغلة
         
         // Create new AudioRecorder instance for each recording session
         console.log("[useAudioRecorder] Creating new AudioRecorder instance...");

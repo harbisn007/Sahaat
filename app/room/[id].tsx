@@ -391,11 +391,10 @@ export default function RoomScreen() {
     console.log("[RoomScreen] handleStartRecording called with type:", type);
     setRecordingType(type);
     
-    // كتم جميع الأصوات المشغلة أثناء التسجيل
-    console.log("[RoomScreen] Stopping all audio before recording...");
-    stop(); // إيقاف تشغيل الرسائل الصوتية
-    stopSheeloha(); // إيقاف شيلوها
-    stopTarouk(); // إيقاف طاروق
+    // لا نكتم الأصوات - المستخدم يسمع الأصوات الأخرى أثناء التسجيل
+    // لكن ملف التسجيل سيحتوي على صوت المايكروفون فقط
+    console.log("[RoomScreen] Starting recording - NOT muting other audio");
+    // الأصوات الأخرى تستمر في التشغيل للمستخدم
     
     try {
       console.log("[RoomScreen] Calling startRecording...");
