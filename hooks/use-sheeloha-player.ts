@@ -4,9 +4,9 @@ import { useAudioPlayer } from "expo-audio";
 
 /**
  * Clapping Speed Configuration
- * 1 = Repeat clap every 1.15 seconds (DEFAULT)
- * 2 = Repeat clap every 90ms (fast continuous)
- * 3 = 3 claps, pause 0.5s, 3 claps, pause 0.5s, etc.
+ * 1 = Repeat clap every 1.27 seconds (DEFAULT)
+ * 2 = Repeat clap every 1.12 seconds
+ * 3 = 2 claps, pause 0.9s, 2 claps, pause 0.9s, etc.
  */
 export type ClappingSpeed = 1 | 2 | 3;
 
@@ -183,9 +183,9 @@ export function useSheelohaPlayer() {
 
   /**
    * Start clapping pattern based on speed
-   * 1 = Every 1.15 seconds
-   * 2 = Every 90ms
-   * 3 = 3 claps, pause 0.5s, repeat
+   * 1 = Every 1.27 seconds (1270ms)
+   * 2 = Every 1.12 seconds (1120ms)
+   * 3 = 2 claps, pause 0.9s, repeat
    */
   const startClappingPattern = useCallback((
     ctx: AudioContext, 
@@ -199,38 +199,35 @@ export function useSheelohaPlayer() {
     playSingleClapOnWeb(ctx, clapBuffer);
     
     if (speed === 1) {
-      // Speed 1: Repeat every 1.15 seconds (1150ms)
+      // Speed 1: Repeat every 1.27 seconds (1270ms)
       const interval = setInterval(() => {
         if (isPlayingRef.current) {
           playSingleClapOnWeb(ctx, clapBuffer);
         } else {
           clearInterval(interval);
         }
-      }, 1150);
+      }, 1270);
       intervalsRef.current.push(interval);
       
     } else if (speed === 2) {
-      // Speed 2: Repeat every 90ms
+      // Speed 2: Repeat every 1.12 seconds (1120ms)
       const interval = setInterval(() => {
         if (isPlayingRef.current) {
           playSingleClapOnWeb(ctx, clapBuffer);
         } else {
           clearInterval(interval);
         }
-      }, 90);
+      }, 1120);
       intervalsRef.current.push(interval);
       
     } else if (speed === 3) {
-      // Speed 3: 3 claps, pause 0.5s, repeat
-      // Each clap is ~100ms apart, then 500ms pause
-      // Pattern: clap, 100ms, clap, 100ms, clap, 500ms, repeat
-      let clapCount = 0;
-      const patternDuration = 100 + 100 + 500; // 700ms per cycle
+      // Speed 3: 2 claps, pause 0.9s, repeat
+      // Pattern: clap, 100ms, clap, 900ms pause, repeat
       
       const runPattern = () => {
         if (!isPlayingRef.current) return;
         
-        // Play 3 claps with 100ms between each
+        // Play 2 claps with 100ms between each
         playSingleClapOnWeb(ctx, clapBuffer);
         
         const clap2 = setTimeout(() => {
@@ -238,17 +235,12 @@ export function useSheelohaPlayer() {
         }, 100);
         timeoutsRef.current.push(clap2);
         
-        const clap3 = setTimeout(() => {
-          if (isPlayingRef.current) playSingleClapOnWeb(ctx, clapBuffer);
-        }, 200);
-        timeoutsRef.current.push(clap3);
-        
-        // After 700ms (200ms for claps + 500ms pause), repeat
+        // After 1000ms (100ms for claps + 900ms pause), repeat
         const nextCycle = setTimeout(() => {
           if (isPlayingRef.current) {
             runPattern();
           }
-        }, 700);
+        }, 1000);
         timeoutsRef.current.push(nextCycle);
       };
       
@@ -372,29 +364,29 @@ export function useSheelohaPlayer() {
     playSingleClapOnNative();
     
     if (speed === 1) {
-      // Speed 1: Repeat every 1.15 seconds
+      // Speed 1: Repeat every 1.27 seconds (1270ms)
       const interval = setInterval(() => {
         if (isPlayingRef.current) {
           playSingleClapOnNative();
         } else {
           clearInterval(interval);
         }
-      }, 1150);
+      }, 1270);
       intervalsRef.current.push(interval);
       
     } else if (speed === 2) {
-      // Speed 2: Repeat every 90ms
+      // Speed 2: Repeat every 1.12 seconds (1120ms)
       const interval = setInterval(() => {
         if (isPlayingRef.current) {
           playSingleClapOnNative();
         } else {
           clearInterval(interval);
         }
-      }, 90);
+      }, 1120);
       intervalsRef.current.push(interval);
       
     } else if (speed === 3) {
-      // Speed 3: 3 claps, pause 0.5s, repeat
+      // Speed 3: 2 claps, pause 0.9s, repeat
       const runPattern = () => {
         if (!isPlayingRef.current) return;
         
@@ -405,16 +397,12 @@ export function useSheelohaPlayer() {
         }, 100);
         timeoutsRef.current.push(clap2);
         
-        const clap3 = setTimeout(() => {
-          if (isPlayingRef.current) playSingleClapOnNative();
-        }, 200);
-        timeoutsRef.current.push(clap3);
-        
+        // After 1000ms (100ms for claps + 900ms pause), repeat
         const nextCycle = setTimeout(() => {
           if (isPlayingRef.current) {
             runPattern();
           }
-        }, 700);
+        }, 1000);
         timeoutsRef.current.push(nextCycle);
       };
       
