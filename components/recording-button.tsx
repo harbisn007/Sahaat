@@ -48,7 +48,7 @@ export function RecordingButton({
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const [isNearDelete, setIsNearDelete] = useState(false);
-  const swipeThreshold = 80; // pixels to swipe down to trigger delete
+  const swipeThreshold = 20; // pixels to swipe down to trigger delete
   let currentSwipeDistance = 0;
 
   // Callbacks for runOnJS
