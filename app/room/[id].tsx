@@ -33,8 +33,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
-  // Clapping speed: 1 = every 1.27s (default), 2 = every 1.12s, 3 = 2 claps + 0.9s pause pattern
-  const [clappingSpeed, setClappingSpeed] = useState<1 | 2 | 3>(1);
+  // Clapping speed: 0 = none (default), 1 = every 1.27s, 2 = every 1.12s, 3 = 2 claps + 0.9s pause pattern
+  const [clappingSpeed, setClappingSpeed] = useState<0 | 1 | 2 | 3>(0);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
@@ -122,6 +122,9 @@ export default function RoomScreen() {
     playSheeloha,
     stopSheeloha 
   } = useSheelohaPlayer();
+  
+  // Tarouk player
+  const { stopTarouk } = useTaroukPlayer();
 
   const { data: audioMessages, refetch: refetchAudio } = trpc.audio.list.useQuery(
     { roomId },
@@ -387,6 +390,13 @@ export default function RoomScreen() {
   const handleStartRecording = async (type: "comment" | "tarouk") => {
     console.log("[RoomScreen] handleStartRecording called with type:", type);
     setRecordingType(type);
+    
+    // كتم جميع الأصوات المشغلة أثناء التسجيل
+    console.log("[RoomScreen] Stopping all audio before recording...");
+    stop(); // إيقاف تشغيل الرسائل الصوتية
+    stopSheeloha(); // إيقاف شيلوها
+    stopTarouk(); // إيقاف طاروق
+    
     try {
       console.log("[RoomScreen] Calling startRecording...");
       const success = await startRecording();
@@ -710,29 +720,43 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              {/* Clapping Speed Options - vertical layout aligned with Sheeloha button */}
+              {/* Clapping Speed Options - vertical layout with "بلا" on top */}
               <View style={{ alignItems: 'center', justifyContent: 'flex-start' }}>
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: 7,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginBottom: 2,
-                    opacity: 0,
+                {/* "بلا" button on top */}
+                <TouchableOpacity
+                  onPress={() => setClappingSpeed(0)}
+                  style={{
+                    width: 24,
+                    height: 16,
+                    borderRadius: 4,
+                    backgroundColor: clappingSpeed === 0 ? '#FFD700' : '#5D4037',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    borderWidth: clappingSpeed === 0 ? 0 : 1,
+                    borderColor: '#8B7355',
+                    marginBottom: 4,
                   }}
                 >
-                  .
-                </Text>
-                <View style={{ flexDirection: 'column', gap: 2, height: 60, justifyContent: 'space-between' }}>
+                  <Text 
+                    style={{ 
+                      color: clappingSpeed === 0 ? '#5D4037' : '#FFD700',
+                      fontSize: 8,
+                      fontWeight: '900',
+                    }}
+                  >
+                    بلا
+                  </Text>
+                </TouchableOpacity>
+                {/* Speed buttons 1, 2, 3 */}
+                <View style={{ flexDirection: 'column', gap: 2, height: 44, justifyContent: 'space-between' }}>
                   {[1, 2, 3].map((speed) => (
                     <TouchableOpacity
                       key={speed}
-                      onPress={() => setClappingSpeed(speed as 1 | 2 | 3)}
+                      onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3)}
                       style={{
                         width: 18,
-                        height: 18,
-                        borderRadius: 4,
+                        height: 12,
+                        borderRadius: 3,
                         backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -743,7 +767,7 @@ export default function RoomScreen() {
                       <Text 
                         style={{ 
                           color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                          fontSize: 10,
+                          fontSize: 8,
                           fontWeight: '900',
                         }}
                       >

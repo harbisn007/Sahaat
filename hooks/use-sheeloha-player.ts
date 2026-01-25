@@ -4,11 +4,12 @@ import { useAudioPlayer } from "expo-audio";
 
 /**
  * Clapping Speed Configuration
- * 1 = Repeat clap every 1.27 seconds (DEFAULT)
+ * 0 = No clapping (DEFAULT)
+ * 1 = Repeat clap every 1.27 seconds
  * 2 = Repeat clap every 1.12 seconds
  * 3 = 2 claps, pause 0.9s, 2 claps, pause 0.9s, etc.
  */
-export type ClappingSpeed = 1 | 2 | 3;
+export type ClappingSpeed = 0 | 1 | 2 | 3;
 
 // Clapping sound asset - short single clap (0.5 seconds)
 const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
@@ -183,6 +184,7 @@ export function useSheelohaPlayer() {
 
   /**
    * Start clapping pattern based on speed
+   * 0 = No clapping
    * 1 = Every 1.27 seconds (1270ms)
    * 2 = Every 1.12 seconds (1120ms)
    * 3 = 2 claps, pause 0.9s, repeat
@@ -194,6 +196,12 @@ export function useSheelohaPlayer() {
     durationMs: number
   ) => {
     console.log("[useSheelohaPlayer] Starting clapping pattern, speed:", speed, "duration:", durationMs);
+    
+    // Speed 0: No clapping at all
+    if (speed === 0) {
+      console.log("[useSheelohaPlayer] No clapping (speed 0)");
+      return;
+    }
     
     // Play first clap immediately
     playSingleClapOnWeb(ctx, clapBuffer);
@@ -251,7 +259,7 @@ export function useSheelohaPlayer() {
   /**
    * Play on Web using Web Audio API for advanced effects
    */
-  const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 1) => {
+  const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
     console.log("[useSheelohaPlayer] Playing on Web:", audioUri, "speed:", clappingSpeed);
     
     stopSheeloha();
@@ -360,6 +368,12 @@ export function useSheelohaPlayer() {
   const startClappingPatternNative = useCallback((speed: ClappingSpeed, durationMs: number) => {
     console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed);
     
+    // Speed 0: No clapping at all
+    if (speed === 0) {
+      console.log("[useSheelohaPlayer] No clapping (speed 0)");
+      return;
+    }
+    
     // Play first clap immediately
     playSingleClapOnNative();
     
@@ -413,7 +427,7 @@ export function useSheelohaPlayer() {
   /**
    * Play on Native using expo-audio
    */
-  const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 1) => {
+  const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
     console.log("[useSheelohaPlayer] Playing on Native:", audioUri, "speed:", clappingSpeed);
     
     stopSheeloha();
@@ -460,9 +474,9 @@ export function useSheelohaPlayer() {
   /**
    * Main play function
    * @param audioUri - URL of the audio to play
-   * @param clappingSpeed - Speed of clapping (1=slow default, 2=fast, 3=pattern)
+   * @param clappingSpeed - Speed of clapping (0=none default, 1=slow, 2=medium, 3=pattern)
    */
-  const playSheeloha = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 1) => {
+  const playSheeloha = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
     console.log("[useSheelohaPlayer] playSheeloha called with:", audioUri, "speed:", clappingSpeed);
     
     if (!audioUri) {

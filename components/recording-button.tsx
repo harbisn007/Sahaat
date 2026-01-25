@@ -2,6 +2,7 @@ import { Pressable, Text, View, Animated, Platform } from "react-native";
 import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 interface RecordingButtonProps {
   isRecording: boolean;
@@ -40,9 +41,12 @@ export function RecordingButton({
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const [showCancelHint, setShowCancelHint] = useState(false);
-  const cancelHintOpacity = useRef(new Animated.Value(0)).current;
+  const [showDeleteIcon, setShowDeleteIcon] = useState(false);
+  const deleteIconOpacity = useRef(new Animated.Value(0)).current;
+  const deleteIconScale = useRef(new Animated.Value(0.5)).current;
+  const deleteIconRotation = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
+  const [isNearDelete, setIsNearDelete] = useState(false);
 
   useEffect(() => {
     if (isRecording) {
@@ -62,20 +66,52 @@ export function RecordingButton({
         ])
       ).start();
       
-      // Show cancel hint after 1 second
+      // Show delete icon after 0.5 second
       setTimeout(() => {
-        setShowCancelHint(true);
-        Animated.timing(cancelHintOpacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-        }).start();
-      }, 1000);
+        setShowDeleteIcon(true);
+        // Animate delete icon appearance
+        Animated.parallel([
+          Animated.timing(deleteIconOpacity, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.spring(deleteIconScale, {
+            toValue: 1,
+            friction: 5,
+            useNativeDriver: true,
+          }),
+        ]).start();
+        
+        // Start swinging animation
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(deleteIconRotation, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(deleteIconRotation, {
+              toValue: -1,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(deleteIconRotation, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      }, 500);
     } else {
       pulseAnim.setValue(1);
-      setShowCancelHint(false);
-      cancelHintOpacity.setValue(0);
+      setShowDeleteIcon(false);
+      deleteIconOpacity.setValue(0);
+      deleteIconScale.setValue(0.5);
+      deleteIconRotation.setValue(0);
       translateY.setValue(0);
+      setIsNearDelete(false);
     }
   }, [isRecording]);
   
@@ -86,11 +122,13 @@ export function RecordingButton({
       // Only respond to downward swipes
       if (event.translationY > 0) {
         translateY.setValue(event.translationY);
+        // Check if near delete zone (more than 60px)
+        setIsNearDelete(event.translationY > 60);
       }
     })
     .onEnd((event) => {
-      // Cancel if swiped down more than 50px
-      if (event.translationY > 50) {
+      // Cancel if swiped down more than 80px (into delete zone)
+      if (event.translationY > 80) {
         if (onCancelRecording) {
           onCancelRecording();
         }
@@ -100,35 +138,64 @@ export function RecordingButton({
         toValue: 0,
         useNativeDriver: true,
       }).start();
+      setIsNearDelete(false);
     });
+
+  // Rotation interpolation for swinging effect
+  const rotateInterpolation = deleteIconRotation.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['-15deg', '0deg', '15deg'],
+  });
 
   if (pressAndHold) {
     const buttonContent = (
       <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], width: '100%' }}>
-        {showCancelHint && (
+        {/* Delete Icon - appears below the button */}
+        {showDeleteIcon && (
           <Animated.View 
             style={{ 
               position: 'absolute',
-              top: -30,
+              bottom: -70,
               left: 0,
               right: 0,
               alignItems: 'center',
-              opacity: cancelHintOpacity,
+              opacity: deleteIconOpacity,
+              transform: [
+                { scale: deleteIconScale },
+                { rotate: rotateInterpolation },
+                { scale: isNearDelete ? 1.3 : 1 },
+              ],
               zIndex: 10,
             }}
           >
             <View 
               style={{
-                backgroundColor: 'rgba(0,0,0,0.7)',
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderRadius: 8,
+                backgroundColor: isNearDelete ? '#FF0000' : 'rgba(255,0,0,0.8)',
+                padding: 12,
+                borderRadius: 30,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 5,
               }}
             >
-              <Text style={{ color: '#fff', fontSize: 10 }}>
-                ↓ اسحب للأسفل لإلغاء
-              </Text>
+              <MaterialIcons 
+                name="delete" 
+                size={28} 
+                color="#FFFFFF" 
+              />
             </View>
+            <Text 
+              style={{ 
+                color: isNearDelete ? '#FF0000' : '#FF6666', 
+                fontSize: 10, 
+                marginTop: 4,
+                fontWeight: '700',
+              }}
+            >
+              اسحب هنا للحذف
+            </Text>
           </Animated.View>
         )}
         <Pressable
