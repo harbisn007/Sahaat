@@ -32,7 +32,7 @@ const SHEELOHA_CONFIG = {
   // Number of overlapping copies
   copies: 5,
   // Fixed delay between each copy start (in ms)
-  delayBetweenCopies: 0.05,
+  delayBetweenCopies: 50,
   // Volume for each copy - distant but audible
   volumes: [0.25, 0.20, 0.15, 0.12, 0.10],
   // Clap volumes - same as voice
@@ -234,14 +234,16 @@ export function useSheelohaPlayer() {
       let finishedCount = 0;
       const audioDuration = audioBuffer.duration / SHEELOHA_CONFIG.playbackRate;
       
-      // Get clapping delay based on speed
+      // Fixed delay between voice copies (50ms for overlapping effect)
+      const voiceDelay = SHEELOHA_CONFIG.delayBetweenCopies;
+      // Clapping delay is separate and only used when clapping is enabled
       const clappingDelay = CLAPPING_DELAYS[clappingSpeed];
-      console.log("[useSheelohaPlayer] Clapping delay:", clappingDelay, "ms (speed:", clappingSpeed, ")");
+      console.log("[useSheelohaPlayer] Voice delay:", voiceDelay, "ms, Clapping delay:", clappingDelay, "ms (speed:", clappingSpeed, ")");
       
       // Create 5 copies with different settings
       for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-        // Use clapping delay instead of fixed delay
-        const delay = i * clappingDelay;
+        // Use fixed voice delay for overlapping effect
+        const delay = i * voiceDelay;
         
         const timeout = setTimeout(() => {
           // Play clap sound first (if available) - DISABLED FOR TESTING
@@ -319,11 +321,15 @@ export function useSheelohaPlayer() {
     const voicePlayers = [player1, player2, player3, player4, player5];
     const clapPlayers = [clapPlayer1, clapPlayer2, clapPlayer3, clapPlayer4, clapPlayer5];
     
-    // Get clapping delay based on speed
+    // Fixed delay between voice copies (50ms for overlapping effect)
+    const voiceDelay = SHEELOHA_CONFIG.delayBetweenCopies;
+    // Clapping delay is separate and only used when clapping is enabled
     const clappingDelay = CLAPPING_DELAYS[clappingSpeed];
+    console.log("[useSheelohaPlayer] Native - Voice delay:", voiceDelay, "ms");
     
     for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-      const delay = i * clappingDelay;
+      // Use fixed voice delay for overlapping effect
+      const delay = i * voiceDelay;
       
       const timeout = setTimeout(() => {
         console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms`);
@@ -347,8 +353,8 @@ export function useSheelohaPlayer() {
       timeoutsRef.current.push(timeout);
     }
     
-    // Auto-stop after estimated duration (longer for slow clapping)
-    const maxDuration = 10000 + (SHEELOHA_CONFIG.copies * clappingDelay);
+    // Auto-stop after estimated duration
+    const maxDuration = 10000 + (SHEELOHA_CONFIG.copies * voiceDelay);
     const stopTimeout = setTimeout(() => {
       setState({ isPlaying: false, isProcessing: false });
     }, maxDuration);
