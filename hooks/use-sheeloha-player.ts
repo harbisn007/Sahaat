@@ -4,17 +4,20 @@ import { useAudioPlayer } from "expo-audio";
 
 /**
  * Sheeloha Effect Configuration
- * - Plays the same audio 3 times overlapping
+ * - Plays the same audio 5 times overlapping
  * - Each copy has a slight delay (chorus effect)
- * - Distance effect makes sounds appear farther
+ * - Distance effect: 3x more distant than before (much quieter)
+ * - No reverb/echo, just volume reduction
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping copies
-  copies: 3,
+  copies: 5,
   // Delay between each copy start (in ms)
   delayBetweenCopies: 80,
-  // Volume for each copy (decreasing for distance effect)
-  volumes: [0.8, 0.6, 0.4],
+  // Volume for each copy (3x more distant = much lower volumes)
+  // Previous: [0.8, 0.6, 0.4] - now 3x more distant
+  // Distance effect: each copy is ~40% of previous (instead of ~75%)
+  volumes: [0.27, 0.20, 0.13, 0.08, 0.05],
 };
 
 interface SheelohaPlayerState {
@@ -24,7 +27,7 @@ interface SheelohaPlayerState {
 
 /**
  * Hook for playing Sheeloha effect
- * Plays the latest Tarouk message 3 times overlapping with distance effect
+ * Plays the latest Tarouk message 5 times overlapping with strong distance effect
  */
 export function useSheelohaPlayer() {
   const [state, setState] = useState<SheelohaPlayerState>({
@@ -32,10 +35,12 @@ export function useSheelohaPlayer() {
     isProcessing: false,
   });
 
-  // Use expo-audio players for native
+  // Use expo-audio players for native (5 players now)
   const player1 = useAudioPlayer("");
   const player2 = useAudioPlayer("");
   const player3 = useAudioPlayer("");
+  const player4 = useAudioPlayer("");
+  const player5 = useAudioPlayer("");
   
   // Store timeouts for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -74,14 +79,17 @@ export function useSheelohaPlayer() {
         player1.pause();
         player2.pause();
         player3.pause();
+        player4.pause();
+        player5.pause();
       } catch(e) {}
     }
     
     setState({ isPlaying: false, isProcessing: false });
-  }, [player1, player2, player3]);
+  }, [player1, player2, player3, player4, player5]);
 
   /**
    * Play on Web using simple HTML5 Audio (most reliable)
+   * No reverb/echo - just volume reduction for distance effect
    */
   const playOnWeb = useCallback(async (audioUri: string) => {
     console.log("[useSheelohaPlayer] Playing on Web:", audioUri);
@@ -129,6 +137,7 @@ export function useSheelohaPlayer() {
 
   /**
    * Play on Native using expo-audio
+   * No reverb/echo - just volume reduction for distance effect
    */
   const playOnNative = useCallback(async (audioUri: string) => {
     console.log("[useSheelohaPlayer] Playing on Native:", audioUri);
@@ -136,13 +145,13 @@ export function useSheelohaPlayer() {
     stopSheeloha();
     setState({ isPlaying: true, isProcessing: false });
     
-    const players = [player1, player2, player3];
+    const players = [player1, player2, player3, player4, player5];
     
     for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
       const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
       
       const timeout = setTimeout(() => {
-        console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms`);
+        console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.volumes[i]}`);
         try {
           players[i].replace(audioUri);
           players[i].volume = SHEELOHA_CONFIG.volumes[i];
@@ -161,7 +170,7 @@ export function useSheelohaPlayer() {
     }, 10000);
     timeoutsRef.current.push(stopTimeout);
     
-  }, [stopSheeloha, player1, player2, player3]);
+  }, [stopSheeloha, player1, player2, player3, player4, player5]);
 
   /**
    * Main play function
