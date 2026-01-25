@@ -710,8 +710,8 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              {/* Clapping Speed Options - vertical layout */}
-              <View style={{ alignItems: 'center', justifyContent: 'flex-end', height: 60 + 4 + 12 }}>
+              {/* Clapping Speed Options - vertical layout aligned with Sheeloha button */}
+              <View style={{ alignItems: 'center', justifyContent: 'flex-start' }}>
                 <Text 
                   style={{ 
                     color: colors.muted,
@@ -719,11 +719,12 @@ export default function RoomScreen() {
                     fontWeight: '900',
                     textAlign: 'center',
                     marginBottom: 2,
+                    opacity: 0,
                   }}
                 >
-                  الصفقة
+                  .
                 </Text>
-                <View style={{ flexDirection: 'column', gap: 2 }}>
+                <View style={{ flexDirection: 'column', gap: 2, height: 60, justifyContent: 'space-between' }}>
                   {[1, 2, 3].map((speed) => (
                     <TouchableOpacity
                       key={speed}
@@ -751,6 +752,17 @@ export default function RoomScreen() {
                     </TouchableOpacity>
                   ))}
                 </View>
+                <Text 
+                  style={{ 
+                    color: colors.muted,
+                    fontSize: 7,
+                    fontWeight: '900',
+                    textAlign: 'center',
+                    marginTop: 4,
+                  }}
+                >
+                  الصفقة
+                </Text>
               </View>
 
               {/* Sheeloha Button */}
