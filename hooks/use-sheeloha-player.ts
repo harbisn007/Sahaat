@@ -29,8 +29,8 @@ const SHEELOHA_CONFIG = {
   delayBetweenCopies: 50,
   // Volume for each copy - distant but audible
   volumes: [0.25, 0.20, 0.15, 0.12, 0.10],
-  // Clap volume
-  clapVolume: 0.8,
+  // Clap volume - distant like the voice copies (~25%)
+  clapVolume: 0.25,
   // Playback rate: 1.2 = 20% faster + higher pitch
   playbackRate: 1.2,
   // Stereo pan values: all center (0)
