@@ -61,6 +61,23 @@ export function RecordingButton({
     setIsNearDelete(value);
   }, []);
 
+  const showDeleteIconCallback = useCallback(() => {
+    setShowDeleteIcon(true);
+    // Animate delete icon appearance
+    Animated.parallel([
+      Animated.timing(deleteIconOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(deleteIconScale, {
+        toValue: 1,
+        friction: 5,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
+
   const handleDelete = useCallback(() => {
     console.log("[RecordingButton] DELETE triggered - calling onCancelRecording");
     if (onCancelRecording) {
@@ -88,6 +105,21 @@ export function RecordingButton({
     if (isRecording) {
       currentSwipeDistance = 0;
       
+      // Show delete icon immediately when recording starts
+      setShowDeleteIcon(true);
+      Animated.parallel([
+        Animated.timing(deleteIconOpacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(deleteIconScale, {
+          toValue: 1,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
+      
       // Pulse animation while recording
       Animated.loop(
         Animated.sequence([
@@ -104,46 +136,26 @@ export function RecordingButton({
         ])
       ).start();
       
-      // Show delete icon after 0.5 second
-      const timeout = setTimeout(() => {
-        setShowDeleteIcon(true);
-        // Animate delete icon appearance
-        Animated.parallel([
-          Animated.timing(deleteIconOpacity, {
+      // Start swinging animation for delete icon
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(deleteIconRotation, {
             toValue: 1,
-            duration: 300,
+            duration: 200,
             useNativeDriver: true,
           }),
-          Animated.spring(deleteIconScale, {
-            toValue: 1,
-            friction: 5,
+          Animated.timing(deleteIconRotation, {
+            toValue: -1,
+            duration: 400,
             useNativeDriver: true,
           }),
-        ]).start();
-        
-        // Start swinging animation
-        Animated.loop(
-          Animated.sequence([
-            Animated.timing(deleteIconRotation, {
-              toValue: 1,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-            Animated.timing(deleteIconRotation, {
-              toValue: -1,
-              duration: 400,
-              useNativeDriver: true,
-            }),
-            Animated.timing(deleteIconRotation, {
-              toValue: 0,
-              duration: 200,
-              useNativeDriver: true,
-            }),
-          ])
-        ).start();
-      }, 500);
-      
-      return () => clearTimeout(timeout);
+          Animated.timing(deleteIconRotation, {
+            toValue: 0,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
     } else {
       pulseAnim.setValue(1);
       setShowDeleteIcon(false);
@@ -156,11 +168,11 @@ export function RecordingButton({
     }
   }, [isRecording]);
   
-  // Pan gesture for canceling recording
+  // Pan gesture for canceling recording - responds to finger swipe
   const panGesture = Gesture.Pan()
     .enabled(isRecording && pressAndHold)
     .onUpdate((event) => {
-      // Only respond to downward swipes
+      // Only respond to downward swipes (finger moving down)
       if (event.translationY > 0) {
         updateTranslateY(event.translationY);
         updateIsNearDelete(event.translationY > swipeThreshold - 20);
@@ -202,7 +214,7 @@ export function RecordingButton({
   if (pressAndHold) {
     const buttonContent = (
       <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], width: '100%' }}>
-        {/* Delete Icon - appears below the button */}
+        {/* Delete Icon - appears immediately when recording starts */}
         {showDeleteIcon && (
           <Animated.View 
             style={{ 
