@@ -874,7 +874,7 @@ export default function RoomScreen() {
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              <View className="flex-1 items-center">
+              <View style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
                 <View style={{ width: '100%' }}>
                   <RecordingButton
                     isRecording={isRecording && recordingType === "comment"}
@@ -909,7 +909,7 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              <View className="flex-1 items-center">
+              <View style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
                 <View style={{ width: '100%' }}>
                   <RecordingButton
                     isRecording={isRecording && recordingType === "tarouk"}
