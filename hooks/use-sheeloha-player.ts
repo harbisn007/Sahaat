@@ -247,11 +247,11 @@ export function useSheelohaPlayer() {
         const delay = i * clappingDelay;
         
         const timeout = setTimeout(() => {
-          // Play clap sound first (if available)
-          if (clapBuffer) {
-            playClapOnWeb(ctx, clapBuffer, SHEELOHA_CONFIG.clapVolumes[i], SHEELOHA_CONFIG.panValues[i]);
-            console.log(`[useSheelohaPlayer] Playing clap ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.clapVolumes[i]}`);
-          }
+          // Play clap sound first (if available) - DISABLED FOR TESTING
+          // if (clapBuffer) {
+          //   playClapOnWeb(ctx, clapBuffer, SHEELOHA_CONFIG.clapVolumes[i], SHEELOHA_CONFIG.panValues[i]);
+          //   console.log(`[useSheelohaPlayer] Playing clap ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.clapVolumes[i]}`);
+          // }
           
           // Create voice source node
           const source = ctx.createBufferSource();
@@ -331,11 +331,11 @@ export function useSheelohaPlayer() {
       const timeout = setTimeout(() => {
         console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms`);
         try {
-          // Play clap sound
-          clapPlayers[i].volume = SHEELOHA_CONFIG.clapVolumes[i];
-          clapPlayers[i].seekTo(0);
-          clapPlayers[i].play();
-          console.log(`[useSheelohaPlayer] Playing clap ${i+1}, volume: ${SHEELOHA_CONFIG.clapVolumes[i]}`);
+          // Play clap sound - DISABLED FOR TESTING
+          // clapPlayers[i].volume = SHEELOHA_CONFIG.clapVolumes[i];
+          // clapPlayers[i].seekTo(0);
+          // clapPlayers[i].play();
+          // console.log(`[useSheelohaPlayer] Playing clap ${i+1}, volume: ${SHEELOHA_CONFIG.clapVolumes[i]}`);
           
           // Play voice
           voicePlayers[i].replace(audioUri);
