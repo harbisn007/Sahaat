@@ -874,28 +874,26 @@ export default function RoomScreen() {
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              <View style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
-                <View style={{ width: '100%' }}>
-                  <RecordingButton
-                    isRecording={isRecording && recordingType === "comment"}
-                    isPreparing={isPreparing}
-                    pressAndHold={true}
-                    onPressIn={() => handleStartRecording("comment")}
-                    onPressOut={() => handleStopRecording()}
-                    onCancelRecording={handleCancelRecording}
-                    recordingDuration={formattedDuration}
-                    iconComponent={
-                      <View style={{ flexDirection: 'row', gap: 4 }}>
-                        <MaterialIcons name="music-note" size={22} color="#FFD700" />
-                        <MaterialIcons name="chat" size={22} color="#FFD700" />
-                      </View>
-                    }
-                    label=""
-                    showLabel={false}
-                    backgroundColor="#5D4037"
-                    minHeight={60}
-                  />
-                </View>
+              <View className="flex-1 items-center">
+                <RecordingButton
+                  isRecording={isRecording && recordingType === "comment"}
+                  isPreparing={isPreparing}
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("comment")}
+                  onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
+                  recordingDuration={formattedDuration}
+                  iconComponent={
+                    <View style={{ flexDirection: 'row', gap: 4 }}>
+                      <MaterialIcons name="music-note" size={22} color="#FFD700" />
+                      <MaterialIcons name="chat" size={22} color="#FFD700" />
+                    </View>
+                  }
+                  label=""
+                  showLabel={false}
+                  backgroundColor="#5D4037"
+                  minHeight={60}
+                />
                 <Text 
                   style={{ 
                     color: colors.muted,
@@ -909,25 +907,23 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              <View style={{ flex: 1, alignItems: 'center', flexDirection: 'column' }}>
-                <View style={{ width: '100%' }}>
-                  <RecordingButton
-                    isRecording={isRecording && recordingType === "tarouk"}
-                    isPreparing={isPreparing}
-                    pressAndHold={true}
-                    onPressIn={() => handleStartRecording("tarouk")}
-                    onPressOut={() => handleStopRecording()}
-                    onCancelRecording={handleCancelRecording}
-                    backgroundColor="#5D4037"
-                    recordingDuration={formattedDuration}
-                    iconComponent={
-                      <MaterialCommunityIcons name="microphone-variant" size={28} color="#FFD700" />
-                    }
-                    label=""
-                    showLabel={false}
-                    minHeight={60}
-                  />
-                </View>
+              <View className="flex-1 items-center">
+                <RecordingButton
+                  isRecording={isRecording && recordingType === "tarouk"}
+                  isPreparing={isPreparing}
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("tarouk")}
+                  onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
+                  backgroundColor="#5D4037"
+                  recordingDuration={formattedDuration}
+                  iconComponent={
+                    <MaterialCommunityIcons name="microphone-variant" size={28} color="#FFD700" />
+                  }
+                  label=""
+                  showLabel={false}
+                  minHeight={60}
+                />
                 <Text 
                   style={{ 
                     color: colors.muted,
