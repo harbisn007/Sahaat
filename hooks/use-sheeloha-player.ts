@@ -32,7 +32,7 @@ const SHEELOHA_CONFIG = {
   // Number of overlapping copies
   copies: 5,
   // Fixed delay between each copy start (in ms)
-  delayBetweenCopies: 80,
+  delayBetweenCopies: 15,
   // Volume for each copy - distant but audible
   volumes: [0.25, 0.20, 0.15, 0.12, 0.10],
   // Clap volumes - same as voice
