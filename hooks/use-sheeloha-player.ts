@@ -20,30 +20,27 @@ const CLAPPING_DELAYS: Record<ClappingSpeed, number> = {
 const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
 
 /**
- * Sheeloha Effect Configuration - Advanced
+ * Sheeloha Effect Configuration - Simplified
  * - 5 overlapping copies
- * - Much more distant (quieter)
- * - Different pitch (higher)
- * - Slightly faster playback
- * - Stereo panning: Right → Left (moves from right to left during playback)
+ * - Distant sound (quieter)
+ * - Higher pitch (faster playback)
+ * - Fixed delay between copies (80ms)
+ * - Center stereo (no left/right movement)
  * - NO reverb/echo
- * - Clapping sound integrated
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping copies
   copies: 5,
-  // Delay between each copy start (in ms)
+  // Fixed delay between each copy start (in ms)
   delayBetweenCopies: 80,
-  // Volume for each copy (much more distant - about 50% of previous values)
-  volumes: [0.14, 0.10, 0.07, 0.04, 0.025],
-  // Clap volumes - SAME distance as voice copies, moves with stereo pan
-  // Same volume pattern as voice to match the distant effect
-  clapVolumes: [0.14, 0.10, 0.07, 0.04, 0.025],
-  // Playback rate (slightly faster, also changes pitch)
-  playbackRate: 1.15,
-  // Stereo pan values: -1 = full left, 0 = center, 1 = full right
-  // Start from right, move to left
-  panValues: [0.8, 0.4, 0, -0.4, -0.8],
+  // Volume for each copy - distant but audible
+  volumes: [0.25, 0.20, 0.15, 0.12, 0.10],
+  // Clap volumes - same as voice
+  clapVolumes: [0.25, 0.20, 0.15, 0.12, 0.10],
+  // Playback rate: 1.2 = 20% faster + higher pitch
+  playbackRate: 1.2,
+  // Stereo pan values: all center (0)
+  panValues: [0, 0, 0, 0, 0],
 };
 
 interface SheelohaPlayerState {
