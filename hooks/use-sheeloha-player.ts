@@ -16,6 +16,9 @@ const CLAPPING_DELAYS: Record<ClappingSpeed, number> = {
   3: 750,   // 80 BPM = 750ms per beat
 };
 
+// Clapping sound asset - using the existing sheeloha-claps.mp3
+const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
+
 /**
  * Sheeloha Effect Configuration - Advanced
  * - 5 overlapping copies
@@ -24,6 +27,7 @@ const CLAPPING_DELAYS: Record<ClappingSpeed, number> = {
  * - Slightly faster playback
  * - Stereo panning: Right → Left (moves from right to left during playback)
  * - NO reverb/echo
+ * - Clapping sound integrated
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping copies
@@ -32,6 +36,8 @@ const SHEELOHA_CONFIG = {
   delayBetweenCopies: 80,
   // Volume for each copy (much more distant - about 50% of previous values)
   volumes: [0.14, 0.10, 0.07, 0.04, 0.025],
+  // Clap volume - SAME for all 5 copies (only speed changes)
+  clapVolume: 0.7,
   // Playback rate (slightly faster, also changes pitch)
   playbackRate: 1.15,
   // Stereo pan values: -1 = full left, 0 = center, 1 = full right
@@ -51,6 +57,7 @@ interface SheelohaPlayerState {
  * - Stereo movement: Right → Left
  * - NO reverb
  * - Clapping speed support (1=slow, 2=medium, 3=fast)
+ * - Integrated clapping sound with each copy
  */
 export function useSheelohaPlayer() {
   const [state, setState] = useState<SheelohaPlayerState>({
@@ -58,12 +65,19 @@ export function useSheelohaPlayer() {
     isProcessing: false,
   });
 
-  // Use expo-audio players for native (5 players)
+  // Use expo-audio players for native (5 players for voice + 5 for claps)
   const player1 = useAudioPlayer("");
   const player2 = useAudioPlayer("");
   const player3 = useAudioPlayer("");
   const player4 = useAudioPlayer("");
   const player5 = useAudioPlayer("");
+  
+  // Clap players for native
+  const clapPlayer1 = useAudioPlayer(CLAP_SOUND_URI);
+  const clapPlayer2 = useAudioPlayer(CLAP_SOUND_URI);
+  const clapPlayer3 = useAudioPlayer(CLAP_SOUND_URI);
+  const clapPlayer4 = useAudioPlayer(CLAP_SOUND_URI);
+  const clapPlayer5 = useAudioPlayer(CLAP_SOUND_URI);
   
   // Store timeouts for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -72,6 +86,8 @@ export function useSheelohaPlayer() {
   const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const panNodesRef = useRef<StereoPannerNode[]>([]);
   const gainNodesRef = useRef<GainNode[]>([]);
+  // Store clap audio buffer for web
+  const clapBufferRef = useRef<AudioBuffer | null>(null);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -112,17 +128,80 @@ export function useSheelohaPlayer() {
         player3.pause();
         player4.pause();
         player5.pause();
+        clapPlayer1.pause();
+        clapPlayer2.pause();
+        clapPlayer3.pause();
+        clapPlayer4.pause();
+        clapPlayer5.pause();
       } catch(e) {}
     }
     
     setState({ isPlaying: false, isProcessing: false });
-  }, [player1, player2, player3, player4, player5]);
+  }, [player1, player2, player3, player4, player5, clapPlayer1, clapPlayer2, clapPlayer3, clapPlayer4, clapPlayer5]);
+
+  /**
+   * Load clap sound for web
+   */
+  const loadClapSound = useCallback(async (ctx: AudioContext) => {
+    if (clapBufferRef.current) return clapBufferRef.current;
+    
+    try {
+      // For web, we need to fetch the clap sound from assets
+      // The asset is bundled, so we use a relative path
+      const clapUrl = "/assets/sounds/sheeloha-claps.mp3";
+      console.log("[useSheelohaPlayer] Loading clap sound from:", clapUrl);
+      
+      const response = await fetch(clapUrl);
+      if (!response.ok) {
+        console.warn("[useSheelohaPlayer] Failed to load clap sound, trying alternative path");
+        // Try alternative path
+        const altResponse = await fetch("./assets/sounds/sheeloha-claps.mp3");
+        if (!altResponse.ok) {
+          console.error("[useSheelohaPlayer] Could not load clap sound");
+          return null;
+        }
+        const arrayBuffer = await altResponse.arrayBuffer();
+        clapBufferRef.current = await ctx.decodeAudioData(arrayBuffer);
+      } else {
+        const arrayBuffer = await response.arrayBuffer();
+        clapBufferRef.current = await ctx.decodeAudioData(arrayBuffer);
+      }
+      
+      console.log("[useSheelohaPlayer] Clap sound loaded, duration:", clapBufferRef.current?.duration);
+      return clapBufferRef.current;
+    } catch (error) {
+      console.error("[useSheelohaPlayer] Error loading clap sound:", error);
+      return null;
+    }
+  }, []);
+
+  /**
+   * Play clap sound on web
+   */
+  const playClapOnWeb = useCallback((ctx: AudioContext, clapBuffer: AudioBuffer, volume: number, pan: number) => {
+    const source = ctx.createBufferSource();
+    source.buffer = clapBuffer;
+    
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = volume;
+    
+    const panNode = ctx.createStereoPanner();
+    panNode.pan.value = pan;
+    
+    source.connect(gainNode);
+    gainNode.connect(panNode);
+    panNode.connect(ctx.destination);
+    
+    sourceNodesRef.current.push(source);
+    source.start();
+  }, []);
 
   /**
    * Play on Web using Web Audio API for advanced effects
    * - Pitch shift via playbackRate
    * - Stereo panning (Right → Left)
    * - NO reverb
+   * - Integrated clapping sound
    */
   const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 2) => {
     console.log("[useSheelohaPlayer] Playing on Web with advanced effects:", audioUri, "speed:", clappingSpeed);
@@ -142,13 +221,16 @@ export function useSheelohaPlayer() {
         await ctx.resume();
       }
       
-      // Fetch and decode audio
-      console.log("[useSheelohaPlayer] Fetching audio...");
+      // Load clap sound
+      const clapBuffer = await loadClapSound(ctx);
+      
+      // Fetch and decode voice audio
+      console.log("[useSheelohaPlayer] Fetching voice audio...");
       const response = await fetch(audioUri);
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
       
-      console.log("[useSheelohaPlayer] Audio decoded, duration:", audioBuffer.duration);
+      console.log("[useSheelohaPlayer] Voice audio decoded, duration:", audioBuffer.duration);
       setState({ isPlaying: true, isProcessing: false });
       
       let finishedCount = 0;
@@ -164,7 +246,13 @@ export function useSheelohaPlayer() {
         const delay = i * clappingDelay;
         
         const timeout = setTimeout(() => {
-          // Create source node
+          // Play clap sound first (if available)
+          if (clapBuffer) {
+            playClapOnWeb(ctx, clapBuffer, SHEELOHA_CONFIG.clapVolume, SHEELOHA_CONFIG.panValues[i]);
+            console.log(`[useSheelohaPlayer] Playing clap ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.clapVolume}`);
+          }
+          
+          // Create voice source node
           const source = ctx.createBufferSource();
           source.buffer = audioBuffer;
           source.playbackRate.value = SHEELOHA_CONFIG.playbackRate; // Faster + higher pitch
@@ -198,13 +286,13 @@ export function useSheelohaPlayer() {
           // Handle end
           source.onended = () => {
             finishedCount++;
-            console.log(`[useSheelohaPlayer] Copy ${i+1} ended (${finishedCount}/${SHEELOHA_CONFIG.copies})`);
+            console.log(`[useSheelohaPlayer] Voice copy ${i+1} ended (${finishedCount}/${SHEELOHA_CONFIG.copies})`);
             if (finishedCount >= SHEELOHA_CONFIG.copies) {
               setState({ isPlaying: false, isProcessing: false });
             }
           };
           
-          console.log(`[useSheelohaPlayer] Starting copy ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.volumes[i]}, pan: ${startPan}→${endPan}, rate: ${SHEELOHA_CONFIG.playbackRate}`);
+          console.log(`[useSheelohaPlayer] Starting voice copy ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.volumes[i]}, pan: ${startPan}→${endPan}, rate: ${SHEELOHA_CONFIG.playbackRate}`);
           source.start();
           
         }, delay);
@@ -216,12 +304,13 @@ export function useSheelohaPlayer() {
       console.error("[useSheelohaPlayer] Web Audio error:", error);
       setState({ isPlaying: false, isProcessing: false });
     }
-  }, [stopSheeloha]);
+  }, [stopSheeloha, loadClapSound, playClapOnWeb]);
 
   /**
    * Play on Native using expo-audio
    * Note: Native doesn't support stereo panning easily, so we use basic playback
    * with volume reduction and playback rate
+   * Includes clapping sound with each copy
    */
   const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 2) => {
     console.log("[useSheelohaPlayer] Playing on Native:", audioUri, "speed:", clappingSpeed);
@@ -229,7 +318,8 @@ export function useSheelohaPlayer() {
     stopSheeloha();
     setState({ isPlaying: true, isProcessing: false });
     
-    const players = [player1, player2, player3, player4, player5];
+    const voicePlayers = [player1, player2, player3, player4, player5];
+    const clapPlayers = [clapPlayer1, clapPlayer2, clapPlayer3, clapPlayer4, clapPlayer5];
     
     // Get clapping delay based on speed
     const clappingDelay = CLAPPING_DELAYS[clappingSpeed];
@@ -238,13 +328,19 @@ export function useSheelohaPlayer() {
       const delay = i * clappingDelay;
       
       const timeout = setTimeout(() => {
-        console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.volumes[i]}`);
+        console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms`);
         try {
-          players[i].replace(audioUri);
-          players[i].volume = SHEELOHA_CONFIG.volumes[i];
-          // Note: expo-audio supports playbackRate but may not work on all devices
-          // players[i].rate = SHEELOHA_CONFIG.playbackRate;
-          players[i].play();
+          // Play clap sound
+          clapPlayers[i].volume = SHEELOHA_CONFIG.clapVolume;
+          clapPlayers[i].seekTo(0);
+          clapPlayers[i].play();
+          console.log(`[useSheelohaPlayer] Playing clap ${i+1}, volume: ${SHEELOHA_CONFIG.clapVolume}`);
+          
+          // Play voice
+          voicePlayers[i].replace(audioUri);
+          voicePlayers[i].volume = SHEELOHA_CONFIG.volumes[i];
+          voicePlayers[i].play();
+          console.log(`[useSheelohaPlayer] Playing voice ${i+1}, volume: ${SHEELOHA_CONFIG.volumes[i]}`);
         } catch (e) {
           console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
         }
@@ -260,7 +356,7 @@ export function useSheelohaPlayer() {
     }, maxDuration);
     timeoutsRef.current.push(stopTimeout);
     
-  }, [stopSheeloha, player1, player2, player3, player4, player5]);
+  }, [stopSheeloha, player1, player2, player3, player4, player5, clapPlayer1, clapPlayer2, clapPlayer3, clapPlayer4, clapPlayer5]);
 
   /**
    * Main play function
