@@ -48,10 +48,12 @@ export function RecordingButton({
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const [isNearDelete, setIsNearDelete] = useState(false);
-  const [wasSwiped, setWasSwiped] = useState(false);
+  const swipeThreshold = 80; // pixels to swipe down to trigger delete
+  let currentSwipeDistance = 0;
 
   // Callbacks for runOnJS
   const updateTranslateY = useCallback((value: number) => {
+    currentSwipeDistance = value;
     translateY.setValue(value);
   }, [translateY]);
 
@@ -59,14 +61,22 @@ export function RecordingButton({
     setIsNearDelete(value);
   }, []);
 
-  const handleCancel = useCallback(() => {
-    setWasSwiped(true);
+  const handleDelete = useCallback(() => {
+    console.log("[RecordingButton] DELETE triggered - calling onCancelRecording");
     if (onCancelRecording) {
       onCancelRecording();
     }
   }, [onCancelRecording]);
 
+  const handleSend = useCallback(() => {
+    console.log("[RecordingButton] SEND triggered - calling onPressOut");
+    if (onPressOut) {
+      onPressOut();
+    }
+  }, [onPressOut]);
+
   const resetPosition = useCallback(() => {
+    currentSwipeDistance = 0;
     Animated.spring(translateY, {
       toValue: 0,
       useNativeDriver: true,
@@ -76,7 +86,7 @@ export function RecordingButton({
 
   useEffect(() => {
     if (isRecording) {
-      setWasSwiped(false);
+      currentSwipeDistance = 0;
       
       // Pulse animation while recording
       Animated.loop(
@@ -142,27 +152,32 @@ export function RecordingButton({
       deleteIconRotation.setValue(0);
       translateY.setValue(0);
       setIsNearDelete(false);
-      setWasSwiped(false);
+      currentSwipeDistance = 0;
     }
   }, [isRecording]);
   
-  // Pan gesture for canceling recording - using runOnJS for Android compatibility
+  // Pan gesture for canceling recording
   const panGesture = Gesture.Pan()
     .enabled(isRecording && pressAndHold)
-    .runOnJS(true)
     .onUpdate((event) => {
       // Only respond to downward swipes
       if (event.translationY > 0) {
         updateTranslateY(event.translationY);
-        updateIsNearDelete(event.translationY > 60);
+        updateIsNearDelete(event.translationY > swipeThreshold - 20);
       }
     })
     .onEnd((event) => {
-      // Cancel if swiped down more than 80px (into delete zone)
-      if (event.translationY > 80) {
-        handleCancel();
+      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "threshold:", swipeThreshold);
+      
+      // Check if swiped far enough to delete
+      if (event.translationY > swipeThreshold) {
+        console.log("[RecordingButton] SWIPE DETECTED - DELETE");
+        runOnJS(handleDelete)();
+      } else {
+        console.log("[RecordingButton] NO SWIPE - will send on release");
       }
-      resetPosition();
+      
+      runOnJS(resetPosition)();
     });
 
   // Rotation interpolation for swinging effect
@@ -171,12 +186,18 @@ export function RecordingButton({
     outputRange: ['-15deg', '0deg', '15deg'],
   });
 
-  // Handle release - only send if NOT swiped
+  // Handle release - ONLY if no swipe detected
   const handleRelease = useCallback(() => {
-    if (!wasSwiped && onPressOut) {
-      onPressOut();
+    console.log("[RecordingButton] onPressOut called. currentSwipeDistance:", currentSwipeDistance);
+    
+    // Only send if swipe distance is less than threshold
+    if (currentSwipeDistance < swipeThreshold) {
+      console.log("[RecordingButton] Swipe distance < threshold, calling handleSend");
+      handleSend();
+    } else {
+      console.log("[RecordingButton] Swipe distance >= threshold, NOT sending");
     }
-  }, [wasSwiped, onPressOut]);
+  }, [handleSend]);
 
   if (pressAndHold) {
     const buttonContent = (
