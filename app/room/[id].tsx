@@ -240,7 +240,8 @@ export default function RoomScreen() {
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
   
-  // Auto-play sheeloha broadcasts from other users
+  // Auto-play sheeloha broadcasts from OTHER users only
+  // The person who pressed the button already played it locally
   useEffect(() => {
     if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return;
 
@@ -248,14 +249,18 @@ export default function RoomScreen() {
     const latestBroadcast = sheelohaBroadcasts[0]; // Already sorted by desc(createdAt)
 
     // Check if it's a new broadcast that hasn't been played yet
+    // AND it's not from the current user (they already played it locally)
     if (
       latestBroadcast &&
-      !playedBroadcastIds.has(latestBroadcast.id)
+      !playedBroadcastIds.has(latestBroadcast.id) &&
+      latestBroadcast.userId !== userId // Skip if it's from current user
     ) {
-      console.log("[RoomScreen] Auto-playing sheeloha broadcast:", {
+      console.log("[RoomScreen] Auto-playing sheeloha broadcast from other user:", {
         id: latestBroadcast.id,
         audioUrl: latestBroadcast.audioUrl,
-        username: latestBroadcast.username
+        username: latestBroadcast.username,
+        broadcastUserId: latestBroadcast.userId,
+        currentUserId: userId
       });
       
       // Mark as played and clear old IDs (keep only the latest 5)
@@ -270,8 +275,12 @@ export default function RoomScreen() {
       
       // Play sheeloha effect (3 overlapping copies with distance effect)
       playSheeloha(latestBroadcast.audioUrl);
+    } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
+      // Mark own broadcast as played without playing (already played locally)
+      console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
+      setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
     }
-  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha]);
+  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
