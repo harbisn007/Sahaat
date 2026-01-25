@@ -104,7 +104,7 @@ export function RecordingButton({
 
   if (pressAndHold) {
     const buttonContent = (
-      <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], flex: 1 }}>
+      <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], width: '100%' }}>
         {showCancelHint && (
           <Animated.View 
             style={{ 
@@ -136,7 +136,6 @@ export function RecordingButton({
           onPressOut={onPressOut}
           disabled={isPreparing}
           style={({ pressed }) => ({
-            flex: 1,
             backgroundColor: pressed || isRecording ? colors.error : backgroundColor || colors.primary,
             opacity: isPreparing ? 0.6 : 1,
             borderRadius: 8,
