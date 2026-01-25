@@ -46,9 +46,11 @@ export function RecordingButton({
   const deleteIconOpacity = useRef(new Animated.Value(0)).current;
   const deleteIconScale = useRef(new Animated.Value(0.5)).current;
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
+  const deleteIconTranslateY = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
-  const deleteZoneThreshold = 60; // pixels - if swipe > this, it's over delete zone
+  const deleteZoneY = -80; // Position of delete icon
+  const deleteZoneSize = 50; // Size of delete zone
   let currentSwipeDistance = 0;
   let hasStartedGesture = false;
 
@@ -56,7 +58,8 @@ export function RecordingButton({
   const updateTranslateY = useCallback((value: number) => {
     currentSwipeDistance = value;
     translateY.setValue(value);
-  }, [translateY]);
+    deleteIconTranslateY.setValue(value);
+  }, [translateY, deleteIconTranslateY]);
 
   const updateIsOverDeleteZone = useCallback((value: boolean) => {
     setIsOverDeleteZone(value);
@@ -83,8 +86,12 @@ export function RecordingButton({
       toValue: 0,
       useNativeDriver: true,
     }).start();
+    Animated.spring(deleteIconTranslateY, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
     setIsOverDeleteZone(false);
-  }, [translateY]);
+  }, [translateY, deleteIconTranslateY]);
 
   const hideDeleteIcon = useCallback(() => {
     Animated.parallel([
@@ -114,6 +121,7 @@ export function RecordingButton({
       deleteIconScale.setValue(0.5);
       deleteIconRotation.setValue(0);
       translateY.setValue(0);
+      deleteIconTranslateY.setValue(0);
       
       // Pulse animation while recording
       Animated.loop(
@@ -158,6 +166,7 @@ export function RecordingButton({
       deleteIconScale.setValue(0.5);
       deleteIconRotation.setValue(0);
       translateY.setValue(0);
+      deleteIconTranslateY.setValue(0);
       setIsOverDeleteZone(false);
       currentSwipeDistance = 0;
       hasStartedGesture = false;
@@ -190,19 +199,23 @@ export function RecordingButton({
         
         updateTranslateY(event.translationY);
         
-        // Check if over delete zone (swipe distance > threshold)
-        const isOver = event.translationY > deleteZoneThreshold;
+        // Check if over delete zone
+        // Delete icon is at position deleteZoneY
+        // If finger is at deleteZoneY ± deleteZoneSize/2, it's over the zone
+        const fingerY = event.translationY;
+        const isOver = fingerY >= Math.abs(deleteZoneY) - deleteZoneSize && 
+                       fingerY <= Math.abs(deleteZoneY) + deleteZoneSize;
         updateIsOverDeleteZone(isOver);
       }
     })
     .onEnd((event) => {
-      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "threshold:", deleteZoneThreshold);
+      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "isOver:", isOverDeleteZone);
       
-      // If swipe distance > threshold, delete
-      if (hasStartedGesture && event.translationY > deleteZoneThreshold) {
+      // If over delete zone when releasing, delete
+      if (isOverDeleteZone) {
         console.log("[RecordingButton] OVER DELETE ZONE - DELETE");
         runOnJS(handleDelete)();
-      } else if (hasStartedGesture) {
+      } else if (hasStartedGesture || event.translationY > 0) {
         console.log("[RecordingButton] NOT OVER DELETE ZONE - SEND");
         runOnJS(handleSend)();
       } else {
@@ -224,17 +237,18 @@ export function RecordingButton({
   if (pressAndHold) {
     const buttonContent = (
       <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], width: '100%' }}>
-        {/* Delete Icon - appears when finger moves down */}
+        {/* Delete Icon - appears when finger moves down, follows finger */}
         {showDeleteIcon && (
           <Animated.View 
             style={{ 
               position: 'absolute',
-              bottom: -80,
+              bottom: deleteZoneY,
               left: 0,
               right: 0,
               alignItems: 'center',
               opacity: deleteIconOpacity,
               transform: [
+                { translateY: deleteIconTranslateY },
                 { scale: deleteIconScale },
                 { rotate: rotateInterpolation },
               ],
@@ -261,13 +275,13 @@ export function RecordingButton({
             </View>
             <Text 
               style={{ 
-                color: isOverDeleteZone ? '#FF0000' : '#FF6666', 
+                color: isOverDeleteZone ? '#FF0000' : '#999999', 
                 fontSize: 11, 
                 marginTop: 6,
-                fontWeight: '700',
+                fontWeight: '600',
               }}
             >
-              {isOverDeleteZone ? 'اسحب لحذف' : 'اسحب للأسفل'}
+              اسحب للحذف
             </Text>
           </Animated.View>
         )}
