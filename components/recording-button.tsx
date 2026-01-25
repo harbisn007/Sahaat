@@ -48,12 +48,11 @@ export function RecordingButton({
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const [isNearDelete, setIsNearDelete] = useState(false);
-  const [currentTranslateY, setCurrentTranslateY] = useState(0);
+  const [wasSwiped, setWasSwiped] = useState(false);
 
   // Callbacks for runOnJS
   const updateTranslateY = useCallback((value: number) => {
     translateY.setValue(value);
-    setCurrentTranslateY(value);
   }, [translateY]);
 
   const updateIsNearDelete = useCallback((value: boolean) => {
@@ -61,6 +60,7 @@ export function RecordingButton({
   }, []);
 
   const handleCancel = useCallback(() => {
+    setWasSwiped(true);
     if (onCancelRecording) {
       onCancelRecording();
     }
@@ -72,11 +72,12 @@ export function RecordingButton({
       useNativeDriver: true,
     }).start();
     setIsNearDelete(false);
-    setCurrentTranslateY(0);
   }, [translateY]);
 
   useEffect(() => {
     if (isRecording) {
+      setWasSwiped(false);
+      
       // Pulse animation while recording
       Animated.loop(
         Animated.sequence([
@@ -141,7 +142,7 @@ export function RecordingButton({
       deleteIconRotation.setValue(0);
       translateY.setValue(0);
       setIsNearDelete(false);
-      setCurrentTranslateY(0);
+      setWasSwiped(false);
     }
   }, [isRecording]);
   
@@ -169,6 +170,13 @@ export function RecordingButton({
     inputRange: [-1, 0, 1],
     outputRange: ['-15deg', '0deg', '15deg'],
   });
+
+  // Handle release - only send if NOT swiped
+  const handleRelease = useCallback(() => {
+    if (!wasSwiped && onPressOut) {
+      onPressOut();
+    }
+  }, [wasSwiped, onPressOut]);
 
   if (pressAndHold) {
     const buttonContent = (
@@ -223,7 +231,7 @@ export function RecordingButton({
         )}
         <Pressable
           onPressIn={onPressIn}
-          onPressOut={onPressOut}
+          onPressOut={handleRelease}
           disabled={isPreparing}
           style={({ pressed }) => ({
             backgroundColor: pressed || isRecording ? colors.error : backgroundColor || colors.primary,
