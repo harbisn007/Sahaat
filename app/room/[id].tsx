@@ -415,12 +415,13 @@ export default function RoomScreen() {
   };
 
   const handleCancelRecording = async () => {
-    console.log("[RoomScreen] Canceling recording...");
+    console.log("[RoomScreen] Canceling recording - DELETE without saving...");
     try {
-      // Stop recording without saving
-      await stopRecording();
+      // Stop recording without saving - this will discard the recording
+      const result = await stopRecording();
+      console.log("[RoomScreen] Recording stopped and discarded:", result);
       setRecordingType(null);
-      console.log("[RoomScreen] Recording canceled successfully");
+      console.log("[RoomScreen] Recording canceled successfully - NOT sent");
     } catch (error) {
       console.error("[RoomScreen] Error canceling recording:", error);
     }
@@ -722,13 +723,13 @@ export default function RoomScreen() {
             <View className="flex-row gap-2 flex-1">
               {/* Clapping Speed Options - vertical layout with "بلا" on top */}
               <View style={{ alignItems: 'center', justifyContent: 'flex-start' }}>
-                {/* "بلا" button on top */}
+                {/* "بلا" button on top - same size as button 1 */}
                 <TouchableOpacity
                   onPress={() => setClappingSpeed(0)}
                   style={{
-                    width: 24,
-                    height: 16,
-                    borderRadius: 4,
+                    width: 18,
+                    height: 12,
+                    borderRadius: 3,
                     backgroundColor: clappingSpeed === 0 ? '#FFD700' : '#5D4037',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -740,7 +741,7 @@ export default function RoomScreen() {
                   <Text 
                     style={{ 
                       color: clappingSpeed === 0 ? '#5D4037' : '#FFD700',
-                      fontSize: 8,
+                      fontSize: 6,
                       fontWeight: '900',
                     }}
                   >

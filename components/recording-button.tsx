@@ -1,25 +1,26 @@
 import { Pressable, Text, View, Animated, Platform } from "react-native";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-reanimated";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 interface RecordingButtonProps {
   isRecording: boolean;
   isPreparing: boolean;
-  label?: string; // اختياري الآن
+  label?: string;
   onPress?: () => void;
   onPressIn?: () => void;
   onPressOut?: () => void;
-  onCancelRecording?: () => void; // جديد: إلغاء التسجيل بالسحب
+  onCancelRecording?: () => void;
   backgroundColor?: string;
   pressAndHold?: boolean;
   recordingDuration?: string;
-  icon?: string; // أيقونة المايكروفون (مثل "🎙️" أو "🎤")
-  iconComponent?: React.ReactNode; // أيقونة SVG مخصصة
-  iconSize?: number; // حجم الأيقونة
-  showLabel?: boolean; // إظهار النص أم لا
-  minHeight?: number; // الحد الأدنى للارتفاع
+  icon?: string;
+  iconComponent?: React.ReactNode;
+  iconSize?: number;
+  showLabel?: boolean;
+  minHeight?: number;
 }
 
 export function RecordingButton({
@@ -47,6 +48,32 @@ export function RecordingButton({
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const [isNearDelete, setIsNearDelete] = useState(false);
+  const [currentTranslateY, setCurrentTranslateY] = useState(0);
+
+  // Callbacks for runOnJS
+  const updateTranslateY = useCallback((value: number) => {
+    translateY.setValue(value);
+    setCurrentTranslateY(value);
+  }, [translateY]);
+
+  const updateIsNearDelete = useCallback((value: boolean) => {
+    setIsNearDelete(value);
+  }, []);
+
+  const handleCancel = useCallback(() => {
+    if (onCancelRecording) {
+      onCancelRecording();
+    }
+  }, [onCancelRecording]);
+
+  const resetPosition = useCallback(() => {
+    Animated.spring(translateY, {
+      toValue: 0,
+      useNativeDriver: true,
+    }).start();
+    setIsNearDelete(false);
+    setCurrentTranslateY(0);
+  }, [translateY]);
 
   useEffect(() => {
     if (isRecording) {
@@ -67,7 +94,7 @@ export function RecordingButton({
       ).start();
       
       // Show delete icon after 0.5 second
-      setTimeout(() => {
+      const timeout = setTimeout(() => {
         setShowDeleteIcon(true);
         // Animate delete icon appearance
         Animated.parallel([
@@ -104,6 +131,8 @@ export function RecordingButton({
           ])
         ).start();
       }, 500);
+      
+      return () => clearTimeout(timeout);
     } else {
       pulseAnim.setValue(1);
       setShowDeleteIcon(false);
@@ -112,33 +141,27 @@ export function RecordingButton({
       deleteIconRotation.setValue(0);
       translateY.setValue(0);
       setIsNearDelete(false);
+      setCurrentTranslateY(0);
     }
   }, [isRecording]);
   
-  // Pan gesture for canceling recording
+  // Pan gesture for canceling recording - using runOnJS for Android compatibility
   const panGesture = Gesture.Pan()
     .enabled(isRecording && pressAndHold)
+    .runOnJS(true)
     .onUpdate((event) => {
       // Only respond to downward swipes
       if (event.translationY > 0) {
-        translateY.setValue(event.translationY);
-        // Check if near delete zone (more than 60px)
-        setIsNearDelete(event.translationY > 60);
+        updateTranslateY(event.translationY);
+        updateIsNearDelete(event.translationY > 60);
       }
     })
     .onEnd((event) => {
       // Cancel if swiped down more than 80px (into delete zone)
       if (event.translationY > 80) {
-        if (onCancelRecording) {
-          onCancelRecording();
-        }
+        handleCancel();
       }
-      // Reset position
-      Animated.spring(translateY, {
-        toValue: 0,
-        useNativeDriver: true,
-      }).start();
-      setIsNearDelete(false);
+      resetPosition();
     });
 
   // Rotation interpolation for swinging effect
