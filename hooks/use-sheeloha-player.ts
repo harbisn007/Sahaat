@@ -3,6 +3,20 @@ import { Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 
 /**
+ * Clapping Speed Configuration
+ * 1 = Slow (20 BPM) - delay 3000ms between claps
+ * 2 = Medium (50 BPM) - delay 1200ms between claps  
+ * 3 = Fast (80 BPM) - delay 750ms between claps
+ */
+export type ClappingSpeed = 1 | 2 | 3;
+
+const CLAPPING_DELAYS: Record<ClappingSpeed, number> = {
+  1: 3000,  // 20 BPM = 3000ms per beat
+  2: 1200,  // 50 BPM = 1200ms per beat
+  3: 750,   // 80 BPM = 750ms per beat
+};
+
+/**
  * Sheeloha Effect Configuration - Advanced
  * - 5 overlapping copies
  * - Much more distant (quieter)
@@ -36,6 +50,7 @@ interface SheelohaPlayerState {
  * - Higher pitch + faster playback
  * - Stereo movement: Right → Left
  * - NO reverb
+ * - Clapping speed support (1=slow, 2=medium, 3=fast)
  */
 export function useSheelohaPlayer() {
   const [state, setState] = useState<SheelohaPlayerState>({
@@ -109,8 +124,8 @@ export function useSheelohaPlayer() {
    * - Stereo panning (Right → Left)
    * - NO reverb
    */
-  const playOnWeb = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] Playing on Web with advanced effects:", audioUri);
+  const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 2) => {
+    console.log("[useSheelohaPlayer] Playing on Web with advanced effects:", audioUri, "speed:", clappingSpeed);
     
     stopSheeloha();
     setState({ isPlaying: true, isProcessing: true });
@@ -139,9 +154,14 @@ export function useSheelohaPlayer() {
       let finishedCount = 0;
       const audioDuration = audioBuffer.duration / SHEELOHA_CONFIG.playbackRate;
       
+      // Get clapping delay based on speed
+      const clappingDelay = CLAPPING_DELAYS[clappingSpeed];
+      console.log("[useSheelohaPlayer] Clapping delay:", clappingDelay, "ms (speed:", clappingSpeed, ")");
+      
       // Create 5 copies with different settings
       for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-        const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
+        // Use clapping delay instead of fixed delay
+        const delay = i * clappingDelay;
         
         const timeout = setTimeout(() => {
           // Create source node
@@ -203,16 +223,19 @@ export function useSheelohaPlayer() {
    * Note: Native doesn't support stereo panning easily, so we use basic playback
    * with volume reduction and playback rate
    */
-  const playOnNative = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] Playing on Native:", audioUri);
+  const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 2) => {
+    console.log("[useSheelohaPlayer] Playing on Native:", audioUri, "speed:", clappingSpeed);
     
     stopSheeloha();
     setState({ isPlaying: true, isProcessing: false });
     
     const players = [player1, player2, player3, player4, player5];
     
+    // Get clapping delay based on speed
+    const clappingDelay = CLAPPING_DELAYS[clappingSpeed];
+    
     for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
+      const delay = i * clappingDelay;
       
       const timeout = setTimeout(() => {
         console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.volumes[i]}`);
@@ -230,19 +253,22 @@ export function useSheelohaPlayer() {
       timeoutsRef.current.push(timeout);
     }
     
-    // Auto-stop after estimated duration (10 seconds max)
+    // Auto-stop after estimated duration (longer for slow clapping)
+    const maxDuration = 10000 + (SHEELOHA_CONFIG.copies * clappingDelay);
     const stopTimeout = setTimeout(() => {
       setState({ isPlaying: false, isProcessing: false });
-    }, 10000);
+    }, maxDuration);
     timeoutsRef.current.push(stopTimeout);
     
   }, [stopSheeloha, player1, player2, player3, player4, player5]);
 
   /**
    * Main play function
+   * @param audioUri - URL of the audio to play
+   * @param clappingSpeed - Speed of clapping (1=slow, 2=medium, 3=fast)
    */
-  const playSheeloha = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] playSheeloha called with:", audioUri);
+  const playSheeloha = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 2) => {
+    console.log("[useSheelohaPlayer] playSheeloha called with:", audioUri, "speed:", clappingSpeed);
     
     if (!audioUri) {
       console.warn("[useSheelohaPlayer] No audio URI provided!");
@@ -250,9 +276,9 @@ export function useSheelohaPlayer() {
     }
     
     if (Platform.OS === "web") {
-      await playOnWeb(audioUri);
+      await playOnWeb(audioUri, clappingSpeed);
     } else {
-      await playOnNative(audioUri);
+      await playOnNative(audioUri, clappingSpeed);
     }
   }, [playOnWeb, playOnNative]);
 

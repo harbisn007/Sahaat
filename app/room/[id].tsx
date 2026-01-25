@@ -33,6 +33,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
+  // Clapping speed: 1 = slow (20 BPM), 2 = medium (50 BPM), 3 = fast (80 BPM)
+  const [clappingSpeed, setClappingSpeed] = useState<1 | 2 | 3>(2);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
@@ -273,8 +275,9 @@ export default function RoomScreen() {
         return newSet;
       });
       
-      // Play sheeloha effect (3 overlapping copies with distance effect)
-      playSheeloha(latestBroadcast.audioUrl);
+      // Play sheeloha effect (5 overlapping copies with distance effect)
+      // Use medium speed (2) as default for broadcasts from other users
+      playSheeloha(latestBroadcast.audioUrl, 2);
     } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
       // Mark own broadcast as played without playing (already played locally)
       console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
@@ -707,6 +710,49 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
+              {/* Clapping Speed Options */}
+              <View className="items-center">
+                <Text 
+                  style={{ 
+                    color: colors.muted,
+                    fontSize: 8,
+                    fontWeight: '900',
+                    textAlign: 'center',
+                    marginBottom: 4,
+                  }}
+                >
+                  الصفقة
+                </Text>
+                <View style={{ gap: 4 }}>
+                  {[1, 2, 3].map((speed) => (
+                    <TouchableOpacity
+                      key={speed}
+                      onPress={() => setClappingSpeed(speed as 1 | 2 | 3)}
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderRadius: 6,
+                        backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderWidth: clappingSpeed === speed ? 0 : 1,
+                        borderColor: '#8B7355',
+                      }}
+                    >
+                      <Text 
+                        style={{ 
+                          color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
+                          fontSize: 14,
+                          fontWeight: '900',
+                        }}
+                      >
+                        {speed === 1 ? '١' : speed === 2 ? '٢' : '٣'}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
               {/* Sheeloha Button */}
               <View className="flex-1 items-center">
                 <TouchableOpacity
@@ -734,8 +780,8 @@ export default function RoomScreen() {
                   
                   try {
                     console.log("[RoomScreen] Playing sheeloha effect (3 overlapping copies)");
-                    // Play sheeloha effect immediately
-                    playSheeloha(lastTaroukUri!);
+                    // Play sheeloha effect immediately with selected clapping speed
+                    playSheeloha(lastTaroukUri!, clappingSpeed);
                     
                     // Also broadcast to other users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
