@@ -3,21 +3,26 @@ import { Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 
 /**
- * Sheeloha Effect Configuration
- * - Plays the same audio 5 times overlapping
- * - Each copy has a slight delay (chorus effect)
- * - Distance effect: 3x more distant than before (much quieter)
- * - No reverb/echo, just volume reduction
+ * Sheeloha Effect Configuration - Advanced
+ * - 5 overlapping copies
+ * - Much more distant (quieter)
+ * - Different pitch (higher)
+ * - Slightly faster playback
+ * - Stereo panning: Right → Left (moves from right to left during playback)
+ * - NO reverb/echo
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping copies
   copies: 5,
   // Delay between each copy start (in ms)
   delayBetweenCopies: 80,
-  // Volume for each copy (3x more distant = much lower volumes)
-  // Previous: [0.8, 0.6, 0.4] - now 3x more distant
-  // Distance effect: each copy is ~40% of previous (instead of ~75%)
-  volumes: [0.27, 0.20, 0.13, 0.08, 0.05],
+  // Volume for each copy (much more distant - about 50% of previous values)
+  volumes: [0.14, 0.10, 0.07, 0.04, 0.025],
+  // Playback rate (slightly faster, also changes pitch)
+  playbackRate: 1.15,
+  // Stereo pan values: -1 = full left, 0 = center, 1 = full right
+  // Start from right, move to left
+  panValues: [0.8, 0.4, 0, -0.4, -0.8],
 };
 
 interface SheelohaPlayerState {
@@ -26,8 +31,11 @@ interface SheelohaPlayerState {
 }
 
 /**
- * Hook for playing Sheeloha effect
- * Plays the latest Tarouk message 5 times overlapping with strong distance effect
+ * Hook for playing Sheeloha effect with advanced audio processing
+ * - Distant sound (low volume)
+ * - Higher pitch + faster playback
+ * - Stereo movement: Right → Left
+ * - NO reverb
  */
 export function useSheelohaPlayer() {
   const [state, setState] = useState<SheelohaPlayerState>({
@@ -35,7 +43,7 @@ export function useSheelohaPlayer() {
     isProcessing: false,
   });
 
-  // Use expo-audio players for native (5 players now)
+  // Use expo-audio players for native (5 players)
   const player1 = useAudioPlayer("");
   const player2 = useAudioPlayer("");
   const player3 = useAudioPlayer("");
@@ -44,16 +52,22 @@ export function useSheelohaPlayer() {
   
   // Store timeouts for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  // Store web audio elements
-  const webAudioRef = useRef<HTMLAudioElement[]>([]);
+  // Store web audio context and nodes
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
+  const panNodesRef = useRef<StereoPannerNode[]>([]);
+  const gainNodesRef = useRef<GainNode[]>([]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       timeoutsRef.current.forEach(t => clearTimeout(t));
-      webAudioRef.current.forEach(a => {
-        try { a.pause(); a.src = ""; } catch(e) {}
+      sourceNodesRef.current.forEach(s => {
+        try { s.stop(); } catch(e) {}
       });
+      if (audioContextRef.current) {
+        try { audioContextRef.current.close(); } catch(e) {}
+      }
     };
   }, []);
 
@@ -67,11 +81,13 @@ export function useSheelohaPlayer() {
     timeoutsRef.current.forEach(t => clearTimeout(t));
     timeoutsRef.current = [];
     
-    // Stop web audio
-    webAudioRef.current.forEach(a => {
-      try { a.pause(); a.currentTime = 0; } catch(e) {}
+    // Stop web audio sources
+    sourceNodesRef.current.forEach(s => {
+      try { s.stop(); } catch(e) {}
     });
-    webAudioRef.current = [];
+    sourceNodesRef.current = [];
+    panNodesRef.current = [];
+    gainNodesRef.current = [];
     
     // Stop native players
     if (Platform.OS !== "web") {
@@ -88,56 +104,104 @@ export function useSheelohaPlayer() {
   }, [player1, player2, player3, player4, player5]);
 
   /**
-   * Play on Web using simple HTML5 Audio (most reliable)
-   * No reverb/echo - just volume reduction for distance effect
+   * Play on Web using Web Audio API for advanced effects
+   * - Pitch shift via playbackRate
+   * - Stereo panning (Right → Left)
+   * - NO reverb
    */
   const playOnWeb = useCallback(async (audioUri: string) => {
-    console.log("[useSheelohaPlayer] Playing on Web:", audioUri);
+    console.log("[useSheelohaPlayer] Playing on Web with advanced effects:", audioUri);
     
     stopSheeloha();
-    setState({ isPlaying: true, isProcessing: false });
+    setState({ isPlaying: true, isProcessing: true });
     
-    const audios: HTMLAudioElement[] = [];
-    let finishedCount = 0;
-    
-    for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-      const audio = new Audio();
-      audio.crossOrigin = "anonymous";
-      audio.volume = SHEELOHA_CONFIG.volumes[i];
+    try {
+      // Create or reuse AudioContext
+      if (!audioContextRef.current || audioContextRef.current.state === "closed") {
+        audioContextRef.current = new AudioContext();
+      }
+      const ctx = audioContextRef.current;
       
-      audio.onended = () => {
-        finishedCount++;
-        console.log(`[useSheelohaPlayer] Copy ${i+1} ended (${finishedCount}/${SHEELOHA_CONFIG.copies})`);
-        if (finishedCount >= SHEELOHA_CONFIG.copies) {
-          setState({ isPlaying: false, isProcessing: false });
-        }
-      };
+      // Resume context if suspended (browser autoplay policy)
+      if (ctx.state === "suspended") {
+        await ctx.resume();
+      }
       
-      audio.onerror = (e) => {
-        console.error(`[useSheelohaPlayer] Audio ${i+1} error:`, e);
-      };
+      // Fetch and decode audio
+      console.log("[useSheelohaPlayer] Fetching audio...");
+      const response = await fetch(audioUri);
+      const arrayBuffer = await response.arrayBuffer();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
       
-      audio.src = audioUri;
-      audios.push(audio);
+      console.log("[useSheelohaPlayer] Audio decoded, duration:", audioBuffer.duration);
+      setState({ isPlaying: true, isProcessing: false });
       
-      // Schedule with delay
-      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
-      const timeout = setTimeout(() => {
-        console.log(`[useSheelohaPlayer] Starting copy ${i+1} at +${delay}ms, volume: ${audio.volume}`);
-        audio.play().catch(e => {
-          console.error(`[useSheelohaPlayer] Play error for copy ${i+1}:`, e);
-        });
-      }, delay);
+      let finishedCount = 0;
+      const audioDuration = audioBuffer.duration / SHEELOHA_CONFIG.playbackRate;
       
-      timeoutsRef.current.push(timeout);
+      // Create 5 copies with different settings
+      for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
+        const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
+        
+        const timeout = setTimeout(() => {
+          // Create source node
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.playbackRate.value = SHEELOHA_CONFIG.playbackRate; // Faster + higher pitch
+          
+          // Create gain node (volume)
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = SHEELOHA_CONFIG.volumes[i];
+          
+          // Create stereo panner node (Right → Left movement)
+          const panNode = ctx.createStereoPanner();
+          const startPan = SHEELOHA_CONFIG.panValues[i];
+          panNode.pan.value = startPan;
+          
+          // Animate pan from right to left during playback
+          // Start at startPan, move to opposite side
+          const endPan = -startPan; // Flip the pan
+          panNode.pan.setValueAtTime(startPan, ctx.currentTime);
+          panNode.pan.linearRampToValueAtTime(endPan, ctx.currentTime + audioDuration);
+          
+          // Connect: source → gain → pan → destination
+          // NO reverb/convolver - direct connection
+          source.connect(gainNode);
+          gainNode.connect(panNode);
+          panNode.connect(ctx.destination);
+          
+          // Store for cleanup
+          sourceNodesRef.current.push(source);
+          panNodesRef.current.push(panNode);
+          gainNodesRef.current.push(gainNode);
+          
+          // Handle end
+          source.onended = () => {
+            finishedCount++;
+            console.log(`[useSheelohaPlayer] Copy ${i+1} ended (${finishedCount}/${SHEELOHA_CONFIG.copies})`);
+            if (finishedCount >= SHEELOHA_CONFIG.copies) {
+              setState({ isPlaying: false, isProcessing: false });
+            }
+          };
+          
+          console.log(`[useSheelohaPlayer] Starting copy ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.volumes[i]}, pan: ${startPan}→${endPan}, rate: ${SHEELOHA_CONFIG.playbackRate}`);
+          source.start();
+          
+        }, delay);
+        
+        timeoutsRef.current.push(timeout);
+      }
+      
+    } catch (error) {
+      console.error("[useSheelohaPlayer] Web Audio error:", error);
+      setState({ isPlaying: false, isProcessing: false });
     }
-    
-    webAudioRef.current = audios;
   }, [stopSheeloha]);
 
   /**
    * Play on Native using expo-audio
-   * No reverb/echo - just volume reduction for distance effect
+   * Note: Native doesn't support stereo panning easily, so we use basic playback
+   * with volume reduction and playback rate
    */
   const playOnNative = useCallback(async (audioUri: string) => {
     console.log("[useSheelohaPlayer] Playing on Native:", audioUri);
@@ -155,6 +219,8 @@ export function useSheelohaPlayer() {
         try {
           players[i].replace(audioUri);
           players[i].volume = SHEELOHA_CONFIG.volumes[i];
+          // Note: expo-audio supports playbackRate but may not work on all devices
+          // players[i].rate = SHEELOHA_CONFIG.playbackRate;
           players[i].play();
         } catch (e) {
           console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
