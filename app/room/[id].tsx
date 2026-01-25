@@ -33,8 +33,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
-  // Clapping speed: 1 = slow (20 BPM), 2 = medium (50 BPM), 3 = fast (80 BPM)
-  const [clappingSpeed, setClappingSpeed] = useState<1 | 2 | 3>(2);
+  // Clapping speed: 1 = every 1.15s (default), 2 = every 90ms, 3 = 3 claps + pause pattern
+  const [clappingSpeed, setClappingSpeed] = useState<1 | 2 | 3>(1);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
