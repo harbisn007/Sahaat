@@ -49,8 +49,8 @@ export function RecordingButton({
   const deleteIconTranslateY = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
-  const deleteZoneY = -80; // Position of delete icon
-  const deleteZoneSize = 50; // Size of delete zone
+  const deleteZoneY = -100; // Position of delete icon (above button)
+  const deleteZoneSize = 60; // Size of delete zone
   let currentSwipeDistance = 0;
   let hasStartedGesture = false;
 
@@ -173,12 +173,12 @@ export function RecordingButton({
     }
   }, [isRecording]);
   
-  // Pan gesture - WhatsApp style
+  // Pan gesture - WhatsApp style (swipe UP to delete)
   const panGesture = Gesture.Pan()
     .enabled(isRecording && pressAndHold)
     .onUpdate((event) => {
-      // Downward movement
-      if (event.translationY > 0) {
+      // Upward movement (negative translationY)
+      if (event.translationY < 0) {
         // First time moving - show delete icon
         if (!hasStartedGesture) {
           hasStartedGesture = true;
@@ -202,9 +202,10 @@ export function RecordingButton({
         // Check if over delete zone
         // Delete icon is at position deleteZoneY
         // If finger is at deleteZoneY ± deleteZoneSize/2, it's over the zone
-        const fingerY = event.translationY;
-        const isOver = fingerY >= Math.abs(deleteZoneY) - deleteZoneSize && 
-                       fingerY <= Math.abs(deleteZoneY) + deleteZoneSize;
+        const fingerY = Math.abs(event.translationY);
+        const deleteIconY = Math.abs(deleteZoneY);
+        const isOver = fingerY >= deleteIconY - deleteZoneSize && 
+                       fingerY <= deleteIconY + deleteZoneSize;
         updateIsOverDeleteZone(isOver);
       }
     })
@@ -215,11 +216,8 @@ export function RecordingButton({
       if (isOverDeleteZone) {
         console.log("[RecordingButton] OVER DELETE ZONE - DELETE");
         runOnJS(handleDelete)();
-      } else if (hasStartedGesture || event.translationY > 0) {
-        console.log("[RecordingButton] NOT OVER DELETE ZONE - SEND");
-        runOnJS(handleSend)();
       } else {
-        console.log("[RecordingButton] NO GESTURE - SEND");
+        console.log("[RecordingButton] NOT OVER DELETE ZONE - SEND");
         runOnJS(handleSend)();
       }
       
@@ -237,12 +235,12 @@ export function RecordingButton({
   if (pressAndHold) {
     const buttonContent = (
       <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], width: '100%' }}>
-        {/* Delete Icon - appears when finger moves down, follows finger */}
+        {/* Delete Icon - appears when finger moves up, follows finger */}
         {showDeleteIcon && (
           <Animated.View 
             style={{ 
               position: 'absolute',
-              bottom: deleteZoneY,
+              top: deleteZoneY,
               left: 0,
               right: 0,
               alignItems: 'center',
@@ -268,7 +266,7 @@ export function RecordingButton({
               }}
             >
               <MaterialIcons 
-                name="delete" 
+                name="close" 
                 size={28} 
                 color="#FFFFFF" 
               />
