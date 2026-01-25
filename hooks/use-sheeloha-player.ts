@@ -36,8 +36,9 @@ const SHEELOHA_CONFIG = {
   delayBetweenCopies: 80,
   // Volume for each copy (much more distant - about 50% of previous values)
   volumes: [0.14, 0.10, 0.07, 0.04, 0.025],
-  // Clap volume - SAME for all 5 copies (only speed changes)
-  clapVolume: 0.7,
+  // Clap volumes - SAME distance as voice copies, moves with stereo pan
+  // Same volume pattern as voice to match the distant effect
+  clapVolumes: [0.14, 0.10, 0.07, 0.04, 0.025],
   // Playback rate (slightly faster, also changes pitch)
   playbackRate: 1.15,
   // Stereo pan values: -1 = full left, 0 = center, 1 = full right
@@ -248,8 +249,8 @@ export function useSheelohaPlayer() {
         const timeout = setTimeout(() => {
           // Play clap sound first (if available)
           if (clapBuffer) {
-            playClapOnWeb(ctx, clapBuffer, SHEELOHA_CONFIG.clapVolume, SHEELOHA_CONFIG.panValues[i]);
-            console.log(`[useSheelohaPlayer] Playing clap ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.clapVolume}`);
+            playClapOnWeb(ctx, clapBuffer, SHEELOHA_CONFIG.clapVolumes[i], SHEELOHA_CONFIG.panValues[i]);
+            console.log(`[useSheelohaPlayer] Playing clap ${i+1} at +${delay}ms, volume: ${SHEELOHA_CONFIG.clapVolumes[i]}`);
           }
           
           // Create voice source node
@@ -331,10 +332,10 @@ export function useSheelohaPlayer() {
         console.log(`[useSheelohaPlayer] Starting native copy ${i+1} at +${delay}ms`);
         try {
           // Play clap sound
-          clapPlayers[i].volume = SHEELOHA_CONFIG.clapVolume;
+          clapPlayers[i].volume = SHEELOHA_CONFIG.clapVolumes[i];
           clapPlayers[i].seekTo(0);
           clapPlayers[i].play();
-          console.log(`[useSheelohaPlayer] Playing clap ${i+1}, volume: ${SHEELOHA_CONFIG.clapVolume}`);
+          console.log(`[useSheelohaPlayer] Playing clap ${i+1}, volume: ${SHEELOHA_CONFIG.clapVolumes[i]}`);
           
           // Play voice
           voicePlayers[i].replace(audioUri);
