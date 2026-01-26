@@ -206,21 +206,16 @@ export default function RoomScreen() {
   const setRecordingStatusMutation = trpc.recording.setStatus.useMutation();
   const clearRecordingStatusMutation = trpc.recording.clear.useMutation();
 
-  // Filter messages: only show messages sent AFTER user joined
-  // Wait until joinedAt is loaded from storage to avoid filtering issues
+  // Show ALL messages in the feed (don't filter by joinedAt)
+  // But only AUTO-PLAY messages sent AFTER user joined
   // Add 5 second safety margin to avoid losing messages sent right after joining
   const SAFETY_MARGIN_MS = 5000; // 5 seconds
-  const filteredAudioMessages = !isJoinedAtLoaded ? [] : (audioMessages || []).filter((msg) => {
-    const messageTime = new Date(msg.createdAt).getTime();
-    const joinTime = joinedAt.getTime() - SAFETY_MARGIN_MS;
-    return messageTime >= joinTime;
-  });
-
-  const filteredReactions = !isJoinedAtLoaded ? [] : (reactions || []).filter((reaction) => {
-    const reactionTime = new Date(reaction.createdAt).getTime();
-    const joinTime = joinedAt.getTime() - SAFETY_MARGIN_MS;
-    return reactionTime >= joinTime;
-  });
+  
+  // All messages are shown in the feed
+  const filteredAudioMessages = audioMessages || [];
+  
+  // All reactions are shown in the feed
+  const filteredReactions = reactions || [];
 
   // Combine filtered audio messages and reactions into a single feed
   const combinedFeed = [
@@ -272,9 +267,11 @@ export default function RoomScreen() {
       id: lastTarouk.id,
       audioUrl: lastTarouk.audioUrl,
       username: lastTarouk.username,
+      duration: lastTarouk.duration,
     });
     
-    return lastTarouk.audioUrl;
+    // Return object with URL and duration for sheeloha sync
+    return { audioUrl: lastTarouk.audioUrl, duration: lastTarouk.duration };
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
   // Auto-play new messages for all users

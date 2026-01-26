@@ -186,7 +186,7 @@ export function useSheelohaPlayer() {
 
   /**
    * Start clapping pattern based on speed (for duration of audio only)
-   * Clapping stops 50ms before audio ends to avoid overlap
+   * Clapping continues until audio finishes (synced with voice)
    */
   const startClappingPattern = useCallback((
     ctx: AudioContext, 
@@ -194,9 +194,9 @@ export function useSheelohaPlayer() {
     speed: ClappingSpeed,
     durationMs: number
   ) => {
-    // Stop clapping 50ms before audio ends
-    const clappingDurationMs = Math.max(0, durationMs - 50);
-    console.log("[useSheelohaPlayer] Starting clapping pattern, speed:", speed, "audio duration:", durationMs, "clapping duration:", clappingDurationMs);
+    // Clapping continues for the full duration of audio
+    // Will be stopped when voice copies finish via onended callback
+    console.log("[useSheelohaPlayer] Starting clapping pattern, speed:", speed, "duration:", durationMs);
     
     // Speed 0: No clapping at all
     if (speed === 0) {
@@ -207,12 +207,13 @@ export function useSheelohaPlayer() {
     // Play first clap immediately
     playSingleClapOnWeb(ctx, clapBuffer);
     
-    const endTime = Date.now() + clappingDurationMs;
+    // Clapping continues while isPlayingRef is true (synced with voice audio)
+    // Will be stopped when voice copies finish via onended callback
     
     if (speed === 1) {
       // Speed 1: Repeat every 1.27 seconds (1270ms)
       const interval = setInterval(() => {
-        if (isPlayingRef.current && Date.now() < endTime) {
+        if (isPlayingRef.current) {
           playSingleClapOnWeb(ctx, clapBuffer);
         } else {
           clearInterval(interval);
@@ -223,7 +224,7 @@ export function useSheelohaPlayer() {
     } else if (speed === 2) {
       // Speed 2: Repeat every 1.12 seconds (1120ms)
       const interval = setInterval(() => {
-        if (isPlayingRef.current && Date.now() < endTime) {
+        if (isPlayingRef.current) {
           playSingleClapOnWeb(ctx, clapBuffer);
         } else {
           clearInterval(interval);
@@ -234,18 +235,18 @@ export function useSheelohaPlayer() {
     } else if (speed === 3) {
       // Speed 3: 2 claps, pause 0.9s, repeat
       const runPattern = () => {
-        if (!isPlayingRef.current || Date.now() >= endTime) return;
+        if (!isPlayingRef.current) return;
         
         playSingleClapOnWeb(ctx, clapBuffer);
         
         const clap2 = setTimeout(() => {
-          if (isPlayingRef.current && Date.now() < endTime) playSingleClapOnWeb(ctx, clapBuffer);
+          if (isPlayingRef.current) playSingleClapOnWeb(ctx, clapBuffer);
         }, 100);
         timeoutsRef.current.push(clap2);
         
         // After 1000ms (100ms for claps + 900ms pause), repeat
         const nextCycle = setTimeout(() => {
-          if (isPlayingRef.current && Date.now() < endTime) {
+          if (isPlayingRef.current) {
             runPattern();
           }
         }, 1000);
@@ -291,12 +292,12 @@ export function useSheelohaPlayer() {
       setState({ isPlaying: true, isProcessing: false });
       
       // Calculate total duration (accounting for playback rate)
-      const durationMs = (audioBuffer.duration / SHEELOHA_CONFIG.playbackRate) * 1000;
+      // Add extra delay for the last copy (4 * 50ms = 200ms)
+      const lastCopyDelay = (SHEELOHA_CONFIG.copies - 1) * SHEELOHA_CONFIG.delayBetweenCopies;
+      const audioDurationMs = (audioBuffer.duration / SHEELOHA_CONFIG.playbackRate) * 1000;
+      const totalDurationMs = audioDurationMs + lastCopyDelay;
       
-      // Start clapping pattern for duration of audio
-      if (clapBuffer) {
-        startClappingPattern(ctx, clapBuffer, clappingSpeed, durationMs);
-      }
+      console.log("[useSheelohaPlayer] Audio duration:", audioDurationMs, "ms, Total with delays:", totalDurationMs, "ms");
       
       let finishedCount = 0;
       
@@ -328,8 +329,12 @@ export function useSheelohaPlayer() {
           source.onended = () => {
             finishedCount++;
             if (finishedCount >= SHEELOHA_CONFIG.copies) {
-              // All copies finished - stop playing
+              // All copies finished - stop playing and clapping
+              console.log("[useSheelohaPlayer] All voice copies finished, stopping clapping");
               isPlayingRef.current = false;
+              // Clear clapping intervals
+              intervalsRef.current.forEach(i => clearInterval(i));
+              intervalsRef.current = [];
               setState({ isPlaying: false, isProcessing: false });
             }
           };
@@ -339,6 +344,12 @@ export function useSheelohaPlayer() {
         }, delay);
         
         timeoutsRef.current.push(timeout);
+      }
+      
+      // Start clapping pattern - it will continue until voice copies finish
+      // Pass totalDurationMs so clapping knows when to stop
+      if (clapBuffer) {
+        startClappingPattern(ctx, clapBuffer, clappingSpeed, totalDurationMs);
       }
       
     } catch (error) {
@@ -364,12 +375,10 @@ export function useSheelohaPlayer() {
 
   /**
    * Start clapping pattern on native (for duration of audio only)
-   * Clapping stops 50ms before audio ends to avoid overlap
+   * Clapping continues until audio finishes (synced with voice)
    */
   const startClappingPatternNative = useCallback((speed: ClappingSpeed, durationMs: number) => {
-    // Stop clapping 50ms before audio ends
-    const clappingDurationMs = Math.max(0, durationMs - 50);
-    console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed, "audio duration:", durationMs, "clapping duration:", clappingDurationMs);
+    console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed, "duration:", durationMs);
     
     // Speed 0: No clapping at all
     if (speed === 0) {
@@ -380,12 +389,12 @@ export function useSheelohaPlayer() {
     // Play first clap immediately
     playSingleClapOnNative();
     
-    const endTime = Date.now() + clappingDurationMs;
+    // Clapping continues while isPlayingRef is true (synced with voice audio)
     
     if (speed === 1) {
       // Speed 1: Repeat every 1.27 seconds (1270ms)
       const interval = setInterval(() => {
-        if (isPlayingRef.current && Date.now() < endTime) {
+        if (isPlayingRef.current) {
           playSingleClapOnNative();
         } else {
           clearInterval(interval);
@@ -396,7 +405,7 @@ export function useSheelohaPlayer() {
     } else if (speed === 2) {
       // Speed 2: Repeat every 1.12 seconds (1120ms)
       const interval = setInterval(() => {
-        if (isPlayingRef.current && Date.now() < endTime) {
+        if (isPlayingRef.current) {
           playSingleClapOnNative();
         } else {
           clearInterval(interval);
@@ -407,18 +416,18 @@ export function useSheelohaPlayer() {
     } else if (speed === 3) {
       // Speed 3: 2 claps, pause 0.9s, repeat
       const runPattern = () => {
-        if (!isPlayingRef.current || Date.now() >= endTime) return;
+        if (!isPlayingRef.current) return;
         
         playSingleClapOnNative();
         
         const clap2 = setTimeout(() => {
-          if (isPlayingRef.current && Date.now() < endTime) playSingleClapOnNative();
+          if (isPlayingRef.current) playSingleClapOnNative();
         }, 100);
         timeoutsRef.current.push(clap2);
         
         // After 1000ms (100ms for claps + 900ms pause), repeat
         const nextCycle = setTimeout(() => {
-          if (isPlayingRef.current && Date.now() < endTime) {
+          if (isPlayingRef.current) {
             runPattern();
           }
         }, 1000);
