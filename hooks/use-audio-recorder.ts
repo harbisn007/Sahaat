@@ -15,7 +15,6 @@ export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
-  const [isReady, setIsReady] = useState(false); // Track if recorder is ready
   const maxDuration = 60; // seconds
 
   // Use ref to store recorder instance (Native only)
@@ -27,90 +26,6 @@ export function useAudioRecorder() {
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
-  // Track initialization state
-  const initializationAttemptRef = useRef(0);
-  const isInitializingRef = useRef(false);
-
-  // Initialize audio system on mount
-  useEffect(() => {
-    const initAudioSystem = async () => {
-      if (Platform.OS === "web") {
-        setIsReady(true);
-        return;
-      }
-
-      if (isInitializingRef.current) return;
-      isInitializingRef.current = true;
-
-      try {
-        console.log("[useAudioRecorder] Starting audio system initialization...");
-        
-        // Step 1: Request permissions
-        const { granted } = await AudioModule.requestRecordingPermissionsAsync();
-        setPermissionGranted(granted);
-        console.log("[useAudioRecorder] Permission status:", granted);
-        
-        if (!granted) {
-          console.log("[useAudioRecorder] Permission not granted, cannot initialize");
-          setIsReady(false);
-          isInitializingRef.current = false;
-          return;
-        }
-
-        // Step 2: Initialize audio mode with multiple retries
-        let audioModeSet = false;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          try {
-            await AudioModule.setAudioModeAsync({
-              allowsRecording: true,
-              playsInSilentMode: true,
-            });
-            audioModeSet = true;
-            console.log("[useAudioRecorder] Audio mode set on attempt", attempt);
-            break;
-          } catch (e) {
-            console.warn(`[useAudioRecorder] Audio mode attempt ${attempt} failed:`, e);
-            await new Promise(resolve => setTimeout(resolve, 200 * attempt));
-          }
-        }
-
-        if (!audioModeSet) {
-          console.warn("[useAudioRecorder] Could not set audio mode, will retry on first recording");
-        }
-
-        // Step 3: Pre-create and test a recorder instance
-        try {
-          console.log("[useAudioRecorder] Pre-creating test recorder...");
-          const testRecorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
-          await testRecorder.prepareToRecordAsync();
-          console.log("[useAudioRecorder] Test recorder prepared successfully");
-          
-          // Release the test recorder
-          try {
-            await testRecorder.release();
-          } catch (e) {
-            // Ignore release errors
-          }
-          
-          setIsReady(true);
-          console.log("[useAudioRecorder] Audio system ready!");
-        } catch (e) {
-          console.warn("[useAudioRecorder] Test recorder failed, will retry on first use:", e);
-          // Still mark as ready - we'll handle errors during actual recording
-          setIsReady(true);
-        }
-
-      } catch (error) {
-        console.error("[useAudioRecorder] Failed to initialize audio system:", error);
-        setIsReady(true); // Allow attempts anyway
-      } finally {
-        isInitializingRef.current = false;
-      }
-    };
-
-    initAudioSystem();
-  }, []);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -127,7 +42,7 @@ export function useAudioRecorder() {
           recorderRef.current.release();
           recorderRef.current = null;
         } catch (e) {
-          console.log("[useAudioRecorder] Recorder already released");
+          // Ignore
         }
       }
     };
@@ -156,10 +71,8 @@ export function useAudioRecorder() {
         }
         
         console.log("[useAudioRecorder] Requesting microphone permission...");
-        // Request permission by attempting to get user media
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         console.log("[useAudioRecorder] Microphone permission granted");
-        // Stop the stream immediately, we just needed to request permission
         stream.getTracks().forEach(track => track.stop());
         return true;
       } else {
@@ -176,36 +89,42 @@ export function useAudioRecorder() {
     } catch (error) {
       console.error("[useAudioRecorder] Failed to request audio permissions:", error);
       if (error instanceof Error && error.message.includes("يتطلب")) {
-        throw error; // Re-throw custom error messages
+        throw error;
       }
       throw new Error("فشل الحصول على أذونات المايكروفون. تأكد من السماح بالوصول.");
     }
   }, [permissionGranted]);
 
   const startRecording = useCallback(async (): Promise<boolean> => {
-    // Prevent starting if already recording
-    if (isRecording || isPreparing) {
-      console.log("[useAudioRecorder] Already recording or preparing, ignoring start request");
+    // Simple check - only prevent if actually recording
+    if (isRecording) {
+      console.log("[useAudioRecorder] Already recording, ignoring start request");
       return false;
+    }
+
+    // Reset isPreparing if it was stuck
+    if (isPreparing) {
+      console.log("[useAudioRecorder] isPreparing was stuck, resetting...");
+      setIsPreparing(false);
+      // Small delay to let state update
+      await new Promise(resolve => setTimeout(resolve, 50));
     }
 
     try {
       console.log("[useAudioRecorder] startRecording called, platform:", Platform.OS);
       setIsPreparing(true);
-      initializationAttemptRef.current++;
-      const attemptNumber = initializationAttemptRef.current;
 
       // Request permissions
       console.log("[useAudioRecorder] Requesting permissions...");
       const hasPermission = await requestPermissions();
       console.log("[useAudioRecorder] Permission granted:", hasPermission);
       if (!hasPermission) {
+        setIsPreparing(false);
         throw new Error("Audio recording permission not granted");
       }
 
       if (Platform.OS === "web") {
         console.log("[useAudioRecorder] Using web MediaRecorder...");
-        // Web implementation using MediaRecorder
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         streamRef.current = stream;
         const mediaRecorder = new MediaRecorder(stream);
@@ -221,111 +140,58 @@ export function useAudioRecorder() {
         mediaRecorder.start();
         mediaRecorderRef.current = mediaRecorder;
         
-        // Set recording state AFTER everything is ready
         setRecordingDuration(0);
         setIsRecording(true);
         setIsPreparing(false);
         
-        // Start timer
         timerRef.current = setInterval(() => {
           setRecordingDuration((prev) => prev + 1);
         }, 1000);
         
         return true;
       } else {
-        // Native implementation using expo-audio's recorder
-        console.log("[useAudioRecorder] Using expo-audio recorder (attempt #" + attemptNumber + ")...");
+        // Native implementation
+        console.log("[useAudioRecorder] Using expo-audio recorder...");
         
-        // Always try to set audio mode before recording
-        for (let modeAttempt = 1; modeAttempt <= 3; modeAttempt++) {
-          try {
-            await AudioModule.setAudioModeAsync({
-              allowsRecording: true,
-              playsInSilentMode: true,
-            });
-            console.log("[useAudioRecorder] Audio mode set on attempt", modeAttempt);
-            break;
-          } catch (modeError) {
-            console.warn(`[useAudioRecorder] Audio mode attempt ${modeAttempt} failed:`, modeError);
-            if (modeAttempt < 3) {
-              await new Promise(resolve => setTimeout(resolve, 150 * modeAttempt));
-            }
-          }
+        // Set audio mode
+        try {
+          await AudioModule.setAudioModeAsync({
+            allowsRecording: true,
+            playsInSilentMode: true,
+          });
+          console.log("[useAudioRecorder] Audio mode set");
+        } catch (modeError) {
+          console.warn("[useAudioRecorder] Audio mode failed:", modeError);
+          // Continue anyway
         }
         
-        // Create new AudioRecorder instance with aggressive retry
+        // Release any existing recorder
+        if (recorderRef.current) {
+          try {
+            await recorderRef.current.release();
+          } catch (e) {
+            // Ignore
+          }
+          recorderRef.current = null;
+        }
+        
+        // Create and prepare recorder
         console.log("[useAudioRecorder] Creating AudioRecorder instance...");
-        let recorder: InstanceType<typeof AudioModule.AudioRecorder> | null = null;
-        let lastError: Error | null = null;
+        const recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+        recorderRef.current = recorder;
         
-        // More aggressive retry strategy for first-time use
-        const maxAttempts = attemptNumber === 1 ? 8 : 5;
-        
-        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-          try {
-            // Add delay before first attempt on first use
-            if (attempt === 1 && attemptNumber === 1) {
-              console.log("[useAudioRecorder] First-time use, adding initial delay...");
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
-            
-            recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
-            recorderRef.current = recorder;
-            
-            // Prepare recorder
-            await recorder.prepareToRecordAsync();
-            console.log("[useAudioRecorder] Recorder prepared on attempt", attempt);
-            break;
-          } catch (prepareError) {
-            lastError = prepareError as Error;
-            console.warn(`[useAudioRecorder] Prepare attempt ${attempt}/${maxAttempts} failed:`, prepareError);
-            
-            // Clean up failed recorder
-            if (recorder) {
-              try { 
-                recorder.release(); 
-              } catch (e) {
-                // Ignore
-              }
-            }
-            recorder = null;
-            recorderRef.current = null;
-            
-            if (attempt < maxAttempts) {
-              // Progressive delay with jitter
-              const baseDelay = 200 * attempt;
-              const jitter = Math.random() * 100;
-              const delay = baseDelay + jitter;
-              console.log(`[useAudioRecorder] Waiting ${Math.round(delay)}ms before retry...`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              
-              // Re-initialize audio mode between attempts
-              try {
-                await AudioModule.setAudioModeAsync({
-                  allowsRecording: true,
-                  playsInSilentMode: true,
-                });
-              } catch (e) {
-                // Ignore
-              }
-            }
-          }
-        }
-        
-        if (!recorder) {
-          throw lastError || new Error("فشل تهيئة المسجل بعد عدة محاولات.");
-        }
+        await recorder.prepareToRecordAsync();
+        console.log("[useAudioRecorder] Recorder prepared");
         
         // Start recording
         recorder.record();
         console.log("[useAudioRecorder] Recording started");
         
-        // Set recording state AFTER everything is ready
         setRecordingDuration(0);
         setIsRecording(true);
         setIsPreparing(false);
         
-        // Start timer for duration tracking
+        // Start timer
         recordingStartTimeRef.current = Date.now();
         timerRef.current = setInterval(() => {
           const elapsed = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
@@ -337,7 +203,6 @@ export function useAudioRecorder() {
       }
     } catch (error) {
       console.error("[useAudioRecorder] Failed to start recording:", error);
-      console.error("[useAudioRecorder] Error details:", error instanceof Error ? error.message : String(error));
       setIsPreparing(false);
       setIsRecording(false);
       throw error;
@@ -351,18 +216,17 @@ export function useAudioRecorder() {
       timerRef.current = null;
     }
 
-    // Reset state immediately
+    // Save current duration before resetting
     const currentDuration = recordingDuration;
     setIsRecording(false);
+    setIsPreparing(false);
     setRecordingDuration(0);
 
     try {
       if (Platform.OS === "web") {
-        // Web implementation
         return new Promise((resolve) => {
           const mediaRecorder = mediaRecorderRef.current;
           if (!mediaRecorder || mediaRecorder.state === "inactive") {
-            // Stop all tracks
             if (streamRef.current) {
               streamRef.current.getTracks().forEach(track => track.stop());
               streamRef.current = null;
@@ -375,7 +239,6 @@ export function useAudioRecorder() {
             const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
             const uri = URL.createObjectURL(audioBlob);
             
-            // Stop all tracks
             if (streamRef.current) {
               streamRef.current.getTracks().forEach(track => track.stop());
               streamRef.current = null;
@@ -391,17 +254,13 @@ export function useAudioRecorder() {
           mediaRecorderRef.current = null;
         });
       } else {
-        // Native implementation using expo-audio's recorder
+        // Native implementation
         if (!recorderRef.current) {
           console.error("[useAudioRecorder] No recorder instance to stop");
           return null;
         }
         
         await recorderRef.current.stop();
-        
-        if (!recorderRef.current.uri) {
-          return null;
-        }
         
         const uri = recorderRef.current.uri;
         
@@ -410,19 +269,28 @@ export function useAudioRecorder() {
           duration: currentDuration,
         };
         
-        // Release recorder after stopping to free resources
+        // Release recorder
         try {
           await recorderRef.current.release();
-          recorderRef.current = null;
-          console.log("[useAudioRecorder] Recorder released after stop");
         } catch (e) {
-          console.log("[useAudioRecorder] Failed to release recorder:", e);
+          // Ignore
         }
+        recorderRef.current = null;
         
+        console.log("[useAudioRecorder] Recording stopped, uri:", uri);
         return result;
       }
     } catch (error) {
       console.error("Failed to stop recording:", error);
+      // Make sure to release recorder on error
+      if (Platform.OS !== "web" && recorderRef.current) {
+        try {
+          await recorderRef.current.release();
+        } catch (e) {
+          // Ignore
+        }
+        recorderRef.current = null;
+      }
       return null;
     }
   }, [recordingDuration]);
@@ -436,11 +304,11 @@ export function useAudioRecorder() {
   return {
     isRecording,
     isPreparing,
-    isReady,
     recordingDuration,
     formattedDuration: formatDuration(recordingDuration),
+    maxDuration,
     startRecording,
     stopRecording,
-    permissionGranted,
+    requestPermissions,
   };
 }
