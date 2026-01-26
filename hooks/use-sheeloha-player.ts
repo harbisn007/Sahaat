@@ -328,13 +328,18 @@ export function useSheelohaPlayer() {
           
           source.onended = () => {
             finishedCount++;
-            if (finishedCount >= SHEELOHA_CONFIG.copies) {
-              // All copies finished - stop playing and clapping
-              console.log("[useSheelohaPlayer] All voice copies finished, stopping clapping");
+            // Stop clapping when FIRST copy finishes (the original voice)
+            // This ensures clapping duration matches the actual audio duration
+            if (finishedCount === 1) {
+              console.log("[useSheelohaPlayer] First voice copy finished, stopping clapping");
               isPlayingRef.current = false;
-              // Clear clapping intervals
+              // Clear clapping intervals immediately
               intervalsRef.current.forEach(i => clearInterval(i));
               intervalsRef.current = [];
+            }
+            // Update state when all copies finish
+            if (finishedCount >= SHEELOHA_CONFIG.copies) {
+              console.log("[useSheelohaPlayer] All voice copies finished");
               setState({ isPlaying: false, isProcessing: false });
             }
           };
@@ -449,12 +454,10 @@ export function useSheelohaPlayer() {
     setState({ isPlaying: true, isProcessing: false });
     
     const voicePlayers = [player1, player2, player3, player4, player5];
+    let finishedCount = 0;
     
-    // Estimate duration (5 seconds default)
-    const durationMs = 5000;
-    
-    // Start clapping pattern for duration of audio
-    startClappingPatternNative(clappingSpeed, durationMs);
+    // Start clapping pattern - will continue until first voice copy ends
+    startClappingPatternNative(clappingSpeed, 60000); // Max 60s, will be stopped by onPlaybackStatusUpdate
     
     // Play 5 voice copies with 50ms delay
     for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
@@ -466,6 +469,29 @@ export function useSheelohaPlayer() {
         try {
           voicePlayers[i].replace(audioUri);
           voicePlayers[i].volume = SHEELOHA_CONFIG.volumes[i];
+          
+          // Listen for when this copy finishes playing
+          const checkFinished = setInterval(() => {
+            if (!voicePlayers[i].playing) {
+              clearInterval(checkFinished);
+              finishedCount++;
+              
+              // Stop clapping when FIRST copy finishes
+              if (finishedCount === 1) {
+                console.log("[useSheelohaPlayer] First native voice copy finished, stopping clapping");
+                isPlayingRef.current = false;
+                intervalsRef.current.forEach(interval => clearInterval(interval));
+                intervalsRef.current = [];
+              }
+              
+              // Update state when all copies finish
+              if (finishedCount >= SHEELOHA_CONFIG.copies) {
+                console.log("[useSheelohaPlayer] All native voice copies finished");
+                setState({ isPlaying: false, isProcessing: false });
+              }
+            }
+          }, 100);
+          
           voicePlayers[i].play();
         } catch (e) {
           console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
@@ -474,13 +500,6 @@ export function useSheelohaPlayer() {
       
       timeoutsRef.current.push(timeout);
     }
-    
-    // Set timeout to mark as finished after duration
-    const finishTimeout = setTimeout(() => {
-      isPlayingRef.current = false;
-      setState({ isPlaying: false, isProcessing: false });
-    }, durationMs);
-    timeoutsRef.current.push(finishTimeout);
     
   }, [stopSheeloha, player1, player2, player3, player4, player5, startClappingPatternNative]);
 
