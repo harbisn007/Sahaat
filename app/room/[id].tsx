@@ -123,6 +123,7 @@ export default function RoomScreen() {
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
   const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
+  const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
     useAudioRecorder();
@@ -151,6 +152,12 @@ export default function RoomScreen() {
   const { data: sheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 2000 } // Fast polling for real-time broadcast
+  );
+
+  // Listen for khalooha commands to stop sheeloha for all users
+  const { data: latestKhaloohaCommand } = trpc.khalooha.latest.useQuery(
+    { roomId },
+    { enabled: roomId > 0, refetchInterval: 1000 } // Fast polling for stop command
   );
 
   // Filter messages: only show messages sent AFTER user joined
@@ -299,6 +306,36 @@ export default function RoomScreen() {
       setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
     }
   }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, userId]);
+
+  // Listen for khalooha commands and stop sheeloha for all users
+  const [lastProcessedKhaloohaId, setLastProcessedKhaloohaId] = useState<number | null>(null);
+  
+  useEffect(() => {
+    if (!latestKhaloohaCommand) return;
+    
+    // Check if this is a new khalooha command that hasn't been processed
+    if (
+      latestKhaloohaCommand.id !== lastProcessedKhaloohaId &&
+      latestKhaloohaCommand.userId !== userId // Don't stop for own command (already stopped locally)
+    ) {
+      console.log("[RoomScreen] Received khalooha command from other user:", {
+        id: latestKhaloohaCommand.id,
+        username: latestKhaloohaCommand.username,
+        commandUserId: latestKhaloohaCommand.userId,
+        currentUserId: userId
+      });
+      
+      // Mark as processed
+      setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
+      
+      // Stop sheeloha for this user
+      stopSheeloha();
+      console.log("[RoomScreen] Sheeloha stopped by khalooha command from:", latestKhaloohaCommand.username);
+    } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
+      // Mark own command as processed without stopping (already stopped locally)
+      setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
+    }
+  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, stopSheeloha, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -922,12 +959,23 @@ export default function RoomScreen() {
                     minHeight: 60,
                     borderRadius: 8,
                   }}
-                  onPress={() => {
-                  if (isSheelohaPlaying) {
+                  onPress={async () => {
+                    // Stop locally first
                     stopSheeloha();
-                  } else {
                     stop();
-                  }
+                    
+                    // Broadcast stop command to all users
+                    try {
+                      console.log("[RoomScreen] Broadcasting khalooha command to all users");
+                      await createKhaloohaCommandMutation.mutateAsync({
+                        roomId,
+                        userId,
+                        username: username || "",
+                      });
+                      console.log("[RoomScreen] Khalooha command sent successfully");
+                    } catch (error) {
+                      console.error("[RoomScreen] Failed to broadcast khalooha:", error);
+                    }
                   }}
                 >
                   <MaterialIcons name="pan-tool" size={28} color="#FFD700" />

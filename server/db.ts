@@ -98,11 +98,13 @@ import {
   audioMessages,
   reactions,
   sheelohaBroadcasts,
+  khaloohaCommands,
   type InsertRoom,
   type InsertRoomParticipant,
   type InsertAudioMessage,
   type InsertReaction,
   type InsertSheelohaBroadcast,
+  type InsertKhaloohaCommand,
 } from "../drizzle/schema";
 
 export async function getAllRooms() {
@@ -465,4 +467,38 @@ export async function getRecentSheelohaBroadcasts(roomId: number, limit: number 
     .where(eq(sheelohaBroadcasts.roomId, roomId))
     .orderBy(desc(sheelohaBroadcasts.createdAt))
     .limit(limit);
+}
+
+// Khalooha commands functions
+export async function createKhaloohaCommand(data: InsertKhaloohaCommand) {
+  const db = await getDb();
+  if (!db) {
+    console.error("[DB] Cannot create khalooha command: database not available");
+    return 0;
+  }
+
+  try {
+    console.log("[DB] Inserting khalooha command:", data);
+    const result = await db.insert(khaloohaCommands).values(data);
+    const commandId = result[0].insertId;
+    console.log("[DB] Khalooha command inserted with ID:", commandId);
+    return commandId;
+  } catch (error) {
+    console.error("[DB] Failed to insert khalooha command:", error);
+    throw error;
+  }
+}
+
+export async function getLatestKhaloohaCommand(roomId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const results = await db
+    .select()
+    .from(khaloohaCommands)
+    .where(eq(khaloohaCommands.roomId, roomId))
+    .orderBy(desc(khaloohaCommands.createdAt))
+    .limit(1);
+  
+  return results[0] || null;
 }

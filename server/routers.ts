@@ -388,6 +388,37 @@ export const appRouter = router({
         return db.getRecentSheelohaBroadcasts(input.roomId, 10);
       }),
   }),
+
+  // Khalooha commands router (stop sheeloha for all users)
+  khalooha: router({
+    // Create a khalooha command (when someone presses "خلوها" button)
+    stop: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+          username: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          console.log("[API] Creating khalooha command:", input);
+          const commandId = await db.createKhaloohaCommand(input);
+          console.log("[API] Khalooha command created with ID:", commandId);
+          return { commandId };
+        } catch (error) {
+          console.error("[API] Failed to create khalooha command:", error);
+          throw new Error("فشل إيقاف شيلوها");
+        }
+      }),
+
+    // Get latest khalooha command for a room
+    latest: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getLatestKhaloohaCommand(input.roomId);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

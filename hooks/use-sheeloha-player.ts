@@ -22,6 +22,7 @@ const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
  * - Fixed delay between copies (50ms)
  * - Center stereo (no left/right movement)
  * - NO reverb/echo
+ * - LOOPS until stopped by khalooha
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping copies
@@ -50,6 +51,7 @@ interface SheelohaPlayerState {
  * - Center stereo
  * - NO reverb
  * - Clapping patterns based on speed selection
+ * - LOOPS until stopped by khalooha command
  */
 export function useSheelohaPlayer() {
   const [state, setState] = useState<SheelohaPlayerState>({
@@ -77,8 +79,13 @@ export function useSheelohaPlayer() {
   const gainNodesRef = useRef<GainNode[]>([]);
   // Store clap audio buffer for web
   const clapBufferRef = useRef<AudioBuffer | null>(null);
+  // Store voice audio buffer for looping
+  const voiceBufferRef = useRef<AudioBuffer | null>(null);
   // Track if clapping should continue
   const isPlayingRef = useRef<boolean>(false);
+  // Store current audio URI and clapping speed for looping
+  const currentAudioUriRef = useRef<string>("");
+  const currentClappingSpeedRef = useRef<ClappingSpeed>(0);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -183,19 +190,14 @@ export function useSheelohaPlayer() {
   }, []);
 
   /**
-   * Start clapping pattern based on speed
-   * 0 = No clapping
-   * 1 = Every 1.27 seconds (1270ms)
-   * 2 = Every 1.12 seconds (1120ms)
-   * 3 = 2 claps, pause 0.9s, repeat
+   * Start clapping pattern based on speed (runs continuously until stopped)
    */
   const startClappingPattern = useCallback((
     ctx: AudioContext, 
     clapBuffer: AudioBuffer, 
-    speed: ClappingSpeed,
-    durationMs: number
+    speed: ClappingSpeed
   ) => {
-    console.log("[useSheelohaPlayer] Starting clapping pattern, speed:", speed, "duration:", durationMs);
+    console.log("[useSheelohaPlayer] Starting continuous clapping pattern, speed:", speed);
     
     // Speed 0: No clapping at all
     if (speed === 0) {
@@ -230,12 +232,9 @@ export function useSheelohaPlayer() {
       
     } else if (speed === 3) {
       // Speed 3: 2 claps, pause 0.9s, repeat
-      // Pattern: clap, 100ms, clap, 900ms pause, repeat
-      
       const runPattern = () => {
         if (!isPlayingRef.current) return;
         
-        // Play 2 claps with 100ms between each
         playSingleClapOnWeb(ctx, clapBuffer);
         
         const clap2 = setTimeout(() => {
@@ -257,13 +256,73 @@ export function useSheelohaPlayer() {
   }, [playSingleClapOnWeb]);
 
   /**
-   * Play on Web using Web Audio API for advanced effects
+   * Play one cycle of voice copies on web (5 overlapping copies)
+   * Returns a promise that resolves when all copies finish
+   */
+  const playVoiceCycleOnWeb = useCallback((ctx: AudioContext, audioBuffer: AudioBuffer): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!isPlayingRef.current) {
+        resolve();
+        return;
+      }
+      
+      let finishedCount = 0;
+      
+      // Create 5 voice copies with 50ms delay between each
+      for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
+        const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
+        
+        const timeout = setTimeout(() => {
+          if (!isPlayingRef.current) {
+            finishedCount++;
+            if (finishedCount >= SHEELOHA_CONFIG.copies) resolve();
+            return;
+          }
+          
+          const source = ctx.createBufferSource();
+          source.buffer = audioBuffer;
+          source.playbackRate.value = SHEELOHA_CONFIG.playbackRate;
+          
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = SHEELOHA_CONFIG.volumes[i];
+          
+          const panNode = ctx.createStereoPanner();
+          panNode.pan.value = SHEELOHA_CONFIG.panValues[i];
+          
+          source.connect(gainNode);
+          gainNode.connect(panNode);
+          panNode.connect(ctx.destination);
+          
+          sourceNodesRef.current.push(source);
+          panNodesRef.current.push(panNode);
+          gainNodesRef.current.push(gainNode);
+          
+          source.onended = () => {
+            finishedCount++;
+            if (finishedCount >= SHEELOHA_CONFIG.copies) {
+              resolve();
+            }
+          };
+          
+          source.start();
+          
+        }, delay);
+        
+        timeoutsRef.current.push(timeout);
+      }
+    });
+  }, []);
+
+  /**
+   * Play on Web using Web Audio API with LOOPING
    */
   const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
-    console.log("[useSheelohaPlayer] Playing on Web:", audioUri, "speed:", clappingSpeed);
+    console.log("[useSheelohaPlayer] Playing on Web with LOOP:", audioUri, "speed:", clappingSpeed);
     
     stopSheeloha();
     isPlayingRef.current = true;
+    currentAudioUriRef.current = audioUri;
+    currentClappingSpeedRef.current = clappingSpeed;
     setState({ isPlaying: true, isProcessing: true });
     
     try {
@@ -286,67 +345,39 @@ export function useSheelohaPlayer() {
       const response = await fetch(audioUri);
       const arrayBuffer = await response.arrayBuffer();
       const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+      voiceBufferRef.current = audioBuffer;
       
       console.log("[useSheelohaPlayer] Voice audio decoded, duration:", audioBuffer.duration);
       setState({ isPlaying: true, isProcessing: false });
       
-      let finishedCount = 0;
-      const audioDuration = audioBuffer.duration / SHEELOHA_CONFIG.playbackRate;
-      const audioDurationMs = audioDuration * 1000;
-      
-      // Start clapping pattern
+      // Start continuous clapping pattern
       if (clapBuffer) {
-        startClappingPattern(ctx, clapBuffer, clappingSpeed, audioDurationMs);
+        startClappingPattern(ctx, clapBuffer, clappingSpeed);
       }
       
-      // Create 5 voice copies with 50ms delay between each
-      for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-        const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
-        
-        const timeout = setTimeout(() => {
-          if (!isPlayingRef.current) return;
+      // Loop function - plays voice cycle and repeats
+      const loopVoice = async () => {
+        while (isPlayingRef.current) {
+          console.log("[useSheelohaPlayer] Starting voice loop cycle");
+          await playVoiceCycleOnWeb(ctx, audioBuffer);
           
-          const source = ctx.createBufferSource();
-          source.buffer = audioBuffer;
-          source.playbackRate.value = SHEELOHA_CONFIG.playbackRate;
-          
-          const gainNode = ctx.createGain();
-          gainNode.gain.value = SHEELOHA_CONFIG.volumes[i];
-          
-          const panNode = ctx.createStereoPanner();
-          panNode.pan.value = SHEELOHA_CONFIG.panValues[i];
-          
-          source.connect(gainNode);
-          gainNode.connect(panNode);
-          panNode.connect(ctx.destination);
-          
-          sourceNodesRef.current.push(source);
-          panNodesRef.current.push(panNode);
-          gainNodesRef.current.push(gainNode);
-          
-          source.onended = () => {
-            finishedCount++;
-            console.log(`[useSheelohaPlayer] Voice copy ${i+1} ended (${finishedCount}/${SHEELOHA_CONFIG.copies})`);
-            if (finishedCount >= SHEELOHA_CONFIG.copies) {
-              isPlayingRef.current = false;
-              setState({ isPlaying: false, isProcessing: false });
-            }
-          };
-          
-          console.log(`[useSheelohaPlayer] Starting voice copy ${i+1} at +${delay}ms`);
-          source.start();
-          
-        }, delay);
-        
-        timeoutsRef.current.push(timeout);
-      }
+          // Small delay between loops
+          if (isPlayingRef.current) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        }
+        console.log("[useSheelohaPlayer] Voice loop ended");
+      };
+      
+      // Start the loop
+      loopVoice();
       
     } catch (error) {
       console.error("[useSheelohaPlayer] Web Audio error:", error);
       isPlayingRef.current = false;
       setState({ isPlaying: false, isProcessing: false });
     }
-  }, [stopSheeloha, loadClapSound, startClappingPattern]);
+  }, [stopSheeloha, loadClapSound, startClappingPattern, playVoiceCycleOnWeb]);
 
   /**
    * Play single clap on native
@@ -363,10 +394,10 @@ export function useSheelohaPlayer() {
   }, [clapPlayer]);
 
   /**
-   * Start clapping pattern on native
+   * Start clapping pattern on native (runs continuously until stopped)
    */
-  const startClappingPatternNative = useCallback((speed: ClappingSpeed, durationMs: number) => {
-    console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed);
+  const startClappingPatternNative = useCallback((speed: ClappingSpeed) => {
+    console.log("[useSheelohaPlayer] Starting native continuous clapping pattern, speed:", speed);
     
     // Speed 0: No clapping at all
     if (speed === 0) {
@@ -425,49 +456,61 @@ export function useSheelohaPlayer() {
   }, [playSingleClapOnNative]);
 
   /**
-   * Play on Native using expo-audio
+   * Play on Native using expo-audio with LOOPING
    */
   const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
-    console.log("[useSheelohaPlayer] Playing on Native:", audioUri, "speed:", clappingSpeed);
+    console.log("[useSheelohaPlayer] Playing on Native with LOOP:", audioUri, "speed:", clappingSpeed);
     
     stopSheeloha();
     isPlayingRef.current = true;
+    currentAudioUriRef.current = audioUri;
+    currentClappingSpeedRef.current = clappingSpeed;
     setState({ isPlaying: true, isProcessing: false });
     
     const voicePlayers = [player1, player2, player3, player4, player5];
     
-    // Estimate duration (will stop clapping when voices end)
-    const estimatedDuration = 10000; // 10 seconds max
+    // Start continuous clapping pattern
+    startClappingPatternNative(clappingSpeed);
     
-    // Start clapping pattern
-    startClappingPatternNative(clappingSpeed, estimatedDuration);
-    
-    // Play 5 voice copies with 50ms delay
-    for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
-      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
+    // Loop function - plays voice cycle and repeats
+    const playVoiceCycle = () => {
+      if (!isPlayingRef.current) return;
       
-      const timeout = setTimeout(() => {
-        if (!isPlayingRef.current) return;
+      console.log("[useSheelohaPlayer] Starting native voice loop cycle");
+      
+      // Play 5 voice copies with 50ms delay
+      for (let i = 0; i < SHEELOHA_CONFIG.copies; i++) {
+        const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
         
-        console.log(`[useSheelohaPlayer] Starting native voice copy ${i+1} at +${delay}ms`);
-        try {
-          voicePlayers[i].replace(audioUri);
-          voicePlayers[i].volume = SHEELOHA_CONFIG.volumes[i];
-          voicePlayers[i].play();
-        } catch (e) {
-          console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
-        }
-      }, delay);
+        const timeout = setTimeout(() => {
+          if (!isPlayingRef.current) return;
+          
+          try {
+            voicePlayers[i].replace(audioUri);
+            voicePlayers[i].volume = SHEELOHA_CONFIG.volumes[i];
+            voicePlayers[i].play();
+          } catch (e) {
+            console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
+          }
+        }, delay);
+        
+        timeoutsRef.current.push(timeout);
+      }
       
-      timeoutsRef.current.push(timeout);
-    }
+      // Estimate duration and schedule next cycle
+      // Assuming average audio is 3-5 seconds, add buffer
+      const cycleDuration = 5000; // 5 seconds per cycle
+      
+      const nextCycleTimeout = setTimeout(() => {
+        if (isPlayingRef.current) {
+          playVoiceCycle();
+        }
+      }, cycleDuration);
+      timeoutsRef.current.push(nextCycleTimeout);
+    };
     
-    // Auto-stop after estimated duration
-    const stopTimeout = setTimeout(() => {
-      isPlayingRef.current = false;
-      setState({ isPlaying: false, isProcessing: false });
-    }, estimatedDuration);
-    timeoutsRef.current.push(stopTimeout);
+    // Start the loop
+    playVoiceCycle();
     
   }, [stopSheeloha, player1, player2, player3, player4, player5, startClappingPatternNative]);
 

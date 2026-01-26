@@ -93,5 +93,17 @@ export type InsertAudioMessage = typeof audioMessages.$inferInsert;
 export type Reaction = typeof reactions.$inferSelect;
 export type InsertReaction = typeof reactions.$inferInsert;
 
+// Khalooha commands table (for broadcasting "خلوها" button press to stop sheeloha for all users)
+export const khaloohaCommands = mysqlTable("khalooha_commands", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  userId: int("userId").notNull(),
+  username: varchar("username", { length: 50 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
 export type SheelohaBroadcast = typeof sheelohaBroadcasts.$inferSelect;
 export type InsertSheelohaBroadcast = typeof sheelohaBroadcasts.$inferInsert;
+
+export type KhaloohaCommand = typeof khaloohaCommands.$inferSelect;
+export type InsertKhaloohaCommand = typeof khaloohaCommands.$inferInsert;

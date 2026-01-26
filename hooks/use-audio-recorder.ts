@@ -142,22 +142,63 @@ export function useAudioRecorder() {
         // Native implementation using expo-audio's recorder
         console.log("[useAudioRecorder] Using expo-audio recorder...");
         
-        // Set audio mode for recording
-        await AudioModule.setAudioModeAsync({
-          allowsRecording: true,
-          playsInSilentMode: true,
-        });
+        // Set audio mode for recording with retry
+        let audioModeSet = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await AudioModule.setAudioModeAsync({
+              allowsRecording: true,
+              playsInSilentMode: true,
+            });
+            audioModeSet = true;
+            console.log("[useAudioRecorder] Audio mode set successfully on attempt", attempt);
+            break;
+          } catch (modeError) {
+            console.warn(`[useAudioRecorder] Failed to set audio mode (attempt ${attempt}/3):`, modeError);
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 200));
+            }
+          }
+        }
         
-        // Create new AudioRecorder instance for each recording session
+        if (!audioModeSet) {
+          console.warn("[useAudioRecorder] Could not set audio mode, proceeding anyway...");
+        }
+        
+        // Create new AudioRecorder instance for each recording session with retry
         console.log("[useAudioRecorder] Creating new AudioRecorder instance...");
-        const recorder = new AudioModule.AudioRecorder(
-          RecordingPresets.HIGH_QUALITY
-        );
-        recorderRef.current = recorder;
+        let recorder: InstanceType<typeof AudioModule.AudioRecorder> | null = null;
         
-        // Prepare and start recording
-        await recorder.prepareToRecordAsync();
-        console.log("[useAudioRecorder] Recorder prepared successfully");
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            recorder = new AudioModule.AudioRecorder(
+              RecordingPresets.HIGH_QUALITY
+            );
+            recorderRef.current = recorder;
+            
+            // Prepare and start recording
+            await recorder.prepareToRecordAsync();
+            console.log("[useAudioRecorder] Recorder prepared successfully on attempt", attempt);
+            break;
+          } catch (prepareError) {
+            console.warn(`[useAudioRecorder] Failed to prepare recorder (attempt ${attempt}/3):`, prepareError);
+            if (recorder) {
+              try { recorder.release(); } catch (e) {}
+            }
+            recorder = null;
+            recorderRef.current = null;
+            
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 300));
+            } else {
+              throw new Error("فشل تهيئة المسجل. يرجى إغلاق التطبيق وإعادة فتحه.");
+            }
+          }
+        }
+        
+        if (!recorder) {
+          throw new Error("فشل إنشاء المسجل.");
+        }
         
         recorder.record();
         console.log("[useAudioRecorder] Recording started");
