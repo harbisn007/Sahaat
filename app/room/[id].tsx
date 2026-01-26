@@ -204,15 +204,17 @@ export default function RoomScreen() {
 
   // Filter messages: only show messages sent AFTER user joined
   // Wait until joinedAt is loaded from storage to avoid filtering issues
+  // Add 5 second safety margin to avoid losing messages sent right after joining
+  const SAFETY_MARGIN_MS = 5000; // 5 seconds
   const filteredAudioMessages = !isJoinedAtLoaded ? [] : (audioMessages || []).filter((msg) => {
     const messageTime = new Date(msg.createdAt).getTime();
-    const joinTime = joinedAt.getTime();
+    const joinTime = joinedAt.getTime() - SAFETY_MARGIN_MS;
     return messageTime >= joinTime;
   });
 
   const filteredReactions = !isJoinedAtLoaded ? [] : (reactions || []).filter((reaction) => {
     const reactionTime = new Date(reaction.createdAt).getTime();
-    const joinTime = joinedAt.getTime();
+    const joinTime = joinedAt.getTime() - SAFETY_MARGIN_MS;
     return reactionTime >= joinTime;
   });
 
@@ -271,36 +273,49 @@ export default function RoomScreen() {
     return lastTarouk.audioUrl;
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
-  // Auto-play new messages for ALL users (including sender)
+  // Auto-play new messages for all users
   useEffect(() => {
     if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
 
-    // Find all unplayed messages
-    const unplayedMessages = filteredAudioMessages.filter(
-      (msg) => !playedMessageIds.has(msg.id)
-    );
-
-    if (unplayedMessages.length === 0) return;
-
-    // Play the first unplayed message
-    const nextMessage = unplayedMessages[0];
-    const messageTime = new Date(nextMessage.createdAt).getTime();
     const joinTime = joinedAt.getTime();
     
-    // Only auto-play if message was sent AFTER user joined
-    if (messageTime >= joinTime) {
-      console.log("[RoomScreen] Auto-playing new message:", {
-        id: nextMessage.id,
-        username: nextMessage.username,
-        messageType: nextMessage.messageType,
+    // First, mark ALL old messages as played (before user joined) - do this BEFORE checking for new messages
+    const oldMessageIds: number[] = [];
+    filteredAudioMessages.forEach(msg => {
+      const messageTime = new Date(msg.createdAt).getTime();
+      if (messageTime < joinTime && !playedMessageIds.has(msg.id)) {
+        oldMessageIds.push(msg.id);
+      }
+    });
+    
+    // If there are old messages to mark, do it first and return
+    if (oldMessageIds.length > 0) {
+      console.log("[RoomScreen] Marking old messages as played:", oldMessageIds);
+      setPlayedMessageIds(prev => {
+        const newSet = new Set(prev);
+        oldMessageIds.forEach(id => newSet.add(id));
+        return newSet;
       });
-      setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
-      play(nextMessage.audioUrl);
-    } else {
-      console.log("[RoomScreen] Skipping old message (before join):", nextMessage.id);
-      // Mark as "played" to avoid checking again
-      setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
+      return; // Exit and let the next effect run handle new messages
     }
+
+    // Find unplayed NEW messages (after user joined)
+    const unplayedNewMessages = filteredAudioMessages.filter(msg => {
+      const messageTime = new Date(msg.createdAt).getTime();
+      return messageTime >= joinTime && !playedMessageIds.has(msg.id);
+    });
+
+    if (unplayedNewMessages.length === 0) return;
+
+    // Play the first unplayed new message
+    const nextMessage = unplayedNewMessages[0];
+    console.log("[RoomScreen] Auto-playing new message:", {
+      id: nextMessage.id,
+      username: nextMessage.username,
+      messageType: nextMessage.messageType,
+    });
+    setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
+    play(nextMessage.audioUrl);
   }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
