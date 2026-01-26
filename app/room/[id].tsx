@@ -59,33 +59,26 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 3000 }
   );
 
-  // Load joinedAt from AsyncStorage on mount
+  // Update joinedAt to current time on every room entry
   useEffect(() => {
-    const loadJoinedAt = async () => {
+    const updateJoinedAt = async () => {
       try {
         const storageKey = `joinedAt_${roomId}_${userId}`;
-        const stored = await AsyncStorage.getItem(storageKey);
-        
-        if (stored) {
-          console.log("[RoomScreen] Loaded joinedAt from storage:", stored);
-          setJoinedAt(new Date(stored));
-        } else {
-          // First time joining - save current time
-          const now = new Date();
-          await AsyncStorage.setItem(storageKey, now.toISOString());
-          console.log("[RoomScreen] Saved new joinedAt to storage:", now.toISOString());
-          setJoinedAt(now);
-        }
-        
+        // Always update joinedAt to current time when entering the room
+        // This ensures old messages don't play when returning to the room
+        const now = new Date();
+        await AsyncStorage.setItem(storageKey, now.toISOString());
+        console.log("[RoomScreen] Updated joinedAt to current time:", now.toISOString());
+        setJoinedAt(now);
         setIsJoinedAtLoaded(true);
       } catch (error) {
-        console.error("[RoomScreen] Failed to load joinedAt:", error);
+        console.error("[RoomScreen] Failed to update joinedAt:", error);
         setIsJoinedAtLoaded(true);
       }
     };
     
     if (roomId > 0 && userId > 0) {
-      loadJoinedAt();
+      updateJoinedAt();
     }
   }, [roomId, userId]);
 
