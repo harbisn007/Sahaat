@@ -367,6 +367,9 @@ export default function RoomScreen() {
           onPress: async () => {
             try {
               await leaveRoomMutation.mutateAsync({ roomId, userId });
+              // مسح joinedAt من AsyncStorage عند المغادرة
+              const storageKey = `joinedAt_${roomId}_${userId}`;
+              await AsyncStorage.removeItem(storageKey);
               router.replace("/");
             } catch (error) {
               Alert.alert("خطأ", "حدث خطأ أثناء مغادرة الساحة");
@@ -389,6 +392,9 @@ export default function RoomScreen() {
           onPress: async () => {
             try {
               await deleteRoomMutation.mutateAsync({ roomId });
+              // مسح joinedAt من AsyncStorage عند إغلاق الجلسة
+              const storageKey = `joinedAt_${roomId}_${userId}`;
+              await AsyncStorage.removeItem(storageKey);
               router.replace("/");
             } catch (error) {
               Alert.alert("خطأ", "حدث خطأ أثناء إغلاق الجلسة");
@@ -614,8 +620,8 @@ export default function RoomScreen() {
         
         {/* Center: Room info */}
         <View className="flex-1">
-          <Text className="text-xl font-bold text-foreground text-center">{roomData.name}</Text>
-          <Text className="text-sm text-muted text-center">
+          <Text className="text-xl font-bold text-center" style={{ color: '#FFFFFF' }}>{roomData.name}</Text>
+          <Text className="text-sm text-center" style={{ color: '#FFFFFF', opacity: 0.8 }}>
             {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
           </Text>
         </View>
@@ -672,7 +678,7 @@ export default function RoomScreen() {
                   source={getAvatarSource(player1.avatar)}
                   style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
                 />
-                <Text className="text-foreground text-xs mt-1 text-center" numberOfLines={1}>
+                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#FFFFFF' }}>
                   {player1.username}
                 </Text>
               </View>
@@ -687,10 +693,9 @@ export default function RoomScreen() {
               source={getAvatarSource(roomData?.creatorAvatar)}
               style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: colors.primary }}
             />
-            <Text className="text-foreground text-sm font-bold mt-1 text-center" numberOfLines={1}>
+            <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: '#FFFFFF' }}>
               {roomData?.creatorName}
             </Text>
-            <Text className="text-muted text-xs">منشئ</Text>
           </View>
 
           {/* Player 2 (Left side) */}
@@ -705,7 +710,7 @@ export default function RoomScreen() {
                   source={getAvatarSource(player2.avatar)}
                   style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
                 />
-                <Text className="text-foreground text-xs mt-1 text-center" numberOfLines={1}>
+                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#FFFFFF' }}>
                   {player2.username}
                 </Text>
               </View>
@@ -963,13 +968,14 @@ export default function RoomScreen() {
             <View className="flex-row gap-2 flex-1">
               <View className="flex-1 items-center">
                 <RecordingButton
+                  buttonId="comment"
                   isRecording={isRecording && recordingType === "comment"}
-                  isPreparing={isPreparing}
+                  isPreparing={isPreparing && recordingType === "comment"}
                   pressAndHold={true}
                   onPressIn={() => handleStartRecording("comment")}
                   onPressOut={() => handleStopRecording()}
                   onCancelRecording={handleCancelRecording}
-                  recordingDuration={formattedDuration}
+                  recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
                   iconComponent={
                     <View style={{ flexDirection: 'row', gap: 4 }}>
                       <MaterialIcons name="music-note" size={22} color="#FFD700" />
@@ -996,14 +1002,15 @@ export default function RoomScreen() {
 
               <View className="flex-1 items-center">
                 <RecordingButton
+                  buttonId="tarouk"
                   isRecording={isRecording && recordingType === "tarouk"}
-                  isPreparing={isPreparing}
+                  isPreparing={isPreparing && recordingType === "tarouk"}
                   pressAndHold={true}
                   onPressIn={() => handleStartRecording("tarouk")}
                   onPressOut={() => handleStopRecording()}
                   onCancelRecording={handleCancelRecording}
                   backgroundColor="#5D4037"
-                  recordingDuration={formattedDuration}
+                  recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
                   iconComponent={
                     <MaterialCommunityIcons name="microphone-variant" size={28} color="#FFD700" />
                   }

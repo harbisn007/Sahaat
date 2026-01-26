@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { 
   RecordingPresets,
   AudioModule 
@@ -24,8 +24,6 @@ export function useAudioRecorder() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const [webRecordingDuration, setWebRecordingDuration] = useState(0);
-  const [webIsRecording, setWebIsRecording] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Cleanup on unmount
@@ -49,16 +47,14 @@ export function useAudioRecorder() {
     };
   }, []);
 
-  // Auto-stop at max duration for native
+  // Auto-stop at max duration
   useEffect(() => {
-    if (Platform.OS !== "web" && isRecording) {
-      if (recordingDuration >= maxDuration) {
-        stopRecording();
-      }
+    if (isRecording && recordingDuration >= maxDuration) {
+      stopRecording();
     }
   }, [recordingDuration, isRecording]);
 
-  const requestPermissions = async () => {
+  const requestPermissions = useCallback(async () => {
     try {
       if (Platform.OS === "web") {
         // Check if running on HTTPS (required for getUserMedia)
@@ -92,9 +88,15 @@ export function useAudioRecorder() {
       }
       throw new Error("فشل الحصول على أذونات المايكروفون. تأكد من السماح بالوصول.");
     }
-  };
+  }, []);
 
-  const startRecording = async (): Promise<boolean> => {
+  const startRecording = useCallback(async (): Promise<boolean> => {
+    // Prevent starting if already recording
+    if (isRecording || isPreparing) {
+      console.log("[useAudioRecorder] Already recording or preparing, ignoring start request");
+      return false;
+    }
+
     try {
       console.log("[useAudioRecorder] startRecording called, platform:", Platform.OS);
       setIsPreparing(true);
@@ -125,20 +127,14 @@ export function useAudioRecorder() {
         mediaRecorder.start();
         mediaRecorderRef.current = mediaRecorder;
         
-        setWebIsRecording(true);
+        // Set recording state AFTER everything is ready
+        setRecordingDuration(0);
+        setIsRecording(true);
         setIsPreparing(false);
-        setWebRecordingDuration(0);
         
         // Start timer
         timerRef.current = setInterval(() => {
-          setWebRecordingDuration((prev) => {
-            const newDuration = prev + 1;
-            // Auto-stop at max duration
-            if (newDuration >= maxDuration) {
-              stopRecording();
-            }
-            return newDuration;
-          });
+          setRecordingDuration((prev) => prev + 1);
         }, 1000);
         
         return true;
@@ -166,15 +162,17 @@ export function useAudioRecorder() {
         recorder.record();
         console.log("[useAudioRecorder] Recording started");
         
+        // Set recording state AFTER everything is ready
+        setRecordingDuration(0);
+        setIsRecording(true);
+        setIsPreparing(false);
+        
         // Start timer for duration tracking
         recordingStartTimeRef.current = Date.now();
-        const timerInterval = setInterval(() => {
+        timerRef.current = setInterval(() => {
           const elapsed = Math.floor((Date.now() - recordingStartTimeRef.current) / 1000);
           setRecordingDuration(elapsed);
         }, 1000);
-        timerRef.current = timerInterval;
-        
-        setIsPreparing(false);
         
         console.log("[useAudioRecorder] Recording started successfully");
         return true;
@@ -183,25 +181,34 @@ export function useAudioRecorder() {
       console.error("[useAudioRecorder] Failed to start recording:", error);
       console.error("[useAudioRecorder] Error details:", error instanceof Error ? error.message : String(error));
       setIsPreparing(false);
+      setIsRecording(false);
       throw error;
     }
-  };
+  }, [isRecording, isPreparing, requestPermissions]);
 
-  const stopRecording = async (): Promise<AudioRecording | null> => {
+  const stopRecording = useCallback(async (): Promise<AudioRecording | null> => {
+    // Clear timer first
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Reset state immediately
+    const currentDuration = recordingDuration;
+    setIsRecording(false);
+    setRecordingDuration(0);
+
     try {
       if (Platform.OS === "web") {
-        setWebIsRecording(false);
-        
-        // Clear timer
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
-
         // Web implementation
         return new Promise((resolve) => {
           const mediaRecorder = mediaRecorderRef.current;
-          if (!mediaRecorder) {
+          if (!mediaRecorder || mediaRecorder.state === "inactive") {
+            // Stop all tracks
+            if (streamRef.current) {
+              streamRef.current.getTracks().forEach(track => track.stop());
+              streamRef.current = null;
+            }
             resolve(null);
             return;
           }
@@ -218,7 +225,7 @@ export function useAudioRecorder() {
             
             resolve({
               uri,
-              duration: webRecordingDuration,
+              duration: currentDuration,
             });
           };
 
@@ -239,11 +246,10 @@ export function useAudioRecorder() {
         }
         
         const uri = recorderRef.current.uri;
-        const duration = recordingDuration;
         
         const result = {
           uri,
-          duration,
+          duration: currentDuration,
         };
         
         // Release recorder after stopping to free resources
@@ -261,15 +267,13 @@ export function useAudioRecorder() {
       console.error("Failed to stop recording:", error);
       return null;
     }
-  };
+  }, [recordingDuration]);
 
   const formatDuration = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
-
-  // Return values (already using unified state)
 
   return {
     isRecording,

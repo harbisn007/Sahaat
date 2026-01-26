@@ -1,5 +1,5 @@
-import { Pressable, Text, View, Animated, Platform } from "react-native";
-import { useEffect, useRef, useState, useCallback } from "react";
+import { Text, View, Animated, Platform } from "react-native";
+import { useEffect, useRef, useCallback } from "react";
 import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -19,44 +19,54 @@ interface RecordingButtonProps {
   iconSize?: number;
   showLabel?: boolean;
   minHeight?: number;
+  buttonId?: string; // Unique identifier for this button
 }
 
 export function RecordingButton({
   isRecording,
   isPreparing,
   label,
-  onPress,
   onPressIn,
   onPressOut,
   onCancelRecording,
   backgroundColor,
   pressAndHold = false,
   recordingDuration,
-  icon,
   iconComponent,
-  iconSize = 24,
   showLabel = true,
   minHeight = 48,
+  buttonId = "default",
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const [showDeleteIcon, setShowDeleteIcon] = useState(false);
   const deleteIconOpacity = useRef(new Animated.Value(0)).current;
   const deleteIconScale = useRef(new Animated.Value(0.5)).current;
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   
-  // Track touch position for swipe detection
+  // Track touch position for swipe detection using refs
   const startYRef = useRef<number>(0);
   const currentYRef = useRef<number>(0);
   const wasCancelledRef = useRef<boolean>(false);
+  const isActiveRef = useRef<boolean>(false); // Track if THIS button started the recording
   const swipeThreshold = 60; // pixels to swipe up to trigger delete
 
+  // Reset state when recording stops
   useEffect(() => {
-    if (isRecording) {
+    if (!isRecording) {
+      isActiveRef.current = false;
       wasCancelledRef.current = false;
-      
-      // Pulse animation while recording
-      Animated.loop(
+      deleteIconOpacity.setValue(0);
+      deleteIconScale.setValue(0.5);
+      deleteIconRotation.setValue(0);
+      pulseAnim.setValue(1);
+    }
+  }, [isRecording]);
+
+  // Pulse animation while recording
+  useEffect(() => {
+    if (isRecording && isActiveRef.current) {
+      // Pulse animation
+      const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.1,
@@ -69,11 +79,10 @@ export function RecordingButton({
             useNativeDriver: true,
           }),
         ])
-      ).start();
+      );
+      pulseAnimation.start();
       
-      // Show delete icon immediately when recording starts
-      setShowDeleteIcon(true);
-      // Animate delete icon appearance
+      // Show delete icon
       Animated.parallel([
         Animated.timing(deleteIconOpacity, {
           toValue: 1,
@@ -87,8 +96,8 @@ export function RecordingButton({
         }),
       ]).start();
       
-      // Start swinging animation
-      Animated.loop(
+      // Swing animation for delete icon
+      const swingAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(deleteIconRotation, {
             toValue: 1,
@@ -106,14 +115,13 @@ export function RecordingButton({
             useNativeDriver: true,
           }),
         ])
-      ).start();
-    } else {
-      pulseAnim.setValue(1);
-      setShowDeleteIcon(false);
-      deleteIconOpacity.setValue(0);
-      deleteIconScale.setValue(0.5);
-      deleteIconRotation.setValue(0);
-      wasCancelledRef.current = false;
+      );
+      swingAnimation.start();
+
+      return () => {
+        pulseAnimation.stop();
+        swingAnimation.stop();
+      };
     }
   }, [isRecording]);
 
@@ -125,20 +133,29 @@ export function RecordingButton({
 
   // Handle touch start - record starting position
   const handleTouchStart = useCallback((event: any) => {
+    // Don't start if already recording (another button is active)
+    if (isRecording || isPreparing) {
+      console.log(`[RecordingButton:${buttonId}] Ignoring touch - already recording`);
+      return;
+    }
+
     const touch = event.nativeEvent;
     startYRef.current = touch.pageY;
     currentYRef.current = touch.pageY;
     wasCancelledRef.current = false;
-    console.log("[RecordingButton] Touch start at Y:", startYRef.current);
+    isActiveRef.current = true; // Mark THIS button as active
+    
+    console.log(`[RecordingButton:${buttonId}] Touch start at Y:`, startYRef.current);
     
     if (onPressIn) {
       onPressIn();
     }
-  }, [onPressIn]);
+  }, [isRecording, isPreparing, onPressIn, buttonId]);
 
   // Handle touch move - track swipe
   const handleTouchMove = useCallback((event: any) => {
-    if (!isRecording) return;
+    // Only process if THIS button started the recording
+    if (!isActiveRef.current || !isRecording) return;
     
     const touch = event.nativeEvent;
     currentYRef.current = touch.pageY;
@@ -146,47 +163,69 @@ export function RecordingButton({
     
     // Check if swiped up enough to cancel
     if (swipeDistance > swipeThreshold && !wasCancelledRef.current) {
-      console.log("[RecordingButton] SWIPE UP detected! Distance:", swipeDistance);
+      console.log(`[RecordingButton:${buttonId}] SWIPE UP detected! Distance:`, swipeDistance);
       wasCancelledRef.current = true;
       
       if (onCancelRecording) {
-        console.log("[RecordingButton] Calling onCancelRecording");
+        console.log(`[RecordingButton:${buttonId}] Calling onCancelRecording`);
         onCancelRecording();
       }
     }
-  }, [isRecording, onCancelRecording]);
+  }, [isRecording, onCancelRecording, buttonId]);
 
   // Handle touch end - send or cancel based on swipe
   const handleTouchEnd = useCallback(() => {
-    console.log("[RecordingButton] Touch end. wasCancelled:", wasCancelledRef.current);
+    // Only process if THIS button started the recording
+    if (!isActiveRef.current) {
+      console.log(`[RecordingButton:${buttonId}] Touch end ignored - not active button`);
+      return;
+    }
+
+    console.log(`[RecordingButton:${buttonId}] Touch end. wasCancelled:`, wasCancelledRef.current);
     
     if (wasCancelledRef.current) {
-      console.log("[RecordingButton] Recording was cancelled, not sending");
+      console.log(`[RecordingButton:${buttonId}] Recording was cancelled, not sending`);
+      isActiveRef.current = false;
       return;
     }
     
     // Calculate final swipe distance
     const swipeDistance = startYRef.current - currentYRef.current;
-    console.log("[RecordingButton] Final swipe distance:", swipeDistance);
+    console.log(`[RecordingButton:${buttonId}] Final swipe distance:`, swipeDistance);
     
     if (swipeDistance > swipeThreshold) {
-      console.log("[RecordingButton] Swipe detected on release, cancelling");
+      console.log(`[RecordingButton:${buttonId}] Swipe detected on release, cancelling`);
       if (onCancelRecording) {
         onCancelRecording();
       }
     } else {
-      console.log("[RecordingButton] No swipe, sending message");
+      console.log(`[RecordingButton:${buttonId}] No swipe, sending message`);
       if (onPressOut) {
         onPressOut();
       }
     }
-  }, [onPressOut, onCancelRecording]);
+    
+    isActiveRef.current = false;
+  }, [onPressOut, onCancelRecording, buttonId]);
+
+  // Handle touch cancel (finger moved outside)
+  const handleTouchCancel = useCallback(() => {
+    if (!isActiveRef.current) return;
+    
+    console.log(`[RecordingButton:${buttonId}] Touch cancelled`);
+    if (isRecording && onCancelRecording) {
+      onCancelRecording();
+    }
+    isActiveRef.current = false;
+  }, [isRecording, onCancelRecording, buttonId]);
 
   if (pressAndHold) {
+    const showDeleteUI = isRecording && isActiveRef.current;
+    
     return (
-      <Animated.View style={{ transform: [{ scale: pulseAnim }], width: '100%' }}>
+      <Animated.View style={{ transform: [{ scale: showDeleteUI ? pulseAnim : 1 }], width: '100%' }}>
         {/* Delete Icon - appears above the button (for swipe up) */}
-        {showDeleteIcon && (
+        {showDeleteUI && (
           <Animated.View 
             style={{ 
               position: 'absolute',
@@ -236,8 +275,9 @@ export function RecordingButton({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
           style={{
-            backgroundColor: isRecording ? colors.error : backgroundColor || colors.primary,
+            backgroundColor: (isRecording && isActiveRef.current) ? colors.error : backgroundColor || colors.primary,
             opacity: isPreparing ? 0.6 : 1,
             borderRadius: 8,
             paddingVertical: 8,
@@ -247,9 +287,9 @@ export function RecordingButton({
             minHeight,
           }}
         >
-          {(icon || iconComponent) ? (
+          {iconComponent ? (
             <View style={{ alignItems: 'center', gap: 2 }}>
-              {iconComponent ? iconComponent : <Text style={{ fontSize: iconSize, color: '#FFD700' }}>{icon}</Text>}
+              {iconComponent}
               {showLabel && minHeight < 50 && (
                 <View style={{ alignItems: 'center' }}>
                   {isPreparing ? (
@@ -264,7 +304,7 @@ export function RecordingButton({
                     >
                       جاري...
                     </Text>
-                  ) : isRecording ? (
+                  ) : (isRecording && isActiveRef.current) ? (
                     <Text 
                       style={{ 
                         color: '#FFFFFF',
@@ -306,7 +346,7 @@ export function RecordingButton({
                   )}
                 </View>
               )}
-              {!showLabel && isRecording && (
+              {!showLabel && (isRecording && isActiveRef.current) && (
                 <Text 
                   style={{ 
                     color: '#FFFFFF',
@@ -331,7 +371,7 @@ export function RecordingButton({
             >
               {isPreparing 
                 ? "جاري..." 
-                : isRecording 
+                : (isRecording && isActiveRef.current)
                   ? recordingDuration || "00:00" 
                   : label}
             </Text>
@@ -341,28 +381,20 @@ export function RecordingButton({
     );
   }
 
+  // Non-press-and-hold version (not used currently)
   return (
-    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-      <Pressable
-        className="rounded-xl py-4 items-center"
-        style={({ pressed }) => ({
-          backgroundColor: pressed || isRecording
-            ? colors.error
-            : backgroundColor || colors.primary,
-          opacity: isPreparing ? 0.6 : 1,
-        })}
-        onPress={onPress}
-        disabled={isPreparing}
-      >
-        <View className="flex-row items-center gap-2">
-          {isRecording && (
-            <View className="w-3 h-3 rounded-full bg-background animate-pulse" />
-          )}
-          <Text className="text-background font-bold text-base">
-            {isPreparing ? "جاري التحضير..." : isRecording ? "⏹ إيقاف التسجيل" : label}
-          </Text>
-        </View>
-      </Pressable>
-    </Animated.View>
+    <View
+      style={{
+        backgroundColor: backgroundColor || colors.primary,
+        opacity: isPreparing ? 0.6 : 1,
+        borderRadius: 12,
+        paddingVertical: 16,
+        alignItems: "center",
+      }}
+    >
+      <Text style={{ color: '#FFFFFF', fontWeight: 'bold', fontSize: 16 }}>
+        {isPreparing ? "جاري التحضير..." : isRecording ? "⏹ إيقاف التسجيل" : label}
+      </Text>
+    </View>
   );
 }
