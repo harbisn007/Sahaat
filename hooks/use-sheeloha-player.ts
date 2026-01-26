@@ -186,6 +186,7 @@ export function useSheelohaPlayer() {
 
   /**
    * Start clapping pattern based on speed (for duration of audio only)
+   * Clapping stops 50ms before audio ends to avoid overlap
    */
   const startClappingPattern = useCallback((
     ctx: AudioContext, 
@@ -193,7 +194,9 @@ export function useSheelohaPlayer() {
     speed: ClappingSpeed,
     durationMs: number
   ) => {
-    console.log("[useSheelohaPlayer] Starting clapping pattern, speed:", speed, "duration:", durationMs);
+    // Stop clapping 50ms before audio ends
+    const clappingDurationMs = Math.max(0, durationMs - 50);
+    console.log("[useSheelohaPlayer] Starting clapping pattern, speed:", speed, "audio duration:", durationMs, "clapping duration:", clappingDurationMs);
     
     // Speed 0: No clapping at all
     if (speed === 0) {
@@ -204,7 +207,7 @@ export function useSheelohaPlayer() {
     // Play first clap immediately
     playSingleClapOnWeb(ctx, clapBuffer);
     
-    const endTime = Date.now() + durationMs;
+    const endTime = Date.now() + clappingDurationMs;
     
     if (speed === 1) {
       // Speed 1: Repeat every 1.27 seconds (1270ms)
@@ -361,9 +364,12 @@ export function useSheelohaPlayer() {
 
   /**
    * Start clapping pattern on native (for duration of audio only)
+   * Clapping stops 50ms before audio ends to avoid overlap
    */
   const startClappingPatternNative = useCallback((speed: ClappingSpeed, durationMs: number) => {
-    console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed, "duration:", durationMs);
+    // Stop clapping 50ms before audio ends
+    const clappingDurationMs = Math.max(0, durationMs - 50);
+    console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed, "audio duration:", durationMs, "clapping duration:", clappingDurationMs);
     
     // Speed 0: No clapping at all
     if (speed === 0) {
@@ -374,7 +380,7 @@ export function useSheelohaPlayer() {
     // Play first clap immediately
     playSingleClapOnNative();
     
-    const endTime = Date.now() + durationMs;
+    const endTime = Date.now() + clappingDurationMs;
     
     if (speed === 1) {
       // Speed 1: Repeat every 1.27 seconds (1270ms)

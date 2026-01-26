@@ -99,12 +99,14 @@ import {
   reactions,
   sheelohaBroadcasts,
   khaloohaCommands,
+  recordingStatus,
   type InsertRoom,
   type InsertRoomParticipant,
   type InsertAudioMessage,
   type InsertReaction,
   type InsertSheelohaBroadcast,
   type InsertKhaloohaCommand,
+  type InsertRecordingStatus,
 } from "../drizzle/schema";
 
 export async function getAllRooms() {
@@ -501,4 +503,89 @@ export async function getLatestKhaloohaCommand(roomId: number) {
     .limit(1);
   
   return results[0] || null;
+}
+
+
+// ============ Recording Status ============
+
+export async function setRecordingStatus(data: {
+  roomId: number;
+  userId: number;
+  username: string;
+  isRecording: boolean;
+  recordingType: "comment" | "tarouk";
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  try {
+    // Check if there's an existing record for this user in this room
+    const existing = await db
+      .select()
+      .from(recordingStatus)
+      .where(
+        and(
+          eq(recordingStatus.roomId, data.roomId),
+          eq(recordingStatus.userId, data.userId)
+        )
+      )
+      .limit(1);
+
+    if (existing.length > 0) {
+      // Update existing record
+      await db
+        .update(recordingStatus)
+        .set({
+          isRecording: data.isRecording ? "true" : "false",
+          recordingType: data.recordingType,
+        })
+        .where(eq(recordingStatus.id, existing[0].id));
+      return existing[0].id;
+    } else {
+      // Insert new record
+      const result = await db.insert(recordingStatus).values({
+        roomId: data.roomId,
+        userId: data.userId,
+        username: data.username,
+        isRecording: data.isRecording ? "true" : "false",
+        recordingType: data.recordingType,
+      });
+      return result[0].insertId;
+    }
+  } catch (error) {
+    console.error("[DB] Failed to set recording status:", error);
+    throw error;
+  }
+}
+
+export async function getActiveRecordings(roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  const results = await db
+    .select()
+    .from(recordingStatus)
+    .where(
+      and(
+        eq(recordingStatus.roomId, roomId),
+        eq(recordingStatus.isRecording, "true")
+      )
+    );
+
+  return results;
+}
+
+export async function clearRecordingStatus(roomId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(recordingStatus)
+    .set({ isRecording: "false" })
+    .where(
+      and(
+        eq(recordingStatus.roomId, roomId),
+        eq(recordingStatus.userId, userId)
+      )
+    );
 }

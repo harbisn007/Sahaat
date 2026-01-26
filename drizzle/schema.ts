@@ -107,3 +107,18 @@ export type InsertSheelohaBroadcast = typeof sheelohaBroadcasts.$inferInsert;
 
 export type KhaloohaCommand = typeof khaloohaCommands.$inferSelect;
 export type InsertKhaloohaCommand = typeof khaloohaCommands.$inferInsert;
+
+// Recording status table (for broadcasting "طاروق" recording status to all users)
+export const recordingStatus = mysqlTable("recording_status", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  userId: int("userId").notNull(),
+  username: varchar("username", { length: 50 }).notNull(),
+  isRecording: mysqlEnum("isRecording", ["true", "false"]).default("false").notNull(),
+  recordingType: mysqlEnum("recordingType", ["comment", "tarouk"]).default("tarouk").notNull(),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RecordingStatus = typeof recordingStatus.$inferSelect;
+export type InsertRecordingStatus = typeof recordingStatus.$inferInsert;

@@ -21,6 +21,7 @@ import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
 import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
+import { RecordingIndicator } from "@/components/recording-indicator";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
@@ -194,6 +195,16 @@ export default function RoomScreen() {
     { roomId },
     { enabled: roomId > 0, refetchInterval: 1000 } // Fast polling for stop command
   );
+
+  // Listen for active recordings to show "طاروق..." indicator
+  const { data: activeRecordings } = trpc.recording.getActive.useQuery(
+    { roomId },
+    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling for real-time indicator
+  );
+
+  // Mutations for recording status
+  const setRecordingStatusMutation = trpc.recording.setStatus.useMutation();
+  const clearRecordingStatusMutation = trpc.recording.clear.useMutation();
 
   // Filter messages: only show messages sent AFTER user joined
   // Wait until joinedAt is loaded from storage to avoid filtering issues
@@ -533,6 +544,23 @@ export default function RoomScreen() {
         console.error("[RoomScreen] Recording failed");
         Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
         setRecordingType(null);
+        return;
+      }
+      
+      // إرسال حالة التسجيل للخادم لعرض مؤشر "طاروق..." للجميع
+      if (username && userId) {
+        try {
+          await setRecordingStatusMutation.mutateAsync({
+            roomId,
+            userId,
+            username,
+            isRecording: true,
+            recordingType: type,
+          });
+          console.log("[RoomScreen] Recording status sent to server");
+        } catch (err) {
+          console.error("[RoomScreen] Failed to send recording status:", err);
+        }
       }
     } catch (error) {
       console.error("[RoomScreen] Recording error:", error);
@@ -550,6 +578,15 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Recording stopped and discarded:", result);
       setRecordingType(null);
       console.log("[RoomScreen] Recording canceled successfully - NOT sent");
+      
+      // مسح حالة التسجيل من الخادم
+      if (userId) {
+        try {
+          await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+        } catch (err) {
+          console.error("[RoomScreen] Failed to clear recording status:", err);
+        }
+      }
     } catch (error) {
       console.error("[RoomScreen] Error canceling recording:", error);
     }
@@ -617,6 +654,15 @@ export default function RoomScreen() {
       Alert.alert("خطأ", "فشل حفظ الرسالة الصوتية");
     } finally {
       setRecordingType(null);
+      
+      // مسح حالة التسجيل من الخادم
+      if (userId) {
+        try {
+          await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+        } catch (err) {
+          console.error("[RoomScreen] Failed to clear recording status:", err);
+        }
+      }
     }
   };
 
@@ -792,11 +838,21 @@ export default function RoomScreen() {
             const player1 = roomData?.participants?.find(
               (p) => p.role === "player" && p.status === "accepted"
             );
+            const isPlayer1Recording = player1 && activeRecordings?.some(
+              (r) => r.userId === player1.userId
+            );
+            const player1RecordingType = activeRecordings?.find(
+              (r) => r.userId === player1?.userId
+            )?.recordingType as "comment" | "tarouk" | undefined;
             return player1 ? (
-              <View className="items-center" style={{ width: 60 }}>
+              <View className="items-center" style={{ width: 60, position: 'relative' }}>
+                <RecordingIndicator 
+                  isVisible={!!isPlayer1Recording} 
+                  recordingType={player1RecordingType || "tarouk"} 
+                />
                 <Image
                   source={getAvatarSource(player1.avatar)}
-                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
+                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
                 />
                 <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
                   {player1.username}
@@ -808,15 +864,29 @@ export default function RoomScreen() {
           })()}
 
           {/* Creator (Center) */}
-          <View className="items-center" style={{ width: 80 }}>
-            <Image
-              source={getAvatarSource(roomData?.creatorAvatar)}
-              style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: colors.primary }}
-            />
-            <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
-              {roomData?.creatorName}
-            </Text>
-          </View>
+          {(() => {
+            const isCreatorRecording = activeRecordings?.some(
+              (r) => r.userId === roomData?.creatorId
+            );
+            const creatorRecordingType = activeRecordings?.find(
+              (r) => r.userId === roomData?.creatorId
+            )?.recordingType as "comment" | "tarouk" | undefined;
+            return (
+              <View className="items-center" style={{ width: 80, position: 'relative' }}>
+                <RecordingIndicator 
+                  isVisible={!!isCreatorRecording} 
+                  recordingType={creatorRecordingType || "tarouk"} 
+                />
+                <Image
+                  source={getAvatarSource(roomData?.creatorAvatar)}
+                  style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: isCreatorRecording ? '#DC2626' : colors.primary }}
+                />
+                <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
+                  {roomData?.creatorName}
+                </Text>
+              </View>
+            );
+          })()}
 
           {/* Player 2 (Left side) */}
           {(() => {
@@ -824,11 +894,21 @@ export default function RoomScreen() {
               (p) => p.role === "player" && p.status === "accepted"
             ) || [];
             const player2 = players.length > 1 ? players[1] : null;
+            const isPlayer2Recording = player2 && activeRecordings?.some(
+              (r) => r.userId === player2.userId
+            );
+            const player2RecordingType = activeRecordings?.find(
+              (r) => r.userId === player2?.userId
+            )?.recordingType as "comment" | "tarouk" | undefined;
             return player2 ? (
-              <View className="items-center" style={{ width: 60 }}>
+              <View className="items-center" style={{ width: 60, position: 'relative' }}>
+                <RecordingIndicator 
+                  isVisible={!!isPlayer2Recording} 
+                  recordingType={player2RecordingType || "tarouk"} 
+                />
                 <Image
                   source={getAvatarSource(player2.avatar)}
-                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
+                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
                 />
                 <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
                   {player2.username}

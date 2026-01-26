@@ -419,6 +419,51 @@ export const appRouter = router({
         return db.getLatestKhaloohaCommand(input.roomId);
       }),
   }),
+
+  // Recording status router (for showing "طاروق..." indicator)
+  recording: router({
+    // Set recording status (start/stop)
+    setStatus: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+          username: z.string(),
+          isRecording: z.boolean(),
+          recordingType: z.enum(["comment", "tarouk"]),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          console.log("[API] Setting recording status:", input);
+          await db.setRecordingStatus(input);
+          return { success: true };
+        } catch (error) {
+          console.error("[API] Failed to set recording status:", error);
+          throw new Error("فشل تحديث حالة التسجيل");
+        }
+      }),
+
+    // Get active recordings in a room
+    getActive: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getActiveRecordings(input.roomId);
+      }),
+
+    // Clear recording status
+    clear: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        await db.clearRecordingStatus(input.roomId, input.userId);
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
