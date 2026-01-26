@@ -270,8 +270,8 @@ export default function RoomScreen() {
       duration: lastTarouk.duration,
     });
     
-    // Return object with URL and duration for sheeloha sync
-    return { audioUrl: lastTarouk.audioUrl, duration: lastTarouk.duration };
+    // Return audio URL string for playSheeloha
+    return lastTarouk.audioUrl;
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
   // Auto-play new messages for all users
@@ -419,10 +419,8 @@ export default function RoomScreen() {
   // Share invite link using deep link scheme
   const handleShareInvite = async () => {
     try {
-      // Use deep link scheme for in-app navigation
-      // Scheme: manus20260120123613://invite/{roomId}?inviter={username}
-      const deepLinkScheme = 'manus20260120123613';
-      const inviteUrl = `${deepLinkScheme}://invite/${roomId}?inviter=${encodeURIComponent(username || 'مستخدم')}`;
+      // Use HTTP link for sharing (can be opened in browser or app)
+      const inviteUrl = `https://sahaat.app/room/${roomId}?inviter=${encodeURIComponent(username || 'مستخدم')}`;
       const roomName = roomData?.name || 'ساحة المحاورة';
       
       const message = `🎤 دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
