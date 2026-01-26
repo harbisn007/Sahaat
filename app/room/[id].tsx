@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
-import { Image, ImageBackground } from "react-native";
+import { Image, ImageBackground, Share } from "react-native";
 
 // Room background image
 const roomBackground = require("@/assets/images/room-background.png");
@@ -415,6 +415,27 @@ export default function RoomScreen() {
     }
   }, [roomData, username]);
 
+  // Share invite link
+  const handleShareInvite = async () => {
+    try {
+      // Create the invite URL with room ID and inviter name
+      const inviteUrl = `https://sahaat.app/invite/${roomId}?inviter=${encodeURIComponent(username || 'مستخدم')}`;
+      const roomName = roomData?.name || 'ساحة المحاورة';
+      
+      const message = `🎤 دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
+        `📍 اسم الساحة: ${roomName}\n` +
+        `👤 الداعي: ${username}\n\n` +
+        `انضم الآن كلاعب أو مشاهد:\n${inviteUrl}`;
+      
+      await Share.share({
+        message,
+        title: `دعوة للانضمام إلى ${roomName}`,
+      });
+    } catch (error) {
+      console.error('[RoomScreen] Share error:', error);
+    }
+  };
+
   const handleAcceptRequest = async (participantId: number) => {
     try {
       await respondToRequestMutation.mutateAsync({
@@ -724,8 +745,14 @@ export default function RoomScreen() {
           </Text>
         </View>
         
-        {/* Right: Empty space for balance */}
-        <View style={{ width: 60 }} />
+        {/* Right: Share/Invite button */}
+        <TouchableOpacity
+          style={{ width: 60 }}
+          className="items-center justify-center"
+          onPress={handleShareInvite}
+        >
+          <MaterialIcons name="share" size={28} color="#000000" />
+        </TouchableOpacity>
       </View>
 
       {/* Pending Requests (Only for creator) */}
