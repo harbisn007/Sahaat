@@ -15,7 +15,7 @@ export default function InviteScreen() {
 
   // Fetch room data
   const { data: roomData, isLoading, error } = trpc.rooms.getById.useQuery(
-    { id: roomId },
+    { roomId },
     { enabled: roomId > 0 }
   );
 
