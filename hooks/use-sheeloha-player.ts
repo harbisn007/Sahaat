@@ -328,18 +328,14 @@ export function useSheelohaPlayer() {
           
           source.onended = () => {
             finishedCount++;
-            // Stop clapping when FIRST copy finishes (the original voice)
-            // This ensures clapping duration matches the actual audio duration
-            if (finishedCount === 1) {
-              console.log("[useSheelohaPlayer] First voice copy finished, stopping clapping");
+            // Stop clapping when ALL copies finish (last one ends)
+            // This ensures clapping continues for the full duration of the overlapping voices
+            if (finishedCount >= SHEELOHA_CONFIG.copies) {
+              console.log("[useSheelohaPlayer] All voice copies finished, stopping clapping");
               isPlayingRef.current = false;
-              // Clear clapping intervals immediately
+              // Clear clapping intervals
               intervalsRef.current.forEach(i => clearInterval(i));
               intervalsRef.current = [];
-            }
-            // Update state when all copies finish
-            if (finishedCount >= SHEELOHA_CONFIG.copies) {
-              console.log("[useSheelohaPlayer] All voice copies finished");
               setState({ isPlaying: false, isProcessing: false });
             }
           };
@@ -476,17 +472,12 @@ export function useSheelohaPlayer() {
               clearInterval(checkFinished);
               finishedCount++;
               
-              // Stop clapping when FIRST copy finishes
-              if (finishedCount === 1) {
-                console.log("[useSheelohaPlayer] First native voice copy finished, stopping clapping");
+              // Stop clapping when ALL copies finish (last one ends)
+              if (finishedCount >= SHEELOHA_CONFIG.copies) {
+                console.log("[useSheelohaPlayer] All native voice copies finished, stopping clapping");
                 isPlayingRef.current = false;
                 intervalsRef.current.forEach(interval => clearInterval(interval));
                 intervalsRef.current = [];
-              }
-              
-              // Update state when all copies finish
-              if (finishedCount >= SHEELOHA_CONFIG.copies) {
-                console.log("[useSheelohaPlayer] All native voice copies finished");
                 setState({ isPlaying: false, isProcessing: false });
               }
             }
