@@ -22,6 +22,13 @@
       "when": 1769208883302,
       "tag": "0002_good_bloodstorm",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1769421934104,
+      "tag": "0003_optimal_next_avengers",
+      "breakpoints": true
     }
   ]
 }

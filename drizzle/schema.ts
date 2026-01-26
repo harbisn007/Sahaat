@@ -31,6 +31,7 @@ export const rooms = mysqlTable("rooms", {
   name: varchar("name", { length: 100 }).notNull(),
   creatorId: int("creatorId").notNull(),
   creatorName: varchar("creatorName", { length: 50 }).notNull(),
+  creatorAvatar: varchar("creatorAvatar", { length: 500 }).default("male").notNull(), // 'male', 'female', or custom URL
   isActive: mysqlEnum("isActive", ["true", "false"]).default("true").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -42,6 +43,7 @@ export const roomParticipants = mysqlTable("room_participants", {
   roomId: int("roomId").notNull(),
   userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
+  avatar: varchar("avatar", { length: 500 }).default("male").notNull(), // 'male', 'female', or custom URL
   role: mysqlEnum("role", ["creator", "player", "viewer"]).notNull(),
   status: mysqlEnum("status", ["pending", "accepted", "rejected"]).default("accepted").notNull(),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),

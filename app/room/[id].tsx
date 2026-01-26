@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
+import { Image } from "react-native";
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -22,7 +23,18 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function RoomScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { username, userId } = useUser();
+  const { username, userId, avatar } = useUser();
+
+  // Avatar images
+  const avatarMale = require("@/assets/images/avatar-male.png");
+  const avatarFemale = require("@/assets/images/avatar-female.png");
+
+  // Helper function to get avatar source
+  const getAvatarSource = (avatarValue: string | undefined | null) => {
+    if (!avatarValue || avatarValue === "male") return avatarMale;
+    if (avatarValue === "female") return avatarFemale;
+    return { uri: avatarValue }; // Custom URL
+  };
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const roomId = parseInt(id || "0");
@@ -647,22 +659,60 @@ export default function RoomScreen() {
           borderColor: "#FFD700", // ذهبي
         }}
       >
-        {/* Role Badge */}
-        <View className="items-center mb-3">
-          <View
-            className="px-4 py-1 rounded-full"
-            style={{
-              backgroundColor: isCreator
-                ? colors.primary
-                : isPlayer
-                ? colors.success
-                : colors.muted,
-            }}
-          >
-            <Text className="text-background font-semibold text-sm">
-              {isCreator ? "🎮 منشئ" : isPlayer ? "🎮 لاعب" : "👁️ مشاهد"}
+        {/* Players Display - Creator in center, Players on sides */}
+        <View className="flex-row items-center justify-center mb-4" style={{ gap: 16 }}>
+          {/* Player 1 (Right side) */}
+          {(() => {
+            const player1 = roomData?.participants?.find(
+              (p) => p.role === "player" && p.status === "accepted"
+            );
+            return player1 ? (
+              <View className="items-center" style={{ width: 60 }}>
+                <Image
+                  source={getAvatarSource(player1.avatar)}
+                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
+                />
+                <Text className="text-foreground text-xs mt-1 text-center" numberOfLines={1}>
+                  {player1.username}
+                </Text>
+              </View>
+            ) : (
+              <View style={{ width: 60 }} />
+            );
+          })()}
+
+          {/* Creator (Center) */}
+          <View className="items-center" style={{ width: 80 }}>
+            <Image
+              source={getAvatarSource(roomData?.creatorAvatar)}
+              style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: colors.primary }}
+            />
+            <Text className="text-foreground text-sm font-bold mt-1 text-center" numberOfLines={1}>
+              {roomData?.creatorName}
             </Text>
+            <Text className="text-muted text-xs">منشئ</Text>
           </View>
+
+          {/* Player 2 (Left side) */}
+          {(() => {
+            const players = roomData?.participants?.filter(
+              (p) => p.role === "player" && p.status === "accepted"
+            ) || [];
+            const player2 = players.length > 1 ? players[1] : null;
+            return player2 ? (
+              <View className="items-center" style={{ width: 60 }}>
+                <Image
+                  source={getAvatarSource(player2.avatar)}
+                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
+                />
+                <Text className="text-foreground text-xs mt-1 text-center" numberOfLines={1}>
+                  {player2.username}
+                </Text>
+              </View>
+            ) : (
+              <View style={{ width: 60 }} />
+            );
+          })()}
         </View>
 
         {/* Messages ScrollView */}

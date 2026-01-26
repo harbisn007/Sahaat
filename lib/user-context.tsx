@@ -1,11 +1,17 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+// Avatar types: 'male' | 'female' | custom URI
+export type AvatarType = 'male' | 'female' | string;
+
 interface UserContextType {
   username: string | null;
   userId: number;
+  avatar: AvatarType | null;
   isLoading: boolean;
   setUsername: (name: string) => Promise<void>;
+  setAvatar: (avatar: AvatarType) => Promise<void>;
+  setUserData: (name: string, avatar: AvatarType) => Promise<void>;
   clearUsername: () => Promise<void>;
 }
 
@@ -13,10 +19,12 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 
 const USER_STORAGE_KEY = "@sahaat_muhawara:username";
 const USER_ID_STORAGE_KEY = "@sahaat_muhawara:userId";
+const USER_AVATAR_STORAGE_KEY = "@sahaat_muhawara:avatar";
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
   const [userId, setUserIdState] = useState<number>(0);
+  const [avatar, setAvatarState] = useState<AvatarType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -28,6 +36,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const storedUsername = await AsyncStorage.getItem(USER_STORAGE_KEY);
       if (storedUsername) {
         setUsernameState(storedUsername);
+      }
+
+      const storedAvatar = await AsyncStorage.getItem(USER_AVATAR_STORAGE_KEY);
+      if (storedAvatar) {
+        setAvatarState(storedAvatar as AvatarType);
       }
 
       let storedUserId = await AsyncStorage.getItem(USER_ID_STORAGE_KEY);
@@ -56,11 +69,35 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setAvatar = async (newAvatar: AvatarType) => {
+    try {
+      await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
+      setAvatarState(newAvatar);
+    } catch (error) {
+      console.error("Failed to save avatar:", error);
+      throw error;
+    }
+  };
+
+  const setUserData = async (name: string, newAvatar: AvatarType) => {
+    try {
+      await AsyncStorage.setItem(USER_STORAGE_KEY, name);
+      await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
+      setUsernameState(name);
+      setAvatarState(newAvatar);
+    } catch (error) {
+      console.error("Failed to save user data:", error);
+      throw error;
+    }
+  };
+
   const clearUsername = async () => {
     try {
       await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await AsyncStorage.removeItem(USER_AVATAR_STORAGE_KEY);
       // Note: We keep userId even after logout
       setUsernameState(null);
+      setAvatarState(null);
     } catch (error) {
       console.error("Failed to clear username:", error);
       throw error;
@@ -68,7 +105,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <UserContext.Provider value={{ username, userId, isLoading, setUsername, clearUsername }}>
+    <UserContext.Provider value={{ username, userId, avatar, isLoading, setUsername, setAvatar, setUserData, clearUsername }}>
       {children}
     </UserContext.Provider>
   );

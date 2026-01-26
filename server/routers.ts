@@ -76,6 +76,7 @@ export const appRouter = router({
           name: z.string().min(3).max(100),
           creatorId: z.number(),
           creatorName: z.string().min(3).max(50),
+          creatorAvatar: z.string().default("male"),
         })
       )
       .mutation(async ({ input }) => {
@@ -83,6 +84,7 @@ export const appRouter = router({
           name: input.name,
           creatorId: input.creatorId,
           creatorName: input.creatorName,
+          creatorAvatar: input.creatorAvatar,
           isActive: "true",
         });
 
@@ -91,6 +93,7 @@ export const appRouter = router({
           roomId: Number(roomId),
           userId: input.creatorId,
           username: input.creatorName,
+          avatar: input.creatorAvatar,
           role: "creator",
           status: "accepted",
         });
@@ -105,6 +108,7 @@ export const appRouter = router({
           roomId: z.number(),
           userId: z.number(),
           username: z.string().min(3).max(50),
+          avatar: z.string().default("male"),
         })
       )
       .mutation(async ({ input }) => {
@@ -122,6 +126,7 @@ export const appRouter = router({
           roomId: input.roomId,
           userId: input.userId,
           username: input.username,
+          avatar: input.avatar,
           role: "player",
           status: "pending",
         });
@@ -136,6 +141,7 @@ export const appRouter = router({
           roomId: z.number(),
           userId: z.number(),
           username: z.string().min(3).max(50),
+          avatar: z.string().default("male"),
         })
       )
       .mutation(async ({ input }) => {
@@ -146,6 +152,7 @@ export const appRouter = router({
           roomId: input.roomId,
           userId: input.userId,
           username: input.username,
+          avatar: input.avatar,
           role: "viewer",
           status: "accepted",
         });

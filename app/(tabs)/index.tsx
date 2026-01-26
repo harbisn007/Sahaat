@@ -21,7 +21,7 @@ import { trpc } from "@/lib/trpc";
  * - Custom colors defined in tailwind.config.js
  */
 export default function HomeScreen() {
-  const { username, userId, isLoading: userLoading } = useUser();
+  const { username, userId, avatar, isLoading: userLoading } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   const { data: rooms, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery();
@@ -49,6 +49,7 @@ export default function HomeScreen() {
         name: roomName,
         creatorId: userId,
         creatorName: username,
+        creatorAvatar: avatar || "male",
       });
 
       await refetch();
@@ -68,6 +69,7 @@ export default function HomeScreen() {
         roomId,
         userId,
         username,
+        avatar: avatar || "male",
       });
 
       router.push(`/room/${roomId}`);
@@ -84,6 +86,7 @@ export default function HomeScreen() {
         roomId,
         userId,
         username,
+        avatar: avatar || "male",
       });
 
       router.push(`/room/${roomId}`);
