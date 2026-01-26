@@ -1,6 +1,7 @@
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Alert } from "react-native";
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
@@ -21,10 +22,50 @@ import { trpc } from "@/lib/trpc";
  * - Custom colors defined in tailwind.config.js
  */
 export default function HomeScreen() {
-  const { username, userId, avatar, isLoading: userLoading } = useUser();
+  const { username, userId, avatar, isLoading: userLoading, clearUsername } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
-  const { data: rooms, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery();
+  // دالة العودة لشاشة تغيير الاسم والصورة
+  const handleChangeProfile = () => {
+    Alert.alert(
+      "تغيير الملف الشخصي",
+      "هل تريد تغيير اسمك وصورتك؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "تغيير",
+          onPress: async () => {
+            await clearUsername();
+            router.replace("/welcome");
+          },
+        },
+      ]
+    );
+  };
+
+  // دالة تسجيل الخروج
+  const handleLogout = () => {
+    Alert.alert(
+      "تسجيل الخروج",
+      "هل تريد تسجيل الخروج من التطبيق؟",
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "خروج",
+          style: "destructive",
+          onPress: async () => {
+            await clearUsername();
+            router.replace("/welcome");
+          },
+        },
+      ]
+    );
+  };
+
+  const { data: rooms, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery(
+    undefined,
+    { refetchInterval: 5000 } // تحديث كل 5 ثواني
+  );
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
     { creatorId: userId },
     { refetchInterval: 3000 }
@@ -113,8 +154,26 @@ export default function HomeScreen() {
     <ScreenContainer>
       {/* Header */}
       <View className="px-6 pt-4 pb-3 border-b border-border">
-        <Text className="text-2xl font-bold text-foreground text-center">ساحات المحاورة</Text>
-        <Text className="text-sm text-muted text-center mt-1">مرحباً {username}</Text>
+        <View className="flex-row justify-between items-center mb-2">
+          {/* زر تغيير الاسم والصورة */}
+          <TouchableOpacity
+            onPress={handleChangeProfile}
+            className="p-2"
+          >
+            <MaterialIcons name="edit" size={22} color="#0a7ea4" />
+          </TouchableOpacity>
+          
+          <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
+          
+          {/* زر تسجيل الخروج */}
+          <TouchableOpacity
+            onPress={handleLogout}
+            className="p-2"
+          >
+            <MaterialIcons name="logout" size={22} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
+        <Text className="text-sm text-muted text-center">مرحباً {username}</Text>
       </View>
 
       {/* Create Room Button */}
