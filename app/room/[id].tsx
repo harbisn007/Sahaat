@@ -636,14 +636,14 @@ export default function RoomScreen() {
           fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
         });
         
-        // Save to database with S3 URL
+        // Save to database with S3 URL (with actual duration from recording)
         await createAudioMutation.mutateAsync({
           roomId,
           userId,
           username,
           messageType: currentRecordingType,
           audioUrl: url,
-          duration: 0, // Duration will be calculated on playback
+          duration: recording.duration || 0, // Use actual recording duration
         });
         
         // Refresh audio messages
