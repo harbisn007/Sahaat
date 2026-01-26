@@ -46,34 +46,30 @@ export function RecordingButton({
   const deleteIconOpacity = useRef(new Animated.Value(0)).current;
   const deleteIconScale = useRef(new Animated.Value(0.5)).current;
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
-  const deleteIconTranslateY = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(0)).current;
-  const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
-  const deleteZoneY = -100; // Position of delete icon (above button)
-  const deleteZoneSize = 60; // Size of delete zone
+  const [isNearDelete, setIsNearDelete] = useState(false);
+  const swipeThreshold = 80; // pixels to swipe down to trigger delete
   let currentSwipeDistance = 0;
-  let hasStartedGesture = false;
 
   // Callbacks for runOnJS
   const updateTranslateY = useCallback((value: number) => {
     currentSwipeDistance = value;
     translateY.setValue(value);
-    deleteIconTranslateY.setValue(value);
-  }, [translateY, deleteIconTranslateY]);
+  }, [translateY]);
 
-  const updateIsOverDeleteZone = useCallback((value: boolean) => {
-    setIsOverDeleteZone(value);
+  const updateIsNearDelete = useCallback((value: boolean) => {
+    setIsNearDelete(value);
   }, []);
 
   const handleDelete = useCallback(() => {
-    console.log("[RecordingButton] DELETE triggered");
+    console.log("[RecordingButton] DELETE triggered - calling onCancelRecording");
     if (onCancelRecording) {
       onCancelRecording();
     }
   }, [onCancelRecording]);
 
   const handleSend = useCallback(() => {
-    console.log("[RecordingButton] SEND triggered");
+    console.log("[RecordingButton] SEND triggered - calling onPressOut");
     if (onPressOut) {
       onPressOut();
     }
@@ -81,47 +77,16 @@ export function RecordingButton({
 
   const resetPosition = useCallback(() => {
     currentSwipeDistance = 0;
-    hasStartedGesture = false;
     Animated.spring(translateY, {
       toValue: 0,
       useNativeDriver: true,
     }).start();
-    Animated.spring(deleteIconTranslateY, {
-      toValue: 0,
-      useNativeDriver: true,
-    }).start();
-    setIsOverDeleteZone(false);
-  }, [translateY, deleteIconTranslateY]);
-
-  const hideDeleteIcon = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(deleteIconOpacity, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: true,
-      }),
-      Animated.spring(deleteIconScale, {
-        toValue: 0.5,
-        friction: 5,
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
-      setShowDeleteIcon(false);
-    });
-  }, []);
+    setIsNearDelete(false);
+  }, [translateY]);
 
   useEffect(() => {
     if (isRecording) {
       currentSwipeDistance = 0;
-      hasStartedGesture = false;
-      
-      // Delete icon is hidden initially
-      setShowDeleteIcon(false);
-      deleteIconOpacity.setValue(0);
-      deleteIconScale.setValue(0.5);
-      deleteIconRotation.setValue(0);
-      translateY.setValue(0);
-      deleteIconTranslateY.setValue(0);
       
       // Pulse animation while recording
       Animated.loop(
@@ -139,26 +104,46 @@ export function RecordingButton({
         ])
       ).start();
       
-      // Start swinging animation for delete icon
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(deleteIconRotation, {
+      // Show delete icon after 0.5 second
+      const timeout = setTimeout(() => {
+        setShowDeleteIcon(true);
+        // Animate delete icon appearance
+        Animated.parallel([
+          Animated.timing(deleteIconOpacity, {
             toValue: 1,
-            duration: 200,
+            duration: 300,
             useNativeDriver: true,
           }),
-          Animated.timing(deleteIconRotation, {
-            toValue: -1,
-            duration: 400,
+          Animated.spring(deleteIconScale, {
+            toValue: 1,
+            friction: 5,
             useNativeDriver: true,
           }),
-          Animated.timing(deleteIconRotation, {
-            toValue: 0,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-        ])
-      ).start();
+        ]).start();
+        
+        // Start swinging animation
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(deleteIconRotation, {
+              toValue: 1,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+            Animated.timing(deleteIconRotation, {
+              toValue: -1,
+              duration: 400,
+              useNativeDriver: true,
+            }),
+            Animated.timing(deleteIconRotation, {
+              toValue: 0,
+              duration: 200,
+              useNativeDriver: true,
+            }),
+          ])
+        ).start();
+      }, 500);
+      
+      return () => clearTimeout(timeout);
     } else {
       pulseAnim.setValue(1);
       setShowDeleteIcon(false);
@@ -166,63 +151,32 @@ export function RecordingButton({
       deleteIconScale.setValue(0.5);
       deleteIconRotation.setValue(0);
       translateY.setValue(0);
-      deleteIconTranslateY.setValue(0);
-      setIsOverDeleteZone(false);
+      setIsNearDelete(false);
       currentSwipeDistance = 0;
-      hasStartedGesture = false;
     }
   }, [isRecording]);
   
-  // Pan gesture - WhatsApp style (swipe UP to delete)
+  // Pan gesture for canceling recording
   const panGesture = Gesture.Pan()
     .enabled(isRecording && pressAndHold)
     .onUpdate((event) => {
-      // Upward movement (negative translationY)
-      if (event.translationY < 0) {
-        // First time moving - show delete icon
-        if (!hasStartedGesture) {
-          hasStartedGesture = true;
-          setShowDeleteIcon(true);
-          Animated.parallel([
-            Animated.timing(deleteIconOpacity, {
-              toValue: 1,
-              duration: 300,
-              useNativeDriver: true,
-            }),
-            Animated.spring(deleteIconScale, {
-              toValue: 1,
-              friction: 5,
-              useNativeDriver: true,
-            }),
-          ]).start();
-        }
-        
+      // Only respond to downward swipes
+      if (event.translationY > 0) {
         updateTranslateY(event.translationY);
-        
-        // Check if over delete zone
-        // Delete icon is at position deleteZoneY
-        // If finger is at deleteZoneY ± deleteZoneSize/2, it's over the zone
-        const fingerY = Math.abs(event.translationY);
-        const deleteIconY = Math.abs(deleteZoneY);
-        const isOver = fingerY >= deleteIconY - deleteZoneSize && 
-                       fingerY <= deleteIconY + deleteZoneSize;
-        updateIsOverDeleteZone(isOver);
+        updateIsNearDelete(event.translationY > swipeThreshold - 20);
       }
     })
     .onEnd((event) => {
-      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "isOver:", isOverDeleteZone);
+      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "threshold:", swipeThreshold);
       
-      // If over delete zone when releasing, delete
-      if (isOverDeleteZone) {
-        console.log("[RecordingButton] OVER DELETE ZONE - DELETE");
+      // Check if swiped far enough to delete
+      if (event.translationY > swipeThreshold) {
+        console.log("[RecordingButton] SWIPE DETECTED - DELETE");
         runOnJS(handleDelete)();
       } else {
-        console.log("[RecordingButton] NOT OVER DELETE ZONE - SEND");
-        runOnJS(handleSend)();
+        console.log("[RecordingButton] NO SWIPE - will send on release");
       }
       
-      // Hide delete icon and reset
-      runOnJS(hideDeleteIcon)();
       runOnJS(resetPosition)();
     });
 
@@ -232,30 +186,43 @@ export function RecordingButton({
     outputRange: ['-15deg', '0deg', '15deg'],
   });
 
+  // Handle release - ONLY if no swipe detected
+  const handleRelease = useCallback(() => {
+    console.log("[RecordingButton] onPressOut called. currentSwipeDistance:", currentSwipeDistance);
+    
+    // Only send if swipe distance is less than threshold
+    if (currentSwipeDistance < swipeThreshold) {
+      console.log("[RecordingButton] Swipe distance < threshold, calling handleSend");
+      handleSend();
+    } else {
+      console.log("[RecordingButton] Swipe distance >= threshold, NOT sending");
+    }
+  }, [handleSend]);
+
   if (pressAndHold) {
     const buttonContent = (
       <Animated.View style={{ transform: [{ scale: pulseAnim }, { translateY }], width: '100%' }}>
-        {/* Delete Icon - appears when finger moves up, follows finger */}
+        {/* Delete Icon - appears below the button */}
         {showDeleteIcon && (
           <Animated.View 
             style={{ 
               position: 'absolute',
-              top: deleteZoneY,
+              bottom: -70,
               left: 0,
               right: 0,
               alignItems: 'center',
               opacity: deleteIconOpacity,
               transform: [
-                { translateY: deleteIconTranslateY },
                 { scale: deleteIconScale },
                 { rotate: rotateInterpolation },
+                { scale: isNearDelete ? 1.3 : 1 },
               ],
               zIndex: 10,
             }}
           >
             <View 
               style={{
-                backgroundColor: isOverDeleteZone ? '#FF0000' : 'rgba(255,0,0,0.6)',
+                backgroundColor: isNearDelete ? '#FF0000' : 'rgba(255,0,0,0.8)',
                 padding: 12,
                 borderRadius: 30,
                 shadowColor: '#000',
@@ -266,25 +233,26 @@ export function RecordingButton({
               }}
             >
               <MaterialIcons 
-                name="close" 
+                name="delete" 
                 size={28} 
                 color="#FFFFFF" 
               />
             </View>
             <Text 
               style={{ 
-                color: isOverDeleteZone ? '#FF0000' : '#999999', 
-                fontSize: 11, 
-                marginTop: 6,
-                fontWeight: '600',
+                color: isNearDelete ? '#FF0000' : '#FF6666', 
+                fontSize: 10, 
+                marginTop: 4,
+                fontWeight: '700',
               }}
             >
-              اسحب للحذف
+              اسحب هنا للحذف
             </Text>
           </Animated.View>
         )}
         <Pressable
           onPressIn={onPressIn}
+          onPressOut={handleRelease}
           disabled={isPreparing}
           style={({ pressed }) => ({
             backgroundColor: pressed || isRecording ? colors.error : backgroundColor || colors.primary,
