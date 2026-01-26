@@ -1,7 +1,10 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
-import { Image } from "react-native";
+import { Image, ImageBackground } from "react-native";
+
+// Room background image
+const roomBackground = require("@/assets/images/room-background.png");
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -419,8 +422,8 @@ export default function RoomScreen() {
 
   const handleDeleteRoom = async () => {
     Alert.alert(
-      "إغلاق الجلسة",
-      "هل أنت متأكد من إغلاق الجلسة؟",
+      "إغلاق الساحة",
+      "هل أنت متأكد من إغلاق الساحة؟\n\nسيتم حذف جميع المحتويات وإخراج جميع المتواجدين.",
       [
         { text: "إلغاء", style: "cancel" },
         {
@@ -629,10 +632,14 @@ export default function RoomScreen() {
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
   return (
+    <ImageBackground 
+      source={roomBackground} 
+      style={{ flex: 1 }} 
+      resizeMode="cover"
+    >
     <ScreenContainer 
       className="p-0" 
-      containerClassName="bg-[#4A3728]"
-      style={{ backgroundImage: 'url(/assets/images/background-pattern.png)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+      containerClassName="bg-transparent"
     >
       {/* Header */}
       <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
@@ -1093,5 +1100,6 @@ export default function RoomScreen() {
         onSelect={handleReaction}
       />
     </ScreenContainer>
+    </ImageBackground>
   );
 }

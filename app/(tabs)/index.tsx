@@ -29,16 +29,32 @@ export default function HomeScreen() {
   const { username, userId, avatar, isLoading: userLoading, clearUsername } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  // Mutation لحذف الساحة
+  const deleteRoomMutation = trpc.rooms.deleteRoom.useMutation();
+
   // دالة العودة لشاشة تغيير الاسم والصورة
   const handleChangeProfile = () => {
+    const message = activeRoom 
+      ? "هل تريد تغيير اسمك وصورتك؟ \n\nتنبيه: سيتم حذف ساحتك النشطة وإخراج جميع المتواجدين فيها."
+      : "هل تريد تغيير اسمك وصورتك؟";
+    
     Alert.alert(
       "تغيير الملف الشخصي",
-      "هل تريد تغيير اسمك وصورتك؟",
+      message,
       [
         { text: "إلغاء", style: "cancel" },
         {
           text: "تغيير",
+          style: "destructive",
           onPress: async () => {
+            // حذف الساحة النشطة إن وجدت
+            if (activeRoom) {
+              try {
+                await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
+              } catch (error) {
+                console.error("فشل حذف الساحة:", error);
+              }
+            }
             await clearUsername();
             router.replace("/welcome");
           },
@@ -166,7 +182,7 @@ export default function HomeScreen() {
       <View className="px-6 py-4">
         <TouchableOpacity
           className="rounded-xl py-3 items-center"
-          style={{ backgroundColor: hasActiveRoom ? '#9CA3AF' : '#0a7ea4' }}
+          style={{ backgroundColor: hasActiveRoom ? '#9CA3AF' : '#D4A574' }}
           onPress={() => {
             if (hasActiveRoom) {
               Alert.alert(

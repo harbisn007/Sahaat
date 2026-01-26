@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground } from "react-native";
 import { router } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
@@ -10,6 +10,9 @@ import type { AvatarType } from "@/lib/user-context";
 // Import avatar images
 const avatarMale = require("@/assets/images/avatar-male.png");
 const avatarFemale = require("@/assets/images/avatar-female.png");
+
+// Welcome background image
+const welcomeBackground = require("@/assets/images/welcome-background.png");
 
 export default function WelcomeScreen() {
   const [name, setName] = useState("");
@@ -56,16 +59,32 @@ export default function WelcomeScreen() {
     setCustomAvatarUri(null);
   };
 
+  // دالة للتحقق من صحة الاسم (3 حروف عربية/إنجليزية على الأقل)
+  const validateName = (text: string): { valid: boolean; message: string } => {
+    const trimmed = text.trim();
+    
+    // عد الحروف العربية والإنجليزية فقط
+    const arabicLetters = (trimmed.match(/[\u0600-\u06FF]/g) || []).length;
+    const englishLetters = (trimmed.match(/[a-zA-Z]/g) || []).length;
+    const totalLetters = arabicLetters + englishLetters;
+    
+    if (totalLetters < 3) {
+      return { valid: false, message: "يجب أن يحتوي الاسم على 3 حروف عربية أو إنجليزية على الأقل" };
+    }
+    
+    if (trimmed.length > 20) {
+      return { valid: false, message: "يجب أن لا يزيد الاسم عن 20 حرف" };
+    }
+    
+    return { valid: true, message: "" };
+  };
+
   const handleSubmit = async () => {
     const trimmedName = name.trim();
     
-    if (trimmedName.length < 3) {
-      Alert.alert("خطأ", "يجب أن يكون الاسم 3 أحرف على الأقل");
-      return;
-    }
-
-    if (trimmedName.length > 20) {
-      Alert.alert("خطأ", "يجب أن لا يزيد الاسم عن 20 حرف");
+    const validation = validateName(trimmedName);
+    if (!validation.valid) {
+      Alert.alert("خطأ", validation.message);
       return;
     }
 
@@ -85,10 +104,15 @@ export default function WelcomeScreen() {
     }
   };
 
-  const isFormValid = name.trim().length >= 3 && selectedAvatar !== null;
+  const isFormValid = validateName(name).valid && selectedAvatar !== null;
 
   return (
-    <ScreenContainer>
+    <ImageBackground 
+      source={welcomeBackground} 
+      style={{ flex: 1 }} 
+      resizeMode="cover"
+    >
+    <ScreenContainer containerClassName="bg-transparent">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         className="flex-1"
@@ -104,7 +128,7 @@ export default function WelcomeScreen() {
                 ساحات المحاورة
               </Text>
               <Text className="text-base text-muted text-center">
-                منصة تفاعلية للمحادثات الصوتية
+                منصة تفاعلية للمحاورة الشعرية
               </Text>
             </View>
 
@@ -227,5 +251,6 @@ export default function WelcomeScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
+    </ImageBackground>
   );
 }
