@@ -63,11 +63,33 @@ export default function WelcomeScreen() {
   const validateName = (text: string): { valid: boolean; message: string } => {
     const trimmed = text.trim();
     
+    // التحقق من أن الاسم ليس فارغاً
+    if (trimmed.length === 0) {
+      return { valid: false, message: "يرجى إدخال اسم" };
+    }
+    
     // عد الحروف العربية والإنجليزية فقط
     const arabicLetters = (trimmed.match(/[\u0600-\u06FF]/g) || []).length;
     const englishLetters = (trimmed.match(/[a-zA-Z]/g) || []).length;
     const totalLetters = arabicLetters + englishLetters;
     
+    // عد الأرقام
+    const numbers = (trimmed.match(/[0-9]/g) || []).length;
+    
+    // عد الرموز (كل شيء ليس حرفاً أو رقماً أو مسافة)
+    const symbols = trimmed.replace(/[\u0600-\u06FFa-zA-Z0-9\s]/g, '').length;
+    
+    // رفض الأرقام وحدها (بدون حروف)
+    if (numbers > 0 && totalLetters === 0) {
+      return { valid: false, message: "لا يمكن أن يكون الاسم أرقاماً فقط" };
+    }
+    
+    // رفض الرموز وحدها (بدون حروف)
+    if (symbols > 0 && totalLetters === 0) {
+      return { valid: false, message: "لا يمكن أن يكون الاسم رموزاً فقط" };
+    }
+    
+    // يجب أن يحتوي على 3 حروف على الأقل
     if (totalLetters < 3) {
       return { valid: false, message: "يجب أن يحتوي الاسم على 3 حروف عربية أو إنجليزية على الأقل" };
     }

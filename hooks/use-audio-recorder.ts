@@ -15,6 +15,7 @@ export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [permissionGranted, setPermissionGranted] = useState<boolean | null>(null);
+  const [isReady, setIsReady] = useState(false); // Track if recorder is ready
   const maxDuration = 60; // seconds
 
   // Use ref to store recorder instance (Native only)
@@ -27,40 +28,88 @@ export function useAudioRecorder() {
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   
-  // Track if audio mode has been initialized
-  const audioModeInitializedRef = useRef(false);
+  // Track initialization state
+  const initializationAttemptRef = useRef(0);
+  const isInitializingRef = useRef(false);
 
-  // Request permissions on mount (for native)
+  // Initialize audio system on mount
   useEffect(() => {
-    const initPermissions = async () => {
-      if (Platform.OS !== "web") {
-        try {
-          console.log("[useAudioRecorder] Requesting permissions on mount...");
-          const { granted } = await AudioModule.requestRecordingPermissionsAsync();
-          setPermissionGranted(granted);
-          console.log("[useAudioRecorder] Initial permission status:", granted);
-          
-          if (granted) {
-            // Pre-initialize audio mode
-            try {
-              await AudioModule.setAudioModeAsync({
-                allowsRecording: true,
-                playsInSilentMode: true,
-              });
-              audioModeInitializedRef.current = true;
-              console.log("[useAudioRecorder] Audio mode pre-initialized");
-            } catch (e) {
-              console.warn("[useAudioRecorder] Failed to pre-initialize audio mode:", e);
-            }
-          }
-        } catch (error) {
-          console.error("[useAudioRecorder] Failed to request initial permissions:", error);
-          setPermissionGranted(false);
+    const initAudioSystem = async () => {
+      if (Platform.OS === "web") {
+        setIsReady(true);
+        return;
+      }
+
+      if (isInitializingRef.current) return;
+      isInitializingRef.current = true;
+
+      try {
+        console.log("[useAudioRecorder] Starting audio system initialization...");
+        
+        // Step 1: Request permissions
+        const { granted } = await AudioModule.requestRecordingPermissionsAsync();
+        setPermissionGranted(granted);
+        console.log("[useAudioRecorder] Permission status:", granted);
+        
+        if (!granted) {
+          console.log("[useAudioRecorder] Permission not granted, cannot initialize");
+          setIsReady(false);
+          isInitializingRef.current = false;
+          return;
         }
+
+        // Step 2: Initialize audio mode with multiple retries
+        let audioModeSet = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            await AudioModule.setAudioModeAsync({
+              allowsRecording: true,
+              playsInSilentMode: true,
+            });
+            audioModeSet = true;
+            console.log("[useAudioRecorder] Audio mode set on attempt", attempt);
+            break;
+          } catch (e) {
+            console.warn(`[useAudioRecorder] Audio mode attempt ${attempt} failed:`, e);
+            await new Promise(resolve => setTimeout(resolve, 200 * attempt));
+          }
+        }
+
+        if (!audioModeSet) {
+          console.warn("[useAudioRecorder] Could not set audio mode, will retry on first recording");
+        }
+
+        // Step 3: Pre-create and test a recorder instance
+        try {
+          console.log("[useAudioRecorder] Pre-creating test recorder...");
+          const testRecorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+          await testRecorder.prepareToRecordAsync();
+          console.log("[useAudioRecorder] Test recorder prepared successfully");
+          
+          // Release the test recorder
+          try {
+            await testRecorder.release();
+          } catch (e) {
+            // Ignore release errors
+          }
+          
+          setIsReady(true);
+          console.log("[useAudioRecorder] Audio system ready!");
+        } catch (e) {
+          console.warn("[useAudioRecorder] Test recorder failed, will retry on first use:", e);
+          // Still mark as ready - we'll handle errors during actual recording
+          setIsReady(true);
+        }
+
+      } catch (error) {
+        console.error("[useAudioRecorder] Failed to initialize audio system:", error);
+        setIsReady(true); // Allow attempts anyway
+      } finally {
+        isInitializingRef.current = false;
       }
     };
-    
-    initPermissions();
+
+    initAudioSystem();
   }, []);
 
   // Cleanup on unmount
@@ -143,6 +192,8 @@ export function useAudioRecorder() {
     try {
       console.log("[useAudioRecorder] startRecording called, platform:", Platform.OS);
       setIsPreparing(true);
+      initializationAttemptRef.current++;
+      const attemptNumber = initializationAttemptRef.current;
 
       // Request permissions
       console.log("[useAudioRecorder] Requesting permissions...");
@@ -183,92 +234,89 @@ export function useAudioRecorder() {
         return true;
       } else {
         // Native implementation using expo-audio's recorder
-        console.log("[useAudioRecorder] Using expo-audio recorder...");
+        console.log("[useAudioRecorder] Using expo-audio recorder (attempt #" + attemptNumber + ")...");
         
-        // Set audio mode for recording (with retry if not already initialized)
-        if (!audioModeInitializedRef.current) {
-          for (let attempt = 1; attempt <= 5; attempt++) {
-            try {
-              await AudioModule.setAudioModeAsync({
-                allowsRecording: true,
-                playsInSilentMode: true,
-              });
-              audioModeInitializedRef.current = true;
-              console.log("[useAudioRecorder] Audio mode set successfully on attempt", attempt);
-              break;
-            } catch (modeError) {
-              console.warn(`[useAudioRecorder] Failed to set audio mode (attempt ${attempt}/5):`, modeError);
-              if (attempt < 5) {
-                await new Promise(resolve => setTimeout(resolve, 300 * attempt));
-              }
-            }
-          }
-        }
-        
-        // Add a small delay after setting audio mode for first-time use
-        if (!audioModeInitializedRef.current) {
-          console.log("[useAudioRecorder] Adding delay for first-time audio initialization...");
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Try one more time
+        // Always try to set audio mode before recording
+        for (let modeAttempt = 1; modeAttempt <= 3; modeAttempt++) {
           try {
             await AudioModule.setAudioModeAsync({
               allowsRecording: true,
               playsInSilentMode: true,
             });
-            audioModeInitializedRef.current = true;
-            console.log("[useAudioRecorder] Audio mode set after delay");
-          } catch (e) {
-            console.warn("[useAudioRecorder] Still could not set audio mode, proceeding anyway...");
+            console.log("[useAudioRecorder] Audio mode set on attempt", modeAttempt);
+            break;
+          } catch (modeError) {
+            console.warn(`[useAudioRecorder] Audio mode attempt ${modeAttempt} failed:`, modeError);
+            if (modeAttempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 150 * modeAttempt));
+            }
           }
         }
         
-        // Create new AudioRecorder instance for each recording session with retry
-        console.log("[useAudioRecorder] Creating new AudioRecorder instance...");
+        // Create new AudioRecorder instance with aggressive retry
+        console.log("[useAudioRecorder] Creating AudioRecorder instance...");
         let recorder: InstanceType<typeof AudioModule.AudioRecorder> | null = null;
+        let lastError: Error | null = null;
         
-        for (let attempt = 1; attempt <= 5; attempt++) {
+        // More aggressive retry strategy for first-time use
+        const maxAttempts = attemptNumber === 1 ? 8 : 5;
+        
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
           try {
-            recorder = new AudioModule.AudioRecorder(
-              RecordingPresets.HIGH_QUALITY
-            );
+            // Add delay before first attempt on first use
+            if (attempt === 1 && attemptNumber === 1) {
+              console.log("[useAudioRecorder] First-time use, adding initial delay...");
+              await new Promise(resolve => setTimeout(resolve, 300));
+            }
+            
+            recorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
             recorderRef.current = recorder;
             
-            // Prepare and start recording
+            // Prepare recorder
             await recorder.prepareToRecordAsync();
-            console.log("[useAudioRecorder] Recorder prepared successfully on attempt", attempt);
+            console.log("[useAudioRecorder] Recorder prepared on attempt", attempt);
             break;
           } catch (prepareError) {
-            console.warn(`[useAudioRecorder] Failed to prepare recorder (attempt ${attempt}/5):`, prepareError);
+            lastError = prepareError as Error;
+            console.warn(`[useAudioRecorder] Prepare attempt ${attempt}/${maxAttempts} failed:`, prepareError);
+            
+            // Clean up failed recorder
             if (recorder) {
-              try { recorder.release(); } catch (e) {}
+              try { 
+                recorder.release(); 
+              } catch (e) {
+                // Ignore
+              }
             }
             recorder = null;
             recorderRef.current = null;
             
-            if (attempt < 5) {
-              // Exponential backoff
-              const delay = 300 * attempt;
-              console.log(`[useAudioRecorder] Waiting ${delay}ms before retry...`);
+            if (attempt < maxAttempts) {
+              // Progressive delay with jitter
+              const baseDelay = 200 * attempt;
+              const jitter = Math.random() * 100;
+              const delay = baseDelay + jitter;
+              console.log(`[useAudioRecorder] Waiting ${Math.round(delay)}ms before retry...`);
               await new Promise(resolve => setTimeout(resolve, delay));
               
-              // Try to re-initialize audio mode
+              // Re-initialize audio mode between attempts
               try {
                 await AudioModule.setAudioModeAsync({
                   allowsRecording: true,
                   playsInSilentMode: true,
                 });
-              } catch (e) {}
-            } else {
-              throw new Error("فشل تهيئة المسجل. يرجى المحاولة مرة أخرى.");
+              } catch (e) {
+                // Ignore
+              }
             }
           }
         }
         
         if (!recorder) {
-          throw new Error("فشل إنشاء المسجل.");
+          throw lastError || new Error("فشل تهيئة المسجل بعد عدة محاولات.");
         }
         
+        // Start recording
         recorder.record();
         console.log("[useAudioRecorder] Recording started");
         
@@ -388,6 +436,7 @@ export function useAudioRecorder() {
   return {
     isRecording,
     isPreparing,
+    isReady,
     recordingDuration,
     formattedDuration: formatDuration(recordingDuration),
     startRecording,

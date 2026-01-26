@@ -664,8 +664,8 @@ export default function RoomScreen() {
         
         {/* Center: Room info */}
         <View className="flex-1">
-          <Text className="text-xl font-bold text-center" style={{ color: '#FFFFFF' }}>{roomData.name}</Text>
-          <Text className="text-sm text-center" style={{ color: '#FFFFFF', opacity: 0.8 }}>
+          <Text className="text-xl font-bold text-center" style={{ color: '#000000' }}>{roomData.name}</Text>
+          <Text className="text-sm text-center" style={{ color: '#000000', opacity: 0.8 }}>
             {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
           </Text>
         </View>
@@ -722,7 +722,7 @@ export default function RoomScreen() {
                   source={getAvatarSource(player1.avatar)}
                   style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
                 />
-                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#FFFFFF' }}>
+                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
                   {player1.username}
                 </Text>
               </View>
@@ -737,7 +737,7 @@ export default function RoomScreen() {
               source={getAvatarSource(roomData?.creatorAvatar)}
               style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: colors.primary }}
             />
-            <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: '#FFFFFF' }}>
+            <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
               {roomData?.creatorName}
             </Text>
           </View>
@@ -754,7 +754,7 @@ export default function RoomScreen() {
                   source={getAvatarSource(player2.avatar)}
                   style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: colors.success }}
                 />
-                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#FFFFFF' }}>
+                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
                   {player2.username}
                 </Text>
               </View>
@@ -897,9 +897,9 @@ export default function RoomScreen() {
                     backgroundColor: "#5D4037",
                     opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
                     width: '100%',
-                    paddingVertical: 8,
+                    paddingVertical: 4,
                     paddingHorizontal: 4,
-                    minHeight: 60,
+                    minHeight: 48,
                     borderRadius: 8,
                   }}
                   onPress={async () => {
@@ -965,9 +965,9 @@ export default function RoomScreen() {
                     backgroundColor: "#5D4037",
                     opacity: isSheelohaPlaying ? 1 : 0.5,
                     width: '100%',
-                    paddingVertical: 8,
+                    paddingVertical: 4,
                     paddingHorizontal: 4,
-                    minHeight: 60,
+                    minHeight: 48,
                     borderRadius: 8,
                   }}
                   onPress={async () => {
@@ -1012,7 +1012,7 @@ export default function RoomScreen() {
               style={{
                 backgroundColor: "#5D4037",
                 width: 50,
-                minHeight: 60,
+                minHeight: 48,
                 borderRadius: 8,
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
@@ -1043,7 +1043,7 @@ export default function RoomScreen() {
                   label=""
                   showLabel={false}
                   backgroundColor="#5D4037"
-                  minHeight={60}
+                  minHeight={48}
                 />
                 <Text 
                   style={{ 
@@ -1074,7 +1074,7 @@ export default function RoomScreen() {
                   }
                   label=""
                   showLabel={false}
-                  minHeight={60}
+                  minHeight={48}
                 />
                 <Text 
                   style={{ 
