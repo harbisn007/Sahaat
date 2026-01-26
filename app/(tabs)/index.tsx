@@ -219,14 +219,18 @@ export default function HomeScreen() {
           <FlatList
             data={rooms}
             keyExtractor={(item) => item.id.toString()}
+            numColumns={2}
+            columnWrapperStyle={{ gap: 8, marginBottom: 8 }}
             renderItem={({ item }) => (
-              <RoomCard
-                room={item}
-                currentUserId={userId}
-                onJoinAsPlayer={() => handleJoinAsPlayer(item.id)}
-                onJoinAsViewer={() => handleJoinAsViewer(item.id)}
-                onDirectEnter={() => router.push(`/room/${item.id}`)}
-              />
+              <View style={{ flex: 1, maxWidth: '50%' }}>
+                <RoomCard
+                  room={item}
+                  currentUserId={userId}
+                  onJoinAsPlayer={() => handleJoinAsPlayer(item.id)}
+                  onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                  onDirectEnter={() => router.push(`/room/${item.id}`)}
+                />
+              </View>
             )}
             refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} />}
             contentContainerStyle={{ paddingBottom: 20 }}

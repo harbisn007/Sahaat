@@ -27,31 +27,31 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
   if (isCreator) {
     return (
       <TouchableOpacity
-        className="bg-surface rounded-2xl p-4 mb-3 border-2 shadow-sm"
-        style={{ borderColor: colors.primary }}
+        className="bg-surface rounded-xl p-3 border-2 shadow-sm"
+        style={{ borderColor: colors.primary, flex: 1 }}
         onPress={onDirectEnter}
         activeOpacity={0.7}
       >
         {/* Room Info */}
-        <View className="mb-3">
-          <View className="flex-row items-center gap-2 mb-1">
-            <Text className="text-lg font-bold text-foreground">{room.name}</Text>
-            <Text className="text-base">👑</Text>
+        <View className="mb-2">
+          <View className="flex-row items-center gap-1 mb-1">
+            <Text className="text-sm font-bold text-foreground" numberOfLines={1}>{room.name}</Text>
+            <Text className="text-xs">👑</Text>
           </View>
-          <Text className="text-sm" style={{ color: colors.primary }}>ساحتك - اضغط للدخول</Text>
+          <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
         </View>
 
         {/* Stats */}
-        <View className="flex-row gap-4">
+        <View className="flex-row gap-2">
           <View className="flex-row items-center gap-1">
-            <Text className="text-sm text-muted">🎮</Text>
-            <Text className="text-sm text-foreground">
-              {room.acceptedPlayersCount}/2 لاعبين
+            <Text className="text-xs text-muted">🎮</Text>
+            <Text className="text-xs text-foreground">
+              {room.acceptedPlayersCount}/2
             </Text>
           </View>
           <View className="flex-row items-center gap-1">
-            <Text className="text-sm text-muted">👁️</Text>
-            <Text className="text-sm text-foreground">{room.viewerCount} مشاهدين</Text>
+            <Text className="text-xs text-muted">👁️</Text>
+            <Text className="text-xs text-foreground">{room.viewerCount}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -60,31 +60,31 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
 
   // For non-creators, show the buttons
   return (
-    <View className="bg-surface rounded-2xl p-4 mb-3 border border-border shadow-sm">
+    <View className="bg-surface rounded-xl p-3 border border-border shadow-sm" style={{ flex: 1 }}>
       {/* Room Info */}
-      <View className="mb-3">
-        <Text className="text-lg font-bold text-foreground mb-1">{room.name}</Text>
-        <Text className="text-sm text-muted">المنشئ: {room.creatorName}</Text>
+      <View className="mb-2">
+        <Text className="text-sm font-bold text-foreground mb-1" numberOfLines={1}>{room.name}</Text>
+        <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
       </View>
 
       {/* Stats */}
-      <View className="flex-row gap-4 mb-3">
+      <View className="flex-row gap-2 mb-2">
         <View className="flex-row items-center gap-1">
-          <Text className="text-sm text-muted">🎮</Text>
-          <Text className="text-sm text-foreground">
-            {room.acceptedPlayersCount}/2 لاعبين
+          <Text className="text-xs text-muted">🎮</Text>
+          <Text className="text-xs text-foreground">
+            {room.acceptedPlayersCount}/2
           </Text>
         </View>
         <View className="flex-row items-center gap-1">
-          <Text className="text-sm text-muted">👁️</Text>
-          <Text className="text-sm text-foreground">{room.viewerCount} مشاهدين</Text>
+          <Text className="text-xs text-muted">👁️</Text>
+          <Text className="text-xs text-foreground">{room.viewerCount}</Text>
         </View>
       </View>
 
-      {/* Action Buttons */}
-      <View className="flex-row gap-2">
+      {/* Action Buttons - Stacked vertically for compact design */}
+      <View className="gap-1">
         <TouchableOpacity
-          className="flex-1 rounded-xl py-2 items-center"
+          className="rounded-lg py-1.5 items-center"
           style={{
             backgroundColor: isPlayersFull ? colors.muted : colors.primary,
             opacity: isPlayersFull ? 0.5 : 1,
@@ -93,20 +93,20 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
           disabled={isPlayersFull}
         >
           <Text
-            className="font-semibold text-sm"
+            className="font-semibold text-xs"
             style={{ color: isPlayersFull ? colors.foreground : colors.background }}
           >
-            {isPlayersFull ? "ممتلئة" : "دخول كلاعب"}
+            {isPlayersFull ? "ممتلئة" : "لاعب"}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          className="flex-1 bg-surface border-2 rounded-xl py-2 items-center"
+          className="bg-surface border rounded-lg py-1.5 items-center"
           style={{ borderColor: colors.primary }}
           onPress={onJoinAsViewer}
         >
-          <Text className="font-semibold text-sm" style={{ color: colors.primary }}>
-            دخول كمشاهد
+          <Text className="font-semibold text-xs" style={{ color: colors.primary }}>
+            مشاهد
           </Text>
         </TouchableOpacity>
       </View>
