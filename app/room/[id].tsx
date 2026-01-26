@@ -419,8 +419,10 @@ export default function RoomScreen() {
   // Share invite link using deep link scheme
   const handleShareInvite = async () => {
     try {
-      // Use HTTP link for sharing (can be opened in browser or app)
-      const inviteUrl = `https://sahaat.app/room/${roomId}?inviter=${encodeURIComponent(username || 'مستخدم')}`;
+      // Use deep link scheme to open app directly on invite page
+      // Scheme: manus20260120123613://invite/{roomId}
+      const deepLinkScheme = 'manus20260120123613';
+      const inviteUrl = `${deepLinkScheme}://invite/${roomId}`;
       const roomName = roomData?.name || 'ساحة المحاورة';
       
       const message = `🎤 دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
