@@ -1,9 +1,9 @@
+import { Pressable, Text, View, Animated, Platform } from "react-native";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { Animated, View, Text } from "react-native";
 
 interface RecordingButtonProps {
   isRecording: boolean;
@@ -51,20 +51,18 @@ export function RecordingButton({
   const [isOverDeleteZone, setIsOverDeleteZone] = useState(false);
   const deleteZoneY = -100; // Position of delete icon (above button)
   const deleteZoneSize = 60; // Size of delete zone
-  const currentSwipeDistanceRef = useRef(0);
-  const hasStartedGestureRef = useRef(false);
-  const shouldDeleteRef = useRef(false);
+  let currentSwipeDistance = 0;
+  let hasStartedGesture = false;
 
   // Callbacks for runOnJS
   const updateTranslateY = useCallback((value: number) => {
-    currentSwipeDistanceRef.current = value;
+    currentSwipeDistance = value;
     translateY.setValue(value);
     deleteIconTranslateY.setValue(value);
   }, [translateY, deleteIconTranslateY]);
 
   const updateIsOverDeleteZone = useCallback((value: boolean) => {
     setIsOverDeleteZone(value);
-    shouldDeleteRef.current = value;
   }, []);
 
   const handleDelete = useCallback(() => {
@@ -82,9 +80,8 @@ export function RecordingButton({
   }, [onPressOut]);
 
   const resetPosition = useCallback(() => {
-    currentSwipeDistanceRef.current = 0;
-    hasStartedGestureRef.current = false;
-    shouldDeleteRef.current = false;
+    currentSwipeDistance = 0;
+    hasStartedGesture = false;
     Animated.spring(translateY, {
       toValue: 0,
       useNativeDriver: true,
@@ -115,9 +112,8 @@ export function RecordingButton({
 
   useEffect(() => {
     if (isRecording) {
-      currentSwipeDistanceRef.current = 0;
-      hasStartedGestureRef.current = false;
-      shouldDeleteRef.current = false;
+      currentSwipeDistance = 0;
+      hasStartedGesture = false;
       
       // Delete icon is hidden initially
       setShowDeleteIcon(false);
@@ -172,9 +168,8 @@ export function RecordingButton({
       translateY.setValue(0);
       deleteIconTranslateY.setValue(0);
       setIsOverDeleteZone(false);
-      currentSwipeDistanceRef.current = 0;
-      hasStartedGestureRef.current = false;
-      shouldDeleteRef.current = false;
+      currentSwipeDistance = 0;
+      hasStartedGesture = false;
     }
   }, [isRecording]);
   
@@ -185,8 +180,8 @@ export function RecordingButton({
       // Upward movement (negative translationY)
       if (event.translationY < 0) {
         // First time moving - show delete icon
-        if (!hasStartedGestureRef.current) {
-          hasStartedGestureRef.current = true;
+        if (!hasStartedGesture) {
+          hasStartedGesture = true;
           setShowDeleteIcon(true);
           Animated.parallel([
             Animated.timing(deleteIconOpacity, {
@@ -202,7 +197,7 @@ export function RecordingButton({
           ]).start();
         }
         
-        runOnJS(updateTranslateY)(event.translationY);
+        updateTranslateY(event.translationY);
         
         // Check if over delete zone
         // Delete icon is at position deleteZoneY
@@ -211,14 +206,14 @@ export function RecordingButton({
         const deleteIconY = Math.abs(deleteZoneY);
         const isOver = fingerY >= deleteIconY - deleteZoneSize && 
                        fingerY <= deleteIconY + deleteZoneSize;
-        runOnJS(updateIsOverDeleteZone)(isOver);
+        updateIsOverDeleteZone(isOver);
       }
     })
     .onEnd((event) => {
-      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "shouldDelete:", shouldDeleteRef.current);
+      console.log("[RecordingButton] Gesture ended. translationY:", event.translationY, "isOver:", isOverDeleteZone);
       
       // If over delete zone when releasing, delete
-      if (shouldDeleteRef.current) {
+      if (isOverDeleteZone) {
         console.log("[RecordingButton] OVER DELETE ZONE - DELETE");
         runOnJS(handleDelete)();
       } else {
@@ -255,83 +250,176 @@ export function RecordingButton({
                 { scale: deleteIconScale },
                 { rotate: rotateInterpolation },
               ],
-              zIndex: 1000,
+              zIndex: 10,
             }}
           >
-            <View
+            <View 
               style={{
-                width: 50,
-                height: 50,
-                borderRadius: 25,
-                backgroundColor: isOverDeleteZone ? '#FF4444' : '#FF6666',
-                alignItems: 'center',
-                justifyContent: 'center',
+                backgroundColor: isOverDeleteZone ? '#FF0000' : 'rgba(255,0,0,0.6)',
+                padding: 12,
+                borderRadius: 30,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 5,
               }}
             >
-              <MaterialIcons name="delete-outline" size={28} color="white" />
+              <MaterialIcons 
+                name="close" 
+                size={28} 
+                color="#FFFFFF" 
+              />
             </View>
+            <Text 
+              style={{ 
+                color: isOverDeleteZone ? '#FF0000' : '#999999', 
+                fontSize: 11, 
+                marginTop: 6,
+                fontWeight: '600',
+              }}
+            >
+              اسحب للحذف
+            </Text>
           </Animated.View>
         )}
-
-        {/* Recording Button */}
-        <View
-          style={{
-            backgroundColor: backgroundColor || colors.primary,
+        <Pressable
+          onPressIn={onPressIn}
+          disabled={isPreparing}
+          style={({ pressed }) => ({
+            backgroundColor: pressed || isRecording ? colors.error : backgroundColor || colors.primary,
+            opacity: isPreparing ? 0.6 : 1,
             borderRadius: 8,
-            minHeight,
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            paddingHorizontal: 8,
             paddingVertical: 8,
-          }}
+            paddingHorizontal: 4,
+            alignItems: "center",
+            justifyContent: "center",
+            minHeight,
+          })}
         >
-          {iconComponent || (
-            <MaterialIcons name={(icon as any) || 'mic'} size={iconSize} color="#FFD700" />
-          )}
-          {showLabel && label && (
-            <Text style={{ color: '#FFD700', marginTop: 4, fontSize: 12, fontWeight: '600' }}>
-              {label}
+          {(icon || iconComponent) ? (
+            <View className="items-center gap-0.5">
+              {iconComponent ? iconComponent : <Text style={{ fontSize: iconSize, color: '#FFD700' }}>{icon}</Text>}
+              {showLabel && minHeight < 50 && (
+                <View className="items-center">
+                  {isPreparing ? (
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textAlign: 'center',
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      جاري...
+                    </Text>
+                  ) : isRecording ? (
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textAlign: 'center',
+                      }}
+                    >
+                      {recordingDuration || "00:00"}
+                    </Text>
+                  ) : label?.includes('\n') ? (
+                    label.split('\n').map((line, i) => (
+                      <Text 
+                        key={i}
+                        style={{ 
+                          color: '#FFFFFF',
+                          fontSize: 10,
+                          fontWeight: '800',
+                          textAlign: 'center',
+                          letterSpacing: 0.3,
+                          lineHeight: 13,
+                        }}
+                      >
+                        {line}
+                      </Text>
+                    ))
+                  ) : (
+                    <Text 
+                      style={{ 
+                        color: '#FFFFFF',
+                        fontSize: 10,
+                        fontWeight: '800',
+                        textAlign: 'center',
+                        letterSpacing: 0.3,
+                      }}
+                    >
+                      {label}
+                    </Text>
+                  )}
+                </View>
+              )}
+              {!showLabel && isRecording && (
+                <Text 
+                  style={{ 
+                    color: '#FFFFFF',
+                    fontSize: 10,
+                    fontWeight: '800',
+                    textAlign: 'center',
+                  }}
+                >
+                  {recordingDuration || "00:00"}
+                </Text>
+              )}
+            </View>
+          ) : (
+            <Text 
+              style={{ 
+                color: '#FFFFFF',
+                fontSize: 10,
+                fontWeight: '800',
+                textAlign: 'center',
+                letterSpacing: 0.3,
+              }}
+            >
+              {isPreparing 
+                ? "جاري..." 
+                : isRecording 
+                  ? recordingDuration || "00:00" 
+                  : label}
             </Text>
           )}
-          {recordingDuration && (
-            <Text style={{ color: '#FFD700', marginTop: 2, fontSize: 10 }}>
-              {recordingDuration}
-            </Text>
-          )}
-        </View>
+        </Pressable>
       </Animated.View>
     );
-
-    return (
-      <GestureDetector gesture={panGesture}>
-        {buttonContent}
-      </GestureDetector>
-    );
+    
+    // Wrap with GestureDetector on Native only
+    if (Platform.OS !== "web") {
+      return <GestureDetector gesture={panGesture}>{buttonContent}</GestureDetector>;
+    }
+    
+    return buttonContent;
   }
 
-  // Simple press button (not press and hold)
   return (
-    <View
-      style={{
-        backgroundColor: backgroundColor || colors.primary,
-        borderRadius: 8,
-        minHeight,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '100%',
-        paddingHorizontal: 8,
-        paddingVertical: 8,
-      }}
-    >
-      {iconComponent || (
-        <MaterialIcons name={(icon as any) || 'mic'} size={iconSize} color="#FFD700" />
-      )}
-      {showLabel && label && (
-        <Text style={{ color: '#FFD700', marginTop: 4, fontSize: 12, fontWeight: '600' }}>
-          {label}
-        </Text>
-      )}
-    </View>
+    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+      <Pressable
+        className="rounded-xl py-4 items-center"
+        style={({ pressed }) => ({
+          backgroundColor: pressed || isRecording
+            ? colors.error
+            : backgroundColor || colors.primary,
+          opacity: isPreparing ? 0.6 : 1,
+        })}
+        onPress={onPress}
+        disabled={isPreparing}
+      >
+        <View className="flex-row items-center gap-2">
+          {isRecording && (
+            <View className="w-3 h-3 rounded-full bg-background animate-pulse" />
+          )}
+          <Text className="text-background font-bold text-base">
+            {isPreparing ? "جاري التحضير..." : isRecording ? "⏹ إيقاف التسجيل" : label}
+          </Text>
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
