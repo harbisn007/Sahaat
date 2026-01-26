@@ -2,8 +2,12 @@ import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, FlatList, 
 import { useEffect, useState } from "react";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { ImageBackground } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
+
+// خلفية نقوش السدو التراثية
+const roomsBackground = require("@/assets/images/rooms-background.png");
 import { useUser } from "@/lib/user-context";
 import { RoomCard } from "@/components/room-card";
 import { CreateRoomModal } from "@/components/create-room-modal";
@@ -34,25 +38,6 @@ export default function HomeScreen() {
         { text: "إلغاء", style: "cancel" },
         {
           text: "تغيير",
-          onPress: async () => {
-            await clearUsername();
-            router.replace("/welcome");
-          },
-        },
-      ]
-    );
-  };
-
-  // دالة تسجيل الخروج
-  const handleLogout = () => {
-    Alert.alert(
-      "تسجيل الخروج",
-      "هل تريد تسجيل الخروج من التطبيق؟",
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "خروج",
-          style: "destructive",
           onPress: async () => {
             await clearUsername();
             router.replace("/welcome");
@@ -152,26 +137,27 @@ export default function HomeScreen() {
 
   return (
     <ScreenContainer>
+      <ImageBackground 
+        source={roomsBackground} 
+        style={{ flex: 1 }}
+        imageStyle={{ opacity: 0.15 }}
+        resizeMode="cover"
+      >
       {/* Header */}
-      <View className="px-6 pt-4 pb-3 border-b border-border">
-        <View className="flex-row justify-between items-center mb-2">
-          {/* زر تغيير الاسم والصورة */}
+      <View className="px-6 pt-4 pb-3 border-b border-border" style={{ backgroundColor: 'rgba(250, 248, 245, 0.9)' }}>
+        <View className="flex-row items-center mb-2">
+          {/* زر العودة لشاشة تغيير الاسم والصورة */}
           <TouchableOpacity
             onPress={handleChangeProfile}
             className="p-2"
           >
-            <MaterialIcons name="edit" size={22} color="#0a7ea4" />
+            <MaterialIcons name="arrow-forward" size={24} color="#D4A574" />
           </TouchableOpacity>
           
           <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
           
-          {/* زر تسجيل الخروج */}
-          <TouchableOpacity
-            onPress={handleLogout}
-            className="p-2"
-          >
-            <MaterialIcons name="logout" size={22} color="#EF4444" />
-          </TouchableOpacity>
+          {/* مسافة فارغة للتوازن */}
+          <View style={{ width: 40 }} />
         </View>
         <Text className="text-sm text-muted text-center">مرحباً {username}</Text>
       </View>
@@ -236,6 +222,8 @@ export default function HomeScreen() {
           </View>
         )}
       </View>
+
+      </ImageBackground>
 
       {/* Create Room Modal */}
       <CreateRoomModal

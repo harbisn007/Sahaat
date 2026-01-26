@@ -908,7 +908,11 @@ export default function RoomScreen() {
                   }
                   
                   try {
-                    console.log("[RoomScreen] Playing sheeloha effect (3 overlapping copies)");
+                    // Stop tarouk sound first before playing sheeloha
+                    console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
+                    stopTarouk();
+                    
+                    console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
                     // Play sheeloha effect immediately with selected clapping speed
                     playSheeloha(lastTaroukUri!, clappingSpeed);
                     
@@ -960,9 +964,8 @@ export default function RoomScreen() {
                     borderRadius: 8,
                   }}
                   onPress={async () => {
-                    // Stop locally first
+                    // Stop sheeloha locally first (only sheeloha, not other sounds)
                     stopSheeloha();
-                    stop();
                     
                     // Broadcast stop command to all users
                     try {
