@@ -128,8 +128,47 @@ export default function RoomScreen() {
   const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
 
-  const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording } =
+  const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
     useAudioRecorder();
+
+  // Pre-initialize microphone when entering room (to avoid first-use failure)
+  useEffect(() => {
+    const initMicrophone = async () => {
+      if (Platform.OS === "web") return;
+      
+      try {
+        console.log("[RoomScreen] Pre-initializing microphone...");
+        
+        // Step 1: Request permissions
+        const hasPermission = await requestPermissions();
+        if (!hasPermission) {
+          console.log("[RoomScreen] Permission not granted");
+          return;
+        }
+        
+        // Step 2: Initialize audio mode
+        const { AudioModule } = await import("expo-audio");
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        console.log("[RoomScreen] Audio mode initialized");
+        
+        // Step 3: Create and release a test recorder to warm up the system
+        const { RecordingPresets } = await import("expo-audio");
+        const testRecorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
+        await testRecorder.prepareToRecordAsync();
+        await testRecorder.release();
+        console.log("[RoomScreen] Microphone warmed up successfully");
+      } catch (error) {
+        console.log("[RoomScreen] Microphone init skipped:", error);
+      }
+    };
+    
+    // Small delay to let the room load first
+    const timer = setTimeout(initMicrophone, 500);
+    return () => clearTimeout(timer);
+  }, [requestPermissions]);
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
   // Sheeloha player - plays tarouk 3 times overlapping with distance effect
   const { 
