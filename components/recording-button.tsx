@@ -48,7 +48,9 @@ export function RecordingButton({
   const currentYRef = useRef<number>(0);
   const wasCancelledRef = useRef<boolean>(false);
   const isActiveRef = useRef<boolean>(false); // Track if THIS button started the recording
+  const touchStartTimeRef = useRef<number>(0); // Track when touch started
   const swipeThreshold = 60; // pixels to swipe up to trigger delete
+  const minRecordingDuration = 500; // Minimum 500ms before allowing send
 
   // Reset state when recording stops
   useEffect(() => {
@@ -144,6 +146,7 @@ export function RecordingButton({
     currentYRef.current = touch.pageY;
     wasCancelledRef.current = false;
     isActiveRef.current = true; // Mark THIS button as active
+    touchStartTimeRef.current = Date.now(); // Record start time
     
     console.log(`[RecordingButton:${buttonId}] Touch start at Y:`, startYRef.current);
     
@@ -181,7 +184,18 @@ export function RecordingButton({
       return;
     }
 
-    console.log(`[RecordingButton:${buttonId}] Touch end. wasCancelled:`, wasCancelledRef.current);
+    const touchDuration = Date.now() - touchStartTimeRef.current;
+    console.log(`[RecordingButton:${buttonId}] Touch end. wasCancelled:`, wasCancelledRef.current, "duration:", touchDuration);
+    
+    // If touch was too short (quick tap), cancel the recording
+    if (touchDuration < minRecordingDuration) {
+      console.log(`[RecordingButton:${buttonId}] Touch too short (${touchDuration}ms < ${minRecordingDuration}ms), cancelling`);
+      if (onCancelRecording) {
+        onCancelRecording();
+      }
+      isActiveRef.current = false;
+      return;
+    }
     
     if (wasCancelledRef.current) {
       console.log(`[RecordingButton:${buttonId}] Recording was cancelled, not sending`);

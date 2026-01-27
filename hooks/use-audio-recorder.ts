@@ -330,7 +330,19 @@ export function useAudioRecorder() {
         
         const uri = recorderRef.current.uri;
         
-        const result = {
+        // Ensure uri is not null before returning
+        if (!uri) {
+          console.warn("[useAudioRecorder] Recording URI is null");
+          try {
+            await recorderRef.current.release();
+          } catch (e) {
+            // Ignore
+          }
+          recorderRef.current = null;
+          return null;
+        }
+        
+        const result: AudioRecording = {
           uri,
           duration: currentDuration,
         };

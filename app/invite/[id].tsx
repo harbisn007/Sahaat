@@ -11,7 +11,7 @@ const welcomeBackground = require("@/assets/images/welcome-background.png");
 export default function InviteScreen() {
   const { id, inviter } = useLocalSearchParams<{ id: string; inviter?: string }>();
   const router = useRouter();
-  const { username, avatarType, userId, isLoading: userLoading } = useUser();
+  const { username, avatar, userId, isLoading: userLoading } = useUser();
   const roomId = parseInt(id || "0", 10);
 
   // Check if user is logged in, redirect to welcome if not
@@ -43,8 +43,7 @@ export default function InviteScreen() {
       await requestJoinMutation.mutateAsync({
         roomId,
         username,
-        avatarType: avatarType || "male",
-        participantId: `player_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        avatar: avatar || "male",
         userId,
       });
       router.replace(`/room/${roomId}?role=player`);
@@ -65,8 +64,7 @@ export default function InviteScreen() {
       await joinAsViewerMutation.mutateAsync({
         roomId,
         username,
-        avatarType: avatarType || "male",
-        participantId: `viewer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        avatar: avatar || "male",
         userId,
       });
       router.replace(`/room/${roomId}?role=viewer`);
