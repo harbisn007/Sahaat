@@ -689,6 +689,13 @@ export default function RoomScreen() {
 
   const handleStartRecording = async (type: "comment" | "tarouk") => {
     console.log("[RoomScreen] handleStartRecording called with type:", type);
+    
+    // التحقق من عدم وجود تسجيل جاري
+    if (isRecording || isPreparing) {
+      console.log("[RoomScreen] Already recording or preparing, ignoring");
+      return;
+    }
+    
     setRecordingType(type);
     
     // كتم جميع الأصوات المشغلة أثناء التسجيل
@@ -700,11 +707,21 @@ export default function RoomScreen() {
     try {
       console.log("[RoomScreen] Calling startRecording...");
       const success = await startRecording();
+      
+      // التحقق من أن التسجيل لم يُلغَ أثناء التحضير
+      if (!recordingType) {
+        console.log("[RoomScreen] Recording was cancelled during preparation");
+        return;
+      }
+      
       console.log("[RoomScreen] startRecording returned:", success);
       if (!success) {
         console.error("[RoomScreen] Recording failed");
-        Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
-        setRecordingType(null);
+        // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
+        if (recordingType) {
+          Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
+          setRecordingType(null);
+        }
         return;
       }
       
@@ -727,19 +744,25 @@ export default function RoomScreen() {
       }
     } catch (error) {
       console.error("[RoomScreen] Recording error:", error);
-      const errorMessage = error instanceof Error ? error.message : "فشل بدء التسجيل";
-      Alert.alert("خطأ", errorMessage);
-      setRecordingType(null);
+      // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
+      if (recordingType) {
+        const errorMessage = error instanceof Error ? error.message : "فشل بدء التسجيل";
+        Alert.alert("خطأ", errorMessage);
+        setRecordingType(null);
+      }
     }
   };
 
   const handleCancelRecording = async () => {
     console.log("[RoomScreen] Canceling recording - DELETE without saving...");
+    
+    // إعادة تعيين حالة التسجيل فوراً
+    setRecordingType(null);
+    
     try {
-      // Stop recording without saving - this will discard the recording
+      // إيقاف التسجيل بدون حفظ - سيتم تجاهل التسجيل
       const result = await stopRecording();
       console.log("[RoomScreen] Recording stopped and discarded:", result);
-      setRecordingType(null);
       console.log("[RoomScreen] Recording canceled successfully - NOT sent");
       
       // مسح حالة التسجيل من الخادم
@@ -754,6 +777,8 @@ export default function RoomScreen() {
       }
     } catch (error) {
       console.error("[RoomScreen] Error canceling recording:", error);
+      // تأكد من إعادة تعيين الحالة حتى عند الخطأ
+      setRecordingType(null);
     }
   };
 
