@@ -7,7 +7,7 @@ import { useAudioPlayer } from "expo-audio";
  * 0 = No clapping (DEFAULT)
  * 1 = Repeat clap every 1.27 seconds
  * 2 = Repeat clap every 1.12 seconds
- * 3 = 2 claps, pause 0.9s, 2 claps, pause 0.9s, etc.
+ * 3 = Repeat clap every 0.7 seconds (fastest)
  */
 export type ClappingSpeed = 0 | 1 | 2 | 3;
 
@@ -305,27 +305,15 @@ export function useSheelohaPlayer() {
       intervalsRef.current.push(interval);
       
     } else if (speed === 3) {
-      // Speed 3: 2 sets of 3 claps, pause 0.9s, repeat
-      const runPattern = () => {
-        if (!isPlayingRef.current) return;
-        
-        play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
-        
-        const clap2 = setTimeout(() => {
-          if (isPlayingRef.current) play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
-        }, 100);
-        timeoutsRef.current.push(clap2);
-        
-        // After 1000ms (100ms for claps + 900ms pause), repeat
-        const nextCycle = setTimeout(() => {
-          if (isPlayingRef.current) {
-            runPattern();
-          }
-        }, 1000);
-        timeoutsRef.current.push(nextCycle);
-      };
-      
-      runPattern();
+      // Speed 3: Repeat every 0.7 seconds (700ms)
+      const interval = setInterval(() => {
+        if (isPlayingRef.current) {
+          play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
+        } else {
+          clearInterval(interval);
+        }
+      }, 700);
+      intervalsRef.current.push(interval);
     }
   }, [play3OverlappingClapsOnWeb]);
 
@@ -545,34 +533,22 @@ export function useSheelohaPlayer() {
       intervalsRef.current.push(interval);
       
     } else if (speed === 3) {
-      // Speed 3: 2 sets of 3 claps, pause 0.9s, repeat
-      const runPattern = () => {
-        if (!isPlayingRef.current) return;
-        
-        play3OverlappingClapsOnNative(volume);
-        
-        const clap2 = setTimeout(() => {
-          if (isPlayingRef.current) play3OverlappingClapsOnNative(volume);
-        }, 100);
-        timeoutsRef.current.push(clap2);
-        
-        // After 1000ms (100ms for claps + 900ms pause), repeat
-        const nextCycle = setTimeout(() => {
-          if (isPlayingRef.current) {
-            runPattern();
-          }
-        }, 1000);
-        timeoutsRef.current.push(nextCycle);
-      };
-      
-      runPattern();
+      // Speed 3: Repeat every 0.7 seconds (700ms)
+      const interval = setInterval(() => {
+        if (isPlayingRef.current) {
+          play3OverlappingClapsOnNative(volume);
+        } else {
+          clearInterval(interval);
+        }
+      }, 700);
+      intervalsRef.current.push(interval);
     }
   }, [play3OverlappingClapsOnNative]);
 
   /**
    * Play a single round on Native
-   * Returns a promise that resolves when the round finishes
-   * Uses a fixed duration based on audio length estimate instead of checking player.playing
+   * Returns a promise that resolves when all audio copies finish playing
+   * Clapping continues while audio is playing and stops when audio stops
    */
   const playRoundOnNative = useCallback(async (
     audioUri: string,
@@ -585,10 +561,42 @@ export function useSheelohaPlayer() {
       
       const voicePlayers = [player1, player2, player3, player4, player5];
       let startedCount = 0;
+      let finishedCount = 0;
       let resolvedAlready = false;
       
       // Start clapping pattern for this round
       startClappingPatternNative(clappingSpeed, volume);
+      
+      // Function to check if a player has finished
+      const checkPlayerFinished = (playerIndex: number) => {
+        const checkInterval = setInterval(() => {
+          if (!isPlayingRef.current) {
+            clearInterval(checkInterval);
+            return;
+          }
+          
+          const player = voicePlayers[playerIndex];
+          // Check if player has stopped playing
+          if (!player.playing) {
+            clearInterval(checkInterval);
+            finishedCount++;
+            console.log(`[useSheelohaPlayer] Voice copy ${playerIndex + 1} finished, total finished: ${finishedCount}`);
+            
+            // When all 5 copies have finished, stop clapping and resolve
+            if (finishedCount >= SHEELOHA_CONFIG.voiceCopies && !resolvedAlready) {
+              console.log(`[useSheelohaPlayer] All voice copies finished, stopping clapping`);
+              // Stop clapping
+              intervalsRef.current.forEach(interval => clearInterval(interval));
+              intervalsRef.current = [];
+              
+              resolvedAlready = true;
+              resolve();
+            }
+          }
+        }, 100); // Check every 100ms
+        
+        checkIntervalsRef.current.push(checkInterval);
+      };
       
       // Play 5 voice copies with 50ms delay
       for (let i = 0; i < SHEELOHA_CONFIG.voiceCopies; i++) {
@@ -610,43 +618,35 @@ export function useSheelohaPlayer() {
             startedCount++;
             console.log(`[useSheelohaPlayer] Started voice copy ${i+1} for round ${roundNumber}`);
             
-            // When all 5 copies have started, set up a timer to end the round
-            // Use the first player's duration or estimate 3 seconds
-            if (startedCount === SHEELOHA_CONFIG.voiceCopies) {
-              // Wait for audio to finish - estimate 3 seconds for typical tarouk
-              // Plus some buffer for the overlapping copies
-              const estimatedDuration = 3500; // 3.5 seconds
-              
-              const finishTimeout = setTimeout(() => {
-                if (!isPlayingRef.current) {
-                  if (!resolvedAlready) {
-                    resolvedAlready = true;
-                    resolve();
-                  }
-                  return;
-                }
-                
-                console.log(`[useSheelohaPlayer] Native round ${roundNumber} finished (by timer)`);
-                // Stop clapping for this round
-                intervalsRef.current.forEach(interval => clearInterval(interval));
-                intervalsRef.current = [];
-                
-                if (!resolvedAlready) {
-                  resolvedAlready = true;
-                  resolve();
-                }
-              }, estimatedDuration);
-              
-              timeoutsRef.current.push(finishTimeout);
-            }
+            // Start checking when this player finishes
+            // Wait a bit before starting to check (give time for audio to load)
+            const checkDelay = setTimeout(() => {
+              checkPlayerFinished(i);
+            }, 500);
+            timeoutsRef.current.push(checkDelay);
+            
           } catch (e) {
             console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
-            startedCount++; // Count as started even if failed
+            finishedCount++; // Count as finished if failed
           }
         }, delay);
         
         timeoutsRef.current.push(timeout);
       }
+      
+      // Safety timeout: if audio takes too long (max 30 seconds), force stop
+      const safetyTimeout = setTimeout(() => {
+        if (!resolvedAlready) {
+          console.log(`[useSheelohaPlayer] Safety timeout reached, forcing stop`);
+          intervalsRef.current.forEach(interval => clearInterval(interval));
+          intervalsRef.current = [];
+          checkIntervalsRef.current.forEach(interval => clearInterval(interval));
+          checkIntervalsRef.current = [];
+          resolvedAlready = true;
+          resolve();
+        }
+      }, 30000);
+      timeoutsRef.current.push(safetyTimeout);
     });
   }, [player1, player2, player3, player4, player5, startClappingPatternNative]);
 
