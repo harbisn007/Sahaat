@@ -464,6 +464,93 @@ export const appRouter = router({
         return { success: true };
       }),
   }),
+
+  // Join requests router (for viewers requesting to become players)
+  joinRequests: router({
+    // Create a join request (viewer only)
+    create: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+          username: z.string(),
+          avatar: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const requestId = await db.createJoinRequest(input);
+          return { success: true, requestId };
+        } catch (error: any) {
+          throw new Error(error.message || "فشل إرسال الطلب");
+        }
+      }),
+
+    // Get pending requests for a room (creator only)
+    getPending: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getPendingJoinRequests(input.roomId);
+      }),
+
+    // Respond to a join request (creator only)
+    respond: publicProcedure
+      .input(
+        z.object({
+          requestId: z.number(),
+          accept: z.boolean(),
+          roomId: z.number(),
+          userId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const request = await db.respondToJoinRequest(input.requestId, input.accept);
+          
+          if (input.accept) {
+            // Check if room has space for another player
+            const acceptedCount = await db.getAcceptedPlayersCount(input.roomId);
+            if (acceptedCount >= 2) {
+              throw new Error("الساحة ممتلئة باللاعبين");
+            }
+            // Promote viewer to player
+            await db.promoteViewerToPlayer(input.roomId, request.userId);
+          }
+          
+          return { success: true, request };
+        } catch (error: any) {
+          throw new Error(error.message || "فشل الرد على الطلب");
+        }
+      }),
+
+    // Expire a request (auto-expire after 4 seconds)
+    expire: publicProcedure
+      .input(z.object({ requestId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.expireJoinRequest(input.requestId);
+        return { success: true };
+      }),
+  }),
+
+  // Kick player router (creator only)
+  kick: router({
+    player: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          playerId: z.number(),
+          creatorId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          await db.kickPlayer(input.roomId, input.playerId, input.creatorId);
+          return { success: true };
+        } catch (error: any) {
+          throw new Error(error.message || "فشل طرد اللاعب");
+        }
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

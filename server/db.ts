@@ -589,3 +589,133 @@ export async function clearRecordingStatus(roomId: number, userId: number) {
       )
     );
 }
+
+
+// ============ Join Requests ============
+
+import { joinRequests } from "../drizzle/schema.js";
+
+export async function createJoinRequest(data: {
+  roomId: number;
+  userId: number;
+  username: string;
+  avatar: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Check if there's already a pending request
+  const existing = await db
+    .select()
+    .from(joinRequests)
+    .where(
+      and(
+        eq(joinRequests.roomId, data.roomId),
+        eq(joinRequests.userId, data.userId),
+        eq(joinRequests.status, "pending")
+      )
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    throw new Error("لديك طلب معلق بالفعل");
+  }
+
+  const result = await db.insert(joinRequests).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function getPendingJoinRequests(roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(joinRequests)
+    .where(
+      and(
+        eq(joinRequests.roomId, roomId),
+        eq(joinRequests.status, "pending")
+      )
+    )
+    .orderBy(desc(joinRequests.createdAt));
+}
+
+export async function respondToJoinRequest(requestId: number, accept: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Get the request first
+  const request = await db
+    .select()
+    .from(joinRequests)
+    .where(eq(joinRequests.id, requestId))
+    .limit(1);
+
+  if (!request[0]) {
+    throw new Error("الطلب غير موجود");
+  }
+
+  const status = accept ? "accepted" : "rejected";
+  await db
+    .update(joinRequests)
+    .set({ status })
+    .where(eq(joinRequests.id, requestId));
+
+  return request[0];
+}
+
+export async function expireJoinRequest(requestId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(joinRequests)
+    .set({ status: "expired" })
+    .where(eq(joinRequests.id, requestId));
+}
+
+export async function promoteViewerToPlayer(roomId: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Update the participant role from viewer to player
+  await db
+    .update(roomParticipants)
+    .set({ role: "player", status: "accepted" })
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.userId, userId)
+      )
+    );
+}
+
+export async function kickPlayer(roomId: number, playerId: number, creatorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Verify the requester is the creator
+  const room = await db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1);
+
+  if (!room[0] || room[0].creatorId !== creatorId) {
+    throw new Error("ليس لديك صلاحية الطرد");
+  }
+
+  // Remove the player
+  await db
+    .delete(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.userId, playerId),
+        eq(roomParticipants.role, "player")
+      )
+    );
+
+  return { success: true };
+}

@@ -416,6 +416,107 @@ export default function RoomScreen() {
     }
   }, [roomData, username]);
 
+
+  // Kick player mutation (creator only)
+  const kickPlayerMutation = trpc.kick.player.useMutation({
+    onSuccess: () => {
+      refetch();
+    },
+    onError: (error) => {
+      Alert.alert("خطأ", error.message);
+    },
+  });
+
+  // Handle kick player
+  const handleKickPlayer = (playerId: number, playerName: string) => {
+    Alert.alert(
+      "طرد اللاعب",
+      `هل تريد طرد ${playerName} من الساحة؟`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        {
+          text: "طرد",
+          style: "destructive",
+          onPress: () => {
+            kickPlayerMutation.mutate({
+              roomId,
+              playerId,
+              creatorId: userId || 0,
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  // Join request state (for viewers)
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [lastRequestTime, setLastRequestTime] = useState<number>(0);
+
+  // Join requests query (for creator) - enabled when userRole is 'creator'
+  const { data: joinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
+    { roomId },
+    { enabled: userRole === "creator" && roomId > 0, refetchInterval: 1000 }
+  );
+
+  // Create join request mutation (for viewers)
+  const createJoinRequestMutation = trpc.joinRequests.create.useMutation({
+    onSuccess: () => {
+      setHasPendingRequest(true);
+      setLastRequestTime(Date.now());
+      // Auto-expire after 4 seconds
+      setTimeout(() => {
+        setHasPendingRequest(false);
+      }, 4000);
+    },
+    onError: (error) => {
+      Alert.alert("خطأ", error.message);
+    },
+  });
+
+  // Respond to join request mutation (for creator)
+  const respondToJoinRequestMutation = trpc.joinRequests.respond.useMutation({
+    onSuccess: (data, variables) => {
+      refetchJoinRequests();
+      refetch();
+      if (variables.accept) {
+        Alert.alert("تم القبول", "تم قبول اللاعب في الساحة");
+      }
+    },
+    onError: (error) => {
+      Alert.alert("خطأ", error.message);
+    },
+  });
+
+  // Handle viewer request to join as player
+  const handleRequestJoinAsPlayer = () => {
+    if (hasPendingRequest) {
+      Alert.alert("انتظر", "لديك طلب قيد الانتظار");
+      return;
+    }
+    if (!userId || !username) {
+      Alert.alert("خطأ", "يجب تسجيل الدخول");
+      return;
+    }
+    createJoinRequestMutation.mutate({
+      roomId,
+      userId,
+      username,
+      avatar: avatar || "male",
+    });
+  };
+
+  // Handle creator response to join request
+  const handleRespondToJoinRequest = (requestId: number, requestUserId: number, accept: boolean) => {
+    respondToJoinRequestMutation.mutate({
+      requestId,
+      accept,
+      roomId,
+      userId: requestUserId,
+    });
+  };
+
+
   // Share invite link using deep link scheme
   const handleShareInvite = async () => {
     try {
@@ -792,7 +893,42 @@ export default function RoomScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Pending Requests (Only for creator) */}
+      {/* Join Requests from Viewers (Only for creator) - Max 2 shown */}
+      {isCreator && joinRequests && joinRequests.length > 0 && (
+        <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
+          {joinRequests.slice(0, 2).map((request) => (
+            <View key={request.id} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
+              <View className="flex-row items-center flex-1">
+                <Image
+                  source={getAvatarSource(request.avatar)}
+                  style={{ width: 36, height: 36, borderRadius: 18, marginLeft: 8 }}
+                />
+                <Text style={{ color: '#000', fontWeight: '600' }}>
+                  {request.username} يريد الانضمام كلاعب
+                </Text>
+              </View>
+              <View className="flex-row gap-2">
+                <TouchableOpacity
+                  className="px-4 py-2 rounded-lg"
+                  style={{ backgroundColor: '#22C55E' }}
+                  onPress={() => handleRespondToJoinRequest(request.id, request.userId, true)}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>قبول</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  className="px-4 py-2 rounded-lg"
+                  style={{ backgroundColor: '#EF4444' }}
+                  onPress={() => handleRespondToJoinRequest(request.id, request.userId, false)}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>رفض</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Old Pending Requests (for player role requests) */}
       {isCreator && pendingRequests && pendingRequests.length > 0 && (
         <View className="px-6 py-3 bg-warning/10 border-b border-warning/30">
           {pendingRequests.map((request) => (
@@ -846,10 +982,21 @@ export default function RoomScreen() {
                   isVisible={!!isPlayer1Recording} 
                   recordingType={player1RecordingType || "tarouk"} 
                 />
-                <Image
-                  source={getAvatarSource(player1.avatar)}
-                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
-                />
+                <TouchableOpacity
+                  onPress={() => userRole === "creator" && handleKickPlayer(player1.userId, player1.username)}
+                  disabled={userRole !== "creator"}
+                  activeOpacity={userRole === "creator" ? 0.7 : 1}
+                >
+                  <Image
+                    source={getAvatarSource(player1.avatar)}
+                    style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
+                  />
+                  {userRole === "creator" && (
+                    <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+                      <MaterialIcons name="close" size={14} color="white" />
+                    </View>
+                  )}
+                </TouchableOpacity>
                 <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
                   {player1.username}
                 </Text>
@@ -902,10 +1049,21 @@ export default function RoomScreen() {
                   isVisible={!!isPlayer2Recording} 
                   recordingType={player2RecordingType || "tarouk"} 
                 />
-                <Image
-                  source={getAvatarSource(player2.avatar)}
-                  style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
-                />
+                <TouchableOpacity
+                  onPress={() => userRole === "creator" && handleKickPlayer(player2.userId, player2.username)}
+                  disabled={userRole !== "creator"}
+                  activeOpacity={userRole === "creator" ? 0.7 : 1}
+                >
+                  <Image
+                    source={getAvatarSource(player2.avatar)}
+                    style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
+                  />
+                  {userRole === "creator" && (
+                    <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+                      <MaterialIcons name="close" size={14} color="white" />
+                    </View>
+                  )}
+                </TouchableOpacity>
                 <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
                   {player2.username}
                 </Text>
@@ -1172,6 +1330,33 @@ export default function RoomScreen() {
                   <MaterialIcons name="emoji-emotions" size={28} color="#FFD700" />
             </TouchableOpacity>
           </View>
+
+          {/* Viewer: Request to Join as Player */}
+          {isViewer && (
+            <View className="flex-1 items-center justify-center">
+              <TouchableOpacity
+                className="px-6 py-3 rounded-lg"
+                style={{ 
+                  backgroundColor: hasPendingRequest ? '#9CA3AF' : '#22C55E',
+                  opacity: hasPendingRequest ? 0.7 : 1,
+                }}
+                onPress={handleRequestJoinAsPlayer}
+                disabled={hasPendingRequest || createJoinRequestMutation.isPending}
+              >
+                <View className="flex-row items-center gap-2">
+                  <MaterialIcons name="person-add" size={24} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
+                    {hasPendingRequest ? 'طلبك قيد الانتظار...' : 'طلب الانضمام كلاعب'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              {hasPendingRequest && (
+                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, textAlign: 'center' }}>
+                  سيتم حذف الطلب تلقائياً بعد 4 ثواني
+                </Text>
+              )}
+            </View>
+          )}
 
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (

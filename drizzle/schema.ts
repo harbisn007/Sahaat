@@ -122,3 +122,14 @@ export const recordingStatus = mysqlTable("recording_status", {
 
 export type RecordingStatus = typeof recordingStatus.$inferSelect;
 export type InsertRecordingStatus = typeof recordingStatus.$inferInsert;
+
+// Join requests table (for viewers requesting to become players)
+export const joinRequests = mysqlTable("join_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  userId: int("userId").notNull(),
+  username: varchar("username", { length: 50 }).notNull(),
+  avatar: varchar("avatar", { length: 500 }).default("male").notNull(),
+  status: mysqlEnum("status", ["pending", "accepted", "rejected", "expired"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
