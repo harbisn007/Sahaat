@@ -3,12 +3,12 @@ import { Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 
 /**
- * Clapping Speed Configuration
+ * Clapping Speed Configuration (with chorus effect)
  * 0 = No clapping (DEFAULT), playback rate 1.25
- * 1 = Repeat clap every 1.27 seconds, playback rate 1.25
- * 2 = Repeat clap every 1.12 seconds, playback rate 1.19
- * 3 = Repeat clap every 0.7 seconds, playback rate 1.14
- * 4 = No clapping, playback rate 1.00 (normal speed)
+ * 1 = Repeat clap every 1.25 seconds, playback rate 1.25
+ * 2 = Repeat clap every 1.19 seconds, playback rate 1.19
+ * 3 = Repeat clap every 1.14 seconds, playback rate 1.14
+ * 4 = Repeat clap every 0.9 seconds, playback rate 1.00 (normal speed)
  */
 export type ClappingSpeed = 0 | 1 | 2 | 3 | 4;
 
@@ -37,8 +37,8 @@ const SHEELOHA_CONFIG = {
   voiceCopies: 5,
   // Number of overlapping clap copies
   clapCopies: 3,
-  // Fixed delay between each copy start (in ms)
-  delayBetweenCopies: 50,
+  // Fixed delay between each copy start (in ms) - chorus effect
+  delayBetweenCopies: 30,
   // Round 1: Close sound (35% volume)
   round1Volume: 0.35,
   // Round 2: Distant sound (15% volume)
@@ -244,38 +244,28 @@ export function useSheelohaPlayer() {
   }, []);
 
   /**
-   * Play 3 overlapping claps on web
+   * Play single clap on web with chorus effect
    */
   const play3OverlappingClapsOnWeb = useCallback((ctx: AudioContext, clapBuffer: AudioBuffer, volume: number) => {
     if (!isPlayingRef.current) return;
     
-    // Play 3 claps with 50ms delay between each
-    for (let i = 0; i < SHEELOHA_CONFIG.clapCopies; i++) {
-      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
-      
-      const timeout = setTimeout(() => {
-        if (!isPlayingRef.current) return;
-        
-        const source = ctx.createBufferSource();
-        source.buffer = clapBuffer;
-        
-        const gainNode = ctx.createGain();
-        gainNode.gain.value = volume;
-        
-        source.connect(gainNode);
-        gainNode.connect(ctx.destination);
-        
-        sourceNodesRef.current.push(source);
-        source.start();
-      }, delay);
-      
-      timeoutsRef.current.push(timeout);
-    }
+    // Play single clap with chorus effect
+    const source = ctx.createBufferSource();
+    source.buffer = clapBuffer;
+    
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = volume;
+    
+    source.connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    sourceNodesRef.current.push(source);
+    source.start();
   }, []);
 
   /**
-   * Start clapping pattern based on speed
-   * Plays 3 overlapping claps that repeat until voice finishes
+   * Start clapping pattern based on speed (single clap with chorus effect)
+   * Plays single clap that repeats until voice finishes
    */
   const startClappingPattern = useCallback((
     ctx: AudioContext, 
@@ -291,45 +281,26 @@ export function useSheelohaPlayer() {
       return;
     }
     
-    // Play first set of 3 overlapping claps immediately
+    // Play first clap immediately
     play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
     
-    if (speed === 1) {
-      // Speed 1: Repeat every 1.27 seconds (1270ms)
-      const interval = setInterval(() => {
-        if (isPlayingRef.current) {
-          play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
-        } else {
-          clearInterval(interval);
-        }
-      }, 1270);
-      intervalsRef.current.push(interval);
-      
-    } else if (speed === 2) {
-      // Speed 2: Repeat every 1.12 seconds (1120ms)
-      const interval = setInterval(() => {
-        if (isPlayingRef.current) {
-          play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
-        } else {
-          clearInterval(interval);
-        }
-      }, 1120);
-      intervalsRef.current.push(interval);
-      
-    } else if (speed === 3) {
-      // Speed 3: Repeat every 0.7 seconds (700ms)
-      const interval = setInterval(() => {
-        if (isPlayingRef.current) {
-          play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
-        } else {
-          clearInterval(interval);
-        }
-      }, 700);
-      intervalsRef.current.push(interval);
-    } else if (speed === 4) {
-      // Speed 4: No clapping (normal speed)
-      console.log("[useSheelohaPlayer] No clapping (speed 4 - normal speed)");
-    }
+    // Clapping intervals based on speed
+    const intervals: Record<1 | 2 | 3 | 4, number> = {
+      1: 1250,  // 1.25 seconds
+      2: 1190,  // 1.19 seconds
+      3: 1140,  // 1.14 seconds
+      4: 900,   // 0.9 seconds
+    };
+    
+    const intervalMs = intervals[speed as 1 | 2 | 3 | 4];
+    const interval = setInterval(() => {
+      if (isPlayingRef.current) {
+        play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
+      } else {
+        clearInterval(interval);
+      }
+    }, intervalMs);
+    intervalsRef.current.push(interval);
   }, [play3OverlappingClapsOnWeb]);
 
   /**
@@ -396,8 +367,8 @@ export function useSheelohaPlayer() {
         timeoutsRef.current.push(timeout);
       }
       
-      // Start clapping pattern for this round (not for speed 0 or 4)
-      if (clapBuffer && clappingSpeed > 0 && clappingSpeed < 4) {
+      // Start clapping pattern for this round (for speeds 1-4, not 0)
+      if (clapBuffer && clappingSpeed > 0) {
         startClappingPattern(ctx, clapBuffer, clappingSpeed, volume);
       }
     });
@@ -491,27 +462,19 @@ export function useSheelohaPlayer() {
       } catch (e) {}
     }
     
-    // Play 3 claps with 50ms delay between each
-    for (let i = 0; i < SHEELOHA_CONFIG.clapCopies; i++) {
-      const delay = i * SHEELOHA_CONFIG.delayBetweenCopies;
-      
-      const timeout = setTimeout(() => {
-        if (!isPlayingRef.current) return;
-        try {
-          clapPlayer.seekTo(0);
-          clapPlayer.volume = volume;
-          clapPlayer.play();
-        } catch (e) {
-          console.error("[useSheelohaPlayer] Native clap error:", e);
-        }
-      }, delay);
-      
-      timeoutsRef.current.push(timeout);
+    // Play single clap with chorus effect (single copy)
+    if (!isPlayingRef.current) return;
+    try {
+      clapPlayer.seekTo(0);
+      clapPlayer.volume = volume;
+      clapPlayer.play();
+    } catch (e) {
+      console.error("[useSheelohaPlayer] Native clap error:", e);
     }
   }, [clapPlayer]);
 
   /**
-   * Start clapping pattern on native
+   * Start clapping pattern on native (single clap with chorus effect)
    */
   const startClappingPatternNative = useCallback((speed: ClappingSpeed, volume: number) => {
     console.log("[useSheelohaPlayer] Starting native clapping pattern, speed:", speed, "volume:", volume);
@@ -522,45 +485,26 @@ export function useSheelohaPlayer() {
       return;
     }
     
-    // Play first set of 3 overlapping claps immediately
+    // Play first clap immediately
     play3OverlappingClapsOnNative(volume);
     
-    if (speed === 1) {
-      // Speed 1: Repeat every 1.27 seconds (1270ms)
-      const interval = setInterval(() => {
-        if (isPlayingRef.current) {
-          play3OverlappingClapsOnNative(volume);
-        } else {
-          clearInterval(interval);
-        }
-      }, 1270);
-      intervalsRef.current.push(interval);
-      
-    } else if (speed === 2) {
-      // Speed 2: Repeat every 1.12 seconds (1120ms)
-      const interval = setInterval(() => {
-        if (isPlayingRef.current) {
-          play3OverlappingClapsOnNative(volume);
-        } else {
-          clearInterval(interval);
-        }
-      }, 1120);
-      intervalsRef.current.push(interval);
-      
-    } else if (speed === 3) {
-      // Speed 3: Repeat every 0.7 seconds (700ms)
-      const interval = setInterval(() => {
-        if (isPlayingRef.current) {
-          play3OverlappingClapsOnNative(volume);
-        } else {
-          clearInterval(interval);
-        }
-      }, 700);
-      intervalsRef.current.push(interval);
-    } else if (speed === 4) {
-      // Speed 4: No clapping (normal speed)
-      console.log("[useSheelohaPlayer] No clapping (speed 4 - normal speed)");
-    }
+    // Clapping intervals based on speed
+    const intervals: Record<1 | 2 | 3 | 4, number> = {
+      1: 1250,  // 1.25 seconds
+      2: 1190,  // 1.19 seconds
+      3: 1140,  // 1.14 seconds
+      4: 900,   // 0.9 seconds
+    };
+    
+    const intervalMs = intervals[speed as 1 | 2 | 3 | 4];
+    const interval = setInterval(() => {
+      if (isPlayingRef.current) {
+        play3OverlappingClapsOnNative(volume);
+      } else {
+        clearInterval(interval);
+      }
+    }, intervalMs);
+    intervalsRef.current.push(interval);
   }, [play3OverlappingClapsOnNative]);
 
   /**

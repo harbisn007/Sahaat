@@ -1203,9 +1203,10 @@ export default function RoomScreen() {
                     بلا
                   </Text>
                 </TouchableOpacity>
-                {/* Speed buttons 1, 2, 3, 4 */}
-                <View style={{ flexDirection: 'column', gap: 2, height: 56, justifyContent: 'space-between' }}>
-                  {[1, 2, 3, 4].map((speed) => (
+                {/* Speed buttons 1, 2 vertically, then 3, 4 side by side */}
+                <View style={{ flexDirection: 'column', gap: 2 }}>
+                  {/* Buttons 1 and 2 */}
+                  {[1, 2].map((speed) => (
                     <TouchableOpacity
                       key={speed}
                       onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
@@ -1227,21 +1228,50 @@ export default function RoomScreen() {
                           fontWeight: '900',
                         }}
                       >
-                        {speed === 1 ? '١' : speed === 2 ? '٢' : speed === 3 ? '٣' : '٤'}
+                        {speed === 1 ? '١' : '٢'}
                       </Text>
                     </TouchableOpacity>
                   ))}
+                  {/* Buttons 3 and 4 side by side */}
+                  <View style={{ flexDirection: 'row', gap: 2 }}>
+                    {[3, 4].map((speed) => (
+                      <TouchableOpacity
+                        key={speed}
+                        onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
+                        style={{
+                          width: 18,
+                          height: 12,
+                          borderRadius: 3,
+                          backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          borderWidth: clappingSpeed === speed ? 0 : 1,
+                          borderColor: '#8B7355',
+                        }}
+                      >
+                        <Text 
+                          style={{ 
+                            color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
+                            fontSize: 8,
+                            fontWeight: '900',
+                          }}
+                        >
+                          {speed === 3 ? '٣' : '٤'}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
                 </View>
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 7,
+                    fontSize: 6,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
                 >
-                  الصفقة
+                  الصفقة (الإيقاع)
                 </Text>
               </View>
 
