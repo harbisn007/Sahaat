@@ -4,12 +4,24 @@ import { useAudioPlayer } from "expo-audio";
 
 /**
  * Clapping Speed Configuration
- * 0 = No clapping (DEFAULT)
- * 1 = Repeat clap every 1.27 seconds
- * 2 = Repeat clap every 1.12 seconds
- * 3 = Repeat clap every 0.7 seconds (fastest)
+ * 0 = No clapping (DEFAULT), playback rate 1.25
+ * 1 = Repeat clap every 1.27 seconds, playback rate 1.25
+ * 2 = Repeat clap every 1.12 seconds, playback rate 1.19
+ * 3 = Repeat clap every 0.7 seconds, playback rate 1.14
+ * 4 = No clapping, playback rate 1.00 (normal speed)
  */
-export type ClappingSpeed = 0 | 1 | 2 | 3;
+export type ClappingSpeed = 0 | 1 | 2 | 3 | 4;
+
+/**
+ * Playback rate for each clapping speed option
+ */
+const PLAYBACK_RATES: Record<ClappingSpeed, number> = {
+  0: 1.25,  // No clapping, fast
+  1: 1.25,  // Speed 1
+  2: 1.19,  // Speed 2
+  3: 1.14,  // Speed 3
+  4: 1.00,  // Normal speed
+};
 
 // Clapping sound asset - short single clap (0.5 seconds)
 const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
@@ -314,6 +326,9 @@ export function useSheelohaPlayer() {
         }
       }, 700);
       intervalsRef.current.push(interval);
+    } else if (speed === 4) {
+      // Speed 4: No clapping (normal speed)
+      console.log("[useSheelohaPlayer] No clapping (speed 4 - normal speed)");
     }
   }, [play3OverlappingClapsOnWeb]);
 
@@ -346,7 +361,7 @@ export function useSheelohaPlayer() {
           
           const source = ctx.createBufferSource();
           source.buffer = audioBuffer;
-          source.playbackRate.value = SHEELOHA_CONFIG.playbackRate;
+          source.playbackRate.value = PLAYBACK_RATES[clappingSpeed];
           
           const gainNode = ctx.createGain();
           gainNode.gain.value = volume; // Same volume for all copies
@@ -381,8 +396,8 @@ export function useSheelohaPlayer() {
         timeoutsRef.current.push(timeout);
       }
       
-      // Start clapping pattern for this round
-      if (clapBuffer && clappingSpeed > 0) {
+      // Start clapping pattern for this round (not for speed 0 or 4)
+      if (clapBuffer && clappingSpeed > 0 && clappingSpeed < 4) {
         startClappingPattern(ctx, clapBuffer, clappingSpeed, volume);
       }
     });
@@ -542,6 +557,9 @@ export function useSheelohaPlayer() {
         }
       }, 700);
       intervalsRef.current.push(interval);
+    } else if (speed === 4) {
+      // Speed 4: No clapping (normal speed)
+      console.log("[useSheelohaPlayer] No clapping (speed 4 - normal speed)");
     }
   }, [play3OverlappingClapsOnNative]);
 
@@ -614,6 +632,7 @@ export function useSheelohaPlayer() {
           try {
             voicePlayers[i].replace(audioUri);
             voicePlayers[i].volume = volume;
+            voicePlayers[i].setPlaybackRate(PLAYBACK_RATES[clappingSpeed]);
             voicePlayers[i].play();
             startedCount++;
             console.log(`[useSheelohaPlayer] Started voice copy ${i+1} for round ${roundNumber}`);

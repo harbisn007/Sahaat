@@ -49,8 +49,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
-  // Clapping speed: 0 = none (default), 1 = every 1.27s, 2 = every 1.12s, 3 = 2 claps + 0.9s pause pattern
-  const [clappingSpeed, setClappingSpeed] = useState<0 | 1 | 2 | 3>(0);
+  // Clapping speed: 0 = none (1.25x), 1 = every 1.27s (1.25x), 2 = every 1.12s (1.19x), 3 = every 0.7s (1.14x), 4 = none (1.00x normal)
+  const [clappingSpeed, setClappingSpeed] = useState<0 | 1 | 2 | 3 | 4>(0);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
@@ -1203,12 +1203,12 @@ export default function RoomScreen() {
                     بلا
                   </Text>
                 </TouchableOpacity>
-                {/* Speed buttons 1, 2, 3 */}
-                <View style={{ flexDirection: 'column', gap: 2, height: 44, justifyContent: 'space-between' }}>
-                  {[1, 2, 3].map((speed) => (
+                {/* Speed buttons 1, 2, 3, 4 */}
+                <View style={{ flexDirection: 'column', gap: 2, height: 56, justifyContent: 'space-between' }}>
+                  {[1, 2, 3, 4].map((speed) => (
                     <TouchableOpacity
                       key={speed}
-                      onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3)}
+                      onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
                       style={{
                         width: 18,
                         height: 12,
@@ -1227,7 +1227,7 @@ export default function RoomScreen() {
                           fontWeight: '900',
                         }}
                       >
-                        {speed === 1 ? '١' : speed === 2 ? '٢' : '٣'}
+                        {speed === 1 ? '١' : speed === 2 ? '٢' : speed === 3 ? '٣' : '٤'}
                       </Text>
                     </TouchableOpacity>
                   ))}
