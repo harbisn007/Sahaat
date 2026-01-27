@@ -402,9 +402,23 @@ export function useSheelohaPlayer() {
   const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
     console.log("[useSheelohaPlayer] Playing on Web (2 rounds):", audioUri, "speed:", clappingSpeed);
     
-    stopSheeloha();
+    // Don't call stopSheeloha() here as it resets isPlaying to false
+    // Just clear any existing timeouts/intervals and stop sources directly
+    timeoutsRef.current.forEach(t => clearTimeout(t));
+    timeoutsRef.current = [];
+    intervalsRef.current.forEach(i => clearInterval(i));
+    intervalsRef.current = [];
+    sourceNodesRef.current.forEach(s => {
+      try { s.stop(); } catch(e) {}
+    });
+    sourceNodesRef.current = [];
+    panNodesRef.current = [];
+    gainNodesRef.current = [];
+    
+    // Set playing state FIRST before any async operations
     isPlayingRef.current = true;
     setState({ isPlaying: true, isProcessing: true });
+    console.log("[useSheelohaPlayer] State set to isPlaying: true");
     
     try {
       // Create or reuse AudioContext
@@ -625,9 +639,25 @@ export function useSheelohaPlayer() {
   const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
     console.log("[useSheelohaPlayer] Playing on Native (2 rounds):", audioUri, "speed:", clappingSpeed);
     
-    stopSheeloha();
+    // Don't call stopSheeloha() here as it resets isPlaying to false
+    // Just clear any existing timeouts/intervals and stop players directly
+    timeoutsRef.current.forEach(t => clearTimeout(t));
+    timeoutsRef.current = [];
+    intervalsRef.current.forEach(i => clearInterval(i));
+    intervalsRef.current = [];
+    try {
+      player1.pause();
+      player2.pause();
+      player3.pause();
+      player4.pause();
+      player5.pause();
+      clapPlayer.pause();
+    } catch(e) {}
+    
+    // Set playing state FIRST before any async operations
     isPlayingRef.current = true;
     setState({ isPlaying: true, isProcessing: false });
+    console.log("[useSheelohaPlayer] State set to isPlaying: true");
     
     // ROUND 1: 35% volume
     currentRoundRef.current = 1;
