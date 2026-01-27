@@ -639,14 +639,23 @@ export default function RoomScreen() {
   };
 
 
-  // Share invite link using deep link scheme
+  // Share invite link using web URL (clickable in messaging apps)
   const handleShareInvite = async () => {
     try {
-      // Use deep link scheme to open the app directly
-      const inviteUrl = `manus20260120123613://invite/${roomId}`;
+      // Get the web base URL from current location or API
+      let webBaseUrl = '';
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        webBaseUrl = window.location.origin;
+      } else {
+        // For native, use the Metro URL pattern
+        webBaseUrl = 'https://8081-i62hcvssbos7emhnhp2hy-b9a8b0e5.sg1.manus.computer';
+      }
+      
+      // Create a web URL that will redirect to the invite page
+      const inviteUrl = `${webBaseUrl}/invite/${roomId}?inviter=${encodeURIComponent(username || '')}`;
       const roomName = roomData?.name || 'ساحة المحاورة';
       
-      const message = `🎤 دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
+      const message = `🎙️ دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
         `📍 اسم الساحة: ${roomName}\n` +
         `👤 الداعي: ${username}\n\n` +
         `انضم الآن كلاعب أو مشاهد:\n${inviteUrl}`;

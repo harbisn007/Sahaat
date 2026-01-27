@@ -44,23 +44,30 @@ export function RecordingButton({
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   
   // Use state for UI updates (causes re-render)
-  const [isButtonActive, setIsButtonActive] = useState(false);
+  const [isTouchActive, setIsTouchActive] = useState(false);
+  const [showRecordingUI, setShowRecordingUI] = useState(false);
   
   // Track touch position for swipe detection using refs
   const startYRef = useRef<number>(0);
   const currentYRef = useRef<number>(0);
   const wasCancelledRef = useRef<boolean>(false);
   const touchStartTimeRef = useRef<number>(0);
-  const recordingStartedRef = useRef<boolean>(false);
   const swipeThreshold = 60;
   const minRecordingDuration = 500;
+
+  // Show recording UI when recording starts and touch is active
+  useEffect(() => {
+    if (isRecording && isTouchActive) {
+      setShowRecordingUI(true);
+    }
+  }, [isRecording, isTouchActive]);
 
   // Reset state when recording stops
   useEffect(() => {
     if (!isRecording && !isPreparing) {
-      setIsButtonActive(false);
+      setIsTouchActive(false);
+      setShowRecordingUI(false);
       wasCancelledRef.current = false;
-      recordingStartedRef.current = false;
       deleteIconOpacity.setValue(0);
       deleteIconScale.setValue(0.5);
       deleteIconRotation.setValue(0);
@@ -68,16 +75,9 @@ export function RecordingButton({
     }
   }, [isRecording, isPreparing]);
 
-  // Track when recording actually starts
-  useEffect(() => {
-    if (isRecording && isButtonActive) {
-      recordingStartedRef.current = true;
-    }
-  }, [isRecording, isButtonActive]);
-
   // Pulse animation while recording
   useEffect(() => {
-    if (isRecording && isButtonActive) {
+    if (showRecordingUI) {
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -133,7 +133,7 @@ export function RecordingButton({
         swingAnimation.stop();
       };
     }
-  }, [isRecording, isButtonActive]);
+  }, [showRecordingUI]);
 
   const rotateInterpolation = deleteIconRotation.interpolate({
     inputRange: [-1, 0, 1],
@@ -143,7 +143,7 @@ export function RecordingButton({
   // Handle touch start
   const handleTouchStart = useCallback((event: any) => {
     // Don't start if already recording or preparing
-    if (isRecording || isPreparing || isButtonActive) {
+    if (isRecording || isPreparing || isTouchActive) {
       console.log(`[RecordingButton:${buttonId}] Ignoring touch - busy state`);
       return;
     }
@@ -152,29 +152,28 @@ export function RecordingButton({
     startYRef.current = touch.pageY;
     currentYRef.current = touch.pageY;
     wasCancelledRef.current = false;
-    recordingStartedRef.current = false;
     touchStartTimeRef.current = Date.now();
     
     // Set active state (triggers re-render)
-    setIsButtonActive(true);
+    setIsTouchActive(true);
     
     console.log(`[RecordingButton:${buttonId}] Touch start at Y:`, startYRef.current);
     
     if (onPressIn) {
       onPressIn();
     }
-  }, [isRecording, isPreparing, isButtonActive, onPressIn, buttonId]);
+  }, [isRecording, isPreparing, isTouchActive, onPressIn, buttonId]);
 
   // Handle touch move
   const handleTouchMove = useCallback((event: any) => {
-    if (!isButtonActive) return;
+    if (!isTouchActive) return;
     
     const touch = event.nativeEvent;
     currentYRef.current = touch.pageY;
     const swipeDistance = startYRef.current - currentYRef.current;
     
-    // Check if swiped up enough to cancel (only if recording actually started)
-    if (swipeDistance > swipeThreshold && !wasCancelledRef.current && recordingStartedRef.current) {
+    // Check if swiped up enough to cancel (only if recording UI is showing)
+    if (swipeDistance > swipeThreshold && !wasCancelledRef.current && showRecordingUI) {
       console.log(`[RecordingButton:${buttonId}] SWIPE UP detected! Distance:`, swipeDistance);
       wasCancelledRef.current = true;
       
@@ -182,27 +181,28 @@ export function RecordingButton({
         console.log(`[RecordingButton:${buttonId}] Calling onCancelRecording`);
         onCancelRecording();
       }
-      setIsButtonActive(false);
+      setIsTouchActive(false);
+      setShowRecordingUI(false);
     }
-  }, [isButtonActive, onCancelRecording, buttonId]);
+  }, [isTouchActive, showRecordingUI, onCancelRecording, buttonId]);
 
   // Handle touch end
   const handleTouchEnd = useCallback(() => {
-    if (!isButtonActive) {
+    if (!isTouchActive) {
       console.log(`[RecordingButton:${buttonId}] Touch end ignored - not active`);
       return;
     }
 
     const touchDuration = Date.now() - touchStartTimeRef.current;
-    console.log(`[RecordingButton:${buttonId}] Touch end. duration:`, touchDuration, "recordingStarted:", recordingStartedRef.current);
+    console.log(`[RecordingButton:${buttonId}] Touch end. duration:`, touchDuration, "showRecordingUI:", showRecordingUI);
     
-    // If recording never actually started (still preparing), just cancel
-    if (!recordingStartedRef.current) {
+    // If recording UI never showed (still preparing), just cancel
+    if (!showRecordingUI) {
       console.log(`[RecordingButton:${buttonId}] Recording never started, cancelling silently`);
       if (onCancelRecording) {
         onCancelRecording();
       }
-      setIsButtonActive(false);
+      setIsTouchActive(false);
       return;
     }
     
@@ -212,13 +212,15 @@ export function RecordingButton({
       if (onCancelRecording) {
         onCancelRecording();
       }
-      setIsButtonActive(false);
+      setIsTouchActive(false);
+      setShowRecordingUI(false);
       return;
     }
     
     if (wasCancelledRef.current) {
       console.log(`[RecordingButton:${buttonId}] Recording was cancelled by swipe`);
-      setIsButtonActive(false);
+      setIsTouchActive(false);
+      setShowRecordingUI(false);
       return;
     }
     
@@ -238,30 +240,32 @@ export function RecordingButton({
       }
     }
     
-    setIsButtonActive(false);
-  }, [isButtonActive, onPressOut, onCancelRecording, buttonId]);
+    setIsTouchActive(false);
+    setShowRecordingUI(false);
+  }, [isTouchActive, showRecordingUI, onPressOut, onCancelRecording, buttonId]);
 
   // Handle touch cancel
   const handleTouchCancel = useCallback(() => {
-    if (!isButtonActive) return;
+    if (!isTouchActive) return;
     
     console.log(`[RecordingButton:${buttonId}] Touch cancelled`);
     
     if (onCancelRecording) {
       onCancelRecording();
     }
-    setIsButtonActive(false);
-  }, [isButtonActive, onCancelRecording, buttonId]);
+    setIsTouchActive(false);
+    setShowRecordingUI(false);
+  }, [isTouchActive, onCancelRecording, buttonId]);
 
   if (pressAndHold) {
-    // Use state for UI visibility (triggers re-render)
-    const showDeleteUI = isRecording && isButtonActive;
-    const showPreparingUI = isPreparing && isButtonActive;
+    // Determine UI states
+    const showDeleteUI = showRecordingUI;
+    const showPreparingUI = isPreparing && isTouchActive && !showRecordingUI;
     const isActive = showDeleteUI || showPreparingUI;
     
     return (
       <Animated.View style={{ transform: [{ scale: showDeleteUI ? pulseAnim : 1 }], width: '100%' }}>
-        {/* Delete Icon - appears above the button */}
+        {/* Delete Icon and Duration - appears above the button */}
         {showDeleteUI && (
           <Animated.View 
             style={{ 
@@ -296,11 +300,22 @@ export function RecordingButton({
                 color="#FFFFFF" 
               />
             </View>
+            {/* Recording Duration - RED TEXT */}
+            <Text 
+              style={{ 
+                color: '#FF0000', 
+                fontSize: 16, 
+                marginTop: 6,
+                fontWeight: '900',
+              }}
+            >
+              {recordingDuration || "00:00"}
+            </Text>
             <Text 
               style={{ 
                 color: '#FF6666', 
                 fontSize: 10, 
-                marginTop: 4,
+                marginTop: 2,
                 fontWeight: '700',
               }}
             >
@@ -315,7 +330,7 @@ export function RecordingButton({
           onTouchCancel={handleTouchCancel}
           style={{
             backgroundColor: isActive ? colors.error : backgroundColor || colors.primary,
-            opacity: (isPreparing && !isButtonActive) ? 0.6 : 1,
+            opacity: (isPreparing && !isTouchActive) ? 0.6 : 1,
             borderRadius: 8,
             paddingVertical: 8,
             paddingHorizontal: 4,
@@ -350,7 +365,7 @@ export function RecordingButton({
                         textAlign: 'center',
                       }}
                     >
-                      {recordingDuration || "00:00"}
+                      تسجيل...
                     </Text>
                   ) : label?.includes('\n') ? (
                     label.split('\n').map((line, i) => (
@@ -392,7 +407,7 @@ export function RecordingButton({
                     textAlign: 'center',
                   }}
                 >
-                  {recordingDuration || "00:00"}
+                  تسجيل...
                 </Text>
               )}
             </View>
@@ -400,17 +415,12 @@ export function RecordingButton({
             <Text 
               style={{ 
                 color: '#FFFFFF',
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: '800',
                 textAlign: 'center',
-                letterSpacing: 0.3,
               }}
             >
-              {showPreparingUI 
-                ? "جاري..." 
-                : showDeleteUI
-                  ? recordingDuration || "00:00" 
-                  : label}
+              {showPreparingUI ? "جاري..." : showDeleteUI ? "تسجيل..." : label}
             </Text>
           )}
         </View>
@@ -418,7 +428,7 @@ export function RecordingButton({
     );
   }
 
-  // Non-press-and-hold version
+  // Non press-and-hold mode (simple button)
   return (
     <View
       style={{
@@ -431,16 +441,34 @@ export function RecordingButton({
         minHeight,
       }}
     >
-      <Text 
-        style={{ 
-          color: '#FFFFFF',
-          fontSize: 10,
-          fontWeight: '800',
-          textAlign: 'center',
-        }}
-      >
-        {label}
-      </Text>
+      {iconComponent ? (
+        <View style={{ alignItems: 'center', gap: 2 }}>
+          {iconComponent}
+          {showLabel && (
+            <Text 
+              style={{ 
+                color: '#FFFFFF',
+                fontSize: 10,
+                fontWeight: '800',
+                textAlign: 'center',
+              }}
+            >
+              {label}
+            </Text>
+          )}
+        </View>
+      ) : (
+        <Text 
+          style={{ 
+            color: '#FFFFFF',
+            fontSize: 12,
+            fontWeight: '800',
+            textAlign: 'center',
+          }}
+        >
+          {label}
+        </Text>
+      )}
     </View>
   );
 }

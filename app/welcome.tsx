@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground } from "react-native";
+import { useState, useRef } from "react";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
@@ -22,6 +22,7 @@ export default function WelcomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const { setUserData } = useUser();
   const colors = useColors();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const handlePickImage = async () => {
     try {
@@ -103,6 +104,7 @@ export default function WelcomeScreen() {
   };
 
   const handleSubmit = async () => {
+    Keyboard.dismiss();
     const trimmedName = name.trim();
     
     const validation = validateName(trimmedName);
@@ -132,6 +134,13 @@ export default function WelcomeScreen() {
     }
   };
 
+  const handleInputFocus = () => {
+    // Scroll to bottom when input is focused to ensure it's visible
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 300);
+  };
+
   const isFormValid = validateName(name).valid && selectedAvatar !== null;
 
   return (
@@ -143,11 +152,12 @@ export default function WelcomeScreen() {
     <ScreenContainer containerClassName="bg-transparent">
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1"
-        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
       >
         <ScrollView 
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'flex-start', paddingTop: 40 }}
+          ref={scrollViewRef}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 50 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -255,6 +265,7 @@ export default function WelcomeScreen() {
                 maxLength={20}
                 returnKeyType="done"
                 onSubmitEditing={handleSubmit}
+                onFocus={handleInputFocus}
                 editable={!isLoading}
                 style={{ textAlign: "right" }}
               />
@@ -277,6 +288,9 @@ export default function WelcomeScreen() {
             <Text className="text-xs text-muted mt-6 text-center">
               يجب اختيار صورة وإدخال اسم (3-20 حرف)
             </Text>
+            
+            {/* Extra space for keyboard */}
+            <View style={{ height: 100 }} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
