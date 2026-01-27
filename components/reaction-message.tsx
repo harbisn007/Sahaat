@@ -29,7 +29,7 @@ export function ReactionMessage({ username, reactionType, createdAt, isOwnMessag
   });
 
   return (
-    <View className={`flex-row items-center gap-1 py-0.5 px-2 ${isOwnMessage ? "justify-end" : "justify-start"}`}>
+    <View className="flex-row items-center gap-1 py-0.5 px-2 justify-end">
       <View
         className={`flex-row items-center gap-1 px-2 py-1 rounded-xl ${
           isOwnMessage ? "bg-primary/20" : "bg-surface"

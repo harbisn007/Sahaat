@@ -64,7 +64,7 @@ export function MessageBubble({
   };
 
   return (
-    <View className="px-2 py-0.5">
+    <View className="px-2 py-0.5 items-end">
       <View 
         className="rounded-lg px-2 py-1 max-w-[75%]"
         style={{ backgroundColor: colors.surface }}
