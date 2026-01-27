@@ -434,12 +434,25 @@ export default function RoomScreen() {
       const participant = roomData.participants.find((p) => p.username === username);
       if (participant) {
         console.log("[RoomScreen] Participant found:", participant);
-        setUserRole(participant.role);
-        setIsApproved(participant.status === "accepted");
-        console.log("[RoomScreen] Role:", participant.role, "Status:", participant.status, "Approved:", participant.status === "accepted");
+        // Update role and approval status immediately
+        const newRole = participant.role as "creator" | "player" | "viewer";
+        const newApproved = participant.status === "accepted";
+        
+        // Only update if changed to avoid unnecessary re-renders
+        if (userRole !== newRole) {
+          console.log("[RoomScreen] Role changed:", userRole, "->", newRole);
+          setUserRole(newRole);
+        }
+        if (isApproved !== newApproved) {
+          console.log("[RoomScreen] Approval changed:", isApproved, "->", newApproved);
+          setIsApproved(newApproved);
+        }
+        console.log("[RoomScreen] Role:", newRole, "Status:", participant.status, "Approved:", newApproved);
+      } else {
+        console.log("[RoomScreen] Participant not found for username:", username);
       }
     }
-  }, [roomData, username]);
+  }, [roomData, username, userRole, isApproved]);
 
 
   // Kick player mutation (creator only)
@@ -504,6 +517,8 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Join request created successfully:", data);
       setHasPendingRequest(true);
       setLastRequestTime(Date.now());
+      // Immediately refetch to show request to creator
+      refetch();
       // Auto-expire after 4 seconds
       setTimeout(() => {
         setHasPendingRequest(false);
@@ -520,9 +535,12 @@ export default function RoomScreen() {
 
   // Respond to join request mutation (for creator)
   const respondToJoinRequestMutation = trpc.joinRequests.respond.useMutation({
-    onSuccess: (data, variables) => {
-      refetchJoinRequests();
-      refetch();
+    onSuccess: async (data, variables) => {
+      // Immediately refetch all data for instant update
+      await Promise.all([
+        refetchJoinRequests(),
+        refetch(),
+      ]);
       if (variables.accept) {
         Alert.alert("تم القبول", "تم قبول اللاعب في الساحة");
       }

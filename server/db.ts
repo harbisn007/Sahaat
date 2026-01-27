@@ -675,20 +675,44 @@ export async function expireJoinRequest(requestId: number) {
     .where(eq(joinRequests.id, requestId));
 }
 
-export async function promoteViewerToPlayer(roomId: number, userId: number) {
+export async function promoteViewerToPlayer(roomId: number, userId: number, username: string, avatar: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // Update the participant role from viewer to player
-  await db
-    .update(roomParticipants)
-    .set({ role: "player", status: "accepted" })
+  // First check if participant exists
+  const existing = await db
+    .select()
+    .from(roomParticipants)
     .where(
       and(
         eq(roomParticipants.roomId, roomId),
         eq(roomParticipants.userId, userId)
       )
-    );
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    // Update existing participant to player
+    await db
+      .update(roomParticipants)
+      .set({ role: "player", status: "accepted" })
+      .where(
+        and(
+          eq(roomParticipants.roomId, roomId),
+          eq(roomParticipants.userId, userId)
+        )
+      );
+  } else {
+    // Add new participant as player
+    await db.insert(roomParticipants).values({
+      roomId,
+      userId,
+      username,
+      avatar,
+      role: "player",
+      status: "accepted",
+    });
+  }
 }
 
 export async function kickPlayer(roomId: number, playerId: number, creatorId: number) {

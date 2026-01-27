@@ -513,8 +513,8 @@ export const appRouter = router({
             if (acceptedCount >= 2) {
               throw new Error("الساحة ممتلئة باللاعبين");
             }
-            // Promote viewer to player
-            await db.promoteViewerToPlayer(input.roomId, request.userId);
+            // Promote viewer to player (use request data for username and avatar)
+            await db.promoteViewerToPlayer(input.roomId, request.userId, request.username, request.avatar);
           }
           
           return { success: true, request };
