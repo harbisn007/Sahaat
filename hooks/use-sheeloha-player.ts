@@ -79,6 +79,41 @@ export function useSheelohaPlayer() {
   // Track current round
   const currentRoundRef = useRef<number>(0);
 
+  // Preload clap sound on mount (web only)
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const preloadClapSound = async () => {
+        try {
+          // Create AudioContext for preloading
+          const ctx = new AudioContext();
+          audioContextRef.current = ctx;
+          
+          const clapUrl = "/assets/sounds/sheeloha-claps.mp3";
+          console.log("[useSheelohaPlayer] Preloading clap sound...");
+          
+          const response = await fetch(clapUrl);
+          if (response.ok) {
+            const arrayBuffer = await response.arrayBuffer();
+            clapBufferRef.current = await ctx.decodeAudioData(arrayBuffer);
+            console.log("[useSheelohaPlayer] Clap sound preloaded successfully");
+          } else {
+            // Try alternative path
+            const altResponse = await fetch("./assets/sounds/sheeloha-claps.mp3");
+            if (altResponse.ok) {
+              const arrayBuffer = await altResponse.arrayBuffer();
+              clapBufferRef.current = await ctx.decodeAudioData(arrayBuffer);
+              console.log("[useSheelohaPlayer] Clap sound preloaded from alt path");
+            }
+          }
+        } catch (error) {
+          console.error("[useSheelohaPlayer] Error preloading clap sound:", error);
+        }
+      };
+      
+      preloadClapSound();
+    }
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
