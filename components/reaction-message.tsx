@@ -7,15 +7,28 @@ interface ReactionMessageProps {
   isOwnMessage?: boolean;
 }
 
+// تحديث الأيقونات لتتوافق مع الـ 15 أيقونة في ReactionsPicker
 const REACTION_EMOJIS: Record<string, string> = {
+  // الصف الأول - التفاعل الإيجابي
   clap: "👏",
+  fire: "🔥",
+  heart: "❤️",
+  thumbsup: "👍",
+  star: "⭐",
+  // الصف الثاني - المشاعر
   laugh: "😂",
   wow: "😮",
-  love: "❤️",
-  fire: "🔥",
-  thumbsup: "👍",
   thinking: "🤔",
-  heart: "💖",
+  sad: "😢",
+  angry: "😡",
+  // الصف الثالث - الموافقة وعدم الموافقة
+  check: "✅",
+  cross: "❌",
+  thumbsdown: "👎",
+  strong: "💪",
+  celebrate: "🎉",
+  // للتوافق مع القديم
+  love: "❤️",
 };
 
 export function ReactionMessage({ username, reactionType, createdAt, isOwnMessage }: ReactionMessageProps) {

@@ -1292,7 +1292,7 @@ export default function RoomScreen() {
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 6,
+                    fontSize: 10,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,

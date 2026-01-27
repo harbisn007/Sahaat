@@ -186,7 +186,7 @@ export default function WelcomeScreen() {
                     source={avatarMale}
                     style={{ width: 70, height: 70, borderRadius: 35 }}
                   />
-                  <Text className="text-xs text-muted text-center mt-1">رجل</Text>
+
                 </TouchableOpacity>
 
                 {/* Female Avatar */}
@@ -203,7 +203,7 @@ export default function WelcomeScreen() {
                     source={avatarFemale}
                     style={{ width: 70, height: 70, borderRadius: 35 }}
                   />
-                  <Text className="text-xs text-muted text-center mt-1">امرأة</Text>
+
                 </TouchableOpacity>
 
                 {/* Custom Avatar */}

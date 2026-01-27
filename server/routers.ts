@@ -42,7 +42,14 @@ export const appRouter = router({
         })
       );
       
-      return roomsWithCounts;
+      // ترتيب الساحات حسب الأكثر تفاعلاً (مجموع اللاعبين والمشاهدين)
+      const sortedRooms = roomsWithCounts.sort((a, b) => {
+        const totalA = (a.playerCount || 0) + (a.viewerCount || 0);
+        const totalB = (b.playerCount || 0) + (b.viewerCount || 0);
+        return totalB - totalA; // ترتيب تنازلي
+      });
+      
+      return sortedRooms;
     }),
 
     // Get room by ID with participants
