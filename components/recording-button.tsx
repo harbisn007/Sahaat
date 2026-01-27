@@ -1,5 +1,5 @@
 import { Text, View, Animated, Platform } from "react-native";
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -43,21 +43,22 @@ export function RecordingButton({
   const deleteIconScale = useRef(new Animated.Value(0.5)).current;
   const deleteIconRotation = useRef(new Animated.Value(0)).current;
   
+  // Use state for UI updates (causes re-render)
+  const [isButtonActive, setIsButtonActive] = useState(false);
+  
   // Track touch position for swipe detection using refs
   const startYRef = useRef<number>(0);
   const currentYRef = useRef<number>(0);
   const wasCancelledRef = useRef<boolean>(false);
-  const isActiveRef = useRef<boolean>(false);
   const touchStartTimeRef = useRef<number>(0);
-  const isTouchActiveRef = useRef<boolean>(false); // Track if touch is currently active
-  const recordingStartedRef = useRef<boolean>(false); // Track if recording actually started
+  const recordingStartedRef = useRef<boolean>(false);
   const swipeThreshold = 60;
   const minRecordingDuration = 500;
 
   // Reset state when recording stops
   useEffect(() => {
     if (!isRecording && !isPreparing) {
-      isActiveRef.current = false;
+      setIsButtonActive(false);
       wasCancelledRef.current = false;
       recordingStartedRef.current = false;
       deleteIconOpacity.setValue(0);
@@ -69,14 +70,14 @@ export function RecordingButton({
 
   // Track when recording actually starts
   useEffect(() => {
-    if (isRecording && isActiveRef.current) {
+    if (isRecording && isButtonActive) {
       recordingStartedRef.current = true;
     }
-  }, [isRecording]);
+  }, [isRecording, isButtonActive]);
 
   // Pulse animation while recording
   useEffect(() => {
-    if (isRecording && isActiveRef.current) {
+    if (isRecording && isButtonActive) {
       const pulseAnimation = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -132,7 +133,7 @@ export function RecordingButton({
         swingAnimation.stop();
       };
     }
-  }, [isRecording]);
+  }, [isRecording, isButtonActive]);
 
   const rotateInterpolation = deleteIconRotation.interpolate({
     inputRange: [-1, 0, 1],
@@ -142,7 +143,7 @@ export function RecordingButton({
   // Handle touch start
   const handleTouchStart = useCallback((event: any) => {
     // Don't start if already recording or preparing
-    if (isRecording || isPreparing || isTouchActiveRef.current) {
+    if (isRecording || isPreparing || isButtonActive) {
       console.log(`[RecordingButton:${buttonId}] Ignoring touch - busy state`);
       return;
     }
@@ -151,21 +152,22 @@ export function RecordingButton({
     startYRef.current = touch.pageY;
     currentYRef.current = touch.pageY;
     wasCancelledRef.current = false;
-    isActiveRef.current = true;
-    isTouchActiveRef.current = true;
     recordingStartedRef.current = false;
     touchStartTimeRef.current = Date.now();
+    
+    // Set active state (triggers re-render)
+    setIsButtonActive(true);
     
     console.log(`[RecordingButton:${buttonId}] Touch start at Y:`, startYRef.current);
     
     if (onPressIn) {
       onPressIn();
     }
-  }, [isRecording, isPreparing, onPressIn, buttonId]);
+  }, [isRecording, isPreparing, isButtonActive, onPressIn, buttonId]);
 
   // Handle touch move
   const handleTouchMove = useCallback((event: any) => {
-    if (!isActiveRef.current || !isTouchActiveRef.current) return;
+    if (!isButtonActive) return;
     
     const touch = event.nativeEvent;
     currentYRef.current = touch.pageY;
@@ -180,17 +182,17 @@ export function RecordingButton({
         console.log(`[RecordingButton:${buttonId}] Calling onCancelRecording`);
         onCancelRecording();
       }
+      setIsButtonActive(false);
     }
-  }, [onCancelRecording, buttonId]);
+  }, [isButtonActive, onCancelRecording, buttonId]);
 
   // Handle touch end
   const handleTouchEnd = useCallback(() => {
-    if (!isActiveRef.current || !isTouchActiveRef.current) {
+    if (!isButtonActive) {
       console.log(`[RecordingButton:${buttonId}] Touch end ignored - not active`);
       return;
     }
 
-    isTouchActiveRef.current = false;
     const touchDuration = Date.now() - touchStartTimeRef.current;
     console.log(`[RecordingButton:${buttonId}] Touch end. duration:`, touchDuration, "recordingStarted:", recordingStartedRef.current);
     
@@ -200,7 +202,7 @@ export function RecordingButton({
       if (onCancelRecording) {
         onCancelRecording();
       }
-      isActiveRef.current = false;
+      setIsButtonActive(false);
       return;
     }
     
@@ -210,13 +212,13 @@ export function RecordingButton({
       if (onCancelRecording) {
         onCancelRecording();
       }
-      isActiveRef.current = false;
+      setIsButtonActive(false);
       return;
     }
     
     if (wasCancelledRef.current) {
       console.log(`[RecordingButton:${buttonId}] Recording was cancelled by swipe`);
-      isActiveRef.current = false;
+      setIsButtonActive(false);
       return;
     }
     
@@ -236,26 +238,25 @@ export function RecordingButton({
       }
     }
     
-    isActiveRef.current = false;
-  }, [onPressOut, onCancelRecording, buttonId]);
+    setIsButtonActive(false);
+  }, [isButtonActive, onPressOut, onCancelRecording, buttonId]);
 
   // Handle touch cancel
   const handleTouchCancel = useCallback(() => {
-    if (!isActiveRef.current) return;
+    if (!isButtonActive) return;
     
     console.log(`[RecordingButton:${buttonId}] Touch cancelled`);
-    isTouchActiveRef.current = false;
     
     if (onCancelRecording) {
       onCancelRecording();
     }
-    isActiveRef.current = false;
-  }, [onCancelRecording, buttonId]);
+    setIsButtonActive(false);
+  }, [isButtonActive, onCancelRecording, buttonId]);
 
   if (pressAndHold) {
-    // Show UI when recording OR when touch is active and preparing
-    const showDeleteUI = isRecording && (isActiveRef.current || isTouchActiveRef.current);
-    const showPreparingUI = isPreparing && (isActiveRef.current || isTouchActiveRef.current);
+    // Use state for UI visibility (triggers re-render)
+    const showDeleteUI = isRecording && isButtonActive;
+    const showPreparingUI = isPreparing && isButtonActive;
     const isActive = showDeleteUI || showPreparingUI;
     
     return (
@@ -314,7 +315,7 @@ export function RecordingButton({
           onTouchCancel={handleTouchCancel}
           style={{
             backgroundColor: isActive ? colors.error : backgroundColor || colors.primary,
-            opacity: (isPreparing && !isActiveRef.current) ? 0.6 : 1,
+            opacity: (isPreparing && !isButtonActive) ? 0.6 : 1,
             borderRadius: 8,
             paddingVertical: 8,
             paddingHorizontal: 4,

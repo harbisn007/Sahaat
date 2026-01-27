@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { View, Text, TouchableOpacity, ImageBackground, Alert, ActivityIndicator } from "react-native";
-import { useEffect } from "react";
+import { useEffect, useState, useRef } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useUser } from "@/lib/user-context";
@@ -11,26 +11,67 @@ const welcomeBackground = require("@/assets/images/welcome-background.png");
 export default function InviteScreen() {
   const { id, inviter } = useLocalSearchParams<{ id: string; inviter?: string }>();
   const router = useRouter();
-  const { username, avatar, userId, isLoading: userLoading } = useUser();
+  const { username, avatar, userId, isLoading: userLoading, setUserData } = useUser();
   const roomId = parseInt(id || "0", 10);
+  const [isAutoJoining, setIsAutoJoining] = useState(false);
+  const autoJoinAttempted = useRef(false);
 
-  // Check if user is logged in, redirect to welcome if not
-  useEffect(() => {
-    if (!userLoading && !username) {
-      // Save the invite URL to redirect back after login
-      router.replace(`/welcome?redirect=/invite/${roomId}`);
-    }
-  }, [userLoading, username, roomId, router]);
+  // Mutations for joining
+  const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
+  const requestJoinMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
 
   // Fetch room data
   const { data: roomData, isLoading, error } = trpc.rooms.getById.useQuery(
     { roomId },
-    { enabled: roomId > 0 && !!username }
+    { enabled: roomId > 0 }
   );
 
-  // Mutations for joining
-  const requestJoinMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
-  const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
+  // Auto-join logic: if user is not logged in, create guest account and join as viewer
+  useEffect(() => {
+    const autoJoinAsGuest = async () => {
+      // Prevent multiple attempts
+      if (autoJoinAttempted.current) return;
+      
+      // Wait for user loading to complete
+      if (userLoading) return;
+      
+      // If already logged in, don't auto-join
+      if (username) return;
+      
+      // Wait for room data
+      if (isLoading || !roomData) return;
+      
+      autoJoinAttempted.current = true;
+      setIsAutoJoining(true);
+      
+      try {
+        // Create guest name: "ضيف + inviter name" or "ضيف"
+        const inviterName = inviter || "";
+        const guestName = inviterName ? `ضيف ${inviterName}` : `ضيف ${roomId}`;
+        const guestAvatar = "male"; // Default to male avatar
+        
+        console.log("[InviteScreen] Creating guest account:", guestName);
+        
+        // Set user data (this will create the user in the database)
+        await setUserData(guestName, guestAvatar);
+        
+        // Wait a bit for the user data to be saved
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        console.log("[InviteScreen] Guest account created, redirecting to room as viewer");
+        
+        // Redirect to room - the room will handle joining as viewer
+        router.replace(`/room/${roomId}?role=viewer&autoJoin=true`);
+      } catch (err) {
+        console.error("[InviteScreen] Auto-join failed:", err);
+        setIsAutoJoining(false);
+        // Fallback to manual login
+        router.replace(`/welcome?redirect=/invite/${roomId}${inviter ? `&inviter=${inviter}` : ""}`);
+      }
+    };
+    
+    autoJoinAsGuest();
+  }, [userLoading, username, isLoading, roomData, inviter, roomId, setUserData, router]);
 
   const handleJoinAsPlayer = async () => {
     if (!username || !userId) {
@@ -74,31 +115,32 @@ export default function InviteScreen() {
     }
   };
 
+  // Show loading while auto-joining
+  if (isAutoJoining) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#8B4513" />
+        <Text className="text-foreground mt-4">جاري الانضمام كضيف...</Text>
+      </ScreenContainer>
+    );
+  }
+
   // Show loading while checking user status
-  if (userLoading) {
-    return (
-      <ScreenContainer className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#8B4513" />
-        <Text className="text-foreground mt-4">جاري التحقق...</Text>
-      </ScreenContainer>
-    );
-  }
-
-  // If not logged in, show message (will redirect via useEffect)
-  if (!username) {
-    return (
-      <ScreenContainer className="flex-1 items-center justify-center">
-        <ActivityIndicator size="large" color="#8B4513" />
-        <Text className="text-foreground mt-4">جاري التوجيه لتسجيل الدخول...</Text>
-      </ScreenContainer>
-    );
-  }
-
-  if (isLoading) {
+  if (userLoading || isLoading) {
     return (
       <ScreenContainer className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#8B4513" />
         <Text className="text-foreground mt-4">جاري التحميل...</Text>
+      </ScreenContainer>
+    );
+  }
+
+  // If not logged in and not auto-joining, show loading (will be handled by useEffect)
+  if (!username) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#8B4513" />
+        <Text className="text-foreground mt-4">جاري التحضير...</Text>
       </ScreenContainer>
     );
   }

@@ -26,7 +26,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function RoomScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
   const { username, userId, avatar } = useUser();
 
   // Avatar images
@@ -57,7 +57,7 @@ export default function RoomScreen() {
 
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 2000, retry: false }
+    { enabled: roomId > 0, refetchInterval: 500, retry: false }
   );
 
   // Update joinedAt to current time on every room entry
@@ -114,6 +114,44 @@ export default function RoomScreen() {
       );
     }
   }, [isLoading, roomData, savedRoomName, error, roomClosedAlertShown]);
+
+  // Mutation for auto-join (must be defined before useEffect that uses it)
+  const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
+
+  // Auto-join as viewer when coming from invite link
+  const autoJoinAttempted = useRef(false);
+  useEffect(() => {
+    const performAutoJoin = async () => {
+      // Only auto-join if coming from invite with autoJoin=true
+      if (autoJoin !== "true" || autoJoinAttempted.current) return;
+      if (!username || !userId || !roomData) return;
+      
+      // Check if already a participant
+      const isParticipant = roomData.participants.some((p) => p.username === username);
+      if (isParticipant) {
+        console.log("[RoomScreen] Already a participant, skipping auto-join");
+        return;
+      }
+      
+      autoJoinAttempted.current = true;
+      console.log("[RoomScreen] Auto-joining as viewer...");
+      
+      try {
+        await joinAsViewerMutation.mutateAsync({
+          roomId,
+          username,
+          avatar: avatar || "male",
+          userId,
+        });
+        console.log("[RoomScreen] Auto-join successful");
+        refetch();
+      } catch (err) {
+        console.error("[RoomScreen] Auto-join failed:", err);
+      }
+    };
+    
+    performAutoJoin();
+  }, [autoJoin, username, userId, roomData, avatar, roomId, joinAsViewerMutation, refetch]);
 
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
@@ -449,7 +487,24 @@ export default function RoomScreen() {
         }
         console.log("[RoomScreen] Role:", newRole, "Status:", participant.status, "Approved:", newApproved);
       } else {
-        console.log("[RoomScreen] Participant not found for username:", username);
+        // المستخدم لم يعد موجوداً في الساحة - ربما تم طرده
+        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم طرده
+        if (userRole && userRole !== "creator") {
+          console.log("[RoomScreen] User was kicked from the room");
+          Alert.alert(
+            "تم طردك",
+            "تم طردك من الساحة بواسطة المنشئ",
+            [
+              {
+                text: "حسناً",
+                onPress: () => router.replace("/"),
+              },
+            ],
+            { cancelable: false }
+          );
+        } else {
+          console.log("[RoomScreen] Participant not found for username:", username);
+        }
       }
     }
   }, [roomData, username, userRole, isApproved]);
