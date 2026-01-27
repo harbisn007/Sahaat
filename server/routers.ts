@@ -326,14 +326,26 @@ export const appRouter = router({
           userId: z.number(),
           username: z.string(),
           reactionType: z.enum([
+            // الصف الأول - التفاعل الإيجابي
             "clap",
+            "fire",
+            "heart",
+            "thumbsup",
+            "star",
+            // الصف الثاني - المشاعر
             "laugh",
             "wow",
-            "love",
-            "fire",
-            "thumbsup",
             "thinking",
-            "heart",
+            "sad",
+            "angry",
+            // الصف الثالث - الموافقة وعدم الموافقة
+            "check",
+            "cross",
+            "thumbsdown",
+            "strong",
+            "celebrate",
+            // للتوافق مع القديم
+            "love",
           ]),
         })
       )

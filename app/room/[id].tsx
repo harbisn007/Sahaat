@@ -1228,13 +1228,13 @@ export default function RoomScreen() {
             <View className="flex-row gap-2 flex-1">
               {/* Clapping Speed Options - vertical layout with "بلا" on top */}
               <View style={{ alignItems: 'center', justifyContent: 'flex-start' }}>
-                {/* "بلا" button on top - same size as button 1 */}
+                {/* "بلا" button on top */}
                 <TouchableOpacity
                   onPress={() => setClappingSpeed(0)}
                   style={{
-                    width: 18,
-                    height: 12,
-                    borderRadius: 3,
+                    width: 30,
+                    height: 16,
+                    borderRadius: 4,
                     backgroundColor: clappingSpeed === 0 ? '#FFD700' : '#5D4037',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1246,7 +1246,7 @@ export default function RoomScreen() {
                   <Text 
                     style={{ 
                       color: clappingSpeed === 0 ? '#5D4037' : '#FFD700',
-                      fontSize: 6,
+                      fontSize: 8,
                       fontWeight: '900',
                     }}
                   >
@@ -1262,9 +1262,9 @@ export default function RoomScreen() {
                         key={speed}
                         onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
                         style={{
-                          width: 18,
-                          height: 12,
-                          borderRadius: 3,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 4,
                           backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1275,7 +1275,7 @@ export default function RoomScreen() {
                         <Text 
                           style={{ 
                             color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                            fontSize: 8,
+                            fontSize: 9,
                             fontWeight: '900',
                           }}
                         >
@@ -1291,9 +1291,9 @@ export default function RoomScreen() {
                         key={speed}
                         onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
                         style={{
-                          width: 18,
-                          height: 12,
-                          borderRadius: 3,
+                          width: 14,
+                          height: 14,
+                          borderRadius: 4,
                           backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1304,7 +1304,7 @@ export default function RoomScreen() {
                         <Text 
                           style={{ 
                             color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                            fontSize: 8,
+                            fontSize: 9,
                             fontWeight: '900',
                           }}
                         >
@@ -1328,13 +1328,13 @@ export default function RoomScreen() {
               </View>
 
               {/* Sheeloha Button */}
-              <View className="flex-1 items-center">
+              <View style={{ width: 60, alignItems: 'center' }}>
                 <TouchableOpacity
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
                     opacity: (!lastTaroukUri || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
-                    width: '100%',
+                    width: 60,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
                     minHeight: 48,
@@ -1404,13 +1404,13 @@ export default function RoomScreen() {
               </View>
 
               {/* Khalloha Button */}
-              <View className="flex-1 items-center">
+              <View style={{ width: 60, alignItems: 'center' }}>
                 <TouchableOpacity
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
                     opacity: (isSheelohaPlaying || isSheelohaActiveGlobally) ? 1 : 0.5,
-                    width: '100%',
+                    width: 60,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
                     minHeight: 48,
@@ -1456,18 +1456,18 @@ export default function RoomScreen() {
           )}
 
           {/* Center: Reactions Button (for all users) */}
-          <View className="items-center">
+          <View style={{ width: 35, alignItems: 'center' }}>
             <TouchableOpacity
               className="rounded items-center justify-center"
               style={{
                 backgroundColor: "#5D4037",
-                width: 50,
+                width: 35,
                 minHeight: 48,
                 borderRadius: 8,
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
-                  <MaterialIcons name="emoji-emotions" size={28} color="#FFD700" />
+                  <MaterialIcons name="emoji-emotions" size={22} color="#FFD700" />
             </TouchableOpacity>
           </View>
 
@@ -1500,8 +1500,8 @@ export default function RoomScreen() {
 
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (
-            <View className="flex-row gap-2 flex-1">
-              <View className="flex-1 items-center">
+            <View className="flex-row gap-2">
+              <View style={{ width: 60, alignItems: 'center' }}>
                 <RecordingButton
                   buttonId="comment"
                   isRecording={isRecording && recordingType === "comment"}
@@ -1512,9 +1512,9 @@ export default function RoomScreen() {
                   onCancelRecording={handleCancelRecording}
                   recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
                   iconComponent={
-                    <View style={{ flexDirection: 'row', gap: 4 }}>
-                      <MaterialIcons name="music-note" size={22} color="#FFD700" />
-                      <MaterialIcons name="chat" size={22} color="#FFD700" />
+                    <View style={{ flexDirection: 'row', gap: 2 }}>
+                      <MaterialIcons name="music-note" size={18} color="#FFD700" />
+                      <MaterialIcons name="chat" size={18} color="#FFD700" />
                     </View>
                   }
                   label=""
@@ -1525,17 +1525,17 @@ export default function RoomScreen() {
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 8,
+                    fontSize: 7,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
                   }}
                 >
-                  للتعليقات والموال
+                  تعليق/موال
                 </Text>
               </View>
 
-              <View className="flex-1 items-center">
+              <View style={{ width: 60, alignItems: 'center' }}>
                 <RecordingButton
                   buttonId="tarouk"
                   isRecording={isRecording && recordingType === "tarouk"}
@@ -1547,7 +1547,7 @@ export default function RoomScreen() {
                   backgroundColor="#5D4037"
                   recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
                   iconComponent={
-                    <MaterialCommunityIcons name="microphone-variant" size={28} color="#FFD700" />
+                    <MaterialCommunityIcons name="microphone-variant" size={24} color="#FFD700" />
                   }
                   label=""
                   showLabel={false}
@@ -1562,7 +1562,7 @@ export default function RoomScreen() {
                     marginTop: 4,
                   }}
                 >
-                  للطاروق
+                  طاروق
                 </Text>
               </View>
             </View>
