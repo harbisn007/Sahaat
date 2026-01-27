@@ -3,48 +3,46 @@ import { Platform } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 
 /**
- * Clapping Speed Configuration (with chorus effect)
- * 0 = No clapping (DEFAULT), playback rate 1.25
- * 1 = Repeat clap every 1.25 seconds, playback rate 1.25
- * 2 = Repeat clap every 1.19 seconds, playback rate 1.19
- * 3 = Repeat clap every 1.14 seconds, playback rate 1.14
- * 4 = Repeat clap every 0.9 seconds, playback rate 1.00 (normal speed)
+ * Clapping Speed Configuration
+ * All speeds use original playback rate (1.0x)
+ * The only difference is the clapping interval:
+ * 0 = No clapping (DEFAULT)
+ * 1 = Repeat clap every 1.25 seconds
+ * 2 = Repeat clap every 1.19 seconds
+ * 3 = Repeat clap every 1.14 seconds
+ * 4 = Repeat clap every 0.9 seconds
  */
 export type ClappingSpeed = 0 | 1 | 2 | 3 | 4;
 
 /**
- * Playback rate for each clapping speed option
+ * Clapping intervals for each speed option (in ms)
  */
-const PLAYBACK_RATES: Record<ClappingSpeed, number> = {
-  0: 1.25,  // No clapping, fast
-  1: 1.25,  // Speed 1
-  2: 1.19,  // Speed 2
-  3: 1.14,  // Speed 3
-  4: 1.00,  // Normal speed
+const CLAPPING_INTERVALS: Record<ClappingSpeed, number> = {
+  0: 0,     // No clapping
+  1: 1250,  // 1.25 seconds
+  2: 1190,  // 1.19 seconds
+  3: 1140,  // 1.14 seconds
+  4: 900,   // 0.9 seconds
 };
 
 // Clapping sound asset - short single clap (0.5 seconds)
 const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
 
 /**
- * Sheeloha Effect Configuration - NEW LOGIC
- * Two rounds played sequentially:
- * Round 1: 5 voice copies (35%) + 3 clap copies (35%)
- * Round 2: 5 voice copies (15%) + 3 clap copies (15%)
+ * Sheeloha Effect Configuration
+ * 5 voice copies + clapping (based on selected speed)
+ * All sounds at 45% volume (distant effect)
+ * Original playback speed (1.0x)
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping voice copies
   voiceCopies: 5,
-  // Number of overlapping clap copies
-  clapCopies: 3,
-  // Fixed delay between each copy start (in ms) - chorus effect
-  delayBetweenCopies: 30,
-  // Round 1: Close sound (35% volume)
-  round1Volume: 0.35,
-  // Round 2: Distant sound (15% volume)
-  round2Volume: 0.15,
-  // Playback rate: 1.2 = 20% faster + higher pitch
-  playbackRate: 1.2,
+  // Fixed delay between each copy start (in ms) - no echo effect
+  delayBetweenCopies: 20,
+  // Volume: 45% (distant sound effect)
+  volume: 0.45,
+  // Playback rate: 1.0 = original speed
+  playbackRate: 1.0,
   // Stereo pan values: all center (0)
   panValues: [0, 0, 0, 0, 0],
 };
@@ -284,15 +282,10 @@ export function useSheelohaPlayer() {
     // Play first clap immediately
     play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
     
-    // Clapping intervals based on speed
-    const intervals: Record<1 | 2 | 3 | 4, number> = {
-      1: 1250,  // 1.25 seconds
-      2: 1190,  // 1.19 seconds
-      3: 1140,  // 1.14 seconds
-      4: 900,   // 0.9 seconds
-    };
+    // Get interval from config
+    const intervalMs = CLAPPING_INTERVALS[speed];
+    if (intervalMs === 0) return;
     
-    const intervalMs = intervals[speed as 1 | 2 | 3 | 4];
     const interval = setInterval(() => {
       if (isPlayingRef.current) {
         play3OverlappingClapsOnWeb(ctx, clapBuffer, volume);
@@ -332,7 +325,7 @@ export function useSheelohaPlayer() {
           
           const source = ctx.createBufferSource();
           source.buffer = audioBuffer;
-          source.playbackRate.value = PLAYBACK_RATES[clappingSpeed];
+          source.playbackRate.value = SHEELOHA_CONFIG.playbackRate;
           
           const gainNode = ctx.createGain();
           gainNode.gain.value = volume; // Same volume for all copies
@@ -426,7 +419,7 @@ export function useSheelohaPlayer() {
       
       // SINGLE ROUND: 35% volume
       currentRoundRef.current = 1;
-      await playRoundOnWeb(ctx, audioBuffer, clapBuffer, SHEELOHA_CONFIG.round1Volume, clappingSpeed, 1);
+      await playRoundOnWeb(ctx, audioBuffer, clapBuffer, SHEELOHA_CONFIG.volume, clappingSpeed, 1);
       
       // All done
       isPlayingRef.current = false;
@@ -488,15 +481,10 @@ export function useSheelohaPlayer() {
     // Play first clap immediately
     play3OverlappingClapsOnNative(volume);
     
-    // Clapping intervals based on speed
-    const intervals: Record<1 | 2 | 3 | 4, number> = {
-      1: 1250,  // 1.25 seconds
-      2: 1190,  // 1.19 seconds
-      3: 1140,  // 1.14 seconds
-      4: 900,   // 0.9 seconds
-    };
+    // Get interval from config
+    const intervalMs = CLAPPING_INTERVALS[speed];
+    if (intervalMs === 0) return;
     
-    const intervalMs = intervals[speed as 1 | 2 | 3 | 4];
     const interval = setInterval(() => {
       if (isPlayingRef.current) {
         play3OverlappingClapsOnNative(volume);
@@ -576,7 +564,7 @@ export function useSheelohaPlayer() {
           try {
             voicePlayers[i].replace(audioUri);
             voicePlayers[i].volume = volume;
-            voicePlayers[i].setPlaybackRate(PLAYBACK_RATES[clappingSpeed]);
+            voicePlayers[i].setPlaybackRate(SHEELOHA_CONFIG.playbackRate);
             voicePlayers[i].play();
             startedCount++;
             console.log(`[useSheelohaPlayer] Started voice copy ${i+1} for round ${roundNumber}`);
@@ -643,7 +631,7 @@ export function useSheelohaPlayer() {
     
     // SINGLE ROUND: 35% volume
     currentRoundRef.current = 1;
-    await playRoundOnNative(audioUri, SHEELOHA_CONFIG.round1Volume, clappingSpeed, 1);
+    await playRoundOnNative(audioUri, SHEELOHA_CONFIG.volume, clappingSpeed, 1);
     
     // All done
     isPlayingRef.current = false;
