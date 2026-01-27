@@ -117,7 +117,7 @@ export default function RoomScreen() {
 
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 3000 }
+    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling
   );
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
@@ -184,17 +184,17 @@ export default function RoomScreen() {
 
   const { data: audioMessages, refetch: refetchAudio } = trpc.audio.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 5000 }
+    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling for instant messages
   );
 
   const { data: reactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 3000 }
+    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling
   );
 
   const { data: sheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 1000 } // Fast polling for real-time broadcast
+    { enabled: roomId > 0, refetchInterval: 300 } // Very fast polling for real-time broadcast
   );
 
   // Check if there's an active sheeloha broadcast (within last 4 seconds)
@@ -218,7 +218,7 @@ export default function RoomScreen() {
   // Listen for khalooha commands to stop sheeloha for all users
   const { data: latestKhaloohaCommand } = trpc.khalooha.latest.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 1000 } // Fast polling for stop command
+    { enabled: roomId > 0, refetchInterval: 300 } // Very fast polling for stop command
   );
 
   // Listen for active recordings to show "طاروق..." indicator
