@@ -194,8 +194,26 @@ export default function RoomScreen() {
 
   const { data: sheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 2000 } // Fast polling for real-time broadcast
+    { enabled: roomId > 0, refetchInterval: 1000 } // Fast polling for real-time broadcast
   );
+
+  // Check if there's an active sheeloha broadcast (within last 4 seconds)
+  // This is used to disable the sheeloha button for all users while playing
+  // Also check if khalooha was pressed recently to stop the sheeloha
+  const [sheelohaDisabledUntil, setSheelohaDisabledUntil] = useState<number>(0);
+  
+  const isSheelohaActiveGlobally = useMemo(() => {
+    // If manually disabled (by khalooha), check if still in disabled period
+    if (Date.now() < sheelohaDisabledUntil) return false;
+    
+    if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return false;
+    const latestBroadcast = sheelohaBroadcasts[0];
+    const broadcastTime = new Date(latestBroadcast.createdAt).getTime();
+    const now = Date.now();
+    const timeSinceBroadcast = now - broadcastTime;
+    // Sheeloha plays for about 3.5 seconds, add buffer
+    return timeSinceBroadcast < 4000; // 4 seconds
+  }, [sheelohaBroadcasts, sheelohaDisabledUntil]);
 
   // Listen for khalooha commands to stop sheeloha for all users
   const { data: latestKhaloohaCommand } = trpc.khalooha.latest.useQuery(
@@ -1233,7 +1251,7 @@ export default function RoomScreen() {
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
-                    opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
+                    opacity: (!lastTaroukUri || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
                     width: '100%',
                     paddingVertical: 4,
                     paddingHorizontal: 4,
@@ -1243,6 +1261,14 @@ export default function RoomScreen() {
                   onPress={async () => {
                   console.log("[RoomScreen] Sheeloha button pressed");
                   console.log("[RoomScreen] Current lastTaroukUri:", lastTaroukUri);
+                  console.log("[RoomScreen] isSheelohaActiveGlobally:", isSheelohaActiveGlobally);
+                  
+                  // Check if sheeloha is already playing globally
+                  if (isSheelohaActiveGlobally) {
+                    console.log("[RoomScreen] Sheeloha already active globally, ignoring press");
+                    return;
+                  }
+                  
                   if (!lastTaroukUri) {
                     Alert.alert("تنبيه", "لا توجد رسائل طاروق");
                     return;
@@ -1275,7 +1301,7 @@ export default function RoomScreen() {
                     Alert.alert("خطأ", "فشل بث شيلوها");
                   }
                   }}
-                  disabled={isSheelohaProcessing}
+                  disabled={isSheelohaProcessing || isSheelohaActiveGlobally}
                 >
                   <View style={{ flexDirection: 'row', gap: 2 }}>
                     <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
@@ -1301,7 +1327,7 @@ export default function RoomScreen() {
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
-                    opacity: isSheelohaPlaying ? 1 : 0.5,
+                    opacity: (isSheelohaPlaying || isSheelohaActiveGlobally) ? 1 : 0.5,
                     width: '100%',
                     paddingVertical: 4,
                     paddingHorizontal: 4,
@@ -1311,6 +1337,10 @@ export default function RoomScreen() {
                   onPress={async () => {
                     // Stop sheeloha locally first (only sheeloha, not other sounds)
                     stopSheeloha();
+                    
+                    // Reset the global sheeloha disabled state immediately
+                    // This allows the button to be re-enabled right away
+                    setSheelohaDisabledUntil(0);
                     
                     // Broadcast stop command to all users
                     try {
