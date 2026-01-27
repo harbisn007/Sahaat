@@ -64,6 +64,9 @@ export function useSheelohaPlayer() {
   // Single clap player for native
   const clapPlayer = useAudioPlayer(CLAP_SOUND_URI);
   
+  // Track if clap player is preloaded and ready
+  const clapPreloadedRef = useRef<boolean>(false);
+  
   // Store timeouts and intervals for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
@@ -79,7 +82,7 @@ export function useSheelohaPlayer() {
   // Track current round
   const currentRoundRef = useRef<number>(0);
 
-  // Preload clap sound on mount (web only)
+  // Preload clap sound on mount (web and native)
   useEffect(() => {
     if (Platform.OS === "web") {
       const preloadClapSound = async () => {
@@ -111,8 +114,34 @@ export function useSheelohaPlayer() {
       };
       
       preloadClapSound();
+    } else {
+      // Native: Preload clap sound by playing it silently
+      const preloadNativeClap = async () => {
+        try {
+          console.log("[useSheelohaPlayer] Preloading native clap sound...");
+          // Set volume to 0 and play briefly to preload
+          clapPlayer.volume = 0;
+          clapPlayer.play();
+          // Stop after a short delay
+          setTimeout(() => {
+            try {
+              clapPlayer.pause();
+              clapPlayer.seekTo(0);
+              clapPreloadedRef.current = true;
+              console.log("[useSheelohaPlayer] Native clap sound preloaded successfully");
+            } catch (e) {
+              // Ignore errors during preload cleanup
+            }
+          }, 100);
+        } catch (error) {
+          console.error("[useSheelohaPlayer] Error preloading native clap sound:", error);
+        }
+      };
+      
+      // Delay preload slightly to ensure player is ready
+      setTimeout(preloadNativeClap, 500);
     }
-  }, []);
+  }, [clapPlayer]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -432,6 +461,22 @@ export function useSheelohaPlayer() {
    */
   const play3OverlappingClapsOnNative = useCallback((volume: number) => {
     if (!isPlayingRef.current) return;
+    
+    // If clap not preloaded yet, try to preload first
+    if (!clapPreloadedRef.current) {
+      console.log("[useSheelohaPlayer] Clap not preloaded, attempting preload...");
+      try {
+        clapPlayer.volume = 0;
+        clapPlayer.play();
+        setTimeout(() => {
+          try {
+            clapPlayer.pause();
+            clapPlayer.seekTo(0);
+            clapPreloadedRef.current = true;
+          } catch (e) {}
+        }, 50);
+      } catch (e) {}
+    }
     
     // Play 3 claps with 50ms delay between each
     for (let i = 0; i < SHEELOHA_CONFIG.clapCopies; i++) {
