@@ -69,7 +69,8 @@ export function useSheelohaPlayer() {
   
   // Store timeouts and intervals for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]); // For clapping intervals
+  const checkIntervalsRef = useRef<ReturnType<typeof setInterval>[]>([]); // For checking player finished
   // Store web audio context and nodes
   const audioContextRef = useRef<AudioContext | null>(null);
   const sourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
@@ -148,6 +149,7 @@ export function useSheelohaPlayer() {
     return () => {
       timeoutsRef.current.forEach(t => clearTimeout(t));
       intervalsRef.current.forEach(i => clearInterval(i));
+      checkIntervalsRef.current.forEach(i => clearInterval(i));
       sourceNodesRef.current.forEach(s => {
         try { s.stop(); } catch(e) {}
       });
@@ -171,6 +173,8 @@ export function useSheelohaPlayer() {
     timeoutsRef.current = [];
     intervalsRef.current.forEach(i => clearInterval(i));
     intervalsRef.current = [];
+    checkIntervalsRef.current.forEach(i => clearInterval(i));
+    checkIntervalsRef.current = [];
     
     // Stop web audio sources
     sourceNodesRef.current.forEach(s => {
@@ -408,6 +412,8 @@ export function useSheelohaPlayer() {
     timeoutsRef.current = [];
     intervalsRef.current.forEach(i => clearInterval(i));
     intervalsRef.current = [];
+    checkIntervalsRef.current.forEach(i => clearInterval(i));
+    checkIntervalsRef.current = [];
     sourceNodesRef.current.forEach(s => {
       try { s.stop(); } catch(e) {}
     });
@@ -576,6 +582,7 @@ export function useSheelohaPlayer() {
   /**
    * Play a single round on Native
    * Returns a promise that resolves when the round finishes
+   * Uses a fixed duration based on audio length estimate instead of checking player.playing
    */
   const playRoundOnNative = useCallback(async (
     audioUri: string,
@@ -587,7 +594,8 @@ export function useSheelohaPlayer() {
       console.log(`[useSheelohaPlayer] Playing native round ${roundNumber} at ${volume * 100}% volume`);
       
       const voicePlayers = [player1, player2, player3, player4, player5];
-      let finishedCount = 0;
+      let startedCount = 0;
+      let resolvedAlready = false;
       
       // Start clapping pattern for this round
       startClappingPatternNative(clappingSpeed, volume);
@@ -598,33 +606,52 @@ export function useSheelohaPlayer() {
         
         const timeout = setTimeout(() => {
           if (!isPlayingRef.current) {
-            resolve();
+            if (!resolvedAlready) {
+              resolvedAlready = true;
+              resolve();
+            }
             return;
           }
           
           try {
             voicePlayers[i].replace(audioUri);
-            voicePlayers[i].volume = volume; // Same volume for all copies
+            voicePlayers[i].volume = volume;
+            voicePlayers[i].play();
+            startedCount++;
+            console.log(`[useSheelohaPlayer] Started voice copy ${i+1} for round ${roundNumber}`);
             
-            // Listen for when this copy finishes playing
-            const checkFinished = setInterval(() => {
-              if (!voicePlayers[i].playing) {
-                clearInterval(checkFinished);
-                finishedCount++;
+            // When all 5 copies have started, set up a timer to end the round
+            // Use the first player's duration or estimate 3 seconds
+            if (startedCount === SHEELOHA_CONFIG.voiceCopies) {
+              // Wait for audio to finish - estimate 3 seconds for typical tarouk
+              // Plus some buffer for the overlapping copies
+              const estimatedDuration = 3500; // 3.5 seconds
+              
+              const finishTimeout = setTimeout(() => {
+                if (!isPlayingRef.current) {
+                  if (!resolvedAlready) {
+                    resolvedAlready = true;
+                    resolve();
+                  }
+                  return;
+                }
                 
-                // When ALL copies finish, stop clapping and resolve
-                if (finishedCount >= SHEELOHA_CONFIG.voiceCopies) {
-                  console.log(`[useSheelohaPlayer] Native round ${roundNumber} finished`);
-                  intervalsRef.current.forEach(interval => clearInterval(interval));
-                  intervalsRef.current = [];
+                console.log(`[useSheelohaPlayer] Native round ${roundNumber} finished (by timer)`);
+                // Stop clapping for this round
+                intervalsRef.current.forEach(interval => clearInterval(interval));
+                intervalsRef.current = [];
+                
+                if (!resolvedAlready) {
+                  resolvedAlready = true;
                   resolve();
                 }
-              }
-            }, 100);
-            
-            voicePlayers[i].play();
+              }, estimatedDuration);
+              
+              timeoutsRef.current.push(finishTimeout);
+            }
           } catch (e) {
             console.error(`[useSheelohaPlayer] Native play error for copy ${i+1}:`, e);
+            startedCount++; // Count as started even if failed
           }
         }, delay);
         
@@ -645,6 +672,8 @@ export function useSheelohaPlayer() {
     timeoutsRef.current = [];
     intervalsRef.current.forEach(i => clearInterval(i));
     intervalsRef.current = [];
+    checkIntervalsRef.current.forEach(i => clearInterval(i));
+    checkIntervalsRef.current = [];
     try {
       player1.pause();
       player2.pause();
