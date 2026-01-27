@@ -401,10 +401,10 @@ export function useSheelohaPlayer() {
   }, [startClappingPattern]);
 
   /**
-   * Play on Web using Web Audio API - TWO SEQUENTIAL ROUNDS
+   * Play on Web using Web Audio API - SINGLE ROUND
    */
   const playOnWeb = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
-    console.log("[useSheelohaPlayer] Playing on Web (2 rounds):", audioUri, "speed:", clappingSpeed);
+    console.log("[useSheelohaPlayer] Playing on Web (1 round):", audioUri, "speed:", clappingSpeed);
     
     // Don't call stopSheeloha() here as it resets isPlaying to false
     // Just clear any existing timeouts/intervals and stop sources directly
@@ -450,19 +450,9 @@ export function useSheelohaPlayer() {
       console.log("[useSheelohaPlayer] Voice audio decoded, duration:", audioBuffer.duration);
       setState({ isPlaying: true, isProcessing: false });
       
-      // ROUND 1: 35% volume
+      // SINGLE ROUND: 35% volume
       currentRoundRef.current = 1;
       await playRoundOnWeb(ctx, audioBuffer, clapBuffer, SHEELOHA_CONFIG.round1Volume, clappingSpeed, 1);
-      
-      // Check if still playing (not stopped by user)
-      if (!isPlayingRef.current) {
-        setState({ isPlaying: false, isProcessing: false });
-        return;
-      }
-      
-      // ROUND 2: 15% volume (distant echo)
-      currentRoundRef.current = 2;
-      await playRoundOnWeb(ctx, audioBuffer, clapBuffer, SHEELOHA_CONFIG.round2Volume, clappingSpeed, 2);
       
       // All done
       isPlayingRef.current = false;
@@ -474,7 +464,7 @@ export function useSheelohaPlayer() {
       isPlayingRef.current = false;
       setState({ isPlaying: false, isProcessing: false });
     }
-  }, [stopSheeloha, loadClapSound, playRoundOnWeb]);
+  }, [loadClapSound, playRoundOnWeb]);
 
   /**
    * Play 3 overlapping claps on native
@@ -661,10 +651,10 @@ export function useSheelohaPlayer() {
   }, [player1, player2, player3, player4, player5, startClappingPatternNative]);
 
   /**
-   * Play on Native using expo-audio - TWO SEQUENTIAL ROUNDS
+   * Play on Native using expo-audio - SINGLE ROUND
    */
   const playOnNative = useCallback(async (audioUri: string, clappingSpeed: ClappingSpeed = 0) => {
-    console.log("[useSheelohaPlayer] Playing on Native (2 rounds):", audioUri, "speed:", clappingSpeed);
+    console.log("[useSheelohaPlayer] Playing on Native (1 round):", audioUri, "speed:", clappingSpeed);
     
     // Don't call stopSheeloha() here as it resets isPlaying to false
     // Just clear any existing timeouts/intervals and stop players directly
@@ -688,26 +678,16 @@ export function useSheelohaPlayer() {
     setState({ isPlaying: true, isProcessing: false });
     console.log("[useSheelohaPlayer] State set to isPlaying: true");
     
-    // ROUND 1: 35% volume
+    // SINGLE ROUND: 35% volume
     currentRoundRef.current = 1;
     await playRoundOnNative(audioUri, SHEELOHA_CONFIG.round1Volume, clappingSpeed, 1);
-    
-    // Check if still playing (not stopped by user)
-    if (!isPlayingRef.current) {
-      setState({ isPlaying: false, isProcessing: false });
-      return;
-    }
-    
-    // ROUND 2: 15% volume (distant echo)
-    currentRoundRef.current = 2;
-    await playRoundOnNative(audioUri, SHEELOHA_CONFIG.round2Volume, clappingSpeed, 2);
     
     // All done
     isPlayingRef.current = false;
     currentRoundRef.current = 0;
     setState({ isPlaying: false, isProcessing: false });
     
-  }, [stopSheeloha, playRoundOnNative]);
+  }, [playRoundOnNative]);
 
   /**
    * Main play function
