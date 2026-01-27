@@ -22,12 +22,13 @@ import { MessageBubble } from "@/components/message-bubble";
 import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
 import { RecordingIndicator } from "@/components/recording-indicator";
+import { EditProfileModal } from "@/components/edit-profile-modal";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 export default function RoomScreen() {
   const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
-  const { username, userId, avatar } = useUser();
+  const { username, userId, avatar, setUserData } = useUser();
 
   // Avatar images
   const avatarMale = require("@/assets/images/avatar-male.png");
@@ -54,6 +55,7 @@ export default function RoomScreen() {
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
+  const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
@@ -166,6 +168,7 @@ export default function RoomScreen() {
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
   const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
+  const updateProfileMutation = trpc.profile.update.useMutation();
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
     useAudioRecorder();
@@ -692,6 +695,28 @@ export default function RoomScreen() {
     }
   };
 
+  // Handle saving profile changes
+  const handleSaveProfile = async (newName: string, newAvatar: string) => {
+    try {
+      // Update local user context
+      await setUserData(newName, newAvatar);
+      
+      // Update participant in database
+      await updateProfileMutation.mutateAsync({
+        roomId,
+        userId,
+        username: newName,
+        avatar: newAvatar,
+      });
+      
+      // Refresh room data
+      refetch();
+    } catch (error) {
+      console.error("Failed to save profile:", error);
+      throw error;
+    }
+  };
+
   const handleLeaveRoom = async () => {
     Alert.alert(
       "مغادرة الساحة",
@@ -1043,6 +1068,31 @@ export default function RoomScreen() {
           <Text className="text-xs font-bold text-foreground mt-1">دعوة صديق</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Guest Profile Bar - Show for guests (users with names starting with 'ضيف') */}
+      {username && username.startsWith('ضيف') && (
+        <View 
+          className="px-4 py-2 flex-row items-center justify-between"
+          style={{ backgroundColor: 'rgba(139, 69, 19, 0.1)' }}
+        >
+          <View className="flex-row items-center gap-2">
+            <Image
+              source={avatar === 'female' ? avatarFemale : avatarMale}
+              className="w-8 h-8 rounded-full"
+              resizeMode="cover"
+            />
+            <Text className="text-foreground font-medium">{username}</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => setShowEditProfileModal(true)}
+            className="flex-row items-center gap-1 px-3 py-1.5 rounded-full"
+            style={{ backgroundColor: '#8B4513' }}
+          >
+            <MaterialIcons name="edit" size={16} color="white" />
+            <Text className="text-white text-xs font-semibold">تعديل الملف</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Join Requests from Viewers (Only for creator) - Max 2 shown */}
       {isRoomCreator && joinRequests && joinRequests.length > 0 && (
@@ -1630,6 +1680,15 @@ export default function RoomScreen() {
         visible={isReactionsPickerOpen}
         onClose={() => setIsReactionsPickerOpen(false)}
         onSelect={handleReaction}
+      />
+      
+      {/* Edit Profile Modal */}
+      <EditProfileModal
+        visible={showEditProfileModal}
+        onClose={() => setShowEditProfileModal(false)}
+        onSave={handleSaveProfile}
+        currentName={username || ""}
+        currentAvatar={avatar}
       />
     </ScreenContainer>
     </ImageBackground>

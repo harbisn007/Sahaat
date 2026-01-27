@@ -743,3 +743,27 @@ export async function kickPlayer(roomId: number, playerId: number, creatorId: nu
 
   return { success: true };
 }
+
+
+export async function updateParticipantProfile(
+  roomId: number,
+  userId: number,
+  newUsername: string,
+  newAvatar: string
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Update the participant's profile in this room
+  await db
+    .update(roomParticipants)
+    .set({ username: newUsername, avatar: newAvatar })
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.userId, userId)
+      )
+    );
+
+  return { success: true };
+}

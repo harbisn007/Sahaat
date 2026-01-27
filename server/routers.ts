@@ -551,6 +551,32 @@ export const appRouter = router({
       }),
   }),
 
+  // Update participant profile
+  profile: router({
+    update: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.number(),
+          username: z.string().min(2).max(20),
+          avatar: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          await db.updateParticipantProfile(
+            input.roomId,
+            input.userId,
+            input.username,
+            input.avatar
+          );
+          return { success: true };
+        } catch (error: any) {
+          throw new Error(error.message || "فشل تحديث الملف الشخصي");
+        }
+      }),
+  }),
+
   // Kick player router (creator only)
   kick: router({
     player: publicProcedure
