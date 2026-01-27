@@ -787,6 +787,24 @@ export default function RoomScreen() {
     
     setRecordingType(type);
     
+    // إرسال حالة التسجيل للخادم فوراً لعرض مؤشر "طاروق..." للجميع
+    if (username && userId) {
+      try {
+        await setRecordingStatusMutation.mutateAsync({
+          roomId,
+          userId,
+          username,
+          isRecording: true,
+          recordingType: type,
+        });
+        // تحديث فوري لعرض المؤشر بدون انتظار polling
+        refetchActiveRecordings();
+        console.log("[RoomScreen] Recording status sent to server IMMEDIATELY");
+      } catch (err) {
+        console.error("[RoomScreen] Failed to send recording status:", err);
+      }
+    }
+    
     // كتم جميع الأصوات المشغلة أثناء التسجيل
     console.log("[RoomScreen] Stopping all audio before recording...");
     stop(); // إيقاف تشغيل الرسائل الصوتية
@@ -800,12 +818,30 @@ export default function RoomScreen() {
       // التحقق من أن التسجيل لم يُلغَ أثناء التحضير
       if (!recordingType) {
         console.log("[RoomScreen] Recording was cancelled during preparation");
+        // مسح حالة التسجيل من الخادم
+        if (userId) {
+          try {
+            await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+            refetchActiveRecordings();
+          } catch (err) {
+            console.error("[RoomScreen] Failed to clear recording status:", err);
+          }
+        }
         return;
       }
       
       console.log("[RoomScreen] startRecording returned:", success);
       if (!success) {
         console.error("[RoomScreen] Recording failed");
+        // مسح حالة التسجيل من الخادم
+        if (userId) {
+          try {
+            await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+            refetchActiveRecordings();
+          } catch (err) {
+            console.error("[RoomScreen] Failed to clear recording status:", err);
+          }
+        }
         // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
         if (recordingType) {
           Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
@@ -813,26 +849,17 @@ export default function RoomScreen() {
         }
         return;
       }
-      
-      // إرسال حالة التسجيل للخادم لعرض مؤشر "طاروق..." للجميع
-      if (username && userId) {
-        try {
-          await setRecordingStatusMutation.mutateAsync({
-            roomId,
-            userId,
-            username,
-            isRecording: true,
-            recordingType: type,
-          });
-          // تحديث فوري لعرض المؤشر بدون انتظار polling
-          refetchActiveRecordings();
-          console.log("[RoomScreen] Recording status sent to server");
-        } catch (err) {
-          console.error("[RoomScreen] Failed to send recording status:", err);
-        }
-      }
     } catch (error) {
       console.error("[RoomScreen] Recording error:", error);
+      // مسح حالة التسجيل من الخادم
+      if (userId) {
+        try {
+          await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+          refetchActiveRecordings();
+        } catch (err) {
+          console.error("[RoomScreen] Failed to clear recording status:", err);
+        }
+      }
       // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
       if (recordingType) {
         const errorMessage = error instanceof Error ? error.message : "فشل بدء التسجيل";
