@@ -57,7 +57,7 @@ export default function RoomScreen() {
 
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 3000 }
+    { enabled: roomId > 0, refetchInterval: 2000, retry: false }
   );
 
   // Update joinedAt to current time on every room entry
@@ -91,9 +91,16 @@ export default function RoomScreen() {
   }, [roomData?.name, savedRoomName]);
 
   // التحقق من حذف الساحة وإخراج المشاركين
+  const [roomClosedAlertShown, setRoomClosedAlertShown] = useState(false);
+  
   useEffect(() => {
     // إذا كان هناك خطأ أو لم تعد roomData موجودة بعد التحميل
-    if (!isLoading && savedRoomName && !roomData) {
+    // وكان لدينا اسم الساحة محفوظاً (يعني كانت موجودة سابقاً)
+    const roomNotFound = !isLoading && savedRoomName && (!roomData || error);
+    
+    if (roomNotFound && !roomClosedAlertShown) {
+      console.log("[RoomScreen] Room closed detected - error:", error?.message, "roomData:", !!roomData);
+      setRoomClosedAlertShown(true);
       Alert.alert(
         "تم إغلاق الساحة",
         `تم إغلاق ساحة: ${savedRoomName}`,
@@ -106,7 +113,7 @@ export default function RoomScreen() {
         { cancelable: false }
       );
     }
-  }, [isLoading, roomData, savedRoomName]);
+  }, [isLoading, roomData, savedRoomName, error, roomClosedAlertShown]);
 
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
@@ -453,20 +460,39 @@ export default function RoomScreen() {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState<number>(0);
 
-  // Join requests query (for creator) - enabled when userRole is 'creator'
+  // Join requests query (for creator) - enabled when user is the room creator
+  // Use roomData.creatorId instead of userRole to avoid timing issues
+  const isRoomCreator = roomData?.creatorId === userId;
+  console.log("[RoomScreen] isRoomCreator check:", { creatorId: roomData?.creatorId, userId, isRoomCreator, roomId });
+  
   const { data: joinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
     { roomId },
-    { enabled: userRole === "creator" && roomId > 0, refetchInterval: 1000 }
+    { enabled: isRoomCreator && roomId > 0, refetchInterval: 1000 }
   );
+  
+  // Log join requests for debugging
+  useEffect(() => {
+    if (isRoomCreator) {
+      console.log("[RoomScreen] Join requests updated:", joinRequests?.length || 0, joinRequests);
+    }
+  }, [joinRequests, isRoomCreator]);
 
+  // Expire join request mutation
+  const expireJoinRequestMutation = trpc.joinRequests.expire.useMutation();
+  
   // Create join request mutation (for viewers)
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation({
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log("[RoomScreen] Join request created successfully:", data);
       setHasPendingRequest(true);
       setLastRequestTime(Date.now());
       // Auto-expire after 4 seconds
       setTimeout(() => {
         setHasPendingRequest(false);
+        // Also expire in database
+        if (data.requestId) {
+          expireJoinRequestMutation.mutate({ requestId: data.requestId });
+        }
       }, 4000);
     },
     onError: (error) => {
@@ -490,6 +516,7 @@ export default function RoomScreen() {
 
   // Handle viewer request to join as player
   const handleRequestJoinAsPlayer = () => {
+    console.log("[RoomScreen] handleRequestJoinAsPlayer called", { hasPendingRequest, userId, username, roomId, avatar });
     if (hasPendingRequest) {
       Alert.alert("انتظر", "لديك طلب قيد الانتظار");
       return;
@@ -498,6 +525,7 @@ export default function RoomScreen() {
       Alert.alert("خطأ", "يجب تسجيل الدخول");
       return;
     }
+    console.log("[RoomScreen] Sending join request...");
     createJoinRequestMutation.mutate({
       roomId,
       userId,
@@ -894,7 +922,7 @@ export default function RoomScreen() {
       </View>
 
       {/* Join Requests from Viewers (Only for creator) - Max 2 shown */}
-      {isCreator && joinRequests && joinRequests.length > 0 && (
+      {isRoomCreator && joinRequests && joinRequests.length > 0 && (
         <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
           {joinRequests.slice(0, 2).map((request) => (
             <View key={request.id} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
