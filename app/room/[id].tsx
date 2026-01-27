@@ -485,7 +485,7 @@ export default function RoomScreen() {
   
   const { data: joinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
     { roomId },
-    { enabled: isRoomCreator && roomId > 0, refetchInterval: 1000 }
+    { enabled: isRoomCreator && roomId > 0, refetchInterval: 300 } // Very fast polling for instant join requests
   );
   
   // Log join requests for debugging
@@ -937,11 +937,12 @@ export default function RoomScreen() {
         
         {/* Right: Share/Invite button */}
         <TouchableOpacity
-          style={{ width: 60 }}
+          style={{ width: 80 }}
           className="items-center justify-center"
           onPress={handleShareInvite}
         >
           <MaterialIcons name="share" size={28} color="#000000" />
+          <Text className="text-xs font-bold text-foreground mt-1">دعوة صديق</Text>
         </TouchableOpacity>
       </View>
 
