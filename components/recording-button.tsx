@@ -253,8 +253,9 @@ export function RecordingButton({
   }, [onCancelRecording, buttonId]);
 
   if (pressAndHold) {
-    const showDeleteUI = isRecording && isActiveRef.current;
-    const showPreparingUI = isPreparing && isActiveRef.current;
+    // Show UI when recording OR when touch is active and preparing
+    const showDeleteUI = isRecording && (isActiveRef.current || isTouchActiveRef.current);
+    const showPreparingUI = isPreparing && (isActiveRef.current || isTouchActiveRef.current);
     const isActive = showDeleteUI || showPreparingUI;
     
     return (
