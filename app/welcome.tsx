@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground } from "react-native";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
 import { useColors } from "@/hooks/use-colors";
@@ -15,6 +15,7 @@ const avatarFemale = require("@/assets/images/avatar-female.png");
 const welcomeBackground = require("@/assets/images/welcome-background.png");
 
 export default function WelcomeScreen() {
+  const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const [name, setName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarType | null>(null);
   const [customAvatarUri, setCustomAvatarUri] = useState<string | null>(null);
@@ -118,7 +119,12 @@ export default function WelcomeScreen() {
     setIsLoading(true);
     try {
       await setUserData(trimmedName, selectedAvatar);
-      router.replace("/(tabs)");
+      // Redirect to the original page if provided, otherwise go to tabs
+      if (redirect) {
+        router.replace(redirect as any);
+      } else {
+        router.replace("/(tabs)");
+      }
     } catch (error) {
       Alert.alert("خطأ", "حدث خطأ أثناء حفظ البيانات");
     } finally {

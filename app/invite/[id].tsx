@@ -1,5 +1,6 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { View, Text, TouchableOpacity, ImageBackground, Alert, ActivityIndicator } from "react-native";
+import { useEffect } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 import { useUser } from "@/lib/user-context";
@@ -10,13 +11,21 @@ const welcomeBackground = require("@/assets/images/welcome-background.png");
 export default function InviteScreen() {
   const { id, inviter } = useLocalSearchParams<{ id: string; inviter?: string }>();
   const router = useRouter();
-  const { username, avatarType, userId } = useUser();
+  const { username, avatarType, userId, isLoading: userLoading } = useUser();
   const roomId = parseInt(id || "0", 10);
+
+  // Check if user is logged in, redirect to welcome if not
+  useEffect(() => {
+    if (!userLoading && !username) {
+      // Save the invite URL to redirect back after login
+      router.replace(`/welcome?redirect=/invite/${roomId}`);
+    }
+  }, [userLoading, username, roomId, router]);
 
   // Fetch room data
   const { data: roomData, isLoading, error } = trpc.rooms.getById.useQuery(
     { roomId },
-    { enabled: roomId > 0 }
+    { enabled: roomId > 0 && !!username }
   );
 
   // Mutations for joining
@@ -26,7 +35,7 @@ export default function InviteScreen() {
   const handleJoinAsPlayer = async () => {
     if (!username || !userId) {
       Alert.alert("خطأ", "يرجى تسجيل الاسم أولاً");
-      router.replace("/welcome");
+      router.replace(`/welcome?redirect=/invite/${roomId}`);
       return;
     }
 
@@ -48,7 +57,7 @@ export default function InviteScreen() {
   const handleJoinAsViewer = async () => {
     if (!username || !userId) {
       Alert.alert("خطأ", "يرجى تسجيل الاسم أولاً");
-      router.replace("/welcome");
+      router.replace(`/welcome?redirect=/invite/${roomId}`);
       return;
     }
 
@@ -66,6 +75,26 @@ export default function InviteScreen() {
       Alert.alert("خطأ", errorMessage);
     }
   };
+
+  // Show loading while checking user status
+  if (userLoading) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#8B4513" />
+        <Text className="text-foreground mt-4">جاري التحقق...</Text>
+      </ScreenContainer>
+    );
+  }
+
+  // If not logged in, show message (will redirect via useEffect)
+  if (!username) {
+    return (
+      <ScreenContainer className="flex-1 items-center justify-center">
+        <ActivityIndicator size="large" color="#8B4513" />
+        <Text className="text-foreground mt-4">جاري التوجيه لتسجيل الدخول...</Text>
+      </ScreenContainer>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -114,6 +143,7 @@ export default function InviteScreen() {
               <Text className="text-2xl font-bold text-foreground mt-4 text-center">
                 دعوة للانضمام
               </Text>
+              <Text className="text-muted text-sm mt-2">مرحباً {username}</Text>
             </View>
 
             {/* Invitation Details */}

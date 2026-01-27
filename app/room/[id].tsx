@@ -419,10 +419,8 @@ export default function RoomScreen() {
   // Share invite link using deep link scheme
   const handleShareInvite = async () => {
     try {
-      // Use deep link scheme to open app directly on invite page
-      // Scheme: manus20260120123613://invite/{roomId}
-      const deepLinkScheme = 'manus20260120123613';
-      const inviteUrl = `${deepLinkScheme}://invite/${roomId}`;
+      // Use HTTP URL for the invite - this will open in browser/app
+      const inviteUrl = `https://sahaat-muhawara.manus.space/invite/${roomId}`;
       const roomName = roomData?.name || 'ساحة المحاورة';
       
       const message = `🎤 دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
@@ -432,6 +430,7 @@ export default function RoomScreen() {
       
       await Share.share({
         message,
+        url: inviteUrl,
         title: `دعوة للانضمام إلى ${roomName}`,
       });
     } catch (error) {
