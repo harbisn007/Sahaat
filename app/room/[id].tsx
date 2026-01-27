@@ -222,9 +222,9 @@ export default function RoomScreen() {
   );
 
   // Listen for active recordings to show "طاروق..." indicator
-  const { data: activeRecordings } = trpc.recording.getActive.useQuery(
+  const { data: activeRecordings, refetch: refetchActiveRecordings } = trpc.recording.getActive.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling for real-time indicator
+    { enabled: roomId > 0, refetchInterval: 200 } // Very fast polling for instant indicator
   );
 
   // Mutations for recording status
@@ -700,6 +700,8 @@ export default function RoomScreen() {
             isRecording: true,
             recordingType: type,
           });
+          // تحديث فوري لعرض المؤشر بدون انتظار polling
+          refetchActiveRecordings();
           console.log("[RoomScreen] Recording status sent to server");
         } catch (err) {
           console.error("[RoomScreen] Failed to send recording status:", err);
@@ -726,6 +728,8 @@ export default function RoomScreen() {
       if (userId) {
         try {
           await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+          // تحديث فوري لإخفاء المؤشر بدون انتظار polling
+          refetchActiveRecordings();
         } catch (err) {
           console.error("[RoomScreen] Failed to clear recording status:", err);
         }
@@ -802,6 +806,8 @@ export default function RoomScreen() {
       if (userId) {
         try {
           await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+          // تحديث فوري لإخفاء المؤشر بدون انتظار polling
+          refetchActiveRecordings();
         } catch (err) {
           console.error("[RoomScreen] Failed to clear recording status:", err);
         }
