@@ -92,6 +92,12 @@ let io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, So
 // تتبع المنشئين وساحاتهم
 const creatorSockets: Map<string, { socketId: string; roomId: number; lastHeartbeat: number }> = new Map();
 
+// تتبع المنشئين المنقطعين (للانتظار قبل الحذف)
+const pendingCreatorDeletions: Map<string, ReturnType<typeof setTimeout>> = new Map();
+
+// فترة الانتظار قبل حذف الساحة (بالملي ثانية) - 10 ثواني
+const CREATOR_DISCONNECT_GRACE_PERIOD = 10000;
+
 // دالة حذف الساحة وبيانات المنشئ (سيتم تعيينها لاحقاً)
 let deleteRoomAndCreatorCallback: ((roomId: number, creatorId: string) => Promise<void>) | null = null;
 
@@ -148,31 +154,62 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
         roomId,
         lastHeartbeat: Date.now(),
       });
+      
+      // إذا كان هناك حذف معلق، ألغه (المنشئ عاد للاتصال)
+      const pendingDeletion = pendingCreatorDeletions.get(creatorId);
+      if (pendingDeletion) {
+        clearTimeout(pendingDeletion);
+        pendingCreatorDeletions.delete(creatorId);
+        console.log(`[Socket.io] Creator ${creatorId} reconnected - cancelled room deletion`);
+      }
     });
 
     // قطع الاتصال
     socket.on("disconnect", async (reason) => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
       
-      // إذا كان المنقطع هو منشئ ساحة، احذف الساحة فوراً
+      // إذا كان المنقطع هو منشئ ساحة، انتظر فترة قبل حذف الساحة
       if (socket.data.isCreator && socket.data.creatorRoomId && socket.data.userId) {
         const roomId = socket.data.creatorRoomId;
         const creatorId = socket.data.userId;
         
-        console.log(`[Socket.io] Creator ${creatorId} disconnected from room ${roomId} - deleting room immediately`);
+        console.log(`[Socket.io] Creator ${creatorId} disconnected from room ${roomId} - waiting ${CREATOR_DISCONNECT_GRACE_PERIOD/1000}s before deletion`);
         
         // حذف من التتبع
         creatorSockets.delete(creatorId);
         
-        // حذف الساحة وبيانات المنشئ فوراً
-        if (deleteRoomAndCreatorCallback) {
-          try {
-            await deleteRoomAndCreatorCallback(roomId, creatorId);
-            console.log(`[Socket.io] Room ${roomId} and creator ${creatorId} deleted successfully`);
-          } catch (error) {
-            console.error(`[Socket.io] Failed to delete room ${roomId}:`, error);
-          }
+        // إلغاء أي حذف معلق سابق
+        const existingDeletion = pendingCreatorDeletions.get(creatorId);
+        if (existingDeletion) {
+          clearTimeout(existingDeletion);
         }
+        
+        // جدولة حذف الساحة بعد فترة الانتظار
+        const deletionTimeout = setTimeout(async () => {
+          // التحقق من أن المنشئ لم يعد للاتصال
+          const creatorData = creatorSockets.get(creatorId);
+          if (creatorData) {
+            console.log(`[Socket.io] Creator ${creatorId} reconnected - skipping deletion`);
+            pendingCreatorDeletions.delete(creatorId);
+            return;
+          }
+          
+          console.log(`[Socket.io] Creator ${creatorId} did not reconnect - deleting room ${roomId}`);
+          
+          // حذف الساحة وبيانات المنشئ
+          if (deleteRoomAndCreatorCallback) {
+            try {
+              await deleteRoomAndCreatorCallback(roomId, creatorId);
+              console.log(`[Socket.io] Room ${roomId} and creator ${creatorId} deleted successfully`);
+            } catch (error) {
+              console.error(`[Socket.io] Failed to delete room ${roomId}:`, error);
+            }
+          }
+          
+          pendingCreatorDeletions.delete(creatorId);
+        }, CREATOR_DISCONNECT_GRACE_PERIOD);
+        
+        pendingCreatorDeletions.set(creatorId, deletionTimeout);
       }
     });
   });
