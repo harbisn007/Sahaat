@@ -23,6 +23,7 @@ import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
 import { RecordingIndicator } from "@/components/recording-indicator";
 import { EditProfileModal } from "@/components/edit-profile-modal";
+import { SpeedWheel } from "@/components/speed-wheel";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
@@ -50,8 +51,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
-  // Clapping speed: 0 = none (1.25x), 1 = every 1.27s (1.25x), 2 = every 1.12s (1.19x), 3 = every 0.7s (1.14x), 4 = none (1.00x normal)
-  const [clappingSpeed, setClappingSpeed] = useState<0 | 1 | 2 | 3 | 4>(0);
+  // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
+  const [clappingDelay, setClappingDelay] = useState<number>(0.50);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
@@ -430,8 +431,8 @@ export default function RoomScreen() {
       });
       
       // Play sheeloha effect (5 overlapping copies with distance effect)
-      // Use medium speed (2) as default for broadcasts from other users
-      playSheeloha(latestBroadcast.audioUrl, 2);
+      // Use medium delay (0.50s) as default for broadcasts from other users
+      playSheeloha(latestBroadcast.audioUrl, 0.50);
     } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
       // Mark own broadcast as played without playing (already played locally)
       console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
@@ -1384,106 +1385,11 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              {/* Clapping Speed Options - vertical layout with "بلا" on top */}
-              <View style={{ alignItems: 'center', justifyContent: 'flex-start' }}>
-                {/* "بلا" button on top */}
-                <TouchableOpacity
-                  onPress={() => setClappingSpeed(0)}
-                  style={{
-                    width: 30,
-                    height: 16,
-                    borderRadius: 4,
-                    backgroundColor: clappingSpeed === 0 ? '#FFD700' : '#5D4037',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: clappingSpeed === 0 ? 0 : 1,
-                    borderColor: '#8B7355',
-                    marginBottom: 4,
-                  }}
-                >
-                  <Text 
-                    style={{ 
-                      color: clappingSpeed === 0 ? '#5D4037' : '#FFD700',
-                      fontSize: 8,
-                      fontWeight: '900',
-                    }}
-                  >
-                    بلا
-                  </Text>
-                </TouchableOpacity>
-                {/* Speed buttons in 2 columns: (1,3) and (2,4) */}
-                <View style={{ flexDirection: 'row', gap: 2 }}>
-                  {/* Column 1: buttons 1 and 3 */}
-                  <View style={{ flexDirection: 'column', gap: 2 }}>
-                    {[1, 3].map((speed) => (
-                      <TouchableOpacity
-                        key={speed}
-                        onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 4,
-                          backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderWidth: clappingSpeed === speed ? 0 : 1,
-                          borderColor: '#8B7355',
-                        }}
-                      >
-                        <Text 
-                          style={{ 
-                            color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                            fontSize: 9,
-                            fontWeight: '900',
-                          }}
-                        >
-                          {speed === 1 ? '١' : '٣'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {/* Column 2: buttons 2 and 4 */}
-                  <View style={{ flexDirection: 'column', gap: 2 }}>
-                    {[2, 4].map((speed) => (
-                      <TouchableOpacity
-                        key={speed}
-                        onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 4,
-                          backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderWidth: clappingSpeed === speed ? 0 : 1,
-                          borderColor: '#8B7355',
-                        }}
-                      >
-                        <Text 
-                          style={{ 
-                            color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                            fontSize: 9,
-                            fontWeight: '900',
-                          }}
-                        >
-                          {speed === 2 ? '٢' : '٤'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: 9,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  الصفقة (الإيقاع)
-                </Text>
-              </View>
+              {/* Clapping Delay Wheel */}
+              <SpeedWheel
+                value={clappingDelay}
+                onChange={setClappingDelay}
+              />
 
               {/* Sheeloha Button */}
               <View style={{ width: 60, alignItems: 'center' }}>
@@ -1524,8 +1430,8 @@ export default function RoomScreen() {
                     stopTarouk();
                     
                     console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
-                    // Play sheeloha effect immediately with selected clapping speed
-                    playSheeloha(lastTaroukUri!, clappingSpeed);
+                    // Play sheeloha effect immediately with selected clapping delay
+                    playSheeloha(lastTaroukUri!, clappingDelay);
                     
                     // Also broadcast to other users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
