@@ -116,13 +116,17 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
         const lastActivity = roomLastPlayerActivity.get(roomId);
 
         if (!lastActivity) {
-          // أول مرة نرى هذه الساحة فارغة - بدء العد
-          roomLastPlayerActivity.set(roomId, new Date(room.createdAt));
+          // أول مرة نرى هذه الساحة فارغة - بدء العد من الآن
+          // مهم: نستخدم الوقت الحالي وليس وقت إنشاء الساحة
+          // لتجنب حذف الساحة فوراً عند إعادة تشغيل الخادم
+          roomLastPlayerActivity.set(roomId, new Date());
+          console.log(`[RoomCleanup] Room ${roomId} has no players - starting 15 minute countdown`);
         } else {
           const elapsedMs = now.getTime() - lastActivity.getTime();
 
           if (elapsedMs >= timeoutMs) {
             // مرت 15 دقيقة بدون لاعب - حذف الساحة
+            console.log(`[RoomCleanup] Room ${roomId} has been empty for ${Math.round(elapsedMs/60000)} minutes - deleting`);
             await deleteRoomCompletely(roomId);
           }
         }
