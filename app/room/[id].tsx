@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -43,6 +43,17 @@ export default function RoomScreen() {
   };
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  
+  // Responsive button sizes for small screens
+  // Small screen: width < 360px
+  const isSmallScreen = screenWidth < 360;
+  const buttonWidth = isSmallScreen ? 48 : 60;
+  const iconSize = isSmallScreen ? 20 : 24;
+  const smallIconSize = isSmallScreen ? 14 : 18;
+  const wheelWidth = isSmallScreen ? 40 : 50;
+  const fontSize = isSmallScreen ? 7 : 9;
+  
   const roomId = parseInt(id || "0");
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -1389,16 +1400,17 @@ export default function RoomScreen() {
               <SpeedWheel
                 value={clappingDelay}
                 onChange={setClappingDelay}
+                width={wheelWidth}
               />
 
               {/* Sheeloha Button */}
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <TouchableOpacity
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
                     opacity: (!lastTaroukUri || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
-                    width: 60,
+                    width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
                     minHeight: 48,
@@ -1450,14 +1462,14 @@ export default function RoomScreen() {
                   disabled={isSheelohaProcessing || isSheelohaActiveGlobally}
                 >
                   <View style={{ flexDirection: 'row', gap: 2 }}>
-                    <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
-                    <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
+                    <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
+                    <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
                   </View>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 9,
+                    fontSize: fontSize,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
@@ -1468,13 +1480,13 @@ export default function RoomScreen() {
               </View>
 
               {/* Khalloha Button */}
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <TouchableOpacity
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
                     opacity: (isSheelohaPlaying || isSheelohaActiveGlobally) ? 1 : 0.5,
-                    width: 60,
+                    width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
                     minHeight: 48,
@@ -1502,12 +1514,12 @@ export default function RoomScreen() {
                     }
                   }}
                 >
-                  <MaterialIcons name="pan-tool" size={28} color="#FFD700" />
+                  <MaterialIcons name="pan-tool" size={iconSize + 4} color="#FFD700" />
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 9,
+                    fontSize: fontSize,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
@@ -1565,7 +1577,7 @@ export default function RoomScreen() {
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2">
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <RecordingButton
                   buttonId="comment"
                   isRecording={isRecording && recordingType === "comment"}
@@ -1577,19 +1589,20 @@ export default function RoomScreen() {
                   recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
                   iconComponent={
                     <View style={{ flexDirection: 'row', gap: 2 }}>
-                      <MaterialIcons name="music-note" size={18} color="#FFD700" />
-                      <MaterialIcons name="chat" size={18} color="#FFD700" />
+                      <MaterialIcons name="music-note" size={smallIconSize} color="#FFD700" />
+                      <MaterialIcons name="chat" size={smallIconSize} color="#FFD700" />
                     </View>
                   }
                   label=""
                   showLabel={false}
                   backgroundColor="#5D4037"
                   minHeight={48}
+                  width={buttonWidth}
                 />
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 7,
+                    fontSize: isSmallScreen ? 5 : 7,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
@@ -1599,7 +1612,7 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <RecordingButton
                   buttonId="tarouk"
                   isRecording={isRecording && recordingType === "tarouk"}
@@ -1611,16 +1624,17 @@ export default function RoomScreen() {
                   backgroundColor="#5D4037"
                   recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
                   iconComponent={
-                    <MaterialCommunityIcons name="microphone-variant" size={24} color="#FFD700" />
+                    <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#FFD700" />
                   }
                   label=""
                   showLabel={false}
                   minHeight={48}
+                  width={buttonWidth}
                 />
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 9,
+                    fontSize: fontSize,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,

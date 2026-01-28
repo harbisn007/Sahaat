@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from "react";
-import { View, Text, StyleSheet, Animated, PanResponder } from "react-native";
+import { View, Text, Animated, PanResponder } from "react-native";
 import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
@@ -21,9 +21,10 @@ const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
 interface SpeedWheelProps {
   value: number;
   onChange: (value: number) => void;
+  width?: number; // Optional width for responsive sizing
 }
 
-export function SpeedWheel({ value, onChange }: SpeedWheelProps) {
+export function SpeedWheel({ value, onChange, width = 50 }: SpeedWheelProps) {
   // Find current index
   const currentIndex = SPEED_VALUES.findIndex(v => Math.abs(v - value) < 0.001);
   const indexRef = useRef(currentIndex >= 0 ? currentIndex : 0);
@@ -86,33 +87,68 @@ export function SpeedWheel({ value, onChange }: SpeedWheelProps) {
     return val.toFixed(2).replace(".", "٫");
   };
   
+  // Responsive font sizes
+  const isSmall = width < 45;
+  const normalFontSize = isSmall ? 10 : 12;
+  const selectedFontSize = isSmall ? 12 : 14;
+  const labelFontSize = isSmall ? 7 : 9;
+  
   return (
-    <View style={styles.container}>
-      <View style={styles.wheelContainer} {...panResponder.panHandlers}>
+    <View style={{ alignItems: "center" }}>
+      <View 
+        style={{
+          height: WHEEL_HEIGHT,
+          width: width,
+          overflow: "hidden",
+          backgroundColor: "#5D4037",
+          borderRadius: 8,
+          borderWidth: 1,
+          borderColor: "#8B7355",
+        }} 
+        {...panResponder.panHandlers}
+      >
         {/* Highlight for selected item */}
-        <View style={styles.selectedHighlight} />
+        <View 
+          style={{
+            position: "absolute",
+            top: ITEM_HEIGHT,
+            left: 2,
+            right: 2,
+            height: ITEM_HEIGHT,
+            backgroundColor: "#FFD700",
+            borderRadius: 4,
+          }} 
+        />
         
         {/* Scrollable items */}
         <Animated.View
-          style={[
-            styles.itemsContainer,
-            {
-              transform: [
-                { translateY: scrollY },
-                { translateY: ITEM_HEIGHT }, // Offset to center
-              ],
-            },
-          ]}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            transform: [
+              { translateY: scrollY },
+              { translateY: ITEM_HEIGHT }, // Offset to center
+            ],
+          }}
         >
           {SPEED_VALUES.map((val, index) => {
             const isSelected = index === indexRef.current;
             return (
-              <View key={index} style={styles.item}>
+              <View 
+                key={index} 
+                style={{
+                  height: ITEM_HEIGHT,
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
                 <Text
-                  style={[
-                    styles.itemText,
-                    isSelected && styles.selectedText,
-                  ]}
+                  style={{
+                    fontSize: isSelected ? selectedFontSize : normalFontSize,
+                    fontWeight: isSelected ? "900" : "700",
+                    color: isSelected ? "#5D4037" : "#FFD700",
+                  }}
                 >
                   {formatValue(val)}
                 </Text>
@@ -122,77 +158,42 @@ export function SpeedWheel({ value, onChange }: SpeedWheelProps) {
         </Animated.View>
         
         {/* Fade overlays */}
-        <View style={[styles.fadeOverlay, styles.fadeTop]} pointerEvents="none" />
-        <View style={[styles.fadeOverlay, styles.fadeBottom]} pointerEvents="none" />
+        <View 
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            height: ITEM_HEIGHT,
+            top: 0,
+            backgroundColor: "rgba(93, 64, 55, 0.7)",
+          }} 
+          pointerEvents="none" 
+        />
+        <View 
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            height: ITEM_HEIGHT,
+            bottom: 0,
+            backgroundColor: "rgba(93, 64, 55, 0.7)",
+          }} 
+          pointerEvents="none" 
+        />
       </View>
       
       {/* Label */}
-      <Text style={styles.label}>التأخير</Text>
+      <Text 
+        style={{
+          marginTop: 4,
+          fontSize: labelFontSize,
+          fontWeight: "900",
+          color: "#9BA1A6",
+          textAlign: "center",
+        }}
+      >
+        الصفقة (الإيقاع)
+      </Text>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    alignItems: "center",
-  },
-  wheelContainer: {
-    height: WHEEL_HEIGHT,
-    width: 50,
-    overflow: "hidden",
-    backgroundColor: "#5D4037",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#8B7355",
-  },
-  selectedHighlight: {
-    position: "absolute",
-    top: ITEM_HEIGHT,
-    left: 2,
-    right: 2,
-    height: ITEM_HEIGHT,
-    backgroundColor: "#FFD700",
-    borderRadius: 4,
-  },
-  itemsContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-  },
-  item: {
-    height: ITEM_HEIGHT,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  itemText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#FFD700",
-  },
-  selectedText: {
-    color: "#5D4037",
-    fontWeight: "900",
-    fontSize: 14,
-  },
-  fadeOverlay: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: ITEM_HEIGHT,
-  },
-  fadeTop: {
-    top: 0,
-    backgroundColor: "rgba(93, 64, 55, 0.7)",
-  },
-  fadeBottom: {
-    bottom: 0,
-    backgroundColor: "rgba(93, 64, 55, 0.7)",
-  },
-  label: {
-    marginTop: 4,
-    fontSize: 9,
-    fontWeight: "900",
-    color: "#9BA1A6",
-    textAlign: "center",
-  },
-});
