@@ -1,0 +1,110 @@
+{
+  "query": "SELECT * FROM recording_status ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute SELECT * FROM recording_status ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "480001",
+      "roomId": "1590004",
+      "userId": "292256",
+      "username": "لبي بي لان",
+      "isRecording": "false",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 23:36:20",
+      "updatedAt": "2026-01-27 23:38:12"
+    },
+    {
+      "id": "450001",
+      "roomId": "1530001",
+      "userId": "983743",
+      "username": "الىااببب",
+      "isRecording": "false",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 21:40:28",
+      "updatedAt": "2026-01-27 21:40:28"
+    },
+    {
+      "id": "420005",
+      "roomId": "1500005",
+      "userId": "48731",
+      "username": "ينيتيتينين",
+      "isRecording": "false",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 20:13:23",
+      "updatedAt": "2026-01-27 20:13:25"
+    },
+    {
+      "id": "420004",
+      "roomId": "1500004",
+      "userId": "48731",
+      "username": "ينيتيتينين",
+      "isRecording": "true",
+      "recordingType": "comment",
+      "startedAt": "2026-01-27 20:11:14",
+      "updatedAt": "2026-01-27 20:12:03"
+    },
+    {
+      "id": "420003",
+      "roomId": "1500003",
+      "userId": "693071",
+      "username": "تؤتؤتؤ",
+      "isRecording": "false",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 19:30:28",
+      "updatedAt": "2026-01-27 19:30:31"
+    },
+    {
+      "id": "420002",
+      "roomId": "1500002",
+      "userId": "693071",
+      "username": "تؤتؤتؤ",
+      "isRecording": "true",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 19:27:44",
+      "updatedAt": "2026-01-27 19:27:44"
+    },
+    {
+      "id": "420001",
+      "roomId": "1500001",
+      "userId": "693071",
+      "username": "تؤتؤتؤ",
+      "isRecording": "true",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 19:17:39",
+      "updatedAt": "2026-01-27 19:22:40"
+    },
+    {
+      "id": "390001",
+      "roomId": "1470003",
+      "userId": "693071",
+      "username": "تؤتؤتؤ",
+      "isRecording": "false",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 18:45:45",
+      "updatedAt": "2026-01-27 18:49:56"
+    },
+    {
+      "id": "360004",
+      "roomId": "1440003",
+      "userId": "226421",
+      "username": "نايف عين الصقر",
+      "isRecording": "true",
+      "recordingType": "tarouk",
+      "startedAt": "2026-01-27 17:39:56",
+      "updatedAt": "2026-01-27 17:44:12"
+    },
+    {
+      "id": "360003",
+      "roomId": "1440003",
+      "userId": "805588",
+      "username": "الذيب",
+      "isRecording": "false",
+      "recordingType": "comment",
+      "startedAt": "2026-01-27 17:34:53",
+      "updatedAt": "2026-01-27 17:44:41"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\troomId\tuserId\tusername\tisRecording\trecordingType\tstartedAt\tupdatedAt\n480001\t1590004\t292256\tلبي بي لان\tfalse\ttarouk\t2026-01-27 23:36:20\t2026-01-27 23:38:12\n450001\t1530001\t983743\tالىااببب\tfalse\ttarouk\t2026-01-27 21:40:28\t2026-01-27 21:40:28\n420005\t1500005\t48731\tينيتيتينين\tfalse\ttarouk\t2026-01-27 20:13:23\t2026-01-27 20:13:25\n420004\t1500004\t48731\tينيتيتينين\ttrue\tcomment\t2026-01-27 20:11:14\t2026-01-27 20:12:03\n420003\t1500003\t693071\tتؤتؤتؤ\tfalse\ttarouk\t2026-01-27 19:30:28\t2026-01-27 19:30:31\n420002\t1500002\t693071\tتؤتؤتؤ\ttrue\ttarouk\t2026-01-27 19:27:44\t2026-01-27 19:27:44\n420001\t1500001\t693071\tتؤتؤتؤ\ttrue\ttarouk\t2026-01-27 19:17:39\t2026-01-27 19:22:40\n390001\t1470003\t693071\tتؤتؤتؤ\tfalse\ttarouk\t2026-01-27 18:45:45\t2026-01-27 18:49:56\n360004\t1440003\t226421\tنايف عين الصقر\ttrue\ttarouk\t2026-01-27 17:39:56\t2026-01-27 17:44:12\n360003\t1440003\t805588\tالذيب\tfalse\tcomment\t2026-01-27 17:34:53\t2026-01-27 17:44:41\n",
+  "stderr": "",
+  "execution_time_ms": 1608
+}

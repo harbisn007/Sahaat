@@ -4,6 +4,19 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import {
+  emitRoomUpdated,
+  emitRoomDeleted,
+  emitParticipantJoined,
+  emitParticipantLeft,
+  emitJoinRequestCreated,
+  emitJoinRequestResponded,
+  emitAudioMessageCreated,
+  emitReactionCreated,
+  emitRecordingStatusChanged,
+  emitSheelohaBroadcast,
+  emitKhaloohaCommand,
+} from "./_core/socket";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -225,6 +238,11 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         await db.removeParticipant(input.roomId, input.userId);
+        
+        // بث مغادرة المشارك لجميع المشاركين
+        emitParticipantLeft(input.roomId, input.userId);
+        emitRoomUpdated(input.roomId);
+        
         return { success: true };
       }),
 
@@ -239,6 +257,9 @@ export const appRouter = router({
         // الحصول على اسم الساحة قبل الحذف
         const room = await db.getRoomById(input.roomId);
         const roomName = room?.name || "ساحة غير معروفة";
+        
+        // بث حذف الساحة لجميع المشاركين قبل الحذف
+        emitRoomDeleted(input.roomId, roomName);
         
         await db.deleteRoom(input.roomId);
         return { success: true, roomName };
@@ -280,6 +301,19 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         const messageId = await db.addAudioMessage(input);
+        
+        // بث الرسالة الصوتية الجديدة لجميع المشاركين
+        emitAudioMessageCreated(
+          input.roomId,
+          messageId,
+          input.userId,
+          input.username,
+          input.messageType,
+          input.audioUrl,
+          input.duration,
+          new Date()
+        );
+        
         return { messageId };
       }),
 
@@ -354,6 +388,17 @@ export const appRouter = router({
           console.log("[API] Creating reaction:", input);
           const reactionId = await db.addReaction(input);
           console.log("[API] Reaction created with ID:", reactionId);
+          
+          // بث التفاعل الجديد لجميع المشاركين
+          emitReactionCreated(
+            input.roomId,
+            reactionId,
+            input.userId,
+            input.username,
+            input.reactionType,
+            new Date()
+          );
+          
           return { reactionId };
         } catch (error) {
           console.error("[API] Failed to create reaction:", error);
@@ -393,6 +438,16 @@ export const appRouter = router({
           console.log("[API] Creating sheeloha broadcast:", input);
           const broadcastId = await db.createSheelohaBroadcast(input);
           console.log("[API] Sheeloha broadcast created with ID:", broadcastId);
+          
+          // بث شيلوها لجميع المشاركين
+          emitSheelohaBroadcast(
+            input.roomId,
+            input.userId,
+            input.username,
+            input.audioUrl,
+            new Date()
+          );
+          
           return { broadcastId };
         } catch (error) {
           console.error("[API] Failed to create sheeloha broadcast:", error);
@@ -424,6 +479,15 @@ export const appRouter = router({
           console.log("[API] Creating khalooha command:", input);
           const commandId = await db.createKhaloohaCommand(input);
           console.log("[API] Khalooha command created with ID:", commandId);
+          
+          // بث خلوها لجميع المشاركين
+          emitKhaloohaCommand(
+            input.roomId,
+            input.userId,
+            input.username,
+            new Date()
+          );
+          
           return { commandId };
         } catch (error) {
           console.error("[API] Failed to create khalooha command:", error);
@@ -456,6 +520,16 @@ export const appRouter = router({
         try {
           console.log("[API] Setting recording status:", input);
           await db.setRecordingStatus(input);
+          
+          // بث تغيير حالة التسجيل لجميع المشاركين
+          emitRecordingStatusChanged(
+            input.roomId,
+            input.userId,
+            input.username,
+            input.isRecording,
+            input.recordingType
+          );
+          
           return { success: true };
         } catch (error) {
           console.error("[API] Failed to set recording status:", error);
@@ -499,6 +573,16 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         try {
           const requestId = await db.createJoinRequest(input);
+          
+          // بث طلب الانضمام الجديد للمنشئ
+          emitJoinRequestCreated(
+            input.roomId,
+            requestId,
+            input.userId,
+            input.username,
+            input.avatar
+          );
+          
           return { success: true, requestId };
         } catch (error: any) {
           throw new Error(error.message || "فشل إرسال الطلب");
@@ -535,6 +619,17 @@ export const appRouter = router({
             // Promote viewer to player (use request data for username and avatar)
             await db.promoteViewerToPlayer(input.roomId, request.userId, request.username, request.avatar);
           }
+          
+          // بث الرد على طلب الانضمام لجميع المشاركين
+          emitJoinRequestResponded(
+            input.roomId,
+            input.requestId,
+            input.accept,
+            request.userId
+          );
+          
+          // بث تحديث الساحة
+          emitRoomUpdated(input.roomId);
           
           return { success: true, request };
         } catch (error: any) {

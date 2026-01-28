@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { deleteAllRooms } from "../db";
+import { initializeSocketIO } from "./socket";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -33,6 +34,9 @@ async function startServer() {
   
   const app = express();
   const server = createServer(app);
+
+  // تهيئة Socket.io
+  initializeSocketIO(server);
 
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {
@@ -81,6 +85,7 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
+    console.log(`[Socket.io] WebSocket server ready on port ${port}`);
   });
 }
 

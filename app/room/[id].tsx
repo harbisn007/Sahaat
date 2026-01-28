@@ -268,6 +268,14 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 200 } // Very fast polling for instant indicator
   );
 
+  // Debug: Log activeRecordings changes
+  useEffect(() => {
+    if (activeRecordings && activeRecordings.length > 0) {
+      console.log("[RoomScreen] Active recordings:", activeRecordings.map(r => ({ userId: r.userId, username: r.username, isRecording: r.isRecording, type: r.recordingType })));
+      console.log("[RoomScreen] Current userId:", userId, "creatorId:", roomData?.creatorId);
+    }
+  }, [activeRecordings, userId, roomData?.creatorId]);
+
   // Mutations for recording status
   const setRecordingStatusMutation = trpc.recording.setStatus.useMutation();
   const clearRecordingStatusMutation = trpc.recording.clear.useMutation();
@@ -776,6 +784,9 @@ export default function RoomScreen() {
     );
   };
 
+  // Ref to track if recording was cancelled
+  const recordingCancelledRef = useRef(false);
+
   const handleStartRecording = async (type: "comment" | "tarouk") => {
     console.log("[RoomScreen] handleStartRecording called with type:", type);
     
@@ -784,6 +795,9 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Already recording or preparing, ignoring");
       return;
     }
+    
+    // Reset cancelled flag
+    recordingCancelledRef.current = false;
     
     setRecordingType(type);
     
@@ -815,8 +829,8 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Calling startRecording...");
       const success = await startRecording();
       
-      // التحقق من أن التسجيل لم يُلغَ أثناء التحضير
-      if (!recordingType) {
+      // التحقق من أن التسجيل لم يُلغَ أثناء التحضير - استخدام ref بدلاً من state
+      if (recordingCancelledRef.current) {
         console.log("[RoomScreen] Recording was cancelled during preparation");
         // مسح حالة التسجيل من الخادم
         if (userId) {
@@ -843,7 +857,7 @@ export default function RoomScreen() {
           }
         }
         // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
-        if (recordingType) {
+        if (!recordingCancelledRef.current) {
           Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
           setRecordingType(null);
         }
@@ -861,7 +875,7 @@ export default function RoomScreen() {
         }
       }
       // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
-      if (recordingType) {
+      if (!recordingCancelledRef.current) {
         const errorMessage = error instanceof Error ? error.message : "فشل بدء التسجيل";
         Alert.alert("خطأ", errorMessage);
         setRecordingType(null);
@@ -871,6 +885,9 @@ export default function RoomScreen() {
 
   const handleCancelRecording = async () => {
     console.log("[RoomScreen] Canceling recording - DELETE without saving...");
+    
+    // تعيين علم الإلغاء
+    recordingCancelledRef.current = true;
     
     // إعادة تعيين حالة التسجيل فوراً
     setRecordingType(null);
