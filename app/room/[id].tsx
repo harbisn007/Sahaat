@@ -17,6 +17,7 @@ import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
 import { RecordingButton } from "@/components/recording-button";
+import { sendCreatorHeartbeat } from "@/hooks/use-socket";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
 import { ReactionMessage } from "@/components/reaction-message";
@@ -1083,6 +1084,25 @@ export default function RoomScreen() {
   const isViewer = userRole === "viewer";
   
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
+
+  // إرسال heartbeat للمنشئ كل 3 ثواني لاكتشاف إغلاق التطبيق
+  useEffect(() => {
+    if (!isCreator || !roomId || !userId) return;
+    
+    // إرسال heartbeat فوري عند الدخول
+    sendCreatorHeartbeat(roomId, userId);
+    console.log("[RoomScreen] Creator heartbeat started for room:", roomId);
+    
+    // إرسال heartbeat كل 3 ثواني
+    const interval = setInterval(() => {
+      sendCreatorHeartbeat(roomId, userId);
+    }, 3000);
+    
+    return () => {
+      clearInterval(interval);
+      console.log("[RoomScreen] Creator heartbeat stopped for room:", roomId);
+    };
+  }, [isCreator, roomId, userId]);
 
   return (
     <ImageBackground 

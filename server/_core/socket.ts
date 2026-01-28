@@ -69,6 +69,9 @@ export interface ClientToServerEvents {
   
   // طلب تحديث البيانات (fallback)
   requestRoomData: (roomId: number) => void;
+  
+  // heartbeat للمنشئ
+  creatorHeartbeat: (data: { roomId: number; creatorId: string }) => void;
 }
 
 export interface InterServerEvents {
@@ -79,10 +82,22 @@ export interface SocketData {
   userId?: string;
   username?: string;
   currentRoomId?: number;
+  isCreator?: boolean;
+  creatorRoomId?: number;
 }
 
 // المتغير العام للـ Socket.io server
 let io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> | null = null;
+
+// تتبع المنشئين وساحاتهم
+const creatorSockets: Map<string, { socketId: string; roomId: number; lastHeartbeat: number }> = new Map();
+
+// دالة حذف الساحة وبيانات المنشئ (سيتم تعيينها لاحقاً)
+let deleteRoomAndCreatorCallback: ((roomId: number, creatorId: string) => Promise<void>) | null = null;
+
+export function setDeleteRoomAndCreatorCallback(callback: (roomId: number, creatorId: string) => Promise<void>) {
+  deleteRoomAndCreatorCallback = callback;
+}
 
 /**
  * تهيئة Socket.io server
@@ -121,9 +136,44 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client ${socket.id} left room ${roomId}`);
     });
 
+    // heartbeat للمنشئ
+    socket.on("creatorHeartbeat", (data: { roomId: number; creatorId: string }) => {
+      const { roomId, creatorId } = data;
+      socket.data.isCreator = true;
+      socket.data.creatorRoomId = roomId;
+      socket.data.userId = creatorId;
+      
+      creatorSockets.set(creatorId, {
+        socketId: socket.id,
+        roomId,
+        lastHeartbeat: Date.now(),
+      });
+    });
+
     // قطع الاتصال
-    socket.on("disconnect", (reason) => {
+    socket.on("disconnect", async (reason) => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
+      
+      // إذا كان المنقطع هو منشئ ساحة، احذف الساحة فوراً
+      if (socket.data.isCreator && socket.data.creatorRoomId && socket.data.userId) {
+        const roomId = socket.data.creatorRoomId;
+        const creatorId = socket.data.userId;
+        
+        console.log(`[Socket.io] Creator ${creatorId} disconnected from room ${roomId} - deleting room immediately`);
+        
+        // حذف من التتبع
+        creatorSockets.delete(creatorId);
+        
+        // حذف الساحة وبيانات المنشئ فوراً
+        if (deleteRoomAndCreatorCallback) {
+          try {
+            await deleteRoomAndCreatorCallback(roomId, creatorId);
+            console.log(`[Socket.io] Room ${roomId} and creator ${creatorId} deleted successfully`);
+          } catch (error) {
+            console.error(`[Socket.io] Failed to delete room ${roomId}:`, error);
+          }
+        }
+      }
     });
   });
 

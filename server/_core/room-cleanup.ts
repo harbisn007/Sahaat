@@ -56,7 +56,7 @@ async function hasNonCreatorPlayer(roomId: number): Promise<boolean> {
 /**
  * حذف الساحة وجميع بياناتها
  */
-async function deleteRoomCompletely(roomId: number): Promise<void> {
+export async function deleteRoomCompletely(roomId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
 
@@ -155,4 +155,21 @@ export function startRoomCleanupService(): void {
  */
 export async function deleteRoomImmediately(roomId: number): Promise<void> {
   await deleteRoomCompletely(roomId);
+}
+
+/**
+ * حذف الساحة وبيانات المنشئ (عند إغلاق التطبيق)
+ */
+export async function deleteRoomAndCreatorData(roomId: number, creatorId: string): Promise<void> {
+  console.log(`[RoomCleanup] Deleting room ${roomId} and creator ${creatorId} data`);
+  
+  // حذف الساحة أولاً
+  await deleteRoomCompletely(roomId);
+  
+  // حذف بيانات المنشئ من جميع الساحات (إذا كان مشاركاً في ساحات أخرى)
+  const db = await getDb();
+  if (db) {
+    await db.delete(roomParticipants).where(eq(roomParticipants.userId, creatorId));
+    console.log(`[RoomCleanup] Creator ${creatorId} data deleted from all rooms`);
+  }
 }
