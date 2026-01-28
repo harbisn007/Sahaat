@@ -7,6 +7,7 @@ import { useUser } from "@/lib/user-context";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
 import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
@@ -569,7 +570,7 @@ export default function InviteScreen() {
                       <Text className="text-foreground text-sm">دخول عبر</Text>
                       <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
                       <Text className="text-muted text-sm">/</Text>
-                      <MaterialCommunityIcons name="apple" size={24} color="#000" />
+                      <Ionicons name="logo-apple" size={24} color="#000" />
                     </>
                   )}
                 </TouchableOpacity>

@@ -8,6 +8,7 @@ import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
 import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import Ionicons from "@expo/vector-icons/Ionicons";
 
 // Import avatar images
 const avatarMale = require("@/assets/images/avatar-male.png");
@@ -158,30 +159,27 @@ export default function WelcomeScreen() {
       return;
     }
 
+    // التحقق من إدخال الاسم واختيار الصورة أولاً
+    const trimmedName = name.trim();
+    const validation = validateName(trimmedName);
+    
+    if (!validation.valid) {
+      Alert.alert("أكمل بياناتك", validation.message || "يرجى إدخال اسمك (3-20 حرف) قبل تسجيل الدخول");
+      return;
+    }
+    
+    if (!selectedAvatar) {
+      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
+      return;
+    }
+
     setIsGoogleLoading(true);
     try {
       const result = await signInWithGoogle();
       
       if (result.success) {
-        // إذا كان مستخدم جديد، نحتاج اسم وصورة
-        // إذا كان مستخدم مسجل، ندخل مباشرة
-        // حالياً نطلب الاسم والصورة دائماً
-        
-        if (result.name && result.avatar) {
-          // استخدام بيانات Google
-          await loginWithGoogle(result.userId, result.name, result.avatar);
-        } else if (name.trim() && selectedAvatar) {
-          // استخدام البيانات المدخلة
-          await loginWithGoogle(result.userId, name.trim(), selectedAvatar);
-        } else {
-          // طلب إدخال الاسم والصورة
-          Alert.alert(
-            "أكمل بياناتك",
-            "يرجى إدخال اسمك واختيار صورة شخصية ثم الضغط على زر Google مرة أخرى"
-          );
-          setIsGoogleLoading(false);
-          return;
-        }
+        // استخدام الاسم والصورة المختارة من المستخدم (وليس من Google)
+        await loginWithGoogle(result.userId, trimmedName, selectedAvatar);
         
         if (redirect) {
           router.replace(redirect as any);
@@ -216,21 +214,27 @@ export default function WelcomeScreen() {
       return;
     }
 
+    // التحقق من إدخال الاسم واختيار الصورة أولاً
+    const trimmedName = name.trim();
+    const validation = validateName(trimmedName);
+    
+    if (!validation.valid) {
+      Alert.alert("أكمل بياناتك", validation.message || "يرجى إدخال اسمك (3-20 حرف) قبل تسجيل الدخول");
+      return;
+    }
+    
+    if (!selectedAvatar) {
+      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
+      return;
+    }
+
     setIsAppleLoading(true);
     try {
       const result = await signInWithApple();
       
       if (result.success) {
-        if (name.trim() && selectedAvatar) {
-          await loginWithApple(result.userId, name.trim(), selectedAvatar);
-        } else {
-          Alert.alert(
-            "أكمل بياناتك",
-            "يرجى إدخال اسمك واختيار صورة شخصية ثم الضغط على زر Apple مرة أخرى"
-          );
-          setIsAppleLoading(false);
-          return;
-        }
+        // استخدام الاسم والصورة المختارة من المستخدم (وليس من Apple)
+        await loginWithApple(result.userId, trimmedName, selectedAvatar);
         
         if (redirect) {
           router.replace(redirect as any);
@@ -454,7 +458,7 @@ export default function WelcomeScreen() {
                       <Text className="text-foreground text-sm">دخول عبر</Text>
                       <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
                       <Text className="text-muted text-sm">/</Text>
-                      <MaterialCommunityIcons name="apple" size={24} color="#000" />
+                      <Ionicons name="logo-apple" size={24} color="#000" />
                     </>
                   )}
                 </TouchableOpacity>
