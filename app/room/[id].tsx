@@ -80,7 +80,7 @@ export default function RoomScreen() {
       }
     };
     
-    if (roomId > 0 && userId > 0) {
+    if (roomId > 0 && userId) {
       updateJoinedAt();
     }
   }, [roomId, userId]);
@@ -532,7 +532,7 @@ export default function RoomScreen() {
   });
 
   // Handle kick player
-  const handleKickPlayer = (playerId: number, playerName: string) => {
+  const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
       "طرد اللاعب",
       `هل تريد طرد ${playerName} من الساحة؟`,
@@ -545,7 +545,7 @@ export default function RoomScreen() {
             kickPlayerMutation.mutate({
               roomId,
               playerId,
-              creatorId: userId || 0,
+              creatorId: userId || "",
             });
           },
         },
@@ -637,7 +637,7 @@ export default function RoomScreen() {
   };
 
   // Handle creator response to join request
-  const handleRespondToJoinRequest = (requestId: number, requestUserId: number, accept: boolean) => {
+  const handleRespondToJoinRequest = (requestId: number, requestUserId: string, accept: boolean) => {
     respondToJoinRequestMutation.mutate({
       requestId,
       accept,

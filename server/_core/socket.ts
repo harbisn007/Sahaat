@@ -8,18 +8,18 @@ export interface ServerToClientEvents {
   roomDeleted: (data: { roomId: number; roomName: string }) => void;
   
   // أحداث المشاركين
-  participantJoined: (data: { roomId: number; userId: number; username: string; role: string }) => void;
-  participantLeft: (data: { roomId: number; userId: number }) => void;
+  participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;
+  participantLeft: (data: { roomId: number; userId: string }) => void;
   
   // أحداث طلبات الانضمام
-  joinRequestCreated: (data: { roomId: number; requestId: number; userId: number; username: string; avatar: string }) => void;
-  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: number }) => void;
+  joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
+  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => void;
   
   // أحداث الرسائل الصوتية
   audioMessageCreated: (data: { 
     roomId: number; 
     messageId: number; 
-    userId: number; 
+    userId: string; 
     username: string; 
     messageType: string;
     audioUrl: string;
@@ -31,7 +31,7 @@ export interface ServerToClientEvents {
   reactionCreated: (data: { 
     roomId: number; 
     reactionId: number; 
-    userId: number; 
+    userId: string; 
     username: string; 
     reactionType: string;
     createdAt: string;
@@ -40,7 +40,7 @@ export interface ServerToClientEvents {
   // أحداث حالة التسجيل
   recordingStatusChanged: (data: { 
     roomId: number; 
-    userId: number; 
+    userId: string; 
     username: string;
     isRecording: boolean; 
     recordingType: string;
@@ -49,14 +49,14 @@ export interface ServerToClientEvents {
   // أحداث شيلوها وخلوها
   sheelohaBroadcast: (data: { 
     roomId: number; 
-    userId: number; 
+    userId: string; 
     username: string;
     audioUrl: string;
     createdAt: string;
   }) => void;
   khaloohaCommand: (data: { 
     roomId: number; 
-    userId: number; 
+    userId: string; 
     username: string;
     createdAt: string;
   }) => void;
@@ -76,7 +76,7 @@ export interface InterServerEvents {
 }
 
 export interface SocketData {
-  userId?: number;
+  userId?: string;
   username?: string;
   currentRoomId?: number;
 }
@@ -159,7 +159,7 @@ export function emitRoomDeleted(roomId: number, roomName: string): void {
 /**
  * بث انضمام مشارك جديد
  */
-export function emitParticipantJoined(roomId: number, userId: number, username: string, role: string): void {
+export function emitParticipantJoined(roomId: number, userId: string, username: string, role: string): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("participantJoined", { roomId, userId, username, role });
 }
@@ -167,7 +167,7 @@ export function emitParticipantJoined(roomId: number, userId: number, username: 
 /**
  * بث مغادرة مشارك
  */
-export function emitParticipantLeft(roomId: number, userId: number): void {
+export function emitParticipantLeft(roomId: number, userId: string): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("participantLeft", { roomId, userId });
 }
@@ -175,7 +175,7 @@ export function emitParticipantLeft(roomId: number, userId: number): void {
 /**
  * بث طلب انضمام جديد
  */
-export function emitJoinRequestCreated(roomId: number, requestId: number, userId: number, username: string, avatar: string): void {
+export function emitJoinRequestCreated(roomId: number, requestId: number, userId: string, username: string, avatar: string): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("joinRequestCreated", { roomId, requestId, userId, username, avatar });
 }
@@ -183,7 +183,7 @@ export function emitJoinRequestCreated(roomId: number, requestId: number, userId
 /**
  * بث الرد على طلب انضمام
  */
-export function emitJoinRequestResponded(roomId: number, requestId: number, accepted: boolean, userId: number): void {
+export function emitJoinRequestResponded(roomId: number, requestId: number, accepted: boolean, userId: string): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("joinRequestResponded", { roomId, requestId, accepted, userId });
 }
@@ -194,7 +194,7 @@ export function emitJoinRequestResponded(roomId: number, requestId: number, acce
 export function emitAudioMessageCreated(
   roomId: number, 
   messageId: number, 
-  userId: number, 
+  userId: string, 
   username: string, 
   messageType: string,
   audioUrl: string,
@@ -220,7 +220,7 @@ export function emitAudioMessageCreated(
 export function emitReactionCreated(
   roomId: number, 
   reactionId: number, 
-  userId: number, 
+  userId: string, 
   username: string, 
   reactionType: string,
   createdAt: Date
@@ -241,7 +241,7 @@ export function emitReactionCreated(
  */
 export function emitRecordingStatusChanged(
   roomId: number, 
-  userId: number, 
+  userId: string, 
   username: string,
   isRecording: boolean, 
   recordingType: string
@@ -261,7 +261,7 @@ export function emitRecordingStatusChanged(
  */
 export function emitSheelohaBroadcast(
   roomId: number, 
-  userId: number, 
+  userId: string, 
   username: string,
   audioUrl: string,
   createdAt: Date
@@ -281,7 +281,7 @@ export function emitSheelohaBroadcast(
  */
 export function emitKhaloohaCommand(
   roomId: number, 
-  userId: number, 
+  userId: string, 
   username: string,
   createdAt: Date
 ): void {
@@ -292,4 +292,15 @@ export function emitKhaloohaCommand(
     username,
     createdAt: createdAt.toISOString(),
   });
+}
+
+
+/**
+ * بث حذف الساحة لجميع المتصلين (للتنظيف التلقائي)
+ */
+export function broadcastRoomDeleted(roomId: number): void {
+  if (!io) return;
+  // بث لجميع المتصلين في الساحة
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "" });
+  console.log(`[Socket.io] Broadcasted room deletion: ${roomId}`);
 }

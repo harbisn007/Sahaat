@@ -10,9 +10,9 @@ interface RoomCardProps {
     viewerCount: number;
     acceptedPlayersCount: number;
     isRoomFull: boolean;
-    creatorId: number;
+    creatorId: string;
   };
-  currentUserId: number;
+  currentUserId: string;
   onJoinAsPlayer: () => void;
   onJoinAsViewer: () => void;
   onDirectEnter: () => void;

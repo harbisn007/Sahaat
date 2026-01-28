@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { deleteAllRooms } from "../db";
 import { initializeSocketIO } from "./socket";
+import { startRoomCleanupService } from "./room-cleanup";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -86,6 +87,9 @@ async function startServer() {
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
     console.log(`[Socket.io] WebSocket server ready on port ${port}`);
+    
+    // بدء نظام تنظيف الساحات الفارغة
+    startRoomCleanupService();
   });
 }
 

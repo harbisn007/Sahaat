@@ -94,7 +94,7 @@ export const appRouter = router({
       .input(
         z.object({
           name: z.string().min(3).max(100),
-          creatorId: z.number(),
+          creatorId: z.string(),
           creatorName: z.string().min(3).max(50),
           creatorAvatar: z.string().default("male"),
         })
@@ -126,7 +126,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string().min(3).max(50),
           avatar: z.string().default("male"),
         })
@@ -159,7 +159,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string().min(3).max(50),
           avatar: z.string().default("male"),
         })
@@ -233,7 +233,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
         })
       )
       .mutation(async ({ input }) => {
@@ -269,7 +269,7 @@ export const appRouter = router({
     getUserActiveRoom: publicProcedure
       .input(
         z.object({
-          creatorId: z.number(),
+          creatorId: z.string(),
         })
       )
       .query(async ({ input }) => {
@@ -292,7 +292,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string(),
           messageType: z.enum(["comment", "tarouk"]),
           audioUrl: z.string(), // Accept local URIs for now
@@ -357,7 +357,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string(),
           reactionType: z.enum([
             // الصف الأول - التفاعل الإيجابي
@@ -428,7 +428,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string(),
           audioUrl: z.string(),
         })
@@ -470,7 +470,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string(),
         })
       )
@@ -510,7 +510,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string(),
           isRecording: z.boolean(),
           recordingType: z.enum(["comment", "tarouk"]),
@@ -549,7 +549,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
         })
       )
       .mutation(async ({ input }) => {
@@ -565,7 +565,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string(),
           avatar: z.string(),
         })
@@ -603,7 +603,7 @@ export const appRouter = router({
           requestId: z.number(),
           accept: z.boolean(),
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
         })
       )
       .mutation(async ({ input }) => {
@@ -652,7 +652,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.number(),
+          userId: z.string(),
           username: z.string().min(2).max(20),
           avatar: z.string(),
         })
@@ -678,8 +678,8 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          playerId: z.number(),
-          creatorId: z.number(),
+          playerId: z.string(),
+          creatorId: z.string(),
         })
       )
       .mutation(async ({ input }) => {
