@@ -531,42 +531,52 @@ export default function InviteScreen() {
                   <View className="flex-1 h-px bg-border" />
                 </View>
 
-                {/* Social Buttons */}
-                <View className="flex-row gap-3">
-                  <TouchableOpacity
-                    className="flex-1 py-3 rounded-xl items-center justify-center flex-row gap-2"
-                    style={{ backgroundColor: googleConfigured ? '#4285F4' : colors.border, opacity: anyLoading ? 0.5 : 1 }}
-                    onPress={handleUpdateWithGoogle}
-                    disabled={anyLoading}
-                  >
-                    {isGoogleLoading ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <>
-                        <MaterialCommunityIcons name="google" size={20} color="#fff" />
-                        <Text className="text-white font-semibold">Google</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-
-                  {Platform.OS !== 'android' && (
-                    <TouchableOpacity
-                      className="flex-1 py-3 rounded-xl items-center justify-center flex-row gap-2"
-                      style={{ backgroundColor: appleConfigured ? '#000' : colors.border, opacity: anyLoading ? 0.5 : 1 }}
-                      onPress={handleUpdateWithApple}
-                      disabled={anyLoading}
-                    >
-                      {isAppleLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
+                {/* Social Login Button - Combined Google/Apple */}
+                <TouchableOpacity
+                  className="py-3 rounded-xl items-center justify-center flex-row"
+                  style={{
+                    backgroundColor: (googleConfigured || appleConfigured) ? colors.surface : colors.border,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    opacity: anyLoading ? 0.5 : 1,
+                    gap: 6,
+                  }}
+                  onPress={() => {
+                    if (Platform.OS === 'ios' && appleConfigured && googleConfigured) {
+                      Alert.alert(
+                        'اختر طريقة الدخول',
+                        '',
+                        [
+                          { text: 'Google', onPress: handleUpdateWithGoogle },
+                          { text: 'Apple', onPress: handleUpdateWithApple },
+                          { text: 'إلغاء', style: 'cancel' },
+                        ]
+                      );
+                    } else if (googleConfigured) {
+                      handleUpdateWithGoogle();
+                    } else if (appleConfigured && Platform.OS !== 'android') {
+                      handleUpdateWithApple();
+                    } else {
+                      handleUpdateWithGoogle();
+                    }
+                  }}
+                  disabled={anyLoading}
+                >
+                  {(isGoogleLoading || isAppleLoading) ? (
+                    <ActivityIndicator color={colors.foreground} size="small" />
+                  ) : (
+                    <>
+                      <Text className="text-foreground text-sm">دخول عبر</Text>
+                      <MaterialCommunityIcons name="google" size={20} color="#4285F4" />
+                      {Platform.OS !== 'android' && (
                         <>
-                          <MaterialCommunityIcons name="apple" size={20} color="#fff" />
-                          <Text className="text-white font-semibold">Apple</Text>
+                          <Text className="text-muted text-sm">/</Text>
+                          <MaterialCommunityIcons name="apple" size={20} color="#000" />
                         </>
                       )}
-                    </TouchableOpacity>
+                    </>
                   )}
-                </View>
+                </TouchableOpacity>
               </View>
 
               {/* Cancel Button */}

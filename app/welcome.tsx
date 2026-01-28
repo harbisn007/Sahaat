@@ -410,44 +410,54 @@ export default function WelcomeScreen() {
                 {/* Separator */}
                 <Text className="text-muted text-sm">أو</Text>
 
-                {/* Social Login Buttons */}
-                <View className="flex-row gap-2">
-                  {/* Google Button */}
-                  <TouchableOpacity
-                    className="rounded-xl py-3 px-4 items-center justify-center"
-                    style={{
-                      backgroundColor: googleConfigured ? '#4285F4' : colors.border,
-                      opacity: anyLoading ? 0.5 : 1,
-                    }}
-                    onPress={handleGoogleLogin}
-                    disabled={anyLoading}
-                  >
-                    {isGoogleLoading ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <MaterialCommunityIcons name="google" size={24} color="#fff" />
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Apple Button - iOS only */}
-                  {Platform.OS !== 'android' && (
-                    <TouchableOpacity
-                      className="rounded-xl py-3 px-4 items-center justify-center"
-                      style={{
-                        backgroundColor: appleConfigured ? '#000' : colors.border,
-                        opacity: anyLoading ? 0.5 : 1,
-                      }}
-                      onPress={handleAppleLogin}
-                      disabled={anyLoading}
-                    >
-                      {isAppleLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <MaterialCommunityIcons name="apple" size={24} color="#fff" />
+                {/* Social Login Button - Combined Google/Apple */}
+                <TouchableOpacity
+                  className="rounded-xl py-3 px-4 items-center justify-center flex-row"
+                  style={{
+                    backgroundColor: (googleConfigured || appleConfigured) ? colors.surface : colors.border,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    opacity: anyLoading ? 0.5 : 1,
+                    gap: 6,
+                  }}
+                  onPress={() => {
+                    // إذا كان على iOS، نعرض خيارات
+                    if (Platform.OS === 'ios' && appleConfigured && googleConfigured) {
+                      Alert.alert(
+                        'اختر طريقة الدخول',
+                        '',
+                        [
+                          { text: 'Google', onPress: handleGoogleLogin },
+                          { text: 'Apple', onPress: handleAppleLogin },
+                          { text: 'إلغاء', style: 'cancel' },
+                        ]
+                      );
+                    } else if (googleConfigured) {
+                      handleGoogleLogin();
+                    } else if (appleConfigured && Platform.OS !== 'android') {
+                      handleAppleLogin();
+                    } else {
+                      // إذا لم يكن أي منهما مُعداً
+                      handleGoogleLogin(); // سيعرض رسالة "غير متاح"
+                    }
+                  }}
+                  disabled={anyLoading}
+                >
+                  {(isGoogleLoading || isAppleLoading) ? (
+                    <ActivityIndicator color={colors.foreground} size="small" />
+                  ) : (
+                    <>
+                      <Text className="text-foreground text-sm">دخول عبر</Text>
+                      <MaterialCommunityIcons name="google" size={20} color="#4285F4" />
+                      {Platform.OS !== 'android' && (
+                        <>
+                          <Text className="text-muted text-sm">/</Text>
+                          <MaterialCommunityIcons name="apple" size={20} color="#000" />
+                        </>
                       )}
-                    </TouchableOpacity>
+                    </>
                   )}
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
 
