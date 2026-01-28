@@ -162,12 +162,15 @@ export default function InviteScreen() {
 
     setIsUpdating(true);
     try {
+      console.log("[InviteScreen] Calling loginAsGuest with:", { name: editName.trim(), avatar: editAvatar });
       await loginAsGuest(editName.trim(), editAvatar);
+      console.log("[InviteScreen] loginAsGuest successful");
       setShowEditModal(false);
-      // تحديث البيانات في الساحة
       Alert.alert("تم", "تم تحديث بياناتك بنجاح");
     } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء التحديث");
+      console.error("[InviteScreen] loginAsGuest failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
+      Alert.alert("خطأ", errorMessage);
     } finally {
       setIsUpdating(false);
     }
@@ -179,22 +182,34 @@ export default function InviteScreen() {
       return;
     }
 
+    // التحقق من إدخال الاسم واختيار الصورة أولاً
+    if (!editName.trim() || editName.trim().length < 3) {
+      Alert.alert("أكمل بياناتك", "يرجى إدخال اسمك (3 حروف على الأقل) قبل تسجيل الدخول");
+      return;
+    }
+    if (!editAvatar) {
+      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
+      return;
+    }
+
     setIsGoogleLoading(true);
     try {
+      console.log("[InviteScreen] Starting Google login...");
       const result = await signInWithGoogle();
       
       if (result.success) {
-        const name = editName.trim() || result.name || "مستخدم Google";
-        const avatarToUse = editAvatar || result.avatar || "male";
-        
-        await loginWithGoogle(result.userId, name, avatarToUse);
+        console.log("[InviteScreen] Google auth successful, saving user data...");
+        await loginWithGoogle(result.userId, editName.trim(), editAvatar);
+        console.log("[InviteScreen] User data saved successfully");
         setShowEditModal(false);
         Alert.alert("تم", "تم تسجيل الدخول بـ Google بنجاح");
       } else if (result.error !== 'تم إلغاء تسجيل الدخول') {
         Alert.alert("خطأ", result.error || "فشل تسجيل الدخول");
       }
     } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Google");
+      console.error("[InviteScreen] Google login failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
+      Alert.alert("خطأ", errorMessage);
     } finally {
       setIsGoogleLoading(false);
     }
@@ -211,22 +226,34 @@ export default function InviteScreen() {
       return;
     }
 
+    // التحقق من إدخال الاسم واختيار الصورة أولاً
+    if (!editName.trim() || editName.trim().length < 3) {
+      Alert.alert("أكمل بياناتك", "يرجى إدخال اسمك (3 حروف على الأقل) قبل تسجيل الدخول");
+      return;
+    }
+    if (!editAvatar) {
+      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
+      return;
+    }
+
     setIsAppleLoading(true);
     try {
+      console.log("[InviteScreen] Starting Apple login...");
       const result = await signInWithApple();
       
       if (result.success) {
-        const name = editName.trim() || "مستخدم Apple";
-        const avatarToUse = editAvatar || "male";
-        
-        await loginWithApple(result.userId, name, avatarToUse);
+        console.log("[InviteScreen] Apple auth successful, saving user data...");
+        await loginWithApple(result.userId, editName.trim(), editAvatar);
+        console.log("[InviteScreen] User data saved successfully");
         setShowEditModal(false);
         Alert.alert("تم", "تم تسجيل الدخول بـ Apple بنجاح");
       } else if (result.error !== 'تم إلغاء تسجيل الدخول') {
         Alert.alert("خطأ", result.error || "فشل تسجيل الدخول");
       }
     } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Apple");
+      console.error("[InviteScreen] Apple login failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
+      Alert.alert("خطأ", errorMessage);
     } finally {
       setIsAppleLoading(false);
     }
