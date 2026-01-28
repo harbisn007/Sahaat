@@ -70,7 +70,7 @@ export default function InviteScreen() {
       // If already logged in, redirect to room directly
       if (username && userId) {
         autoJoinAttempted.current = true;
-        // المستخدم المسجل يدخل مباشرة كمشاهد
+        // المستخدم المسجل يدخل مباشرة كمستمع
         try {
           await joinAsViewerMutation.mutateAsync({
             roomId,
@@ -411,7 +411,7 @@ export default function InviteScreen() {
                 <View className="flex-row items-center gap-2">
                   <MaterialIcons name="visibility" size={24} color="#8B4513" />
                   <Text className="font-bold text-lg" style={{ color: "#8B4513" }}>
-                    {joinAsViewerMutation.isPending ? "جاري الانضمام..." : "انضم كمشاهد"}
+                    {joinAsViewerMutation.isPending ? "جاري الانضمام..." : "انضم كمستمع"}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -567,13 +567,9 @@ export default function InviteScreen() {
                   ) : (
                     <>
                       <Text className="text-foreground text-sm">دخول عبر</Text>
-                      <MaterialCommunityIcons name="google" size={20} color="#4285F4" />
-                      {Platform.OS !== 'android' && (
-                        <>
-                          <Text className="text-muted text-sm">/</Text>
-                          <MaterialCommunityIcons name="apple" size={20} color="#000" />
-                        </>
-                      )}
+                      <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
+                      <Text className="text-muted text-sm">/</Text>
+                      <MaterialCommunityIcons name="apple" size={24} color="#000" />
                     </>
                   )}
                 </TouchableOpacity>

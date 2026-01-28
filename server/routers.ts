@@ -55,7 +55,7 @@ export const appRouter = router({
         })
       );
       
-      // ترتيب الساحات حسب الأكثر تفاعلاً (مجموع اللاعبين والمشاهدين)
+      // ترتيب الساحات حسب الأكثر تفاعلاً (مجموع اللاعبين والمستمعين)
       const sortedRooms = roomsWithCounts.sort((a, b) => {
         const totalA = (a.playerCount || 0) + (a.viewerCount || 0);
         const totalB = (b.playerCount || 0) + (b.viewerCount || 0);
@@ -687,7 +687,7 @@ export const appRouter = router({
           await db.kickPlayer(input.roomId, input.playerId, input.creatorId);
           return { success: true };
         } catch (error: any) {
-          throw new Error(error.message || "فشل طرد اللاعب");
+          throw new Error(error.message || "فشل استبعاد اللاعب");
         }
       }),
   }),

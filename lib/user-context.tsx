@@ -124,19 +124,73 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const loginAsGuest = async (name: string, newAvatar: AvatarType) => {
+    console.log("[UserContext] loginAsGuest called with:", { name, avatar: newAvatar });
+    
+    // Validate inputs
+    if (!name || name.trim().length === 0) {
+      throw new Error("الاسم مطلوب");
+    }
+    if (!newAvatar) {
+      throw new Error("الصورة مطلوبة");
+    }
+    
     try {
       // Generate new UUID for guest
-      const newUserId = uuidv4();
+      let newUserId: string;
+      try {
+        newUserId = uuidv4();
+        console.log("[UserContext] Generated UUID:", newUserId);
+      } catch (uuidError) {
+        console.error("[UserContext] UUID generation failed:", uuidError);
+        // Fallback to timestamp-based ID
+        newUserId = `guest_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        console.log("[UserContext] Using fallback ID:", newUserId);
+      }
       
-      await AsyncStorage.setItem(USER_ID_STORAGE_KEY, newUserId);
-      await AsyncStorage.setItem(USER_STORAGE_KEY, name);
-      await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
-      await AsyncStorage.setItem(USER_ACCOUNT_TYPE_KEY, "guest");
+      // Save to AsyncStorage with individual error handling
+      console.log("[UserContext] Saving to AsyncStorage...");
       
-      // Clear any existing Google/Apple IDs
-      await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
-      await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
+      try {
+        await AsyncStorage.setItem(USER_ID_STORAGE_KEY, newUserId);
+        console.log("[UserContext] Saved userId");
+      } catch (e) {
+        console.error("[UserContext] Failed to save userId:", e);
+        throw new Error("فشل حفظ معرف المستخدم");
+      }
       
+      try {
+        await AsyncStorage.setItem(USER_STORAGE_KEY, name);
+        console.log("[UserContext] Saved username");
+      } catch (e) {
+        console.error("[UserContext] Failed to save username:", e);
+        throw new Error("فشل حفظ الاسم");
+      }
+      
+      try {
+        await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
+        console.log("[UserContext] Saved avatar");
+      } catch (e) {
+        console.error("[UserContext] Failed to save avatar:", e);
+        throw new Error("فشل حفظ الصورة");
+      }
+      
+      try {
+        await AsyncStorage.setItem(USER_ACCOUNT_TYPE_KEY, "guest");
+        console.log("[UserContext] Saved accountType");
+      } catch (e) {
+        console.error("[UserContext] Failed to save accountType:", e);
+        // Non-critical, continue
+      }
+      
+      // Clear any existing Google/Apple IDs (non-critical)
+      try {
+        await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
+        await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
+      } catch (e) {
+        console.warn("[UserContext] Failed to clear social IDs:", e);
+      }
+      
+      // Update state
       setUserIdState(newUserId);
       setUsernameState(name);
       setAvatarState(newAvatar);
@@ -144,9 +198,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setGoogleIdState(null);
       setAppleIdState(null);
       
-      console.log("[UserContext] Logged in as guest:", { userId: newUserId, name });
+      console.log("[UserContext] Logged in as guest successfully:", { userId: newUserId, name });
     } catch (error) {
-      console.error("Failed to login as guest:", error);
+      console.error("[UserContext] Failed to login as guest:", error);
       throw error;
     }
   };

@@ -106,7 +106,7 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
           onPress={onJoinAsViewer}
         >
           <Text className="font-semibold text-xs" style={{ color: colors.primary }}>
-            مشاهد
+            مستمع
           </Text>
         </TouchableOpacity>
       </View>

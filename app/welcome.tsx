@@ -130,15 +130,19 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
+      console.log("[WelcomeScreen] Starting guest login with:", { name: trimmedName, avatar: selectedAvatar });
       await loginAsGuest(trimmedName, selectedAvatar);
+      console.log("[WelcomeScreen] Guest login successful, redirecting...");
       // Redirect to the original page if provided, otherwise go to tabs
       if (redirect) {
         router.replace(redirect as any);
       } else {
         router.replace("/(tabs)");
       }
-    } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء حفظ البيانات");
+    } catch (error: unknown) {
+      console.error("[WelcomeScreen] Guest login failed:", error);
+      const errorMessage = error instanceof Error ? error.message : "خطأ غير معروف";
+      Alert.alert("خطأ", `حدث خطأ أثناء حفظ البيانات: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }
@@ -448,13 +452,9 @@ export default function WelcomeScreen() {
                   ) : (
                     <>
                       <Text className="text-foreground text-sm">دخول عبر</Text>
-                      <MaterialCommunityIcons name="google" size={20} color="#4285F4" />
-                      {Platform.OS !== 'android' && (
-                        <>
-                          <Text className="text-muted text-sm">/</Text>
-                          <MaterialCommunityIcons name="apple" size={20} color="#000" />
-                        </>
-                      )}
+                      <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
+                      <Text className="text-muted text-sm">/</Text>
+                      <MaterialCommunityIcons name="apple" size={24} color="#000" />
                     </>
                   )}
                 </TouchableOpacity>

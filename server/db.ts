@@ -727,7 +727,7 @@ export async function kickPlayer(roomId: number, playerId: string, creatorId: st
     .limit(1);
 
   if (!room[0] || room[0].creatorId !== creatorId) {
-    throw new Error("ليس لديك صلاحية الطرد");
+    throw new Error("ليس لديك صلاحية الاستبعاد");
   }
 
   // Remove the player
