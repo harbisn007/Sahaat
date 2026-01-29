@@ -148,9 +148,6 @@ export default function HomeScreen() {
         creatorAvatar: avatar || "male",
       });
       console.log("[handleCreateRoom] Room created with ID:", result.roomId);
-
-      await refetch();
-      await refetchActiveRoom();
       
       console.log("[handleCreateRoom] Navigating to room...");
       setShowCreateModal(false);
