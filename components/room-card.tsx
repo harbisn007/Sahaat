@@ -11,17 +11,29 @@ interface RoomCardProps {
     acceptedPlayersCount: number;
     isRoomFull: boolean;
     creatorId: string;
+    hasGoldStar?: "true" | "false";
   };
   currentUserId: string;
   onJoinAsPlayer: () => void;
   onJoinAsViewer: () => void;
   onDirectEnter: () => void;
+  showGoldStar?: boolean;
+  rank?: number;
 }
 
-export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, onDirectEnter }: RoomCardProps) {
+export function RoomCard({ 
+  room, 
+  currentUserId, 
+  onJoinAsPlayer, 
+  onJoinAsViewer, 
+  onDirectEnter,
+  showGoldStar = false,
+  rank,
+}: RoomCardProps) {
   const colors = useColors();
   const isPlayersFull = room.isRoomFull;
   const isCreator = room.creatorId === currentUserId;
+  const hasGoldStar = showGoldStar || room.hasGoldStar === "true";
 
   // If creator, make the whole card clickable
   if (isCreator) {
@@ -32,10 +44,30 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
         onPress={onDirectEnter}
         activeOpacity={0.7}
       >
+        {/* Rank Badge */}
+        {rank && (
+          <View style={{ 
+            position: 'absolute', 
+            top: -6, 
+            right: -6, 
+            backgroundColor: rank <= 3 ? '#FFD700' : '#9CA3AF',
+            borderRadius: 10,
+            width: 20,
+            height: 20,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Text style={{ fontSize: 10, fontWeight: 'bold', color: rank <= 3 ? '#1F2937' : '#fff' }}>
+              {rank}
+            </Text>
+          </View>
+        )}
+        
         {/* Room Info */}
         <View className="mb-2">
           <View className="flex-row items-center gap-1 mb-1">
-            <Text className="text-sm font-bold text-foreground" numberOfLines={1}>{room.name}</Text>
+            {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
+            <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
             <Text className="text-xs">👑</Text>
           </View>
           <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
@@ -60,9 +92,32 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
   // For non-creators, show the buttons
   return (
     <View className="bg-surface rounded-xl p-3 border border-border shadow-sm" style={{ flex: 1 }}>
+      {/* Rank Badge */}
+      {rank && (
+        <View style={{ 
+          position: 'absolute', 
+          top: -6, 
+          right: -6, 
+          backgroundColor: rank <= 3 ? '#FFD700' : '#9CA3AF',
+          borderRadius: 10,
+          width: 20,
+          height: 20,
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1,
+        }}>
+          <Text style={{ fontSize: 10, fontWeight: 'bold', color: rank <= 3 ? '#1F2937' : '#fff' }}>
+            {rank}
+          </Text>
+        </View>
+      )}
+      
       {/* Room Info */}
       <View className="mb-2">
-        <Text className="text-sm font-bold text-foreground mb-1" numberOfLines={1}>{room.name}</Text>
+        <View className="flex-row items-center gap-1 mb-1">
+          {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
+          <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
+        </View>
         <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
       </View>
 

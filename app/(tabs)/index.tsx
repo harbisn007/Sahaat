@@ -1,5 +1,5 @@
-import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Alert } from "react-native";
-import { useEffect, useState } from "react";
+import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Alert, Animated, Easing, Dimensions } from "react-native";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ImageBackground } from "react-native";
@@ -12,22 +12,100 @@ import { useUser } from "@/lib/user-context";
 import { RoomCard } from "@/components/room-card";
 import { CreateRoomModal } from "@/components/create-room-modal";
 import { trpc } from "@/lib/trpc";
+import { useSocketConnection } from "@/hooks/use-socket";
+import { io, Socket } from "socket.io-client";
+import { Platform } from "react-native";
 
-/**
- * Home Screen - NativeWind Example
- *
- * This template uses NativeWind (Tailwind CSS for React Native).
- * You can use familiar Tailwind classes directly in className props.
- *
- * Key patterns:
- * - Use `className` instead of `style` for most styling
- * - Theme colors: use tokens directly (bg-background, text-foreground, bg-primary, etc.); no dark: prefix needed
- * - Responsive: standard Tailwind breakpoints work on web
- * - Custom colors defined in tailwind.config.js
- */
+// نوع الدعوة العامة
+interface PublicInvitation {
+  id: number;
+  roomId: number;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar: string;
+  roomName: string;
+  status: string;
+  displayedAt: Date | null;
+  createdAt: Date;
+}
+
+// مكون عنوان يومض
+function BlinkingTitle({ text, color }: { text: string; color: string }) {
+  const opacity = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const blink = Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, { toValue: 0.3, duration: 500, easing: Easing.ease, useNativeDriver: true }),
+        Animated.timing(opacity, { toValue: 1, duration: 500, easing: Easing.ease, useNativeDriver: true }),
+      ])
+    );
+    blink.start();
+    return () => blink.stop();
+  }, []);
+
+  return (
+    <Animated.Text style={{ opacity, color, fontWeight: 'bold', fontSize: 14, textDecorationLine: 'underline' }}>
+      {text}
+    </Animated.Text>
+  );
+}
+
+// مكون بطاقة الدعوة العامة
+function PublicInviteCard({ 
+  invite, 
+  onJoin 
+}: { 
+  invite: PublicInvitation; 
+  onJoin: () => void;
+}) {
+  return (
+    <View style={{ 
+      backgroundColor: 'rgba(255, 255, 255, 0.95)', 
+      borderRadius: 8, 
+      padding: 8, 
+      marginBottom: 6,
+      borderWidth: 1,
+      borderColor: '#E5E7EB',
+    }}>
+      <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600', marginBottom: 4 }} numberOfLines={1}>
+        {invite.creatorName}
+      </Text>
+      <TouchableOpacity
+        style={{ 
+          backgroundColor: '#EF4444', 
+          borderRadius: 6, 
+          paddingVertical: 6,
+          paddingHorizontal: 10,
+          alignItems: 'center',
+        }}
+        onPress={onJoin}
+      >
+        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>العب معي</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// الحصول على عنوان الخادم
+function getServerUrl(): string {
+  if (Platform.OS === "web") {
+    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
+    const host = window.location.hostname;
+    return `${protocol}//${host}:3000`;
+  }
+  return "http://127.0.0.1:3000";
+}
+
 export default function HomeScreen() {
   const { username, userId, avatar, accountType, isLoading: userLoading, logout, clearAllData } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const isConnected = useSocketConnection();
+  const socketRef = useRef<Socket | null>(null);
+  
+  // حالة الدعوات العامة
+  const [displayedInvites, setDisplayedInvites] = useState<PublicInvitation[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PublicInvitation[]>([]);
 
   // Mutation لحذف الساحة
   const deleteRoomMutation = trpc.rooms.deleteRoom.useMutation();
@@ -48,17 +126,12 @@ export default function HomeScreen() {
           text: "خروج",
           style: "destructive",
           onPress: () => {
-            // الانتقال فوراً للترحيب
             router.replace("/welcome");
-            
-            // تنفيذ الحذف وتسجيل الخروج في الخلفية
             (async () => {
               try {
-                // حذف الساحة النشطة إن وجدت (بدون انتظار)
                 if (activeRoom) {
                   deleteRoomMutation.mutate({ roomId: activeRoom.id });
                 }
-                
                 if (isGuest) {
                   await clearAllData();
                 } else {
@@ -89,13 +162,9 @@ export default function HomeScreen() {
           text: "تغيير",
           style: "destructive",
           onPress: () => {
-            // الانتقال فوراً للترحيب
             router.replace("/welcome");
-            
-            // تنفيذ الحذف وتسجيل الخروج في الخلفية
             (async () => {
               try {
-                // حذف الساحة النشطة إن وجدت (بدون انتظار)
                 if (activeRoom) {
                   deleteRoomMutation.mutate({ roomId: activeRoom.id });
                 }
@@ -110,20 +179,108 @@ export default function HomeScreen() {
     );
   };
 
-  const { data: roomsData, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery(
-    { page: 1, limit: 50 }, // جلب أول 50 ساحة
-    { refetchInterval: 5000 } // تحديث كل 5 ثواني
+  // استخدام API الجديد لـ TOP 10
+  const { data: top10Rooms, isLoading: roomsLoading, refetch } = trpc.top10.list.useQuery(
+    undefined,
+    { refetchInterval: 3000 } // تحديث كل 3 ثواني للترتيب الفوري
   );
-  const rooms = roomsData?.rooms || []; // استخراج الساحات من النتيجة
+  const rooms = top10Rooms || [];
+  
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
     { creatorId: userId },
     { refetchInterval: 3000 }
   );
+  
+  // جلب الدعوات العامة
+  const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery(
+    { limit: 50 },
+    { refetchInterval: 2000 }
+  );
+  const { data: displayedInvitesData } = trpc.publicInvitations.getDisplayed.useQuery(
+    { limit: 10 },
+    { refetchInterval: 1000 }
+  );
+  
   const createRoomMutation = trpc.rooms.create.useMutation();
   const joinAsPlayerMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
   const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
+  const createJoinRequestMutation = trpc.joinRequests.create.useMutation();
+  const markDisplayedMutation = trpc.publicInvitations.markDisplayed.useMutation();
+  const expireInviteMutation = trpc.publicInvitations.expire.useMutation();
   
   const hasActiveRoom = !!activeRoom;
+
+  // الانضمام لقناة الدعوات العامة
+  useEffect(() => {
+    const serverUrl = getServerUrl();
+    const socket = io(serverUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+    socketRef.current = socket;
+    
+    socket.on("connect", () => {
+      console.log("[Socket] Connected to public invites channel");
+      socket.emit("joinPublicInvites");
+    });
+    
+    // الاستماع للدعوات الجديدة
+    socket.on("publicInviteCreated", (data: { invitationId: number; roomId: number; creatorId: string; creatorName: string; creatorAvatar: string; roomName: string }) => {
+      console.log("[Socket] New public invite:", data);
+      refetch();
+    });
+    
+    socket.on("publicInviteExpired", (data: { invitationId: number }) => {
+      console.log("[Socket] Public invite expired:", data);
+      refetch();
+    });
+    
+    return () => {
+      socket.emit("leavePublicInvites");
+      socket.disconnect();
+    };
+  }, []);
+
+  // تحديث الدعوات من البيانات
+  useEffect(() => {
+    if (pendingInvitesData) {
+      setPendingInvites(pendingInvitesData as PublicInvitation[]);
+    }
+  }, [pendingInvitesData]);
+
+  useEffect(() => {
+    if (displayedInvitesData) {
+      setDisplayedInvites(displayedInvitesData as PublicInvitation[]);
+    }
+  }, [displayedInvitesData]);
+
+  // نظام طابور الدعوات (4 ثواني لكل دعوة)
+  useEffect(() => {
+    if (displayedInvites.length > 0) {
+      const timer = setTimeout(async () => {
+        const oldestInvite = displayedInvites[0];
+        if (oldestInvite) {
+          try {
+            await expireInviteMutation.mutateAsync({ invitationId: oldestInvite.id });
+          } catch (error) {
+            console.error("Failed to expire invite:", error);
+          }
+        }
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [displayedInvites]);
+
+  // نقل دعوة من الطابور للعرض
+  useEffect(() => {
+    if (displayedInvites.length < 10 && pendingInvites.length > 0) {
+      const nextInvite = pendingInvites[0];
+      if (nextInvite) {
+        markDisplayedMutation.mutate({ invitationId: nextInvite.id });
+      }
+    }
+  }, [displayedInvites.length, pendingInvites.length]);
 
   useEffect(() => {
     if (!userLoading && !username) {
@@ -132,31 +289,22 @@ export default function HomeScreen() {
   }, [username, userLoading]);
 
   const handleCreateRoom = async (roomName: string) => {
-    console.log("[handleCreateRoom] Starting with:", { roomName, username, userId, avatar });
-    
     if (!username || !userId) {
-      console.log("[handleCreateRoom] Missing username or userId");
       Alert.alert("خطأ", "يرجى تسجيل الدخول أولاً");
       return;
     }
 
     try {
-      console.log("[handleCreateRoom] Calling createRoomMutation...");
       const result = await createRoomMutation.mutateAsync({
         name: roomName,
         creatorId: userId,
         creatorName: username,
         creatorAvatar: avatar || "male",
       });
-      console.log("[handleCreateRoom] Room created with ID:", result.roomId);
       
-      console.log("[handleCreateRoom] Navigating to room...");
       setShowCreateModal(false);
-      
-      // Navigate immediately - modal closing is handled by state
       router.push(`/room/${result.roomId}`);
     } catch (error: any) {
-      console.error("[handleCreateRoom] Error:", error);
       Alert.alert("خطأ", error?.message || "حدث خطأ أثناء إنشاء الساحة");
     }
   };
@@ -195,6 +343,36 @@ export default function HomeScreen() {
     }
   };
 
+  // الانضمام عبر الدعوة العامة (يرسل طلب انضمام كلاعب)
+  const handleJoinFromInvite = async (invite: PublicInvitation) => {
+    if (!username || !userId) {
+      Alert.alert("خطأ", "يرجى تسجيل الدخول أولاً");
+      return;
+    }
+
+    try {
+      // إرسال طلب انضمام كلاعب
+      await createJoinRequestMutation.mutateAsync({
+        roomId: invite.roomId,
+        userId,
+        username,
+        avatar: avatar || "male",
+      });
+      
+      // الانتقال للساحة كمشاهد (سيتم ترقيته للاعب عند القبول)
+      await joinAsViewerMutation.mutateAsync({
+        roomId: invite.roomId,
+        userId,
+        username,
+        avatar: avatar || "male",
+      });
+      
+      router.push(`/room/${invite.roomId}`);
+    } catch (error: any) {
+      Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام");
+    }
+  };
+
   if (userLoading) {
     return (
       <ScreenContainer>
@@ -208,6 +386,10 @@ export default function HomeScreen() {
   if (!username) {
     return null;
   }
+
+  const screenWidth = Dimensions.get('window').width;
+  const leftColumnWidth = screenWidth * 0.33; // ⅓ للدعوات
+  const rightColumnWidth = screenWidth * 0.67; // ⅔ لـ TOP 10
 
   return (
     <ScreenContainer>
@@ -278,38 +460,101 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Rooms List */}
-      <View className="flex-1 px-6">
-        {roomsLoading ? (
-          <View className="flex-1 justify-center items-center">
-            <ActivityIndicator size="large" />
+      {/* Main Content - Two Columns */}
+      <View className="flex-1 flex-row px-2">
+        {/* العمود الأيسر - الدعوات العامة (⅓) */}
+        <View style={{ width: leftColumnWidth - 8, paddingHorizontal: 4 }}>
+          {/* عنوان الدعوات العامة */}
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <BlinkingTitle text="الدعوات العامة" color="#EF4444" />
           </View>
-        ) : rooms && rooms.length > 0 ? (
-          <FlatList
-            data={rooms}
-            keyExtractor={(item) => item.id.toString()}
-            numColumns={2}
-            columnWrapperStyle={{ gap: 8, marginBottom: 8 }}
-            renderItem={({ item }) => (
-              <View style={{ flex: 1, maxWidth: '50%' }}>
-                <RoomCard
-                  room={item}
-                  currentUserId={userId}
-                  onJoinAsPlayer={() => handleJoinAsPlayer(item.id)}
-                  onJoinAsViewer={() => handleJoinAsViewer(item.id)}
-                  onDirectEnter={() => router.push(`/room/${item.id}`)}
+          
+          {/* قائمة الدعوات */}
+          <ScrollView 
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20 }}
+          >
+            {displayedInvites.length > 0 ? (
+              displayedInvites.map((invite) => (
+                <PublicInviteCard
+                  key={invite.id}
+                  invite={invite}
+                  onJoin={() => handleJoinFromInvite(invite)}
                 />
+              ))
+            ) : (
+              <View style={{ alignItems: 'center', paddingTop: 20 }}>
+                <Text style={{ color: '#9CA3AF', fontSize: 11, textAlign: 'center' }}>
+                  لا توجد دعوات حالياً
+                </Text>
               </View>
             )}
-            refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} />}
-            contentContainerStyle={{ paddingBottom: 20 }}
-          />
-        ) : (
-          <View className="flex-1 justify-center items-center">
-            <Text className="text-muted text-center">لا توجد ساحات متاحة</Text>
-            <Text className="text-muted text-center mt-2">قم بإنشاء ساحة جديدة!</Text>
+          </ScrollView>
+        </View>
+
+        {/* الخط الفاصل المزخرف بالسدو */}
+        <View style={{ 
+          width: 3, 
+          backgroundColor: '#1F2937',
+          marginHorizontal: 4,
+          borderRadius: 2,
+          // زخرفة السدو البيضاء
+          borderStyle: 'dashed',
+          borderWidth: 1,
+          borderColor: '#fff',
+        }} />
+
+        {/* العمود الأيمن - TOP 10 (⅔) */}
+        <View style={{ flex: 1, paddingHorizontal: 4 }}>
+          {/* عنوان TOP 10 */}
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <Text style={{ 
+              fontWeight: 'bold', 
+              fontSize: 16, 
+              color: '#8B5CF6', // لون خزامي
+              textDecorationLine: 'underline',
+              textShadowColor: '#FFD700', // ذهبي
+              textShadowOffset: { width: 1, height: 1 },
+              textShadowRadius: 2,
+            }}>
+              ⭐ TOP 10 ⭐
+            </Text>
           </View>
-        )}
+          
+          {/* قائمة الساحات */}
+          {roomsLoading ? (
+            <View className="flex-1 justify-center items-center">
+              <ActivityIndicator size="large" />
+            </View>
+          ) : rooms && rooms.length > 0 ? (
+            <FlatList
+              data={rooms}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 6, marginBottom: 6 }}
+              renderItem={({ item, index }) => (
+                <View style={{ flex: 1, maxWidth: '50%' }}>
+                  <RoomCard
+                    room={item}
+                    currentUserId={userId}
+                    onJoinAsPlayer={() => handleJoinAsPlayer(item.id)}
+                    onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                    onDirectEnter={() => router.push(`/room/${item.id}`)}
+                    showGoldStar={item.hasGoldStar === "true"}
+                    rank={index + 1}
+                  />
+                </View>
+              )}
+              refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} />}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
+          ) : (
+            <View className="flex-1 justify-center items-center">
+              <Text className="text-muted text-center">لا توجد ساحات متاحة</Text>
+              <Text className="text-muted text-center mt-2">قم بإنشاء ساحة جديدة!</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       </ImageBackground>

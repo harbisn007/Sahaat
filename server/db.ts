@@ -474,7 +474,23 @@ export async function getUserActiveRoom(creatorId: string) {
     )
     .limit(1);
 
-  return userRooms[0] || null;
+  if (!userRooms[0]) return null;
+
+  // جلب عدد طلبات الانضمام المنتظرة
+  const pendingRequests = await db
+    .select()
+    .from(joinRequests)
+    .where(
+      and(
+        eq(joinRequests.roomId, userRooms[0].id),
+        eq(joinRequests.status, "pending")
+      )
+    );
+
+  return {
+    ...userRooms[0],
+    pendingRequestsCount: pendingRequests.length,
+  };
 }
 
 // ============ Audio Messages ============
@@ -872,4 +888,243 @@ export async function updateParticipantProfile(
     );
 
   return { success: true };
+}
+
+
+// ============ Public Invitations ============
+
+import { publicInvitations, type InsertPublicInvitation } from "../drizzle/schema.js";
+
+export async function createPublicInvitation(data: {
+  roomId: number;
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar: string;
+  roomName: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(publicInvitations).values(data);
+  return Number(result[0].insertId);
+}
+
+export async function getPendingPublicInvitations(limit: number = 50) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(publicInvitations)
+    .where(eq(publicInvitations.status, "pending"))
+    .orderBy(asc(publicInvitations.createdAt))
+    .limit(limit);
+}
+
+export async function getDisplayedPublicInvitations(limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(publicInvitations)
+    .where(eq(publicInvitations.status, "displayed"))
+    .orderBy(asc(publicInvitations.displayedAt))
+    .limit(limit);
+}
+
+export async function markInvitationAsDisplayed(invitationId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(publicInvitations)
+    .set({ status: "displayed", displayedAt: new Date() })
+    .where(eq(publicInvitations.id, invitationId));
+}
+
+export async function expirePublicInvitation(invitationId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(publicInvitations)
+    .set({ status: "expired" })
+    .where(eq(publicInvitations.id, invitationId));
+}
+
+export async function deletePublicInvitationsByRoom(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .delete(publicInvitations)
+    .where(eq(publicInvitations.roomId, roomId));
+}
+
+// ============ Gold Star ============
+
+export async function awardGoldStar(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  // Gold star expires after 24 hours
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+
+  await db
+    .update(rooms)
+    .set({ hasGoldStar: "true", goldStarExpiresAt: expiresAt })
+    .where(eq(rooms.id, roomId));
+}
+
+export async function removeGoldStar(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ hasGoldStar: "false", goldStarExpiresAt: null })
+    .where(eq(rooms.id, roomId));
+}
+
+export async function updateLastPublicInviteTime(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ lastPublicInviteAt: new Date() })
+    .where(eq(rooms.id, roomId));
+}
+
+export async function canSendPublicInvite(roomId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  const room = await db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1);
+
+  if (!room[0]) return false;
+
+  // If never sent, allow
+  if (!room[0].lastPublicInviteAt) return true;
+
+  // Check if 5 minutes have passed
+  const fiveMinutesAgo = new Date();
+  fiveMinutesAgo.setMinutes(fiveMinutesAgo.getMinutes() - 5);
+
+  return room[0].lastPublicInviteAt < fiveMinutesAgo;
+}
+
+// ============ Top 10 Rooms ============
+
+export async function getTop10Rooms() {
+  const db = await getDb();
+  if (!db) return [];
+
+  // جلب جميع الساحات النشطة
+  const allRooms = await db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.isActive, "true"));
+
+  if (allRooms.length === 0) return [];
+
+  // جلب جميع المشاركين للساحات النشطة
+  const roomIds = allRooms.map(r => r.id);
+  const allParticipants = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        inArray(roomParticipants.roomId, roomIds),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  // جلب جميع طلبات الانضمام المنتظرة
+  const allPendingRequests = await db
+    .select()
+    .from(joinRequests)
+    .where(
+      and(
+        inArray(joinRequests.roomId, roomIds),
+        eq(joinRequests.status, "pending")
+      )
+    );
+
+  // حساب الإحصائيات لكل ساحة
+  const roomsWithStats = allRooms.map(room => {
+    const roomParticipantsList = allParticipants.filter(p => p.roomId === room.id);
+    const roomPendingRequests = allPendingRequests.filter(r => r.roomId === room.id);
+    
+    const viewerCount = roomParticipantsList.filter(p => p.role === "viewer").length;
+    const playerCount = roomParticipantsList.filter(p => p.role === "player" || p.role === "creator").length;
+    const pendingRequestsCount = roomPendingRequests.length;
+    const acceptedPlayersCount = roomParticipantsList.filter(p => p.role === "player").length;
+
+    return {
+      ...room,
+      viewerCount,
+      playerCount,
+      pendingRequestsCount,
+      acceptedPlayersCount,
+      isRoomFull: acceptedPlayersCount >= 2,
+    };
+  });
+
+  // ترتيب حسب المعايير:
+  // 1. المستمعين الآنيين (الأكثر أولاً)
+  // 2. طلبات الانضمام المنتظرة (الأكثر أولاً)
+  // 3. اللاعبين الآنيين (الأكثر أولاً)
+  // 4. تاريخ الإنشاء (الأقدم أولاً)
+  const sortedRooms = roomsWithStats.sort((a, b) => {
+    // 1. المستمعين
+    if (b.viewerCount !== a.viewerCount) {
+      return b.viewerCount - a.viewerCount;
+    }
+    // 2. طلبات الانضمام المنتظرة
+    if (b.pendingRequestsCount !== a.pendingRequestsCount) {
+      return b.pendingRequestsCount - a.pendingRequestsCount;
+    }
+    // 3. اللاعبين
+    if (b.playerCount !== a.playerCount) {
+      return b.playerCount - a.playerCount;
+    }
+    // 4. الأقدم أولاً
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+
+  // إرجاع أفضل 10 ساحات فقط
+  return sortedRooms.slice(0, 10);
+}
+
+// دالة للتحقق من منح النجمة الذهبية
+export async function checkAndAwardGoldStar(roomId: number) {
+  const db = await getDb();
+  if (!db) return false;
+
+  // جلب عدد المشاهدين الحاليين
+  const viewers = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, roomId),
+        eq(roomParticipants.role, "viewer"),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  // إذا كان عدد المشاهدين أكثر من 20، منح النجمة
+  if (viewers.length > 20) {
+    await awardGoldStar(roomId);
+    return true;
+  }
+
+  return false;
 }

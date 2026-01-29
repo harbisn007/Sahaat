@@ -33,6 +33,11 @@ export const rooms = mysqlTable("rooms", {
   creatorName: varchar("creatorName", { length: 50 }).notNull(),
   creatorAvatar: varchar("creatorAvatar", { length: 500 }).default("male").notNull(), // 'male', 'female', or custom URL
   isActive: mysqlEnum("isActive", ["true", "false"]).default("true").notNull(),
+  // Gold star fields - awarded when room has more than 20 viewers at once
+  hasGoldStar: mysqlEnum("hasGoldStar", ["true", "false"]).default("false").notNull(),
+  goldStarExpiresAt: timestamp("goldStarExpiresAt"),
+  // Last public invite timestamp - for 5 minute cooldown
+  lastPublicInviteAt: timestamp("lastPublicInviteAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -133,3 +138,19 @@ export const joinRequests = mysqlTable("join_requests", {
   status: mysqlEnum("status", ["pending", "accepted", "rejected", "expired"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
+
+// Public invitations table (for broadcasting public invites to all users)
+export const publicInvitations = mysqlTable("public_invitations", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  creatorId: varchar("creatorId", { length: 100 }).notNull(), // Room creator who sent the invite
+  creatorName: varchar("creatorName", { length: 50 }).notNull(),
+  creatorAvatar: varchar("creatorAvatar", { length: 500 }).default("male").notNull(),
+  roomName: varchar("roomName", { length: 100 }).notNull(),
+  status: mysqlEnum("status", ["pending", "displayed", "expired"]).default("pending").notNull(),
+  displayedAt: timestamp("displayedAt"), // When the invite started being displayed in top 10
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PublicInvitation = typeof publicInvitations.$inferSelect;
+export type InsertPublicInvitation = typeof publicInvitations.$inferInsert;

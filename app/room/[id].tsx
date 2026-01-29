@@ -72,6 +72,10 @@ export default function RoomScreen() {
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
+  // حالة الدعوة العامة
+  const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
+  const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
+  const [lastPublicInviteTime, setLastPublicInviteTime] = useState<number | null>(null);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -962,6 +966,41 @@ export default function RoomScreen() {
   };
 
 
+  // Mutation لإرسال الدعوة العامة
+  const sendPublicInviteMutation = trpc.publicInvitations.create.useMutation({
+    onSuccess: () => {
+      setCanSendPublicInvite(false);
+      setLastPublicInviteTime(Date.now());
+      Alert.alert("تم", "تم إرسال الدعوة العامة بنجاح");
+      // إعادة تفعيل الزر بعد 5 دقائق
+      setTimeout(() => {
+        setCanSendPublicInvite(true);
+      }, 5 * 60 * 1000);
+    },
+    onError: (error) => {
+      Alert.alert("خطأ", error.message || "فشل إرسال الدعوة العامة");
+      setIsSendingPublicInvite(false);
+    },
+  });
+
+  // دالة إرسال الدعوة العامة
+  const handleSendPublicInvite = async () => {
+    if (!canSendPublicInvite || isSendingPublicInvite) return;
+    
+    setIsSendingPublicInvite(true);
+    try {
+      await sendPublicInviteMutation.mutateAsync({
+        roomId,
+        creatorId: userId,
+        creatorName: username || '',
+        creatorAvatar: avatar || 'male',
+        roomName: roomData?.name || 'ساحة المحاورة',
+      });
+    } finally {
+      setIsSendingPublicInvite(false);
+    }
+  };
+
   // Share invite link using web URL (clickable in messaging apps)
   const handleShareInvite = async () => {
     try {
@@ -1459,15 +1498,36 @@ export default function RoomScreen() {
           </Text>
         </View>
         
-        {/* Right: Share/Invite button */}
-        <TouchableOpacity
-          style={{ width: 80 }}
-          className="items-center justify-center"
-          onPress={handleShareInvite}
-        >
-          <MaterialIcons name="share" size={28} color="#000000" />
-          <Text className="text-xs font-bold text-foreground mt-1">دعوة صديق</Text>
-        </TouchableOpacity>
+        {/* Right: Share/Invite buttons */}
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          {/* زر الدعوة العامة - لمنشئ الساحة فقط */}
+          {isCreator && (
+            <TouchableOpacity
+              style={{ 
+                backgroundColor: canSendPublicInvite ? '#EF4444' : '#9CA3AF',
+                paddingHorizontal: 8,
+                paddingVertical: 6,
+                borderRadius: 8,
+                opacity: canSendPublicInvite ? 1 : 0.6,
+              }}
+              onPress={handleSendPublicInvite}
+              disabled={!canSendPublicInvite || isSendingPublicInvite}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>
+                {isSendingPublicInvite ? 'جاري...' : 'دعوة عامة'}
+              </Text>
+            </TouchableOpacity>
+          )}
+          
+          {/* زر المشاركة */}
+          <TouchableOpacity
+            className="items-center justify-center"
+            onPress={handleShareInvite}
+          >
+            <MaterialIcons name="share" size={24} color="#000000" />
+            <Text className="text-xs font-bold text-foreground">دعوة</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Guest Profile Bar - Show for guests (users with names starting with 'ضيف') */}

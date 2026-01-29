@@ -16,6 +16,8 @@ import {
   emitRecordingStatusChanged,
   emitSheelohaBroadcast,
   emitKhaloohaCommand,
+  emitPublicInviteCreated,
+  emitPublicInviteExpired,
 } from "./_core/socket";
 
 export const appRouter = router({
@@ -654,6 +656,106 @@ export const appRouter = router({
         } catch (error: any) {
           throw new Error(error.message || "فشل استبعاد اللاعب");
         }
+      }),
+  }),
+
+  // Top 10 rooms router
+  top10: router({
+    // Get top 10 rooms sorted by viewers, pending requests, players, then oldest
+    list: publicProcedure.query(async () => {
+      return db.getTop10Rooms();
+    }),
+  }),
+
+  // Public invitations router
+  publicInvitations: router({
+    // Create a public invitation (creator only, 5 min cooldown)
+    create: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          creatorId: z.string(),
+          creatorName: z.string(),
+          creatorAvatar: z.string(),
+          roomName: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        // Check cooldown
+        const canSend = await db.canSendPublicInvite(input.roomId);
+        if (!canSend) {
+          throw new Error("يجب الانتظار 5 دقائق قبل إرسال دعوة عامة أخرى");
+        }
+
+        // Create invitation
+        const invitationId = await db.createPublicInvitation(input);
+        
+        // Update last invite time
+        await db.updateLastPublicInviteTime(input.roomId);
+        
+        // Emit socket event for real-time update
+        emitPublicInviteCreated(
+          invitationId,
+          input.roomId,
+          input.creatorId,
+          input.creatorName,
+          input.creatorAvatar,
+          input.roomName
+        );
+        
+        return { success: true, invitationId };
+      }),
+
+    // Get pending invitations (for queue display)
+    getPending: publicProcedure
+      .input(z.object({ limit: z.number().default(50) }))
+      .query(async ({ input }) => {
+        return db.getPendingPublicInvitations(input.limit);
+      }),
+
+    // Get displayed invitations (currently showing in top 10)
+    getDisplayed: publicProcedure
+      .input(z.object({ limit: z.number().default(10) }))
+      .query(async ({ input }) => {
+        return db.getDisplayedPublicInvitations(input.limit);
+      }),
+
+    // Mark invitation as displayed
+    markDisplayed: publicProcedure
+      .input(z.object({ invitationId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.markInvitationAsDisplayed(input.invitationId);
+        return { success: true };
+      }),
+
+    // Expire invitation (after 4 seconds display)
+    expire: publicProcedure
+      .input(z.object({ invitationId: z.number() }))
+      .mutation(async ({ input }) => {
+        await db.expirePublicInvitation(input.invitationId);
+        
+        // Emit socket event
+        emitPublicInviteExpired(input.invitationId);
+        
+        return { success: true };
+      }),
+
+    // Check if can send public invite (5 min cooldown)
+    canSend: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.canSendPublicInvite(input.roomId);
+      }),
+  }),
+
+  // Gold star router
+  goldStar: router({
+    // Check and award gold star if room has > 20 viewers
+    check: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .mutation(async ({ input }) => {
+        const awarded = await db.checkAndAwardGoldStar(input.roomId);
+        return { awarded };
       }),
   }),
 });

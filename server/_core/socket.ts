@@ -15,6 +15,17 @@ export interface ServerToClientEvents {
   joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
   joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => void;
   
+  // أحداث الدعوات العامة
+  publicInviteCreated: (data: { 
+    invitationId: number;
+    roomId: number; 
+    creatorId: string; 
+    creatorName: string; 
+    creatorAvatar: string;
+    roomName: string;
+  }) => void;
+  publicInviteExpired: (data: { invitationId: number }) => void;
+  
   // أحداث الرسائل الصوتية
   audioMessageCreated: (data: { 
     roomId: number; 
@@ -69,6 +80,10 @@ export interface ClientToServerEvents {
   
   // طلب تحديث البيانات (fallback)
   requestRoomData: (roomId: number) => void;
+  
+  // الانضمام لقناة الدعوات العامة
+  joinPublicInvites: () => void;
+  leavePublicInvites: () => void;
 }
 
 export interface InterServerEvents {
@@ -119,6 +134,18 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
         socket.data.currentRoomId = undefined;
       }
       console.log(`[Socket.io] Client ${socket.id} left room ${roomId}`);
+    });
+
+    // الانضمام لقناة الدعوات العامة
+    socket.on("joinPublicInvites", () => {
+      socket.join("public-invites");
+      console.log(`[Socket.io] Client ${socket.id} joined public-invites channel`);
+    });
+
+    // مغادرة قناة الدعوات العامة
+    socket.on("leavePublicInvites", () => {
+      socket.leave("public-invites");
+      console.log(`[Socket.io] Client ${socket.id} left public-invites channel`);
     });
 
     // قطع الاتصال
@@ -303,4 +330,36 @@ export function broadcastRoomDeleted(roomId: number): void {
   // بث لجميع المتصلين في الساحة
   io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "" });
   console.log(`[Socket.io] Broadcasted room deletion: ${roomId}`);
+}
+
+/**
+ * بث دعوة عامة جديدة لجميع المستخدمين
+ */
+export function emitPublicInviteCreated(
+  invitationId: number,
+  roomId: number,
+  creatorId: string,
+  creatorName: string,
+  creatorAvatar: string,
+  roomName: string
+): void {
+  if (!io) return;
+  io.to("public-invites").emit("publicInviteCreated", {
+    invitationId,
+    roomId,
+    creatorId,
+    creatorName,
+    creatorAvatar,
+    roomName,
+  });
+  console.log(`[Socket.io] Public invite created: ${invitationId}`);
+}
+
+/**
+ * بث انتهاء صلاحية دعوة عامة
+ */
+export function emitPublicInviteExpired(invitationId: number): void {
+  if (!io) return;
+  io.to("public-invites").emit("publicInviteExpired", { invitationId });
+  console.log(`[Socket.io] Public invite expired: ${invitationId}`);
 }
