@@ -204,10 +204,16 @@ export async function deleteRoom(roomId: number) {
   // 2. Delete audio messages
   await db.delete(audioMessages).where(eq(audioMessages.roomId, roomId));
   
-  // 3. Delete participants
+  // 3. Delete sheeloha broadcasts
+  await db.delete(sheelohaBroadcasts).where(eq(sheelohaBroadcasts.roomId, roomId));
+  
+  // 4. Delete join requests
+  await db.delete(joinRequests).where(eq(joinRequests.roomId, roomId));
+  
+  // 5. Delete participants
   await db.delete(roomParticipants).where(eq(roomParticipants.roomId, roomId));
   
-  // 4. Delete the room itself
+  // 6. Delete the room itself
   await db.delete(rooms).where(eq(rooms.id, roomId));
 }
 

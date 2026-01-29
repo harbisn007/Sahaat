@@ -16,6 +16,7 @@ import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
+import { useSocket } from "@/hooks/use-socket";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
@@ -107,13 +108,42 @@ export default function RoomScreen() {
   // التحقق من حذف الساحة وإخراج المشاركين
   const [roomClosedAlertShown, setRoomClosedAlertShown] = useState(false);
   
+  // Socket.io للاستماع لحدث حذف الساحة فوراً
+  const { setCallbacks } = useSocket(roomId > 0 ? roomId : null);
+  
+  // الاستماع لحدث حذف الساحة عبر Socket.io (فوري)
+  useEffect(() => {
+    if (!roomId || roomId <= 0) return;
+    
+    setCallbacks({
+      onRoomDeleted: (roomName: string) => {
+        console.log("[RoomScreen] Room deleted via Socket.io:", roomName);
+        if (!roomClosedAlertShown) {
+          setRoomClosedAlertShown(true);
+          Alert.alert(
+            "تم إغلاق الساحة",
+            `تم إغلاق ساحة: ${roomName || savedRoomName}`,
+            [
+              {
+                text: "حسناً",
+                onPress: () => router.replace("/"),
+              },
+            ],
+            { cancelable: false }
+          );
+        }
+      },
+    });
+  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
+  
+  // التحقق من حذف الساحة عبر polling (احتياطي)
   useEffect(() => {
     // إذا كان هناك خطأ أو لم تعد roomData موجودة بعد التحميل
     // وكان لدينا اسم الساحة محفوظاً (يعني كانت موجودة سابقاً)
     const roomNotFound = !isLoading && savedRoomName && (!roomData || error);
     
     if (roomNotFound && !roomClosedAlertShown) {
-      console.log("[RoomScreen] Room closed detected - error:", error?.message, "roomData:", !!roomData);
+      console.log("[RoomScreen] Room closed detected via polling - error:", error?.message, "roomData:", !!roomData);
       setRoomClosedAlertShown(true);
       Alert.alert(
         "تم إغلاق الساحة",
