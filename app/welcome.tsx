@@ -1,14 +1,11 @@
 import { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
-import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
-import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import Ionicons from "@expo/vector-icons/Ionicons";
 
 // Import avatar images
 const avatarMale = require("@/assets/images/avatar-male.png");
@@ -23,16 +20,9 @@ export default function WelcomeScreen() {
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarType | null>(null);
   const [customAvatarUri, setCustomAvatarUri] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isAppleLoading, setIsAppleLoading] = useState(false);
-  const { loginAsGuest, loginWithGoogle, loginWithApple } = useUser();
+  const { setUserData } = useUser();
   const colors = useColors();
   const scrollViewRef = useRef<ScrollView>(null);
-
-  // التحقق من توفر Google/Apple
-  const googleConfigured = isGoogleAuthConfigured();
-  const appleConfigured = isAppleAuthConfigured();
-  const showSocialLogin = googleConfigured || appleConfigured;
 
   const handlePickImage = async () => {
     try {
@@ -113,8 +103,7 @@ export default function WelcomeScreen() {
     return { valid: true, message: "" };
   };
 
-  // دخول كضيف
-  const handleGuestLogin = async () => {
+  const handleSubmit = async () => {
     Keyboard.dismiss();
     const trimmedName = name.trim();
     
@@ -131,126 +120,17 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
-      console.log("[WelcomeScreen] Starting guest login with:", { name: trimmedName, avatar: selectedAvatar });
-      await loginAsGuest(trimmedName, selectedAvatar);
-      console.log("[WelcomeScreen] Guest login successful, redirecting...");
+      await setUserData(trimmedName, selectedAvatar);
       // Redirect to the original page if provided, otherwise go to tabs
       if (redirect) {
         router.replace(redirect as any);
       } else {
         router.replace("/(tabs)");
       }
-    } catch (error: unknown) {
-      console.error("[WelcomeScreen] Guest login failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "خطأ غير معروف";
-      Alert.alert("خطأ", `حدث خطأ أثناء حفظ البيانات: ${errorMessage}`);
+    } catch (error) {
+      Alert.alert("خطأ", "حدث خطأ أثناء حفظ البيانات");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  // تسجيل دخول بـ Google
-  const handleGoogleLogin = async () => {
-    if (!googleConfigured) {
-      Alert.alert(
-        "غير متاح",
-        "تسجيل الدخول بـ Google غير مُعد حالياً.\n\nيرجى إضافة EXPO_PUBLIC_GOOGLE_CLIENT_ID في ملف .env"
-      );
-      return;
-    }
-
-    // التحقق من إدخال الاسم واختيار الصورة أولاً
-    const trimmedName = name.trim();
-    const validation = validateName(trimmedName);
-    
-    if (!validation.valid) {
-      Alert.alert("أكمل بياناتك", validation.message || "يرجى إدخال اسمك (3-20 حرف) قبل تسجيل الدخول");
-      return;
-    }
-    
-    if (!selectedAvatar) {
-      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
-      return;
-    }
-
-    setIsGoogleLoading(true);
-    try {
-      const result = await signInWithGoogle();
-      
-      if (result.success) {
-        // استخدام الاسم والصورة المختارة من المستخدم (وليس من Google)
-        await loginWithGoogle(result.userId, trimmedName, selectedAvatar);
-        
-        if (redirect) {
-          router.replace(redirect as any);
-        } else {
-          router.replace("/(tabs)");
-        }
-      } else {
-        if (result.error !== 'تم إلغاء تسجيل الدخول') {
-          Alert.alert("خطأ", result.error || "فشل تسجيل الدخول بـ Google");
-        }
-      }
-    } catch (error) {
-      console.error("Google login error:", error);
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Google");
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
-
-  // تسجيل دخول بـ Apple
-  const handleAppleLogin = async () => {
-    if (!appleConfigured) {
-      Alert.alert(
-        "غير متاح",
-        "تسجيل الدخول بـ Apple غير مُعد حالياً.\n\nيرجى إضافة EXPO_PUBLIC_APPLE_SERVICE_ID في ملف .env"
-      );
-      return;
-    }
-
-    if (Platform.OS === 'android') {
-      Alert.alert("غير متاح", "تسجيل الدخول بـ Apple متاح فقط على iOS");
-      return;
-    }
-
-    // التحقق من إدخال الاسم واختيار الصورة أولاً
-    const trimmedName = name.trim();
-    const validation = validateName(trimmedName);
-    
-    if (!validation.valid) {
-      Alert.alert("أكمل بياناتك", validation.message || "يرجى إدخال اسمك (3-20 حرف) قبل تسجيل الدخول");
-      return;
-    }
-    
-    if (!selectedAvatar) {
-      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
-      return;
-    }
-
-    setIsAppleLoading(true);
-    try {
-      const result = await signInWithApple();
-      
-      if (result.success) {
-        // استخدام الاسم والصورة المختارة من المستخدم (وليس من Apple)
-        await loginWithApple(result.userId, trimmedName, selectedAvatar);
-        
-        if (redirect) {
-          router.replace(redirect as any);
-        } else {
-          router.replace("/(tabs)");
-        }
-      } else {
-        if (result.error !== 'تم إلغاء تسجيل الدخول') {
-          Alert.alert("خطأ", result.error || "فشل تسجيل الدخول بـ Apple");
-        }
-      }
-    } catch (error) {
-      console.error("Apple login error:", error);
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Apple");
-    } finally {
-      setIsAppleLoading(false);
     }
   };
 
@@ -262,7 +142,6 @@ export default function WelcomeScreen() {
   };
 
   const isFormValid = validateName(name).valid && selectedAvatar !== null;
-  const anyLoading = isLoading || isGoogleLoading || isAppleLoading;
 
   return (
     <ImageBackground 
@@ -308,49 +187,45 @@ export default function WelcomeScreen() {
                 {/* Male Avatar */}
                 <TouchableOpacity
                   onPress={handleSelectMale}
-                  disabled={anyLoading}
                   style={{
                     borderWidth: 3,
                     borderColor: selectedAvatar === 'male' ? colors.primary : 'transparent',
                     borderRadius: 50,
                     padding: 3,
-                    opacity: anyLoading ? 0.5 : 1,
                   }}
                 >
                   <Image
                     source={avatarMale}
                     style={{ width: 70, height: 70, borderRadius: 35 }}
                   />
+
                 </TouchableOpacity>
 
                 {/* Female Avatar */}
                 <TouchableOpacity
                   onPress={handleSelectFemale}
-                  disabled={anyLoading}
                   style={{
                     borderWidth: 3,
                     borderColor: selectedAvatar === 'female' ? colors.primary : 'transparent',
                     borderRadius: 50,
                     padding: 3,
-                    opacity: anyLoading ? 0.5 : 1,
                   }}
                 >
                   <Image
                     source={avatarFemale}
                     style={{ width: 70, height: 70, borderRadius: 35 }}
                   />
+
                 </TouchableOpacity>
 
                 {/* Custom Avatar */}
                 <TouchableOpacity
                   onPress={handlePickImage}
-                  disabled={anyLoading}
                   style={{
                     borderWidth: 3,
                     borderColor: customAvatarUri ? colors.primary : 'transparent',
                     borderRadius: 50,
                     padding: 3,
-                    opacity: anyLoading ? 0.5 : 1,
                   }}
                 >
                   {customAvatarUri ? (
@@ -389,93 +264,30 @@ export default function WelcomeScreen() {
                 onChangeText={setName}
                 maxLength={20}
                 returnKeyType="done"
-                onSubmitEditing={handleGuestLogin}
+                onSubmitEditing={handleSubmit}
                 onFocus={handleInputFocus}
-                editable={!anyLoading}
+                editable={!isLoading}
                 style={{ textAlign: "right" }}
               />
 
-              {/* Login Buttons */}
-              <View className="flex-row items-center gap-3">
-                {/* Guest Login Button */}
-                <TouchableOpacity
-                  className="flex-1 bg-primary rounded-xl py-3 items-center"
-                  onPress={handleGuestLogin}
-                  disabled={anyLoading || !isFormValid}
-                  style={{
-                    opacity: anyLoading || !isFormValid ? 0.5 : 1,
-                  }}
-                >
-                  {isLoading ? (
-                    <ActivityIndicator color={colors.background} />
-                  ) : (
-                    <Text className="text-background font-semibold text-base">
-                      دخول كضيف
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                {/* Separator */}
-                <Text className="text-muted text-sm">أو</Text>
-
-                {/* Social Login Button - Combined Google/Apple */}
-                <TouchableOpacity
-                  className="rounded-xl py-3 px-4 items-center justify-center flex-row"
-                  style={{
-                    backgroundColor: (googleConfigured || appleConfigured) ? colors.surface : colors.border,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    opacity: anyLoading ? 0.5 : 1,
-                    gap: 6,
-                  }}
-                  onPress={() => {
-                    // إذا كان على iOS، نعرض خيارات
-                    if (Platform.OS === 'ios' && appleConfigured && googleConfigured) {
-                      Alert.alert(
-                        'اختر طريقة الدخول',
-                        '',
-                        [
-                          { text: 'Google', onPress: handleGoogleLogin },
-                          { text: 'Apple', onPress: handleAppleLogin },
-                          { text: 'إلغاء', style: 'cancel' },
-                        ]
-                      );
-                    } else if (googleConfigured) {
-                      handleGoogleLogin();
-                    } else if (appleConfigured && Platform.OS !== 'android') {
-                      handleAppleLogin();
-                    } else {
-                      // إذا لم يكن أي منهما مُعداً
-                      handleGoogleLogin(); // سيعرض رسالة "غير متاح"
-                    }
-                  }}
-                  disabled={anyLoading}
-                >
-                  {(isGoogleLoading || isAppleLoading) ? (
-                    <ActivityIndicator color={colors.foreground} size="small" />
-                  ) : (
-                    <>
-                      <Text className="text-foreground text-sm">دخول عبر</Text>
-                      <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
-                      <Text className="text-muted text-sm">/</Text>
-                      <Ionicons name="logo-apple" size={24} color="#000" />
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                className="w-full bg-primary rounded-xl py-3 items-center"
+                onPress={handleSubmit}
+                disabled={isLoading || !isFormValid}
+                style={{
+                  opacity: isLoading || !isFormValid ? 0.5 : 1,
+                }}
+              >
+                <Text className="text-background font-semibold text-base">
+                  {isLoading ? "جاري الحفظ..." : "دخول"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* Helper Text */}
             <Text className="text-xs text-muted mt-6 text-center">
               يجب اختيار صورة وإدخال اسم (3-20 حرف)
             </Text>
-            
-            {/* Social Login Note */}
-            {!showSocialLogin && (
-              <Text className="text-xs text-muted mt-2 text-center" style={{ color: colors.warning }}>
-                تسجيل الدخول بـ Google/Apple غير مُعد حالياً
-              </Text>
-            )}
             
             {/* Extra space for keyboard */}
             <View style={{ height: 100 }} />

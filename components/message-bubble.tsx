@@ -62,8 +62,8 @@ export function MessageBubble({
           className="flex-row items-center gap-2 px-4 py-2 rounded-full"
           style={{ backgroundColor: colors.surface }}
         >
-          <Text className="text-sm text-muted">{username}</Text>
           <Text className="text-2xl">{emoji}</Text>
+          <Text className="text-sm text-muted">{username}</Text>
         </View>
       </View>
     );
@@ -77,15 +77,15 @@ export function MessageBubble({
   };
 
   return (
-    <View className="px-2 py-0.5 items-start">
+    <View className="px-2 py-0.5 items-end">
       <View 
         className="rounded-lg px-2 py-1 max-w-[75%]"
         style={{ backgroundColor: colors.surface }}
       >
         <View className="flex-row items-center gap-1.5">
-          {/* Duration */}
-          <Text className="text-[10px] text-muted font-mono">
-            {formatDuration(duration || 0)}
+          {/* Username */}
+          <Text className="text-[11px] font-bold text-foreground flex-shrink">
+            {username}
           </Text>
           
           {/* Message Type Badge */}
@@ -103,9 +103,9 @@ export function MessageBubble({
             </View>
           )}
           
-          {/* Username */}
-          <Text className="text-[11px] font-bold text-foreground flex-shrink">
-            {username}
+          {/* Duration */}
+          <Text className="text-[10px] text-muted font-mono">
+            {formatDuration(duration || 0)}
           </Text>
         </View>
       </View>

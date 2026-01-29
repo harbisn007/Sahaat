@@ -55,7 +55,7 @@ export const appRouter = router({
         })
       );
       
-      // ترتيب الساحات حسب الأكثر تفاعلاً (مجموع اللاعبين والمستمعين)
+      // ترتيب الساحات حسب الأكثر تفاعلاً (مجموع اللاعبين والمشاهدين)
       const sortedRooms = roomsWithCounts.sort((a, b) => {
         const totalA = (a.playerCount || 0) + (a.viewerCount || 0);
         const totalB = (b.playerCount || 0) + (b.viewerCount || 0);
@@ -94,7 +94,7 @@ export const appRouter = router({
       .input(
         z.object({
           name: z.string().min(3).max(100),
-          creatorId: z.string(),
+          creatorId: z.number(),
           creatorName: z.string().min(3).max(50),
           creatorAvatar: z.string().default("male"),
         })
@@ -126,7 +126,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string().min(3).max(50),
           avatar: z.string().default("male"),
         })
@@ -159,7 +159,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string().min(3).max(50),
           avatar: z.string().default("male"),
         })
@@ -233,7 +233,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
         })
       )
       .mutation(async ({ input }) => {
@@ -269,7 +269,7 @@ export const appRouter = router({
     getUserActiveRoom: publicProcedure
       .input(
         z.object({
-          creatorId: z.string(),
+          creatorId: z.number(),
         })
       )
       .query(async ({ input }) => {
@@ -292,7 +292,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string(),
           messageType: z.enum(["comment", "tarouk"]),
           audioUrl: z.string(), // Accept local URIs for now
@@ -357,7 +357,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string(),
           reactionType: z.enum([
             // الصف الأول - التفاعل الإيجابي
@@ -428,7 +428,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string(),
           audioUrl: z.string(),
         })
@@ -470,7 +470,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string(),
         })
       )
@@ -510,7 +510,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string(),
           isRecording: z.boolean(),
           recordingType: z.enum(["comment", "tarouk"]),
@@ -549,7 +549,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
         })
       )
       .mutation(async ({ input }) => {
@@ -565,7 +565,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string(),
           avatar: z.string(),
         })
@@ -603,7 +603,7 @@ export const appRouter = router({
           requestId: z.number(),
           accept: z.boolean(),
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
         })
       )
       .mutation(async ({ input }) => {
@@ -652,7 +652,7 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          userId: z.string(),
+          userId: z.number(),
           username: z.string().min(2).max(20),
           avatar: z.string(),
         })
@@ -678,8 +678,8 @@ export const appRouter = router({
       .input(
         z.object({
           roomId: z.number(),
-          playerId: z.string(),
-          creatorId: z.string(),
+          playerId: z.number(),
+          creatorId: z.number(),
         })
       )
       .mutation(async ({ input }) => {
@@ -687,7 +687,40 @@ export const appRouter = router({
           await db.kickPlayer(input.roomId, input.playerId, input.creatorId);
           return { success: true };
         } catch (error: any) {
-          throw new Error(error.message || "فشل استبعاد اللاعب");
+          throw new Error(error.message || "فشل طرد اللاعب");
+        }
+      }),
+  }),
+
+  // User management router
+  users: router({
+    // Delete user and their room on logout (for guests)
+    deleteGuestData: publicProcedure
+      .input(
+        z.object({
+          userId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          // 1. Get user's active room
+          const activeRoom = await db.getUserActiveRoom(input.userId);
+          
+          if (activeRoom) {
+            // 2. Emit room deleted to all participants
+            emitRoomDeleted(activeRoom.id, activeRoom.name);
+            
+            // 3. Delete the room and all its data
+            await db.deleteRoom(activeRoom.id);
+          }
+          
+          // 4. Remove user from any rooms they're participating in
+          await db.removeUserFromAllRooms(input.userId);
+          
+          return { success: true, roomDeleted: !!activeRoom };
+        } catch (error: any) {
+          console.error("Error deleting guest data:", error);
+          throw new Error(error.message || "فشل حذف بيانات المستخدم");
         }
       }),
   }),

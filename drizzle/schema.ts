@@ -25,11 +25,11 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// Rooms table - userId changed to varchar(100) for UUID support
+// Rooms table
 export const rooms = mysqlTable("rooms", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 100 }).notNull(),
-  creatorId: varchar("creatorId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  creatorId: int("creatorId").notNull(),
   creatorName: varchar("creatorName", { length: 50 }).notNull(),
   creatorAvatar: varchar("creatorAvatar", { length: 500 }).default("male").notNull(), // 'male', 'female', or custom URL
   isActive: mysqlEnum("isActive", ["true", "false"]).default("true").notNull(),
@@ -37,11 +37,11 @@ export const rooms = mysqlTable("rooms", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
-// Room participants table - userId changed to varchar(100) for UUID support
+// Room participants table
 export const roomParticipants = mysqlTable("room_participants", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   avatar: varchar("avatar", { length: 500 }).default("male").notNull(), // 'male', 'female', or custom URL
   role: mysqlEnum("role", ["creator", "player", "viewer"]).notNull(),
@@ -49,11 +49,11 @@ export const roomParticipants = mysqlTable("room_participants", {
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
 });
 
-// Audio messages table - userId changed to varchar(100) for UUID support
+// Audio messages table
 export const audioMessages = mysqlTable("audio_messages", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   messageType: mysqlEnum("messageType", ["comment", "tarouk"]).notNull(),
   audioUrl: text("audioUrl").notNull(),
@@ -61,11 +61,11 @@ export const audioMessages = mysqlTable("audio_messages", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-// Reactions table - userId changed to varchar(100) for UUID support
+// Reactions table
 export const reactions = mysqlTable("reactions", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   reactionType: varchar("reactionType", { length: 20 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -75,7 +75,7 @@ export const reactions = mysqlTable("reactions", {
 export const sheelohaBroadcasts = mysqlTable("sheeloha_broadcasts", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   audioUrl: text("audioUrl").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -97,7 +97,7 @@ export type InsertReaction = typeof reactions.$inferInsert;
 export const khaloohaCommands = mysqlTable("khalooha_commands", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -112,7 +112,7 @@ export type InsertKhaloohaCommand = typeof khaloohaCommands.$inferInsert;
 export const recordingStatus = mysqlTable("recording_status", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   isRecording: mysqlEnum("isRecording", ["true", "false"]).default("false").notNull(),
   recordingType: mysqlEnum("recordingType", ["comment", "tarouk"]).default("tarouk").notNull(),
@@ -127,7 +127,7 @@ export type InsertRecordingStatus = typeof recordingStatus.$inferInsert;
 export const joinRequests = mysqlTable("join_requests", {
   id: int("id").autoincrement().primaryKey(),
   roomId: int("roomId").notNull(),
-  userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
+  userId: int("userId").notNull(),
   username: varchar("username", { length: 50 }).notNull(),
   avatar: varchar("avatar", { length: 500 }).default("male").notNull(),
   status: mysqlEnum("status", ["pending", "accepted", "rejected", "expired"]).default("pending").notNull(),

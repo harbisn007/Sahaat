@@ -20,7 +20,6 @@ interface RecordingButtonProps {
   showLabel?: boolean;
   minHeight?: number;
   buttonId?: string;
-  width?: number;
 }
 
 export function RecordingButton({
@@ -36,7 +35,6 @@ export function RecordingButton({
   showLabel = true,
   minHeight = 48,
   buttonId = "default",
-  width,
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -313,7 +311,6 @@ export function RecordingButton({
             alignItems: "center",
             justifyContent: "center",
             minHeight,
-            ...(width ? { width } : {}),
           }}
         >
           {iconComponent ? (

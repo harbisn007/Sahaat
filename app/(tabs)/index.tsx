@@ -26,50 +26,11 @@ import { trpc } from "@/lib/trpc";
  * - Custom colors defined in tailwind.config.js
  */
 export default function HomeScreen() {
-  const { username, userId, avatar, accountType, isLoading: userLoading, logout, clearAllData } = useUser();
+  const { username, userId, avatar, isLoading: userLoading, clearUsername } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Mutation لحذف الساحة
   const deleteRoomMutation = trpc.rooms.deleteRoom.useMutation();
-
-  // دالة تسجيل الخروج
-  const handleLogout = () => {
-    const isGuest = accountType === 'guest';
-    const message = isGuest 
-      ? "هل تريد تسجيل الخروج؟\n\nتنبيه: سيتم حذف جميع بياناتك بما فيها الساحات التي أنشأتها."
-      : "هل تريد تسجيل الخروج؟";
-    
-    Alert.alert(
-      "تسجيل الخروج",
-      message,
-      [
-        { text: "إلغاء", style: "cancel" },
-        {
-          text: "خروج",
-          style: "destructive",
-          onPress: async () => {
-            // حذف الساحة النشطة إن وجدت
-            if (activeRoom) {
-              try {
-                await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
-              } catch (error) {
-                console.error("فشل حذف الساحة:", error);
-              }
-            }
-            
-            if (isGuest) {
-              // للضيف: حذف جميع البيانات
-              await clearAllData();
-            } else {
-              // لمستخدمي Google/Apple: تسجيل خروج فقط
-              await logout();
-            }
-            router.replace("/welcome");
-          },
-        },
-      ]
-    );
-  };
 
   // دالة العودة لشاشة تغيير الاسم والصورة
   const handleChangeProfile = () => {
@@ -94,7 +55,7 @@ export default function HomeScreen() {
                 console.error("فشل حذف الساحة:", error);
               }
             }
-            await logout();
+            await clearUsername();
             router.replace("/welcome");
           },
         },
@@ -201,23 +162,18 @@ export default function HomeScreen() {
       {/* Header */}
       <View className="px-6 pt-4 pb-3 border-b border-border" style={{ backgroundColor: 'rgba(250, 248, 245, 0.9)' }}>
         <View className="flex-row items-center mb-2">
-          {/* زر تسجيل الخروج */}
-          <TouchableOpacity
-            onPress={handleLogout}
-            className="p-2"
-          >
-            <MaterialIcons name="logout" size={24} color="#D4A574" />
-          </TouchableOpacity>
-          
-          <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
-          
-          {/* زر تغيير الملف الشخصي */}
+          {/* زر العودة لشاشة تغيير الاسم والصورة */}
           <TouchableOpacity
             onPress={handleChangeProfile}
             className="p-2"
           >
-            <MaterialIcons name="person" size={24} color="#D4A574" />
+            <MaterialIcons name="arrow-forward" size={24} color="#D4A574" />
           </TouchableOpacity>
+          
+          <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
+          
+          {/* مسافة فارغة للتوازن */}
+          <View style={{ width: 40 }} />
         </View>
         <Text className="text-sm text-muted text-center">مرحباً {username}</Text>
       </View>

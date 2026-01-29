@@ -8,18 +8,18 @@ export interface ServerToClientEvents {
   roomDeleted: (data: { roomId: number; roomName: string }) => void;
   
   // أحداث المشاركين
-  participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;
-  participantLeft: (data: { roomId: number; userId: string }) => void;
+  participantJoined: (data: { roomId: number; userId: number; username: string; role: string }) => void;
+  participantLeft: (data: { roomId: number; userId: number }) => void;
   
   // أحداث طلبات الانضمام
-  joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
-  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => void;
+  joinRequestCreated: (data: { roomId: number; requestId: number; userId: number; username: string; avatar: string }) => void;
+  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: number }) => void;
   
   // أحداث الرسائل الصوتية
   audioMessageCreated: (data: { 
     roomId: number; 
     messageId: number; 
-    userId: string; 
+    userId: number; 
     username: string; 
     messageType: string;
     audioUrl: string;
@@ -31,7 +31,7 @@ export interface ServerToClientEvents {
   reactionCreated: (data: { 
     roomId: number; 
     reactionId: number; 
-    userId: string; 
+    userId: number; 
     username: string; 
     reactionType: string;
     createdAt: string;
@@ -40,7 +40,7 @@ export interface ServerToClientEvents {
   // أحداث حالة التسجيل
   recordingStatusChanged: (data: { 
     roomId: number; 
-    userId: string; 
+    userId: number; 
     username: string;
     isRecording: boolean; 
     recordingType: string;
@@ -49,14 +49,14 @@ export interface ServerToClientEvents {
   // أحداث شيلوها وخلوها
   sheelohaBroadcast: (data: { 
     roomId: number; 
-    userId: string; 
+    userId: number; 
     username: string;
     audioUrl: string;
     createdAt: string;
   }) => void;
   khaloohaCommand: (data: { 
     roomId: number; 
-    userId: string; 
+    userId: number; 
     username: string;
     createdAt: string;
   }) => void;
@@ -69,9 +69,6 @@ export interface ClientToServerEvents {
   
   // طلب تحديث البيانات (fallback)
   requestRoomData: (roomId: number) => void;
-  
-  // heartbeat للمنشئ
-  creatorHeartbeat: (data: { roomId: number; creatorId: string }) => void;
 }
 
 export interface InterServerEvents {
@@ -79,31 +76,13 @@ export interface InterServerEvents {
 }
 
 export interface SocketData {
-  userId?: string;
+  userId?: number;
   username?: string;
   currentRoomId?: number;
-  isCreator?: boolean;
-  creatorRoomId?: number;
 }
 
 // المتغير العام للـ Socket.io server
 let io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> | null = null;
-
-// تتبع المنشئين وساحاتهم
-const creatorSockets: Map<string, { socketId: string; roomId: number; lastHeartbeat: number }> = new Map();
-
-// تتبع المنشئين المنقطعين (للانتظار قبل الحذف)
-const pendingCreatorDeletions: Map<string, ReturnType<typeof setTimeout>> = new Map();
-
-// فترة الانتظار قبل حذف الساحة (بالملي ثانية) - 10 ثواني
-const CREATOR_DISCONNECT_GRACE_PERIOD = 10000;
-
-// دالة حذف الساحة وبيانات المنشئ (سيتم تعيينها لاحقاً)
-let deleteRoomAndCreatorCallback: ((roomId: number, creatorId: string) => Promise<void>) | null = null;
-
-export function setDeleteRoomAndCreatorCallback(callback: (roomId: number, creatorId: string) => Promise<void>) {
-  deleteRoomAndCreatorCallback = callback;
-}
 
 /**
  * تهيئة Socket.io server
@@ -142,75 +121,9 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client ${socket.id} left room ${roomId}`);
     });
 
-    // heartbeat للمنشئ
-    socket.on("creatorHeartbeat", (data: { roomId: number; creatorId: string }) => {
-      const { roomId, creatorId } = data;
-      socket.data.isCreator = true;
-      socket.data.creatorRoomId = roomId;
-      socket.data.userId = creatorId;
-      
-      creatorSockets.set(creatorId, {
-        socketId: socket.id,
-        roomId,
-        lastHeartbeat: Date.now(),
-      });
-      
-      // إذا كان هناك حذف معلق، ألغه (المنشئ عاد للاتصال)
-      const pendingDeletion = pendingCreatorDeletions.get(creatorId);
-      if (pendingDeletion) {
-        clearTimeout(pendingDeletion);
-        pendingCreatorDeletions.delete(creatorId);
-        console.log(`[Socket.io] Creator ${creatorId} reconnected - cancelled room deletion`);
-      }
-    });
-
     // قطع الاتصال
-    socket.on("disconnect", async (reason) => {
+    socket.on("disconnect", (reason) => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
-      
-      // إذا كان المنقطع هو منشئ ساحة، انتظر فترة قبل حذف الساحة
-      if (socket.data.isCreator && socket.data.creatorRoomId && socket.data.userId) {
-        const roomId = socket.data.creatorRoomId;
-        const creatorId = socket.data.userId;
-        
-        console.log(`[Socket.io] Creator ${creatorId} disconnected from room ${roomId} - waiting ${CREATOR_DISCONNECT_GRACE_PERIOD/1000}s before deletion`);
-        
-        // حذف من التتبع
-        creatorSockets.delete(creatorId);
-        
-        // إلغاء أي حذف معلق سابق
-        const existingDeletion = pendingCreatorDeletions.get(creatorId);
-        if (existingDeletion) {
-          clearTimeout(existingDeletion);
-        }
-        
-        // جدولة حذف الساحة بعد فترة الانتظار
-        const deletionTimeout = setTimeout(async () => {
-          // التحقق من أن المنشئ لم يعد للاتصال
-          const creatorData = creatorSockets.get(creatorId);
-          if (creatorData) {
-            console.log(`[Socket.io] Creator ${creatorId} reconnected - skipping deletion`);
-            pendingCreatorDeletions.delete(creatorId);
-            return;
-          }
-          
-          console.log(`[Socket.io] Creator ${creatorId} did not reconnect - deleting room ${roomId}`);
-          
-          // حذف الساحة وبيانات المنشئ
-          if (deleteRoomAndCreatorCallback) {
-            try {
-              await deleteRoomAndCreatorCallback(roomId, creatorId);
-              console.log(`[Socket.io] Room ${roomId} and creator ${creatorId} deleted successfully`);
-            } catch (error) {
-              console.error(`[Socket.io] Failed to delete room ${roomId}:`, error);
-            }
-          }
-          
-          pendingCreatorDeletions.delete(creatorId);
-        }, CREATOR_DISCONNECT_GRACE_PERIOD);
-        
-        pendingCreatorDeletions.set(creatorId, deletionTimeout);
-      }
     });
   });
 
@@ -246,7 +159,7 @@ export function emitRoomDeleted(roomId: number, roomName: string): void {
 /**
  * بث انضمام مشارك جديد
  */
-export function emitParticipantJoined(roomId: number, userId: string, username: string, role: string): void {
+export function emitParticipantJoined(roomId: number, userId: number, username: string, role: string): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("participantJoined", { roomId, userId, username, role });
 }
@@ -254,7 +167,7 @@ export function emitParticipantJoined(roomId: number, userId: string, username: 
 /**
  * بث مغادرة مشارك
  */
-export function emitParticipantLeft(roomId: number, userId: string): void {
+export function emitParticipantLeft(roomId: number, userId: number): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("participantLeft", { roomId, userId });
 }
@@ -262,7 +175,7 @@ export function emitParticipantLeft(roomId: number, userId: string): void {
 /**
  * بث طلب انضمام جديد
  */
-export function emitJoinRequestCreated(roomId: number, requestId: number, userId: string, username: string, avatar: string): void {
+export function emitJoinRequestCreated(roomId: number, requestId: number, userId: number, username: string, avatar: string): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("joinRequestCreated", { roomId, requestId, userId, username, avatar });
 }
@@ -270,7 +183,7 @@ export function emitJoinRequestCreated(roomId: number, requestId: number, userId
 /**
  * بث الرد على طلب انضمام
  */
-export function emitJoinRequestResponded(roomId: number, requestId: number, accepted: boolean, userId: string): void {
+export function emitJoinRequestResponded(roomId: number, requestId: number, accepted: boolean, userId: number): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("joinRequestResponded", { roomId, requestId, accepted, userId });
 }
@@ -281,7 +194,7 @@ export function emitJoinRequestResponded(roomId: number, requestId: number, acce
 export function emitAudioMessageCreated(
   roomId: number, 
   messageId: number, 
-  userId: string, 
+  userId: number, 
   username: string, 
   messageType: string,
   audioUrl: string,
@@ -307,7 +220,7 @@ export function emitAudioMessageCreated(
 export function emitReactionCreated(
   roomId: number, 
   reactionId: number, 
-  userId: string, 
+  userId: number, 
   username: string, 
   reactionType: string,
   createdAt: Date
@@ -328,7 +241,7 @@ export function emitReactionCreated(
  */
 export function emitRecordingStatusChanged(
   roomId: number, 
-  userId: string, 
+  userId: number, 
   username: string,
   isRecording: boolean, 
   recordingType: string
@@ -348,7 +261,7 @@ export function emitRecordingStatusChanged(
  */
 export function emitSheelohaBroadcast(
   roomId: number, 
-  userId: string, 
+  userId: number, 
   username: string,
   audioUrl: string,
   createdAt: Date
@@ -368,7 +281,7 @@ export function emitSheelohaBroadcast(
  */
 export function emitKhaloohaCommand(
   roomId: number, 
-  userId: string, 
+  userId: number, 
   username: string,
   createdAt: Date
 ): void {
@@ -379,15 +292,4 @@ export function emitKhaloohaCommand(
     username,
     createdAt: createdAt.toISOString(),
   });
-}
-
-
-/**
- * بث حذف الساحة لجميع المتصلين (للتنظيف التلقائي)
- */
-export function broadcastRoomDeleted(roomId: number): void {
-  if (!io) return;
-  // بث لجميع المتصلين في الساحة
-  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "" });
-  console.log(`[Socket.io] Broadcasted room deletion: ${roomId}`);
 }

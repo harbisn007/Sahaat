@@ -6,14 +6,14 @@ import { Platform } from "react-native";
 interface ServerToClientEvents {
   roomUpdated: (data: { roomId: number }) => void;
   roomDeleted: (data: { roomId: number; roomName: string }) => void;
-  participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;
-  participantLeft: (data: { roomId: number; userId: string }) => void;
-  joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
-  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => void;
+  participantJoined: (data: { roomId: number; userId: number; username: string; role: string }) => void;
+  participantLeft: (data: { roomId: number; userId: number }) => void;
+  joinRequestCreated: (data: { roomId: number; requestId: number; userId: number; username: string; avatar: string }) => void;
+  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: number }) => void;
   audioMessageCreated: (data: { 
     roomId: number; 
     messageId: number; 
-    userId: string; 
+    userId: number; 
     username: string; 
     messageType: string;
     audioUrl: string;
@@ -23,28 +23,28 @@ interface ServerToClientEvents {
   reactionCreated: (data: { 
     roomId: number; 
     reactionId: number; 
-    userId: string; 
+    userId: number; 
     username: string; 
     reactionType: string;
     createdAt: string;
   }) => void;
   recordingStatusChanged: (data: { 
     roomId: number; 
-    userId: string; 
+    userId: number; 
     username: string;
     isRecording: boolean; 
     recordingType: string;
   }) => void;
   sheelohaBroadcast: (data: { 
     roomId: number; 
-    userId: string; 
+    userId: number; 
     username: string;
     audioUrl: string;
     createdAt: string;
   }) => void;
   khaloohaCommand: (data: { 
     roomId: number; 
-    userId: string; 
+    userId: number; 
     username: string;
     createdAt: string;
   }) => void;
@@ -54,7 +54,6 @@ interface ClientToServerEvents {
   joinRoom: (roomId: number) => void;
   leaveRoom: (roomId: number) => void;
   requestRoomData: (roomId: number) => void;
-  creatorHeartbeat: (data: { roomId: number; creatorId: string }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -137,13 +136,13 @@ export function useSocket(roomId: number | null) {
   const callbacksRef = useRef<{
     onRoomUpdated?: () => void;
     onRoomDeleted?: (roomName: string) => void;
-    onParticipantJoined?: (data: { userId: string; username: string; role: string }) => void;
-    onParticipantLeft?: (userId: string) => void;
-    onJoinRequestCreated?: (data: { requestId: number; userId: string; username: string; avatar: string }) => void;
-    onJoinRequestResponded?: (data: { requestId: number; accepted: boolean; userId: string }) => void;
+    onParticipantJoined?: (data: { userId: number; username: string; role: string }) => void;
+    onParticipantLeft?: (userId: number) => void;
+    onJoinRequestCreated?: (data: { requestId: number; userId: number; username: string; avatar: string }) => void;
+    onJoinRequestResponded?: (data: { requestId: number; accepted: boolean; userId: number }) => void;
     onAudioMessageCreated?: (data: { 
       messageId: number; 
-      userId: string; 
+      userId: number; 
       username: string; 
       messageType: string;
       audioUrl: string;
@@ -152,25 +151,25 @@ export function useSocket(roomId: number | null) {
     }) => void;
     onReactionCreated?: (data: { 
       reactionId: number; 
-      userId: string; 
+      userId: number; 
       username: string; 
       reactionType: string;
       createdAt: string;
     }) => void;
     onRecordingStatusChanged?: (data: { 
-      userId: string; 
+      userId: number; 
       username: string;
       isRecording: boolean; 
       recordingType: string;
     }) => void;
     onSheelohaBroadcast?: (data: { 
-      userId: string; 
+      userId: number; 
       username: string;
       audioUrl: string;
       createdAt: string;
     }) => void;
     onKhaloohaCommand?: (data: { 
-      userId: string; 
+      userId: number; 
       username: string;
       createdAt: string;
     }) => void;
@@ -312,16 +311,4 @@ export function useSocketConnection() {
   }, []);
 
   return isConnected;
-}
-
-/**
- * إرسال heartbeat للمنشئ
- */
-export async function sendCreatorHeartbeat(roomId: number, creatorId: string): Promise<void> {
-  try {
-    const socket = await getSocket();
-    socket.emit("creatorHeartbeat", { roomId, creatorId });
-  } catch (error) {
-    console.error("[Socket.io] Failed to send creator heartbeat:", error);
-  }
 }

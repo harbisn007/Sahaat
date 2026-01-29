@@ -146,8 +146,8 @@ export const CACHE_KEYS = {
   allRooms: () => "rooms:all",
   
   // بيانات المستخدم
-  user: (userId: string) => "user:" + userId,
-  userActiveRoom: (userId: string) => "user:" + userId + ":activeRoom",
+  user: (userId: number) => "user:" + userId,
+  userActiveRoom: (userId: number) => "user:" + userId + ":activeRoom",
 };
 
 /**
@@ -200,7 +200,7 @@ export async function invalidateRoomCache(roomId: number): Promise<void> {
  * إبطال التخزين المؤقت للمستخدم
  * @param userId معرف المستخدم
  */
-export async function invalidateUserCache(userId: string): Promise<void> {
+export async function invalidateUserCache(userId: number): Promise<void> {
   await cache.deletePattern("user:" + userId + ":*");
   await cache.delete(CACHE_KEYS.user(userId));
 }
