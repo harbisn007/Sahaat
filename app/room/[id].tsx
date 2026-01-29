@@ -125,11 +125,10 @@ export default function RoomScreen() {
   const [socketJoinRequests, setSocketJoinRequests] = useState<any[]>([]);
   const [joinRequestResponse, setJoinRequestResponse] = useState<{ accepted: boolean; requestId: number } | null>(null);
   
-  // نظام الطابور: الطلبات المعروضة حالياً (أول 2) والطلبات المنتظرة
-  const [displayedViewerRequests, setDisplayedViewerRequests] = useState<any[]>([]);
-  const [queuedViewerRequests, setQueuedViewerRequests] = useState<any[]>([]);
-  const [displayedPlayerRequests, setDisplayedPlayerRequests] = useState<any[]>([]);
-  const [queuedPlayerRequests, setQueuedPlayerRequests] = useState<any[]>([]);
+  // نظام الطابور الموحد: الطلبات المعروضة حالياً (أول 2) والطلبات المنتظرة
+  // يدمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
+  const [displayedRequests, setDisplayedRequests] = useState<any[]>([]);
+  const [queuedRequests, setQueuedRequests] = useState<any[]>([]);
   
   // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
@@ -823,105 +822,72 @@ export default function RoomScreen() {
     }
   }, [joinRequests, isRoomCreator]);
   
-  // نظام الطابور لطلبات المشاهدين: عرض 2 طلبات لمدة 4 ثواني ثم التالية
+  // نظام الطابور الموحد: دمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
+  // عرض 2 طلبات فقط لمدة 4 ثواني ثم التالية
+  const allRequests = useMemo(() => {
+    // دمج الطلبات من النوعين مع تحديد النوع
+    const viewerReqs = (joinRequests || []).map((req: any) => ({ ...req, requestType: 'viewer' }));
+    const playerReqs = (pendingRequests || []).map((req: any) => ({ ...req, requestType: 'player' }));
+    // ترتيب حسب وقت الإنشاء (الأقدم أولاً)
+    return [...viewerReqs, ...playerReqs].sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeA - timeB;
+    });
+  }, [joinRequests, pendingRequests]);
+  
   useEffect(() => {
-    if (!isRoomCreator || !joinRequests || joinRequests.length === 0) {
-      setDisplayedViewerRequests([]);
-      setQueuedViewerRequests([]);
+    if (!isRoomCreator || allRequests.length === 0) {
+      setDisplayedRequests([]);
+      setQueuedRequests([]);
       return;
     }
     
     // إضافة الطلبات الجديدة للطابور
-    const newRequests = joinRequests.filter((req: any) => 
-      !displayedViewerRequests.some(d => d.id === req.id) && 
-      !queuedViewerRequests.some(q => q.id === req.id)
+    const newRequests = allRequests.filter((req: any) => 
+      !displayedRequests.some(d => d.id === req.id && d.requestType === req.requestType) && 
+      !queuedRequests.some(q => q.id === req.id && q.requestType === req.requestType)
     );
     
     if (newRequests.length > 0) {
       // إذا كان هناك مكان في العرض (أقل من 2)
-      if (displayedViewerRequests.length < 2) {
-        const slotsAvailable = 2 - displayedViewerRequests.length;
+      if (displayedRequests.length < 2) {
+        const slotsAvailable = 2 - displayedRequests.length;
         const toDisplay = newRequests.slice(0, slotsAvailable);
         const toQueue = newRequests.slice(slotsAvailable);
-        setDisplayedViewerRequests(prev => [...prev, ...toDisplay]);
-        setQueuedViewerRequests(prev => [...prev, ...toQueue]);
+        setDisplayedRequests(prev => [...prev, ...toDisplay]);
+        setQueuedRequests(prev => [...prev, ...toQueue]);
       } else {
         // إضافة للطابور
-        setQueuedViewerRequests(prev => [...prev, ...newRequests]);
+        setQueuedRequests(prev => [...prev, ...newRequests]);
       }
     }
-  }, [joinRequests, isRoomCreator]);
+  }, [allRequests, isRoomCreator]);
   
   // مؤقت 4 ثواني لحذف الطلبات المعروضة وعرض التالية
   useEffect(() => {
-    if (displayedViewerRequests.length === 0) return;
+    if (displayedRequests.length === 0) return;
     
     const timer = setTimeout(() => {
-      // حذف الطلبات المعروضة من قاعدة البيانات
-      displayedViewerRequests.forEach((req: any) => {
-        expireJoinRequestMutation.mutate({ requestId: req.id });
+      // حذف/رفض الطلبات المعروضة حسب نوعها
+      displayedRequests.forEach((req: any) => {
+        if (req.requestType === 'viewer') {
+          expireJoinRequestMutation.mutate({ requestId: req.id });
+        } else {
+          respondToRequestMutation.mutate({ participantId: req.id, accept: false });
+        }
       });
       
       // عرض أول 2 من الطابور
-      const nextBatch = queuedViewerRequests.slice(0, 2);
-      const remaining = queuedViewerRequests.slice(2);
+      const nextBatch = queuedRequests.slice(0, 2);
+      const remaining = queuedRequests.slice(2);
       
-      setDisplayedViewerRequests(nextBatch);
-      setQueuedViewerRequests(remaining);
+      setDisplayedRequests(nextBatch);
+      setQueuedRequests(remaining);
     }, 4000);
     
     return () => clearTimeout(timer);
-  }, [displayedViewerRequests]);
-  
-  // نظام الطابور لطلبات الدخول كلاعب (من خارج الساحة): عرض 2 طلبات لمدة 4 ثواني ثم التالية
-  useEffect(() => {
-    if (!isRoomCreator || !pendingRequests || pendingRequests.length === 0) {
-      setDisplayedPlayerRequests([]);
-      setQueuedPlayerRequests([]);
-      return;
-    }
-    
-    // إضافة الطلبات الجديدة للطابور
-    const newRequests = pendingRequests.filter((req: any) => 
-      !displayedPlayerRequests.some(d => d.id === req.id) && 
-      !queuedPlayerRequests.some(q => q.id === req.id)
-    );
-    
-    if (newRequests.length > 0) {
-      // إذا كان هناك مكان في العرض (أقل من 2)
-      if (displayedPlayerRequests.length < 2) {
-        const slotsAvailable = 2 - displayedPlayerRequests.length;
-        const toDisplay = newRequests.slice(0, slotsAvailable);
-        const toQueue = newRequests.slice(slotsAvailable);
-        setDisplayedPlayerRequests(prev => [...prev, ...toDisplay]);
-        setQueuedPlayerRequests(prev => [...prev, ...toQueue]);
-      } else {
-        // إضافة للطابور
-        setQueuedPlayerRequests(prev => [...prev, ...newRequests]);
-      }
-    }
-  }, [pendingRequests, isRoomCreator]);
-  
-  // مؤقت 4 ثواني لحذف طلبات اللاعبين المعروضة وعرض التالية
-  useEffect(() => {
-    if (displayedPlayerRequests.length === 0) return;
-    
-    const timer = setTimeout(() => {
-      // رفض الطلبات المعروضة تلقائياً (انتهاء الصلاحية)
-      displayedPlayerRequests.forEach((req: any) => {
-        respondToRequestMutation.mutate({ participantId: req.id, accept: false });
-      });
-      
-      // عرض أول 2 من الطابور
-      const nextBatch = queuedPlayerRequests.slice(0, 2);
-      const remaining = queuedPlayerRequests.slice(2);
-      
-      setDisplayedPlayerRequests(nextBatch);
-      setQueuedPlayerRequests(remaining);
-    }, 4000);
-    
-    return () => clearTimeout(timer);
-  }, [displayedPlayerRequests]);
+  }, [displayedRequests]);
 
   // Expire join request mutation
   const expireJoinRequestMutation = trpc.joinRequests.expire.useMutation();
@@ -1529,16 +1495,18 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Join Requests from Viewers (Only for creator) - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
-      {isRoomCreator && displayedViewerRequests && displayedViewerRequests.length > 0 && (
+      {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
+      {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
         <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
-          {displayedViewerRequests.map((request: any) => (
-            <View key={request.id} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
+          {displayedRequests.map((request: any) => (
+            <View key={`${request.requestType}-${request.id}`} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
               <View className="flex-row items-center flex-1">
-                <Image
-                  source={getAvatarSource(request.avatar)}
-                  style={{ width: 36, height: 36, borderRadius: 18, marginLeft: 8 }}
-                />
+                {request.avatar && (
+                  <Image
+                    source={getAvatarSource(request.avatar)}
+                    style={{ width: 36, height: 36, borderRadius: 18, marginLeft: 8 }}
+                  />
+                )}
                 <Text style={{ color: '#000', fontWeight: '600' }}>
                   {request.username} يريد الانضمام كلاعب
                 </Text>
@@ -1547,47 +1515,42 @@ export default function RoomScreen() {
                 <TouchableOpacity
                   className="px-4 py-2 rounded-lg"
                   style={{ backgroundColor: '#22C55E' }}
-                  onPress={() => handleRespondToJoinRequest(request.id, request.userId, true)}
+                  onPress={() => {
+                    if (request.requestType === 'viewer') {
+                      handleRespondToJoinRequest(request.id, request.userId, true);
+                    } else {
+                      handleAcceptRequest(request.id);
+                    }
+                    // إزالة الطلب من العرض فوراً
+                    setDisplayedRequests(prev => prev.filter(r => !(r.id === request.id && r.requestType === request.requestType)));
+                  }}
                 >
                   <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>قبول</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   className="px-4 py-2 rounded-lg"
                   style={{ backgroundColor: '#EF4444' }}
-                  onPress={() => handleRespondToJoinRequest(request.id, request.userId, false)}
+                  onPress={() => {
+                    if (request.requestType === 'viewer') {
+                      handleRespondToJoinRequest(request.id, request.userId, false);
+                    } else {
+                      handleRejectRequest(request.id);
+                    }
+                    // إزالة الطلب من العرض فوراً
+                    setDisplayedRequests(prev => prev.filter(r => !(r.id === request.id && r.requestType === request.requestType)));
+                  }}
                 >
                   <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>رفض</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ))}
-        </View>
-      )}
-
-      {/* Pending Requests (for player role requests) - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
-      {isRoomCreator && displayedPlayerRequests && displayedPlayerRequests.length > 0 && (
-        <View className="px-6 py-3 bg-warning/10 border-b border-warning/30">
-          {displayedPlayerRequests.map((request: any) => (
-            <View key={request.id} className="flex-row items-center justify-between mb-2">
-              <Text className="text-foreground flex-1">
-                طلب انضمام من: <Text className="font-bold">{request.username}</Text>
-              </Text>
-              <View className="flex-row gap-2">
-                <TouchableOpacity
-                  className="bg-success px-4 py-2 rounded-lg"
-                  onPress={() => handleAcceptRequest(request.id)}
-                >
-                  <Text className="text-background font-semibold text-sm">قبول</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="bg-error px-4 py-2 rounded-lg"
-                  onPress={() => handleRejectRequest(request.id)}
-                >
-                  <Text className="text-background font-semibold text-sm">رفض</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
+          {/* عداد الطلبات المنتظرة */}
+          {queuedRequests.length > 0 && (
+            <Text style={{ color: '#666', fontSize: 12, textAlign: 'center', marginTop: 4 }}>
+              + {queuedRequests.length} طلبات في الانتظار
+            </Text>
+          )}
         </View>
       )}
 
