@@ -510,13 +510,13 @@ export default function RoomScreen() {
         }
         console.log("[RoomScreen] Role:", newRole, "Status:", participant.status, "Approved:", newApproved);
       } else {
-        // المستخدم لم يعد موجوداً في الساحة - ربما تم طرده
-        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم طرده
+        // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
+        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم استبعاده
         if (userRole && userRole !== "creator") {
           console.log("[RoomScreen] User was kicked from the room");
           Alert.alert(
-            "تم طردك",
-            "تم طردك من الساحة بواسطة المنشئ",
+            "تم استبعادك",
+            "تم استبعادك من الساحة بواسطة المنشئ",
             [
               {
                 text: "حسناً",
@@ -546,12 +546,12 @@ export default function RoomScreen() {
   // Handle kick player
   const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
-      "طرد اللاعب",
-      `هل تريد طرد ${playerName} من الساحة؟`,
+      "استبعاد اللاعب",
+      `هل تريد استبعاد ${playerName} من الساحة؟`,
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "طرد",
+          text: "استبعاد",
           style: "destructive",
           onPress: () => {
             kickPlayerMutation.mutate({
@@ -678,7 +678,7 @@ export default function RoomScreen() {
       const message = `🎙️ دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
         `📍 اسم الساحة: ${roomName}\n` +
         `👤 الداعي: ${username}\n\n` +
-        `انضم الآن كلاعب أو مشاهد:\n${inviteUrl}`;
+        `انضم الآن كلاعب أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
         message,
@@ -717,7 +717,7 @@ export default function RoomScreen() {
       
       await refetch();
       await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مشاهد");
+      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مستمع");
     } catch (error) {
       console.error("[RoomScreen] Error rejecting request:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
@@ -1129,7 +1129,7 @@ export default function RoomScreen() {
         <View className="flex-1">
           <Text className="text-xl font-bold text-center" style={{ color: '#000000' }}>{roomData.name}</Text>
           <Text className="text-sm text-center" style={{ color: '#000000', opacity: 0.8 }}>
-            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
+            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مستمعين
           </Text>
         </View>
         

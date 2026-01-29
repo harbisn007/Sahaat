@@ -687,7 +687,7 @@ export const appRouter = router({
           await db.kickPlayer(input.roomId, input.playerId, input.creatorId);
           return { success: true };
         } catch (error: any) {
-          throw new Error(error.message || "فشل طرد اللاعب");
+          throw new Error(error.message || "فشل استبعاد اللاعب");
         }
       }),
   }),
