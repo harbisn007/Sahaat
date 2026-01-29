@@ -124,10 +124,21 @@ export function UserProvider({ children }: { children: ReactNode }) {
   };
 
   const loginAsGuest = async (name: string, newAvatar: AvatarType) => {
+    console.log("[UserContext] loginAsGuest called with:", { name, avatar: newAvatar });
+    
     try {
       // Generate new UUID for guest
-      const newUserId = uuidv4();
+      let newUserId: string;
+      try {
+        newUserId = uuidv4();
+        console.log("[UserContext] Generated UUID:", newUserId);
+      } catch (uuidError) {
+        console.error("[UserContext] UUID generation failed, using fallback:", uuidError);
+        // Fallback: generate a simple unique ID
+        newUserId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      }
       
+      console.log("[UserContext] Saving to AsyncStorage...");
       await AsyncStorage.setItem(USER_ID_STORAGE_KEY, newUserId);
       await AsyncStorage.setItem(USER_STORAGE_KEY, name);
       await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
@@ -137,6 +148,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
       
+      console.log("[UserContext] Updating state...");
       setUserIdState(newUserId);
       setUsernameState(name);
       setAvatarState(newAvatar);
@@ -144,9 +156,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setGoogleIdState(null);
       setAppleIdState(null);
       
-      console.log("[UserContext] Logged in as guest:", { userId: newUserId, name });
-    } catch (error) {
-      console.error("Failed to login as guest:", error);
+      console.log("[UserContext] Logged in as guest successfully:", { userId: newUserId, name });
+    } catch (error: any) {
+      console.error("[UserContext] Failed to login as guest:", error?.message || error);
       throw error;
     }
   };

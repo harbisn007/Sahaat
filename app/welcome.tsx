@@ -137,8 +137,9 @@ export default function WelcomeScreen() {
       } else {
         router.replace("/(tabs)");
       }
-    } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء حفظ البيانات");
+    } catch (error: any) {
+      console.error("[Welcome] Login error:", error);
+      Alert.alert("خطأ", error?.message || "حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.");
     } finally {
       setIsLoading(false);
     }
