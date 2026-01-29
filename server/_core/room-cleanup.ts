@@ -116,8 +116,9 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
         const lastActivity = roomLastPlayerActivity.get(roomId);
 
         if (!lastActivity) {
-          // أول مرة نرى هذه الساحة فارغة - بدء العد
-          roomLastPlayerActivity.set(roomId, new Date(room.createdAt));
+          // أول مرة نرى هذه الساحة فارغة - بدء العد من الآن
+          // مهم: نستخدم الوقت الحالي وليس createdAt لتجنب حذف الساحات الجديدة مبكراً
+          roomLastPlayerActivity.set(roomId, now);
         } else {
           const elapsedMs = now.getTime() - lastActivity.getTime();
 
