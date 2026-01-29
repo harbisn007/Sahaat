@@ -1413,7 +1413,7 @@ export default function RoomScreen() {
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
-                    opacity: (!lastTaroukUri || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
+                    opacity: (!lastTaroukUri || isSheelohaPlaying || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
                     width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
@@ -1463,7 +1463,7 @@ export default function RoomScreen() {
                     Alert.alert("خطأ", "فشل بث شيلوها");
                   }
                   }}
-                  disabled={isSheelohaProcessing || isSheelohaActiveGlobally}
+                  disabled={isSheelohaPlaying || isSheelohaProcessing || isSheelohaActiveGlobally}
                 >
                   <View style={{ flexDirection: 'row', gap: 2 }}>
                     <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
