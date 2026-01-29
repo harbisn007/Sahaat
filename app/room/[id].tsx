@@ -17,7 +17,6 @@ import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
 import { RecordingButton } from "@/components/recording-button";
-import { sendCreatorHeartbeat } from "@/hooks/use-socket";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
 import { ReactionMessage } from "@/components/reaction-message";
@@ -511,13 +510,13 @@ export default function RoomScreen() {
         }
         console.log("[RoomScreen] Role:", newRole, "Status:", participant.status, "Approved:", newApproved);
       } else {
-        // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
-        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم استبعاده
+        // المستخدم لم يعد موجوداً في الساحة - ربما تم طرده
+        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم طرده
         if (userRole && userRole !== "creator") {
           console.log("[RoomScreen] User was kicked from the room");
           Alert.alert(
-            "تم استبعادك",
-            "تم استبعادك من الساحة بواسطة المنشئ",
+            "تم طردك",
+            "تم طردك من الساحة بواسطة المنشئ",
             [
               {
                 text: "حسناً",
@@ -547,12 +546,12 @@ export default function RoomScreen() {
   // Handle kick player
   const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
-      "استبعاد اللاعب",
-      `هل تريد استبعاد ${playerName} من الساحة؟`,
+      "طرد اللاعب",
+      `هل تريد طرد ${playerName} من الساحة؟`,
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "استبعاد",
+          text: "طرد",
           style: "destructive",
           onPress: () => {
             kickPlayerMutation.mutate({
@@ -679,7 +678,7 @@ export default function RoomScreen() {
       const message = `🎙️ دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
         `📍 اسم الساحة: ${roomName}\n` +
         `👤 الداعي: ${username}\n\n` +
-        `انضم الآن كلاعب أو مستمع:\n${inviteUrl}`;
+        `انضم الآن كلاعب أو مشاهد:\n${inviteUrl}`;
       
       await Share.share({
         message,
@@ -718,7 +717,7 @@ export default function RoomScreen() {
       
       await refetch();
       await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مستمع");
+      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مشاهد");
     } catch (error) {
       console.error("[RoomScreen] Error rejecting request:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
@@ -1085,25 +1084,6 @@ export default function RoomScreen() {
   
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
-  // إرسال heartbeat للمنشئ كل 3 ثواني لاكتشاف إغلاق التطبيق
-  useEffect(() => {
-    if (!isCreator || !roomId || !userId) return;
-    
-    // إرسال heartbeat فوري عند الدخول
-    sendCreatorHeartbeat(roomId, userId);
-    console.log("[RoomScreen] Creator heartbeat started for room:", roomId);
-    
-    // إرسال heartbeat كل 3 ثواني
-    const interval = setInterval(() => {
-      sendCreatorHeartbeat(roomId, userId);
-    }, 3000);
-    
-    return () => {
-      clearInterval(interval);
-      console.log("[RoomScreen] Creator heartbeat stopped for room:", roomId);
-    };
-  }, [isCreator, roomId, userId]);
-
   return (
     <ImageBackground 
       source={roomBackground} 
@@ -1139,7 +1119,7 @@ export default function RoomScreen() {
         <View className="flex-1">
           <Text className="text-xl font-bold text-center" style={{ color: '#000000' }}>{roomData.name}</Text>
           <Text className="text-sm text-center" style={{ color: '#000000', opacity: 0.8 }}>
-            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مستمعين
+            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
           </Text>
         </View>
         

@@ -54,7 +54,6 @@ interface ClientToServerEvents {
   joinRoom: (roomId: number) => void;
   leaveRoom: (roomId: number) => void;
   requestRoomData: (roomId: number) => void;
-  creatorHeartbeat: (data: { roomId: number; creatorId: string }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -312,16 +311,4 @@ export function useSocketConnection() {
   }, []);
 
   return isConnected;
-}
-
-/**
- * إرسال heartbeat للمنشئ
- */
-export async function sendCreatorHeartbeat(roomId: number, creatorId: string): Promise<void> {
-  try {
-    const socket = await getSocket();
-    socket.emit("creatorHeartbeat", { roomId, creatorId });
-  } catch (error) {
-    console.error("[Socket.io] Failed to send creator heartbeat:", error);
-  }
 }

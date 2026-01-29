@@ -56,7 +56,7 @@ async function hasNonCreatorPlayer(roomId: number): Promise<boolean> {
 /**
  * حذف الساحة وجميع بياناتها
  */
-export async function deleteRoomCompletely(roomId: number): Promise<void> {
+async function deleteRoomCompletely(roomId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
 
@@ -116,17 +116,13 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
         const lastActivity = roomLastPlayerActivity.get(roomId);
 
         if (!lastActivity) {
-          // أول مرة نرى هذه الساحة فارغة - بدء العد من الآن
-          // مهم: نستخدم الوقت الحالي وليس وقت إنشاء الساحة
-          // لتجنب حذف الساحة فوراً عند إعادة تشغيل الخادم
-          roomLastPlayerActivity.set(roomId, new Date());
-          console.log(`[RoomCleanup] Room ${roomId} has no players - starting 15 minute countdown`);
+          // أول مرة نرى هذه الساحة فارغة - بدء العد
+          roomLastPlayerActivity.set(roomId, new Date(room.createdAt));
         } else {
           const elapsedMs = now.getTime() - lastActivity.getTime();
 
           if (elapsedMs >= timeoutMs) {
             // مرت 15 دقيقة بدون لاعب - حذف الساحة
-            console.log(`[RoomCleanup] Room ${roomId} has been empty for ${Math.round(elapsedMs/60000)} minutes - deleting`);
             await deleteRoomCompletely(roomId);
           }
         }
@@ -159,21 +155,4 @@ export function startRoomCleanupService(): void {
  */
 export async function deleteRoomImmediately(roomId: number): Promise<void> {
   await deleteRoomCompletely(roomId);
-}
-
-/**
- * حذف الساحة وبيانات المنشئ (عند إغلاق التطبيق)
- */
-export async function deleteRoomAndCreatorData(roomId: number, creatorId: string): Promise<void> {
-  console.log(`[RoomCleanup] Deleting room ${roomId} and creator ${creatorId} data`);
-  
-  // حذف الساحة أولاً
-  await deleteRoomCompletely(roomId);
-  
-  // حذف بيانات المنشئ من جميع الساحات (إذا كان مشاركاً في ساحات أخرى)
-  const db = await getDb();
-  if (db) {
-    await db.delete(roomParticipants).where(eq(roomParticipants.userId, creatorId));
-    console.log(`[RoomCleanup] Creator ${creatorId} data deleted from all rooms`);
-  }
 }

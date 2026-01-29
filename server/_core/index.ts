@@ -7,8 +7,8 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { deleteAllRooms } from "../db";
-import { initializeSocketIO, setDeleteRoomAndCreatorCallback } from "./socket";
-import { startRoomCleanupService, deleteRoomAndCreatorData } from "./room-cleanup";
+import { initializeSocketIO } from "./socket";
+import { startRoomCleanupService } from "./room-cleanup";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -38,9 +38,6 @@ async function startServer() {
 
   // تهيئة Socket.io
   initializeSocketIO(server);
-  
-  // تسجيل callback لحذف الساحة عند انقطاع اتصال المنشئ
-  setDeleteRoomAndCreatorCallback(deleteRoomAndCreatorData);
 
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {

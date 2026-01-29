@@ -8,7 +8,6 @@ import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
 import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import Ionicons from "@expo/vector-icons/Ionicons";
 
 // Import avatar images
 const avatarMale = require("@/assets/images/avatar-male.png");
@@ -131,19 +130,15 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
-      console.log("[WelcomeScreen] Starting guest login with:", { name: trimmedName, avatar: selectedAvatar });
       await loginAsGuest(trimmedName, selectedAvatar);
-      console.log("[WelcomeScreen] Guest login successful, redirecting...");
       // Redirect to the original page if provided, otherwise go to tabs
       if (redirect) {
         router.replace(redirect as any);
       } else {
         router.replace("/(tabs)");
       }
-    } catch (error: unknown) {
-      console.error("[WelcomeScreen] Guest login failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "خطأ غير معروف";
-      Alert.alert("خطأ", `حدث خطأ أثناء حفظ البيانات: ${errorMessage}`);
+    } catch (error) {
+      Alert.alert("خطأ", "حدث خطأ أثناء حفظ البيانات");
     } finally {
       setIsLoading(false);
     }
@@ -159,27 +154,30 @@ export default function WelcomeScreen() {
       return;
     }
 
-    // التحقق من إدخال الاسم واختيار الصورة أولاً
-    const trimmedName = name.trim();
-    const validation = validateName(trimmedName);
-    
-    if (!validation.valid) {
-      Alert.alert("أكمل بياناتك", validation.message || "يرجى إدخال اسمك (3-20 حرف) قبل تسجيل الدخول");
-      return;
-    }
-    
-    if (!selectedAvatar) {
-      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
-      return;
-    }
-
     setIsGoogleLoading(true);
     try {
       const result = await signInWithGoogle();
       
       if (result.success) {
-        // استخدام الاسم والصورة المختارة من المستخدم (وليس من Google)
-        await loginWithGoogle(result.userId, trimmedName, selectedAvatar);
+        // إذا كان مستخدم جديد، نحتاج اسم وصورة
+        // إذا كان مستخدم مسجل، ندخل مباشرة
+        // حالياً نطلب الاسم والصورة دائماً
+        
+        if (result.name && result.avatar) {
+          // استخدام بيانات Google
+          await loginWithGoogle(result.userId, result.name, result.avatar);
+        } else if (name.trim() && selectedAvatar) {
+          // استخدام البيانات المدخلة
+          await loginWithGoogle(result.userId, name.trim(), selectedAvatar);
+        } else {
+          // طلب إدخال الاسم والصورة
+          Alert.alert(
+            "أكمل بياناتك",
+            "يرجى إدخال اسمك واختيار صورة شخصية ثم الضغط على زر Google مرة أخرى"
+          );
+          setIsGoogleLoading(false);
+          return;
+        }
         
         if (redirect) {
           router.replace(redirect as any);
@@ -214,27 +212,21 @@ export default function WelcomeScreen() {
       return;
     }
 
-    // التحقق من إدخال الاسم واختيار الصورة أولاً
-    const trimmedName = name.trim();
-    const validation = validateName(trimmedName);
-    
-    if (!validation.valid) {
-      Alert.alert("أكمل بياناتك", validation.message || "يرجى إدخال اسمك (3-20 حرف) قبل تسجيل الدخول");
-      return;
-    }
-    
-    if (!selectedAvatar) {
-      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
-      return;
-    }
-
     setIsAppleLoading(true);
     try {
       const result = await signInWithApple();
       
       if (result.success) {
-        // استخدام الاسم والصورة المختارة من المستخدم (وليس من Apple)
-        await loginWithApple(result.userId, trimmedName, selectedAvatar);
+        if (name.trim() && selectedAvatar) {
+          await loginWithApple(result.userId, name.trim(), selectedAvatar);
+        } else {
+          Alert.alert(
+            "أكمل بياناتك",
+            "يرجى إدخال اسمك واختيار صورة شخصية ثم الضغط على زر Apple مرة أخرى"
+          );
+          setIsAppleLoading(false);
+          return;
+        }
         
         if (redirect) {
           router.replace(redirect as any);
@@ -418,50 +410,44 @@ export default function WelcomeScreen() {
                 {/* Separator */}
                 <Text className="text-muted text-sm">أو</Text>
 
-                {/* Social Login Button - Combined Google/Apple */}
-                <TouchableOpacity
-                  className="rounded-xl py-3 px-4 items-center justify-center flex-row"
-                  style={{
-                    backgroundColor: (googleConfigured || appleConfigured) ? colors.surface : colors.border,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    opacity: anyLoading ? 0.5 : 1,
-                    gap: 6,
-                  }}
-                  onPress={() => {
-                    // إذا كان على iOS، نعرض خيارات
-                    if (Platform.OS === 'ios' && appleConfigured && googleConfigured) {
-                      Alert.alert(
-                        'اختر طريقة الدخول',
-                        '',
-                        [
-                          { text: 'Google', onPress: handleGoogleLogin },
-                          { text: 'Apple', onPress: handleAppleLogin },
-                          { text: 'إلغاء', style: 'cancel' },
-                        ]
-                      );
-                    } else if (googleConfigured) {
-                      handleGoogleLogin();
-                    } else if (appleConfigured && Platform.OS !== 'android') {
-                      handleAppleLogin();
-                    } else {
-                      // إذا لم يكن أي منهما مُعداً
-                      handleGoogleLogin(); // سيعرض رسالة "غير متاح"
-                    }
-                  }}
-                  disabled={anyLoading}
-                >
-                  {(isGoogleLoading || isAppleLoading) ? (
-                    <ActivityIndicator color={colors.foreground} size="small" />
-                  ) : (
-                    <>
-                      <Text className="text-foreground text-sm">دخول عبر</Text>
-                      <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
-                      <Text className="text-muted text-sm">/</Text>
-                      <Ionicons name="logo-apple" size={24} color="#000" />
-                    </>
+                {/* Social Login Buttons */}
+                <View className="flex-row gap-2">
+                  {/* Google Button */}
+                  <TouchableOpacity
+                    className="rounded-xl py-3 px-4 items-center justify-center"
+                    style={{
+                      backgroundColor: googleConfigured ? '#4285F4' : colors.border,
+                      opacity: anyLoading ? 0.5 : 1,
+                    }}
+                    onPress={handleGoogleLogin}
+                    disabled={anyLoading}
+                  >
+                    {isGoogleLoading ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <MaterialCommunityIcons name="google" size={24} color="#fff" />
+                    )}
+                  </TouchableOpacity>
+
+                  {/* Apple Button - iOS only */}
+                  {Platform.OS !== 'android' && (
+                    <TouchableOpacity
+                      className="rounded-xl py-3 px-4 items-center justify-center"
+                      style={{
+                        backgroundColor: appleConfigured ? '#000' : colors.border,
+                        opacity: anyLoading ? 0.5 : 1,
+                      }}
+                      onPress={handleAppleLogin}
+                      disabled={anyLoading}
+                    >
+                      {isAppleLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <MaterialCommunityIcons name="apple" size={24} color="#fff" />
+                      )}
+                    </TouchableOpacity>
                   )}
-                </TouchableOpacity>
+                </View>
               </View>
             </View>
 

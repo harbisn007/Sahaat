@@ -7,7 +7,6 @@ import { useUser } from "@/lib/user-context";
 import { useColors } from "@/hooks/use-colors";
 import { MaterialIcons } from "@expo/vector-icons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
 import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
@@ -71,7 +70,7 @@ export default function InviteScreen() {
       // If already logged in, redirect to room directly
       if (username && userId) {
         autoJoinAttempted.current = true;
-        // المستخدم المسجل يدخل مباشرة كمستمع
+        // المستخدم المسجل يدخل مباشرة كمشاهد
         try {
           await joinAsViewerMutation.mutateAsync({
             roomId,
@@ -162,15 +161,12 @@ export default function InviteScreen() {
 
     setIsUpdating(true);
     try {
-      console.log("[InviteScreen] Calling loginAsGuest with:", { name: editName.trim(), avatar: editAvatar });
       await loginAsGuest(editName.trim(), editAvatar);
-      console.log("[InviteScreen] loginAsGuest successful");
       setShowEditModal(false);
+      // تحديث البيانات في الساحة
       Alert.alert("تم", "تم تحديث بياناتك بنجاح");
     } catch (error) {
-      console.error("[InviteScreen] loginAsGuest failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
-      Alert.alert("خطأ", errorMessage);
+      Alert.alert("خطأ", "حدث خطأ أثناء التحديث");
     } finally {
       setIsUpdating(false);
     }
@@ -182,34 +178,22 @@ export default function InviteScreen() {
       return;
     }
 
-    // التحقق من إدخال الاسم واختيار الصورة أولاً
-    if (!editName.trim() || editName.trim().length < 3) {
-      Alert.alert("أكمل بياناتك", "يرجى إدخال اسمك (3 حروف على الأقل) قبل تسجيل الدخول");
-      return;
-    }
-    if (!editAvatar) {
-      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
-      return;
-    }
-
     setIsGoogleLoading(true);
     try {
-      console.log("[InviteScreen] Starting Google login...");
       const result = await signInWithGoogle();
       
       if (result.success) {
-        console.log("[InviteScreen] Google auth successful, saving user data...");
-        await loginWithGoogle(result.userId, editName.trim(), editAvatar);
-        console.log("[InviteScreen] User data saved successfully");
+        const name = editName.trim() || result.name || "مستخدم Google";
+        const avatarToUse = editAvatar || result.avatar || "male";
+        
+        await loginWithGoogle(result.userId, name, avatarToUse);
         setShowEditModal(false);
         Alert.alert("تم", "تم تسجيل الدخول بـ Google بنجاح");
       } else if (result.error !== 'تم إلغاء تسجيل الدخول') {
         Alert.alert("خطأ", result.error || "فشل تسجيل الدخول");
       }
     } catch (error) {
-      console.error("[InviteScreen] Google login failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
-      Alert.alert("خطأ", errorMessage);
+      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Google");
     } finally {
       setIsGoogleLoading(false);
     }
@@ -226,34 +210,22 @@ export default function InviteScreen() {
       return;
     }
 
-    // التحقق من إدخال الاسم واختيار الصورة أولاً
-    if (!editName.trim() || editName.trim().length < 3) {
-      Alert.alert("أكمل بياناتك", "يرجى إدخال اسمك (3 حروف على الأقل) قبل تسجيل الدخول");
-      return;
-    }
-    if (!editAvatar) {
-      Alert.alert("أكمل بياناتك", "يرجى اختيار صورة شخصية قبل تسجيل الدخول");
-      return;
-    }
-
     setIsAppleLoading(true);
     try {
-      console.log("[InviteScreen] Starting Apple login...");
       const result = await signInWithApple();
       
       if (result.success) {
-        console.log("[InviteScreen] Apple auth successful, saving user data...");
-        await loginWithApple(result.userId, editName.trim(), editAvatar);
-        console.log("[InviteScreen] User data saved successfully");
+        const name = editName.trim() || "مستخدم Apple";
+        const avatarToUse = editAvatar || "male";
+        
+        await loginWithApple(result.userId, name, avatarToUse);
         setShowEditModal(false);
         Alert.alert("تم", "تم تسجيل الدخول بـ Apple بنجاح");
       } else if (result.error !== 'تم إلغاء تسجيل الدخول') {
         Alert.alert("خطأ", result.error || "فشل تسجيل الدخول");
       }
     } catch (error) {
-      console.error("[InviteScreen] Apple login failed:", error);
-      const errorMessage = error instanceof Error ? error.message : "حدث خطأ غير متوقع";
-      Alert.alert("خطأ", errorMessage);
+      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Apple");
     } finally {
       setIsAppleLoading(false);
     }
@@ -439,7 +411,7 @@ export default function InviteScreen() {
                 <View className="flex-row items-center gap-2">
                   <MaterialIcons name="visibility" size={24} color="#8B4513" />
                   <Text className="font-bold text-lg" style={{ color: "#8B4513" }}>
-                    {joinAsViewerMutation.isPending ? "جاري الانضمام..." : "انضم كمستمع"}
+                    {joinAsViewerMutation.isPending ? "جاري الانضمام..." : "انضم كمشاهد"}
                   </Text>
                 </View>
               </TouchableOpacity>
@@ -559,48 +531,42 @@ export default function InviteScreen() {
                   <View className="flex-1 h-px bg-border" />
                 </View>
 
-                {/* Social Login Button - Combined Google/Apple */}
-                <TouchableOpacity
-                  className="py-3 rounded-xl items-center justify-center flex-row"
-                  style={{
-                    backgroundColor: (googleConfigured || appleConfigured) ? colors.surface : colors.border,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                    opacity: anyLoading ? 0.5 : 1,
-                    gap: 6,
-                  }}
-                  onPress={() => {
-                    if (Platform.OS === 'ios' && appleConfigured && googleConfigured) {
-                      Alert.alert(
-                        'اختر طريقة الدخول',
-                        '',
-                        [
-                          { text: 'Google', onPress: handleUpdateWithGoogle },
-                          { text: 'Apple', onPress: handleUpdateWithApple },
-                          { text: 'إلغاء', style: 'cancel' },
-                        ]
-                      );
-                    } else if (googleConfigured) {
-                      handleUpdateWithGoogle();
-                    } else if (appleConfigured && Platform.OS !== 'android') {
-                      handleUpdateWithApple();
-                    } else {
-                      handleUpdateWithGoogle();
-                    }
-                  }}
-                  disabled={anyLoading}
-                >
-                  {(isGoogleLoading || isAppleLoading) ? (
-                    <ActivityIndicator color={colors.foreground} size="small" />
-                  ) : (
-                    <>
-                      <Text className="text-foreground text-sm">دخول عبر</Text>
-                      <MaterialCommunityIcons name="google" size={24} color="#4285F4" />
-                      <Text className="text-muted text-sm">/</Text>
-                      <Ionicons name="logo-apple" size={24} color="#000" />
-                    </>
+                {/* Social Buttons */}
+                <View className="flex-row gap-3">
+                  <TouchableOpacity
+                    className="flex-1 py-3 rounded-xl items-center justify-center flex-row gap-2"
+                    style={{ backgroundColor: googleConfigured ? '#4285F4' : colors.border, opacity: anyLoading ? 0.5 : 1 }}
+                    onPress={handleUpdateWithGoogle}
+                    disabled={anyLoading}
+                  >
+                    {isGoogleLoading ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <>
+                        <MaterialCommunityIcons name="google" size={20} color="#fff" />
+                        <Text className="text-white font-semibold">Google</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  {Platform.OS !== 'android' && (
+                    <TouchableOpacity
+                      className="flex-1 py-3 rounded-xl items-center justify-center flex-row gap-2"
+                      style={{ backgroundColor: appleConfigured ? '#000' : colors.border, opacity: anyLoading ? 0.5 : 1 }}
+                      onPress={handleUpdateWithApple}
+                      disabled={anyLoading}
+                    >
+                      {isAppleLoading ? (
+                        <ActivityIndicator color="#fff" size="small" />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons name="apple" size={20} color="#fff" />
+                          <Text className="text-white font-semibold">Apple</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   )}
-                </TouchableOpacity>
+                </View>
               </View>
 
               {/* Cancel Button */}
