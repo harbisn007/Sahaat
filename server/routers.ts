@@ -34,34 +34,24 @@ export const appRouter = router({
 
   // Rooms router
   rooms: router({
-    // Get all active rooms - محسّن للسرعة
-    list: publicProcedure.query(async () => {
-      // استخدام الدالة المحسّنة التي تجلب كل شيء في استعلامين فقط
-      return db.getAllRoomsWithCounts();
-    }),
+    // Get rooms with pagination - محسّن للتوسع
+    list: publicProcedure
+      .input(z.object({ 
+        page: z.number().default(1),
+        limit: z.number().default(20)
+      }).optional())
+      .query(async ({ input }) => {
+        const page = input?.page || 1;
+        const limit = input?.limit || 20;
+        return db.getRoomsWithPagination(page, limit);
+      }),
 
-    // Get room by ID with participants
+    // Get room by ID with participants - محسّن لاستخدام استعلامين فقط
     getById: publicProcedure
       .input(z.object({ roomId: z.number() }))
       .query(async ({ input }) => {
-        const room = await db.getRoomById(input.roomId);
-        if (!room) {
-          throw new Error("Room not found");
-        }
-
-        const participants = await db.getRoomParticipants(input.roomId);
-        const totalPlayerCount = await db.getTotalPlayerCount(input.roomId);
-        const viewerCount = await db.getViewerCount(input.roomId);
-        const acceptedPlayersCount = await db.getAcceptedPlayersCount(input.roomId);
-
-        return {
-          ...room,
-          participants,
-          playerCount: totalPlayerCount,
-          viewerCount,
-          acceptedPlayersCount,
-          isRoomFull: acceptedPlayersCount >= 2,
-        };
+        // استخدام الدالة المحسّنة التي تجلب كل شيء في استعلامين
+        return db.getRoomWithAllData(input.roomId);
       }),
 
     // Create a new room

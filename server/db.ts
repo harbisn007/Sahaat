@@ -120,22 +120,29 @@ export async function getAllRooms() {
     .orderBy(desc(rooms.createdAt));
 }
 
-// دالة محسّنة لجلب جميع الساحات مع الإحصائيات في استعلام واحد
-export async function getAllRoomsWithCounts() {
+// دالة محسّنة لجلب الساحات مع Pagination
+export async function getRoomsWithPagination(page: number = 1, limit: number = 20) {
   const db = await getDb();
-  if (!db) return [];
+  if (!db) return { rooms: [], total: 0, hasMore: false };
 
-  // جلب جميع الساحات النشطة
+  const offset = (page - 1) * limit;
+
+  // جلب الساحات النشطة مع pagination
   const allRooms = await db
     .select()
     .from(rooms)
     .where(eq(rooms.isActive, "true"))
-    .orderBy(desc(rooms.createdAt));
+    .orderBy(desc(rooms.createdAt))
+    .limit(limit + 1) // +1 لمعرفة إذا كان هناك المزيد
+    .offset(offset);
 
-  if (allRooms.length === 0) return [];
+  const hasMore = allRooms.length > limit;
+  const roomsToReturn = hasMore ? allRooms.slice(0, limit) : allRooms;
 
-  // جلب جميع المشاركين لجميع الساحات في استعلام واحد
-  const roomIds = allRooms.map(r => r.id);
+  if (roomsToReturn.length === 0) return { rooms: [], total: 0, hasMore: false };
+
+  // جلب المشاركين للساحات المجلوبة فقط
+  const roomIds = roomsToReturn.map(r => r.id);
   const allParticipants = await db
     .select()
     .from(roomParticipants)
@@ -147,7 +154,7 @@ export async function getAllRoomsWithCounts() {
     );
 
   // حساب الإحصائيات لكل ساحة
-  const roomsWithCounts = allRooms.map(room => {
+  const roomsWithCounts = roomsToReturn.map(room => {
     const roomParticipantsList = allParticipants.filter(p => p.roomId === room.id);
     const playerCount = roomParticipantsList.filter(p => p.role === "player" || p.role === "creator").length;
     const viewerCount = roomParticipantsList.filter(p => p.role === "viewer").length;
@@ -163,11 +170,23 @@ export async function getAllRoomsWithCounts() {
   });
 
   // ترتيب حسب الأكثر تفاعلاً
-  return roomsWithCounts.sort((a, b) => {
+  const sortedRooms = roomsWithCounts.sort((a, b) => {
     const totalA = a.playerCount + a.viewerCount;
     const totalB = b.playerCount + b.viewerCount;
     return totalB - totalA;
   });
+
+  return {
+    rooms: sortedRooms,
+    hasMore,
+    page,
+  };
+}
+
+// دالة محسّنة لجلب جميع الساحات مع الإحصائيات (للتوافق مع الكود القديم)
+export async function getAllRoomsWithCounts() {
+  const result = await getRoomsWithPagination(1, 100); // جلب أول 100 ساحة
+  return result.rooms;
 }
 
 export async function getRoomById(roomId: number) {
@@ -176,6 +195,37 @@ export async function getRoomById(roomId: number) {
 
   const result = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1);
   return result[0] || null;
+}
+
+// دالة محسّنة لجلب بيانات الساحة كاملة في استعلامين فقط (بدلاً من 5)
+export async function getRoomWithAllData(roomId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Room not found");
+
+  // استعلام 1: جلب الساحة
+  const room = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1);
+  if (!room[0]) throw new Error("Room not found");
+
+  // استعلام 2: جلب جميع المشاركين
+  const participants = await db
+    .select()
+    .from(roomParticipants)
+    .where(eq(roomParticipants.roomId, roomId));
+
+  // حساب الإحصائيات من البيانات المجلوبة (بدون استعلامات إضافية)
+  const acceptedParticipants = participants.filter(p => p.status === "accepted");
+  const playerCount = acceptedParticipants.filter(p => p.role === "player" || p.role === "creator").length;
+  const viewerCount = acceptedParticipants.filter(p => p.role === "viewer").length;
+  const acceptedPlayersCount = acceptedParticipants.filter(p => p.role === "player").length;
+
+  return {
+    ...room[0],
+    participants,
+    playerCount,
+    viewerCount,
+    acceptedPlayersCount,
+    isRoomFull: acceptedPlayersCount >= 2,
+  };
 }
 
 export async function createRoom(data: InsertRoom) {

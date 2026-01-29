@@ -110,10 +110,11 @@ export default function HomeScreen() {
     );
   };
 
-  const { data: rooms, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery(
-    undefined,
+  const { data: roomsData, isLoading: roomsLoading, refetch } = trpc.rooms.list.useQuery(
+    { page: 1, limit: 50 }, // جلب أول 50 ساحة
     { refetchInterval: 5000 } // تحديث كل 5 ثواني
   );
+  const rooms = roomsData?.rooms || []; // استخراج الساحات من النتيجة
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
     { creatorId: userId },
     { refetchInterval: 3000 }

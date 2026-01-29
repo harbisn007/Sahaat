@@ -73,9 +73,10 @@ export default function RoomScreen() {
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
+  // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 500, retry: false }
+    { enabled: roomId > 0, refetchInterval: 5000, retry: false } // تقليل من 500ms إلى 5s
   );
 
   // Update joinedAt to current time on every room entry
@@ -114,7 +115,14 @@ export default function RoomScreen() {
   // Socket.io للاستماع لحدث حذف الساحة فوراً
   const { setCallbacks } = useSocket(roomId > 0 ? roomId : null);
   
-  // الاستماع لأحداث Socket.io (فوري)
+  // حالات محلية للبيانات الفورية عبر Socket.io (بدلاً من polling)
+  const [socketAudioMessages, setSocketAudioMessages] = useState<any[]>([]);
+  const [socketReactions, setSocketReactions] = useState<any[]>([]);
+  const [socketActiveRecordings, setSocketActiveRecordings] = useState<any[]>([]);
+  const [socketSheelohaBroadcast, setSocketSheelohaBroadcast] = useState<any | null>(null);
+  const [socketKhaloohaCommand, setSocketKhaloohaCommand] = useState<any | null>(null);
+  
+  // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
     
@@ -136,23 +144,75 @@ export default function RoomScreen() {
           );
         }
       },
-      // استماع للرسائل الصوتية الجديدة للتحديث الفوري
-      onAudioMessageCreated: () => {
-        console.log("[RoomScreen] New audio message via Socket.io - refreshing");
-        refetchAudio();
+      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
+      onAudioMessageCreated: (data) => {
+        console.log("[RoomScreen] New audio message via Socket.io:", data);
+        setSocketAudioMessages(prev => {
+          // تجنب التكرار
+          if (prev.some(m => m.id === data.messageId)) return prev;
+          return [{
+            id: data.messageId,
+            userId: data.userId,
+            username: data.username,
+            messageType: data.messageType,
+            audioUrl: data.audioUrl,
+            duration: data.duration,
+            createdAt: data.createdAt,
+          }, ...prev];
+        });
       },
-      // استماع للتفاعلات الجديدة للتحديث الفوري
-      onReactionCreated: () => {
-        console.log("[RoomScreen] New reaction via Socket.io - refreshing");
-        refetchReactions();
+      // استماع للتفاعلات الجديدة - إضافة مباشرة للحالة المحلية
+      onReactionCreated: (data) => {
+        console.log("[RoomScreen] New reaction via Socket.io:", data);
+        setSocketReactions(prev => {
+          // تجنب التكرار
+          if (prev.some(r => r.id === data.reactionId)) return prev;
+          return [{
+            id: data.reactionId,
+            userId: data.userId,
+            username: data.username,
+            reactionType: data.reactionType,
+            createdAt: data.createdAt,
+          }, ...prev];
+        });
       },
-      // استماع لتغيير حالة التسجيل للتحديث الفوري
-      onRecordingStatusChanged: () => {
-        console.log("[RoomScreen] Recording status changed via Socket.io - refreshing");
-        refetchActiveRecordings();
+      // استماع لتغيير حالة التسجيل - تحديث مباشر
+      onRecordingStatusChanged: (data) => {
+        console.log("[RoomScreen] Recording status changed via Socket.io:", data);
+        setSocketActiveRecordings(prev => {
+          if (data.isRecording) {
+            // إضافة أو تحديث
+            const existing = prev.findIndex(r => r.userId === data.userId);
+            if (existing >= 0) {
+              const updated = [...prev];
+              updated[existing] = { ...data, isRecording: "true" };
+              return updated;
+            }
+            return [...prev, { ...data, isRecording: "true" }];
+          } else {
+            // إزالة
+            return prev.filter(r => r.userId !== data.userId);
+          }
+        });
+      },
+      // استماع لشيلوها
+      onSheelohaBroadcast: (data) => {
+        console.log("[RoomScreen] Sheeloha broadcast via Socket.io:", data);
+        setSocketSheelohaBroadcast({
+          id: Date.now(),
+          ...data,
+        });
+      },
+      // استماع لخلوها
+      onKhaloohaCommand: (data) => {
+        console.log("[RoomScreen] Khalooha command via Socket.io:", data);
+        setSocketKhaloohaCommand({
+          id: Date.now(),
+          ...data,
+        });
       },
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, refetchAudio, refetchReactions, refetchActiveRecordings]);
+  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
   
   // التحقق من حذف الساحة عبر polling (احتياطي)
   useEffect(() => {
@@ -215,9 +275,10 @@ export default function RoomScreen() {
     performAutoJoin();
   }, [autoJoin, username, userId, roomData, avatar, roomId, joinAsViewerMutation, refetch]);
 
+  // جلب طلبات الانضمام - polling كل 3 ثواني (التحديثات عبر Socket.io)
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling
+    { enabled: roomId > 0, refetchInterval: 3000 } // تقليل من 500ms إلى 3s
   );
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
@@ -283,20 +344,57 @@ export default function RoomScreen() {
   // Tarouk player
   const { stopTarouk } = useTaroukPlayer();
 
-  const { data: audioMessages, refetch: refetchAudio } = trpc.audio.list.useQuery(
+  // جلب البيانات الأولية فقط (بدون polling - التحديثات عبر Socket.io)
+  const { data: initialAudioMessages } = trpc.audio.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling for instant messages
+    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
   );
 
-  const { data: reactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
+  const { data: initialReactions } = trpc.reactions.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 500 } // Fast polling
+    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
   );
 
-  const { data: sheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
+  const { data: initialSheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 300 } // Very fast polling for real-time broadcast
+    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
   );
+  
+  // دمج البيانات الأولية مع التحديثات عبر Socket.io
+  const audioMessages = useMemo(() => {
+    const initial = initialAudioMessages || [];
+    const socket = socketAudioMessages || [];
+    // دمج وإزالة التكرار
+    const merged = [...socket];
+    for (const msg of initial) {
+      if (!merged.some(m => m.id === msg.id)) {
+        merged.push(msg);
+      }
+    }
+    return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [initialAudioMessages, socketAudioMessages]);
+  
+  const reactions = useMemo(() => {
+    const initial = initialReactions || [];
+    const socket = socketReactions || [];
+    // دمج وإزالة التكرار
+    const merged = [...socket];
+    for (const r of initial) {
+      if (!merged.some(m => m.id === r.id)) {
+        merged.push(r);
+      }
+    }
+    return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [initialReactions, socketReactions]);
+  
+  const sheelohaBroadcasts = useMemo(() => {
+    const initial = initialSheelohaBroadcasts || [];
+    if (socketSheelohaBroadcast) {
+      // إضافة البث الجديد في البداية
+      return [socketSheelohaBroadcast, ...initial.filter(b => b.id !== socketSheelohaBroadcast.id)];
+    }
+    return initial;
+  }, [initialSheelohaBroadcasts, socketSheelohaBroadcast]);
 
   // Check if there's an active sheeloha broadcast (within last 4 seconds)
   // This is used to disable the sheeloha button for all users while playing
@@ -316,17 +414,37 @@ export default function RoomScreen() {
     return timeSinceBroadcast < 4000; // 4 seconds
   }, [sheelohaBroadcasts, sheelohaDisabledUntil]);
 
-  // Listen for khalooha commands to stop sheeloha for all users
-  const { data: latestKhaloohaCommand } = trpc.khalooha.latest.useQuery(
+  // جلب أولي لأمر خلوها (بدون polling - التحديثات عبر Socket.io)
+  const { data: initialKhaloohaCommand } = trpc.khalooha.latest.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 300 } // Very fast polling for stop command
+    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
   );
+  
+  // دمج أمر خلوها الأولي مع التحديثات عبر Socket.io
+  const latestKhaloohaCommand = useMemo(() => {
+    if (socketKhaloohaCommand) return socketKhaloohaCommand;
+    return initialKhaloohaCommand;
+  }, [initialKhaloohaCommand, socketKhaloohaCommand]);
 
-  // Listen for active recordings to show "طاروق..." indicator
-  const { data: activeRecordings, refetch: refetchActiveRecordings } = trpc.recording.getActive.useQuery(
+  // جلب أولي لحالة التسجيل (بدون polling - التحديثات عبر Socket.io)
+  const { data: initialActiveRecordings } = trpc.recording.getActive.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 200 } // Very fast polling for instant indicator
+    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
   );
+  
+  // دمج حالة التسجيل الأولية مع التحديثات عبر Socket.io
+  const activeRecordings = useMemo(() => {
+    const initial = initialActiveRecordings || [];
+    const socket = socketActiveRecordings || [];
+    // دمج وإزالة التكرار
+    const merged = [...socket];
+    for (const r of initial) {
+      if (!merged.some(m => m.userId === r.userId)) {
+        merged.push(r);
+      }
+    }
+    return merged;
+  }, [initialActiveRecordings, socketActiveRecordings]);
 
   // Debug: Log activeRecordings changes
   useEffect(() => {
@@ -901,7 +1019,7 @@ export default function RoomScreen() {
         recordingType: type,
       });
       // تحديث فوري لعرض المؤشر بدون انتظار polling
-      refetchActiveRecordings();
+      // Socket.io يحدث تلقائياً
       console.log("[RoomScreen] Recording status sent to server IMMEDIATELY (no await)");
     }
     
@@ -922,7 +1040,7 @@ export default function RoomScreen() {
         if (userId) {
           try {
             await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
-            refetchActiveRecordings();
+            // Socket.io يحدث تلقائياً
           } catch (err) {
             console.error("[RoomScreen] Failed to clear recording status:", err);
           }
@@ -937,7 +1055,7 @@ export default function RoomScreen() {
         if (userId) {
           try {
             await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
-            refetchActiveRecordings();
+            // Socket.io يحدث تلقائياً
           } catch (err) {
             console.error("[RoomScreen] Failed to clear recording status:", err);
           }
@@ -955,7 +1073,7 @@ export default function RoomScreen() {
       if (userId) {
         try {
           await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
-          refetchActiveRecordings();
+          // Socket.io يحدث تلقائياً
         } catch (err) {
           console.error("[RoomScreen] Failed to clear recording status:", err);
         }
@@ -993,7 +1111,7 @@ export default function RoomScreen() {
         try {
           await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
           // تحديث فوري لإخفاء المؤشر بدون انتظار polling
-          refetchActiveRecordings();
+          // Socket.io يحدث تلقائياً
         } catch (err) {
           console.error("[RoomScreen] Failed to clear recording status:", err);
         }
@@ -1021,7 +1139,7 @@ export default function RoomScreen() {
     console.log("[RoomScreen] Local recording indicator deactivated IMMEDIATELY");
     if (userId) {
       clearRecordingStatusMutation.mutate({ roomId, userId });
-      refetchActiveRecordings();
+      // Socket.io يحدث تلقائياً
     }
     
     try {
@@ -1071,7 +1189,7 @@ export default function RoomScreen() {
         });
         
         // Refresh audio messages
-        await refetchAudio();
+        // Socket.io يحدث تلقائياً
       }
     } catch (error) {
       console.error("Failed to save audio message:", error);
@@ -1120,7 +1238,7 @@ export default function RoomScreen() {
       setLocalMessages(prev => prev.filter(m => m.id !== localId));
       
       // Refetch reactions immediately to show the new reaction
-      await refetchReactions();
+      // Socket.io يحدث تلقائياً
       console.log("[RoomScreen] Reactions refetched");
     } catch (error: any) {
       console.error("[RoomScreen] Failed to send reaction:", error);

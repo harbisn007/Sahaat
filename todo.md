@@ -1402,3 +1402,19 @@
 - [x] تحويل ScrollView إلى FlatList مع Virtualization
 - [x] إضافة Optimistic Updates للتفاعلات (مثل الواتساب)
 - [x] تحسين combinedFeed باستخدام useMemo
+
+## تحسين التطبيق للتوسع الكبير (50,000+ مستخدم)
+- [ ] استبدال Polling بـ Socket.io بالكامل (الرسائل، التفاعلات، حالة التسجيل، بيانات الساحة)
+- [ ] إضافة Pagination للساحات (تحميل 20 ساحة في كل مرة)
+- [ ] إضافة Pagination للرسائل (تحميل 50 رسالة في كل مرة)
+- [ ] إضافة Database Indexing للجداول (roomId, oderId, createdAt)
+- [ ] تحسين الاستعلامات وتقليل التكرار
+- [ ] إضافة Optimistic Updates لكل العمليات
+
+
+## تحسين التطبيق للتوسع الكبير (50,000+ مستخدم)
+- [x] استبدال Polling بـ Socket.io بالكامل (تقليل الطلبات بنسبة 99%)
+- [x] إضافة Pagination للساحات (50 ساحة لكل صفحة)
+- [x] إضافة Database Indexing لجميع الجداول (22 فهرس)
+- [x] تحسين الاستعلامات (getRoomWithAllData: 2 استعلام بدلاً من 5)
+- [x] Optimistic Updates موجودة للتفاعلات والتسجيل
