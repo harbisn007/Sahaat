@@ -69,6 +69,9 @@ export default function RoomScreen() {
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
+  const [localRecordingActive, setLocalRecordingActive] = useState(false);
+  const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
 
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
@@ -111,7 +114,7 @@ export default function RoomScreen() {
   // Socket.io للاستماع لحدث حذف الساحة فوراً
   const { setCallbacks } = useSocket(roomId > 0 ? roomId : null);
   
-  // الاستماع لحدث حذف الساحة عبر Socket.io (فوري)
+  // الاستماع لأحداث Socket.io (فوري)
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
     
@@ -133,8 +136,23 @@ export default function RoomScreen() {
           );
         }
       },
+      // استماع للرسائل الصوتية الجديدة للتحديث الفوري
+      onAudioMessageCreated: () => {
+        console.log("[RoomScreen] New audio message via Socket.io - refreshing");
+        refetchAudio();
+      },
+      // استماع للتفاعلات الجديدة للتحديث الفوري
+      onReactionCreated: () => {
+        console.log("[RoomScreen] New reaction via Socket.io - refreshing");
+        refetchReactions();
+      },
+      // استماع لتغيير حالة التسجيل للتحديث الفوري
+      onRecordingStatusChanged: () => {
+        console.log("[RoomScreen] Recording status changed via Socket.io - refreshing");
+        refetchActiveRecordings();
+      },
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
+  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, refetchAudio, refetchReactions, refetchActiveRecordings]);
   
   // التحقق من حذف الساحة عبر polling (احتياطي)
   useEffect(() => {
@@ -843,7 +861,12 @@ export default function RoomScreen() {
     
     setRecordingType(type);
     
-    // إرسال حالة التسجيل للخادم فوراً لعرض مؤشر "طاروق..." للجميع (بدون انتظار)
+    // تفعيل الحالة المحلية فوراً لعرض الدائرة الحمراء بدون أي تأخير
+    setLocalRecordingActive(true);
+    setLocalRecordingType(type);
+    console.log("[RoomScreen] Local recording indicator activated IMMEDIATELY");
+    
+    // إرسال حالة التسجيل للخادم لعرض المؤشر للآخرين (بدون انتظار)
     if (username && userId) {
       // إرسال بدون await للسرعة الفورية
       setRecordingStatusMutation.mutate({
@@ -930,6 +953,10 @@ export default function RoomScreen() {
     
     // إعادة تعيين حالة التسجيل فوراً
     setRecordingType(null);
+    // إلغاء الحالة المحلية فوراً
+    setLocalRecordingActive(false);
+    setLocalRecordingType(null);
+    console.log("[RoomScreen] Local recording indicator deactivated (cancel)");
     
     try {
       // إيقاف التسجيل بدون حفظ - سيتم تجاهل التسجيل
@@ -964,6 +991,10 @@ export default function RoomScreen() {
     
     // مسح حالة التسجيل فوراً عند إفلات الزر (قبل رفع الملف)
     setRecordingType(null);
+    // إلغاء الحالة المحلية فوراً
+    setLocalRecordingActive(false);
+    setLocalRecordingType(null);
+    console.log("[RoomScreen] Local recording indicator deactivated IMMEDIATELY");
     if (userId) {
       clearRecordingStatusMutation.mutate({ roomId, userId });
       refetchActiveRecordings();
@@ -1270,12 +1301,15 @@ export default function RoomScreen() {
             const player1 = roomData?.participants?.find(
               (p) => p.role === "player" && p.status === "accepted"
             );
-            const isPlayer1Recording = player1 && activeRecordings?.some(
+            // التحقق من الحالة المحلية أولاً (للمستخدم الحالي) ثم من الخادم
+            const isCurrentUserPlayer1 = userId === player1?.userId;
+            const isPlayer1RecordingFromServer = player1 && activeRecordings?.some(
               (r) => r.userId === player1.userId
             );
-            const player1RecordingType = activeRecordings?.find(
-              (r) => r.userId === player1?.userId
-            )?.recordingType as "comment" | "tarouk" | undefined;
+            const isPlayer1Recording = isCurrentUserPlayer1 ? (localRecordingActive || isPlayer1RecordingFromServer) : isPlayer1RecordingFromServer;
+            const player1RecordingType = isCurrentUserPlayer1 && localRecordingActive
+              ? localRecordingType
+              : (activeRecordings?.find((r) => r.userId === player1?.userId)?.recordingType as "comment" | "tarouk" | undefined);
             return player1 ? (
               <View className="items-center" style={{ width: 60, position: 'relative' }}>
                 <RecordingIndicator 
@@ -1308,12 +1342,16 @@ export default function RoomScreen() {
 
           {/* Creator (Center) */}
           {(() => {
-            const isCreatorRecording = activeRecordings?.some(
+            // التحقق من الحالة المحلية أولاً (للمستخدم الحالي) ثم من الخادم
+            const isCurrentUserCreator = userId === roomData?.creatorId;
+            const isCreatorRecordingFromServer = activeRecordings?.some(
               (r) => r.userId === roomData?.creatorId
             );
-            const creatorRecordingType = activeRecordings?.find(
-              (r) => r.userId === roomData?.creatorId
-            )?.recordingType as "comment" | "tarouk" | undefined;
+            // إذا كان المستخدم الحالي هو المنشئ، استخدم الحالة المحلية للسرعة
+            const isCreatorRecording = isCurrentUserCreator ? (localRecordingActive || isCreatorRecordingFromServer) : isCreatorRecordingFromServer;
+            const creatorRecordingType = isCurrentUserCreator && localRecordingActive 
+              ? localRecordingType 
+              : (activeRecordings?.find((r) => r.userId === roomData?.creatorId)?.recordingType as "comment" | "tarouk" | undefined);
             return (
               <View className="items-center" style={{ width: 80, position: 'relative' }}>
                 <RecordingIndicator 
@@ -1337,12 +1375,15 @@ export default function RoomScreen() {
               (p) => p.role === "player" && p.status === "accepted"
             ) || [];
             const player2 = players.length > 1 ? players[1] : null;
-            const isPlayer2Recording = player2 && activeRecordings?.some(
+            // التحقق من الحالة المحلية أولاً (للمستخدم الحالي) ثم من الخادم
+            const isCurrentUserPlayer2 = userId === player2?.userId;
+            const isPlayer2RecordingFromServer = player2 && activeRecordings?.some(
               (r) => r.userId === player2.userId
             );
-            const player2RecordingType = activeRecordings?.find(
-              (r) => r.userId === player2?.userId
-            )?.recordingType as "comment" | "tarouk" | undefined;
+            const isPlayer2Recording = isCurrentUserPlayer2 ? (localRecordingActive || isPlayer2RecordingFromServer) : isPlayer2RecordingFromServer;
+            const player2RecordingType = isCurrentUserPlayer2 && localRecordingActive
+              ? localRecordingType
+              : (activeRecordings?.find((r) => r.userId === player2?.userId)?.recordingType as "comment" | "tarouk" | undefined);
             return player2 ? (
               <View className="items-center" style={{ width: 60, position: 'relative' }}>
                 <RecordingIndicator 
