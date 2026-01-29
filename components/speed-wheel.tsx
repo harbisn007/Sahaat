@@ -4,15 +4,15 @@ import * as Haptics from "expo-haptics";
 import { Platform } from "react-native";
 
 /**
- * Speed values from 0 to 1.50 with 0.05 step
+ * Speed values: 0 (no clapping), then 0.65 to 1.50 with 0.05 step
  * 0 = No clapping sound
- * 0.05 - 1.50 = Delay between claps in seconds
+ * 0.65 - 1.50 = Delay between claps in seconds
  */
-const SPEED_VALUES: number[] = [];
-for (let i = 0; i <= 150; i += 5) {
+const SPEED_VALUES: number[] = [0]; // Start with 0 (no clapping)
+for (let i = 65; i <= 150; i += 5) {
   SPEED_VALUES.push(i / 100);
 }
-// SPEED_VALUES = [0, 0.05, 0.10, 0.15, ..., 1.45, 1.50] (31 values)
+// SPEED_VALUES = [0, 0.65, 0.70, 0.75, ..., 1.45, 1.50] (19 values)
 
 const ITEM_HEIGHT = 16;
 const VISIBLE_ITEMS = 3;
