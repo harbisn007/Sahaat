@@ -306,13 +306,14 @@ export function RecordingButton({
           onTouchCancel={handleTouchCancel}
           style={{
             backgroundColor: isActive ? colors.error : backgroundColor || colors.primary,
-            opacity: (isPreparing && !isTouchActive) ? 0.6 : 1,
+            opacity: isTouchActive ? 0.7 : ((isPreparing && !isTouchActive) ? 0.6 : 1),
             borderRadius: 8,
             paddingVertical: 8,
             paddingHorizontal: 4,
             alignItems: "center",
             justifyContent: "center",
             minHeight,
+            transform: [{ scale: isTouchActive ? 0.95 : 1 }],
             ...(width ? { width } : {}),
           }}
         >

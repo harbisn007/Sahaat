@@ -14,9 +14,9 @@ for (let i = 0; i <= 150; i += 5) {
 }
 // SPEED_VALUES = [0, 0.05, 0.10, 0.15, ..., 1.45, 1.50] (31 values)
 
-const ITEM_HEIGHT = 28;
+const ITEM_HEIGHT = 16;
 const VISIBLE_ITEMS = 3;
-const WHEEL_HEIGHT = ITEM_HEIGHT * VISIBLE_ITEMS;
+const WHEEL_HEIGHT = 48; // Same height as buttons (minHeight: 48)
 
 interface SpeedWheelProps {
   value: number;

@@ -813,22 +813,19 @@ export default function RoomScreen() {
     
     setRecordingType(type);
     
-    // إرسال حالة التسجيل للخادم فوراً لعرض مؤشر "طاروق..." للجميع
+    // إرسال حالة التسجيل للخادم فوراً لعرض مؤشر "طاروق..." للجميع (بدون انتظار)
     if (username && userId) {
-      try {
-        await setRecordingStatusMutation.mutateAsync({
-          roomId,
-          userId,
-          username,
-          isRecording: true,
-          recordingType: type,
-        });
-        // تحديث فوري لعرض المؤشر بدون انتظار polling
-        refetchActiveRecordings();
-        console.log("[RoomScreen] Recording status sent to server IMMEDIATELY");
-      } catch (err) {
-        console.error("[RoomScreen] Failed to send recording status:", err);
-      }
+      // إرسال بدون await للسرعة الفورية
+      setRecordingStatusMutation.mutate({
+        roomId,
+        userId,
+        username,
+        isRecording: true,
+        recordingType: type,
+      });
+      // تحديث فوري لعرض المؤشر بدون انتظار polling
+      refetchActiveRecordings();
+      console.log("[RoomScreen] Recording status sent to server IMMEDIATELY (no await)");
     }
     
     // كتم جميع الأصوات المشغلة أثناء التسجيل

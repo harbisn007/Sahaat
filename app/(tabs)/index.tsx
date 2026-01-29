@@ -47,24 +47,27 @@ export default function HomeScreen() {
         {
           text: "خروج",
           style: "destructive",
-          onPress: async () => {
-            // حذف الساحة النشطة إن وجدت
-            if (activeRoom) {
-              try {
-                await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
-              } catch (error) {
-                console.error("فشل حذف الساحة:", error);
-              }
-            }
-            
-            if (isGuest) {
-              // للضيف: حذف جميع البيانات
-              await clearAllData();
-            } else {
-              // لمستخدمي Google/Apple: تسجيل خروج فقط
-              await logout();
-            }
+          onPress: () => {
+            // الانتقال فوراً للترحيب
             router.replace("/welcome");
+            
+            // تنفيذ الحذف وتسجيل الخروج في الخلفية
+            (async () => {
+              try {
+                // حذف الساحة النشطة إن وجدت (بدون انتظار)
+                if (activeRoom) {
+                  deleteRoomMutation.mutate({ roomId: activeRoom.id });
+                }
+                
+                if (isGuest) {
+                  await clearAllData();
+                } else {
+                  await logout();
+                }
+              } catch (error) {
+                console.error("فشل تسجيل الخروج:", error);
+              }
+            })();
           },
         },
       ]
@@ -85,17 +88,22 @@ export default function HomeScreen() {
         {
           text: "تغيير",
           style: "destructive",
-          onPress: async () => {
-            // حذف الساحة النشطة إن وجدت
-            if (activeRoom) {
-              try {
-                await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
-              } catch (error) {
-                console.error("فشل حذف الساحة:", error);
-              }
-            }
-            await logout();
+          onPress: () => {
+            // الانتقال فوراً للترحيب
             router.replace("/welcome");
+            
+            // تنفيذ الحذف وتسجيل الخروج في الخلفية
+            (async () => {
+              try {
+                // حذف الساحة النشطة إن وجدت (بدون انتظار)
+                if (activeRoom) {
+                  deleteRoomMutation.mutate({ roomId: activeRoom.id });
+                }
+                await logout();
+              } catch (error) {
+                console.error("فشل تسجيل الخروج:", error);
+              }
+            })();
           },
         },
       ]
@@ -147,10 +155,8 @@ export default function HomeScreen() {
       console.log("[handleCreateRoom] Navigating to room...");
       setShowCreateModal(false);
       
-      // Use setTimeout to ensure modal is closed before navigation
-      setTimeout(() => {
-        router.push(`/room/${result.roomId}`);
-      }, 100);
+      // Navigate immediately - modal closing is handled by state
+      router.push(`/room/${result.roomId}`);
     } catch (error: any) {
       console.error("[handleCreateRoom] Error:", error);
       Alert.alert("خطأ", error?.message || "حدث خطأ أثناء إنشاء الساحة");
