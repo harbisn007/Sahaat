@@ -1301,13 +1301,14 @@ export default function RoomScreen() {
             const player1 = roomData?.participants?.find(
               (p) => p.role === "player" && p.status === "accepted"
             );
-            // التحقق من الحالة المحلية أولاً (للمستخدم الحالي) ثم من الخادم
+            // فصل الحالة المحلية عن الخادم لمنع الوميض
             const isCurrentUserPlayer1 = userId === player1?.userId;
             const isPlayer1RecordingFromServer = player1 && activeRecordings?.some(
               (r) => r.userId === player1.userId
             );
-            const isPlayer1Recording = isCurrentUserPlayer1 ? (localRecordingActive || isPlayer1RecordingFromServer) : isPlayer1RecordingFromServer;
-            const player1RecordingType = isCurrentUserPlayer1 && localRecordingActive
+            // المستخدم الحالي يرى المحلي فقط، الآخرون يرون الخادم فقط
+            const isPlayer1Recording = isCurrentUserPlayer1 ? localRecordingActive : isPlayer1RecordingFromServer;
+            const player1RecordingType = isCurrentUserPlayer1
               ? localRecordingType
               : (activeRecordings?.find((r) => r.userId === player1?.userId)?.recordingType as "comment" | "tarouk" | undefined);
             return player1 ? (
@@ -1342,14 +1343,14 @@ export default function RoomScreen() {
 
           {/* Creator (Center) */}
           {(() => {
-            // التحقق من الحالة المحلية أولاً (للمستخدم الحالي) ثم من الخادم
+            // فصل الحالة المحلية عن الخادم لمنع الوميض
             const isCurrentUserCreator = userId === roomData?.creatorId;
             const isCreatorRecordingFromServer = activeRecordings?.some(
               (r) => r.userId === roomData?.creatorId
             );
-            // إذا كان المستخدم الحالي هو المنشئ، استخدم الحالة المحلية للسرعة
-            const isCreatorRecording = isCurrentUserCreator ? (localRecordingActive || isCreatorRecordingFromServer) : isCreatorRecordingFromServer;
-            const creatorRecordingType = isCurrentUserCreator && localRecordingActive 
+            // المستخدم الحالي يرى المحلي فقط، الآخرون يرون الخادم فقط
+            const isCreatorRecording = isCurrentUserCreator ? localRecordingActive : isCreatorRecordingFromServer;
+            const creatorRecordingType = isCurrentUserCreator 
               ? localRecordingType 
               : (activeRecordings?.find((r) => r.userId === roomData?.creatorId)?.recordingType as "comment" | "tarouk" | undefined);
             return (
@@ -1375,13 +1376,14 @@ export default function RoomScreen() {
               (p) => p.role === "player" && p.status === "accepted"
             ) || [];
             const player2 = players.length > 1 ? players[1] : null;
-            // التحقق من الحالة المحلية أولاً (للمستخدم الحالي) ثم من الخادم
+            // فصل الحالة المحلية عن الخادم لمنع الوميض
             const isCurrentUserPlayer2 = userId === player2?.userId;
             const isPlayer2RecordingFromServer = player2 && activeRecordings?.some(
               (r) => r.userId === player2.userId
             );
-            const isPlayer2Recording = isCurrentUserPlayer2 ? (localRecordingActive || isPlayer2RecordingFromServer) : isPlayer2RecordingFromServer;
-            const player2RecordingType = isCurrentUserPlayer2 && localRecordingActive
+            // المستخدم الحالي يرى المحلي فقط، الآخرون يرون الخادم فقط
+            const isPlayer2Recording = isCurrentUserPlayer2 ? localRecordingActive : isPlayer2RecordingFromServer;
+            const player2RecordingType = isCurrentUserPlayer2
               ? localRecordingType
               : (activeRecordings?.find((r) => r.userId === player2?.userId)?.recordingType as "comment" | "tarouk" | undefined);
             return player2 ? (
