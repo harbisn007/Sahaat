@@ -123,22 +123,37 @@ export default function HomeScreen() {
   }, [username, userLoading]);
 
   const handleCreateRoom = async (roomName: string) => {
-    if (!username) return;
+    console.log("[handleCreateRoom] Starting with:", { roomName, username, userId, avatar });
+    
+    if (!username || !userId) {
+      console.log("[handleCreateRoom] Missing username or userId");
+      Alert.alert("خطأ", "يرجى تسجيل الدخول أولاً");
+      return;
+    }
 
     try {
+      console.log("[handleCreateRoom] Calling createRoomMutation...");
       const result = await createRoomMutation.mutateAsync({
         name: roomName,
         creatorId: userId,
         creatorName: username,
         creatorAvatar: avatar || "male",
       });
+      console.log("[handleCreateRoom] Room created with ID:", result.roomId);
 
       await refetch();
       await refetchActiveRoom();
-      router.push(`/room/${result.roomId}`);
+      
+      console.log("[handleCreateRoom] Navigating to room...");
       setShowCreateModal(false);
-    } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء إنشاء الساحة");
+      
+      // Use setTimeout to ensure modal is closed before navigation
+      setTimeout(() => {
+        router.push(`/room/${result.roomId}`);
+      }, 100);
+    } catch (error: any) {
+      console.error("[handleCreateRoom] Error:", error);
+      Alert.alert("خطأ", error?.message || "حدث خطأ أثناء إنشاء الساحة");
     }
   };
 

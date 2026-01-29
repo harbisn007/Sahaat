@@ -1051,6 +1051,19 @@ export default function RoomScreen() {
     }
   };
 
+  // Safety check: ensure all required data is available
+  if (!userId || !username) {
+    console.log("[RoomScreen] Missing user data, redirecting to welcome");
+    router.replace("/welcome");
+    return (
+      <ScreenContainer>
+        <View className="flex-1 justify-center items-center">
+          <ActivityIndicator size="large" />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
   if (isLoading) {
     return (
       <ScreenContainer>
