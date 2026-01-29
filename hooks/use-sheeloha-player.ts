@@ -14,16 +14,10 @@ export type ClappingDelay = number; // 0 to 1.50 in 0.05 increments
 const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
 
 /**
- * Sheeloha Effect Configuration - UPDATED
+ * Sheeloha Effect Configuration
  * 5 voice copies with stereo panning (Layering)
  * Single round only (no second round)
  * Clapping continues until the end of the voice
- * 
- * Audio Processing Applied:
- * 1. Layering: 5 identical voice copies in separate tracks
- * 2. Stereo Panning: Center, slight left/right, more left/right
- * 3. No reverb/echo - clean sound
- * 4. Chorus effect via slight timing differences
  */
 const SHEELOHA_CONFIG = {
   // Number of overlapping voice copies (creates "crowd" effect)
@@ -35,7 +29,6 @@ const SHEELOHA_CONFIG = {
   // Playback rate: 1.0 = original speed
   playbackRate: 1.0,
   // Stereo pan values for Web Audio API (-1 = left, 0 = center, 1 = right)
-  // Creates width without echo
   panValues: [0, -0.3, 0.3, -0.6, 0.6],
 };
 
@@ -46,12 +39,6 @@ interface SheelohaPlayerState {
 
 /**
  * Hook for playing Sheeloha effect with advanced audio processing
- * 
- * Features:
- * - 5 voice copies with stereo panning for "crowd" effect
- * - Clapping sound that repeats based on SpeedWheel value
- * - Clapping continues until voice ends
- * - Single round only (no repetition)
  */
 export function useSheelohaPlayer() {
   const [state, setState] = useState<SheelohaPlayerState>({
@@ -66,11 +53,8 @@ export function useSheelohaPlayer() {
   const player4 = useAudioPlayer("");
   const player5 = useAudioPlayer("");
   
-  // Single clap player for native
+  // Single clap player for native - preloaded
   const clapPlayer = useAudioPlayer(CLAP_SOUND_URI);
-  
-  // Track if clap player is preloaded and ready
-  const clapPreloadedRef = useRef<boolean>(false);
   
   // Store timeouts and intervals for cleanup
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -78,13 +62,22 @@ export function useSheelohaPlayer() {
   const webAudioRef = useRef<HTMLAudioElement[]>([]);
   const webAudioContextRef = useRef<AudioContext | null>(null);
   
-  // Preload clap sound on mount
+  // Preloaded clap audio for web (to avoid first clap being different)
+  const preloadedClapRef = useRef<HTMLAudioElement | null>(null);
+  
+  // Preload clap sound on mount for both platforms
   useEffect(() => {
-    if (Platform.OS !== "web" && clapPlayer) {
+    if (Platform.OS === "web") {
+      // Preload clap audio for web
+      const audio = new Audio("/sounds/sheeloha-claps.mp3");
+      audio.preload = "auto";
+      audio.load();
+      preloadedClapRef.current = audio;
+      console.log("[useSheelohaPlayer] Web clap sound preloaded");
+    } else if (clapPlayer) {
       try {
         clapPlayer.volume = 0.40;
-        clapPreloadedRef.current = true;
-        console.log("[useSheelohaPlayer] Clap sound preloaded");
+        console.log("[useSheelohaPlayer] Native clap sound preloaded");
       } catch (error) {
         console.warn("[useSheelohaPlayer] Failed to preload clap:", error);
       }
@@ -147,68 +140,104 @@ export function useSheelohaPlayer() {
 
   /**
    * Play clapping sound with specified delay until duration ends
+   * FIXED: Clapping starts with voice and ends with voice
    * @param delaySeconds - Delay between claps (from SpeedWheel: 0 = no clapping, 0.05-1.50)
    * @param duration - Total duration to play claps (in ms) - matches voice duration
    * @param volume - Volume level (0-1)
+   * @param startDelay - Delay before starting clapping (to sync with voice start)
    */
-  const startClapping = useCallback((delaySeconds: number, duration: number, volume: number) => {
+  const startClapping = useCallback((
+    delaySeconds: number, 
+    duration: number, 
+    volume: number,
+    startDelay: number = 0
+  ) => {
     if (delaySeconds <= 0) {
       console.log("[useSheelohaPlayer] No clapping (delay = 0)");
       return;
     }
     
     const delayMs = delaySeconds * 1000;
-    console.log(`[useSheelohaPlayer] Starting clapping: delay=${delayMs}ms, duration=${duration}ms, volume=${volume}`);
+    console.log(`[useSheelohaPlayer] Starting clapping: delay=${delayMs}ms, duration=${duration}ms, volume=${volume}, startDelay=${startDelay}ms`);
     
-    if (Platform.OS === "web") {
-      // Web: Create audio elements for clapping
-      const playClap = () => {
-        const clapAudio = new Audio("/sounds/sheeloha-claps.mp3");
-        clapAudio.volume = volume;
-        clapAudio.play().catch(console.warn);
-        webAudioRef.current.push(clapAudio);
-      };
-      
-      // Play first clap immediately
-      playClap();
-      
-      // Set interval for subsequent claps based on SpeedWheel value
-      const interval = setInterval(playClap, delayMs);
-      intervalsRef.current.push(interval);
-      
-      // Stop clapping when voice ends
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        console.log("[useSheelohaPlayer] Clapping stopped (voice ended)");
-      }, duration);
-      timeoutsRef.current.push(timeout);
-    } else {
-      // Native: Use clapPlayer
-      const playClap = () => {
-        try {
-          clapPlayer.seekTo(0);
-          clapPlayer.volume = volume;
-          clapPlayer.play();
-        } catch (e) {
-          console.warn("[useSheelohaPlayer] Failed to play clap:", e);
-        }
-      };
-      
-      // Play first clap immediately
-      playClap();
-      
-      // Set interval for subsequent claps based on SpeedWheel value
-      const interval = setInterval(playClap, delayMs);
-      intervalsRef.current.push(interval);
-      
-      // Stop clapping when voice ends
-      const timeout = setTimeout(() => {
-        clearInterval(interval);
-        console.log("[useSheelohaPlayer] Clapping stopped (voice ended)");
-      }, duration);
-      timeoutsRef.current.push(timeout);
-    }
+    // Delay the start of clapping to sync with voice
+    const startTimeout = setTimeout(() => {
+      if (Platform.OS === "web") {
+        // Web: Create audio elements for clapping
+        const playClap = () => {
+          const clapAudio = new Audio("/sounds/sheeloha-claps.mp3");
+          clapAudio.volume = volume;
+          clapAudio.play().catch(console.warn);
+          webAudioRef.current.push(clapAudio);
+        };
+        
+        // Play first clap
+        playClap();
+        
+        // Set interval for subsequent claps based on SpeedWheel value
+        const interval = setInterval(playClap, delayMs);
+        intervalsRef.current.push(interval);
+        
+        // Stop clapping when voice ends (duration already accounts for startDelay)
+        const timeout = setTimeout(() => {
+          clearInterval(interval);
+          console.log("[useSheelohaPlayer] Clapping stopped (voice ended)");
+        }, duration);
+        timeoutsRef.current.push(timeout);
+      } else {
+        // Native: Use clapPlayer
+        const playClap = () => {
+          try {
+            clapPlayer.seekTo(0);
+            clapPlayer.volume = volume;
+            clapPlayer.play();
+          } catch (e) {
+            console.warn("[useSheelohaPlayer] Failed to play clap:", e);
+          }
+        };
+        
+        // Play first clap
+        playClap();
+        
+        // Set interval for subsequent claps based on SpeedWheel value
+        const interval = setInterval(playClap, delayMs);
+        intervalsRef.current.push(interval);
+        
+        // Stop clapping when voice ends
+        const timeout = setTimeout(() => {
+          clearInterval(interval);
+          console.log("[useSheelohaPlayer] Clapping stopped (voice ended)");
+        }, duration);
+        timeoutsRef.current.push(timeout);
+      }
+    }, startDelay);
+    timeoutsRef.current.push(startTimeout);
   }, [clapPlayer]);
+
+  /**
+   * Get audio duration by loading the file first
+   * This ensures we get the real duration, not a default value
+   */
+  const getAudioDuration = useCallback(async (audioUri: string): Promise<number> => {
+    return new Promise((resolve) => {
+      if (Platform.OS === "web") {
+        const audio = new Audio(audioUri);
+        audio.addEventListener("loadedmetadata", () => {
+          const duration = audio.duration * 1000;
+          console.log(`[useSheelohaPlayer] Got audio duration: ${duration}ms`);
+          resolve(duration);
+        });
+        audio.addEventListener("error", () => {
+          console.warn("[useSheelohaPlayer] Failed to get duration, using fallback");
+          resolve(60000); // 60 seconds fallback
+        });
+        audio.load();
+      } else {
+        // For native, we'll get duration after loading
+        resolve(0); // Will be updated after player.replace()
+      }
+    });
+  }, []);
 
   /**
    * Play on Web using HTML5 Audio with stereo panning
@@ -230,6 +259,9 @@ export function useSheelohaPlayer() {
       
       const duration = audioBuffer.duration * 1000;
       console.log(`[useSheelohaPlayer] Voice duration: ${duration}ms`);
+      
+      // Calculate total delay for all voice copies
+      const totalVoiceDelay = (SHEELOHA_CONFIG.voiceCopies - 1) * SHEELOHA_CONFIG.delayBetweenCopies;
       
       // Create 5 voice copies with stereo panning
       for (let i = 0; i < SHEELOHA_CONFIG.voiceCopies; i++) {
@@ -258,14 +290,16 @@ export function useSheelohaPlayer() {
         timeoutsRef.current.push(timeout);
       }
       
-      // Start clapping (continues until voice ends)
-      startClapping(clappingDelay, duration, 0.40);
+      // Start clapping synchronized with voice
+      // Clapping starts when first voice starts (no delay)
+      // Clapping ends when last voice copy ends (duration + totalVoiceDelay)
+      startClapping(clappingDelay, duration + totalVoiceDelay, 0.40, 0);
       
-      // End after voice finishes (single round only)
+      // End after all voice copies finish (single round only)
       const endTimeout = setTimeout(() => {
         setState({ isPlaying: false, isProcessing: false });
         console.log("[useSheelohaPlayer] Playback complete (single round)");
-      }, duration + 500);
+      }, duration + totalVoiceDelay + 500);
       timeoutsRef.current.push(endTimeout);
       
     } catch (error) {
@@ -282,13 +316,14 @@ export function useSheelohaPlayer() {
         webAudioRef.current.push(audio);
       }
       
-      // Get duration
+      // Get duration properly
       await new Promise<void>((resolve) => {
         audioElements[0].addEventListener("loadedmetadata", () => resolve());
         audioElements[0].load();
       });
       
       const duration = audioElements[0].duration * 1000;
+      const totalVoiceDelay = (SHEELOHA_CONFIG.voiceCopies - 1) * SHEELOHA_CONFIG.delayBetweenCopies;
       
       // Play with staggered start
       audioElements.forEach((audio, index) => {
@@ -299,19 +334,49 @@ export function useSheelohaPlayer() {
       });
       
       // Start clapping
-      startClapping(clappingDelay, duration, 0.40);
+      startClapping(clappingDelay, duration + totalVoiceDelay, 0.40, 0);
       
       // End after voice finishes
       const endTimeout = setTimeout(() => {
         setState({ isPlaying: false, isProcessing: false });
-      }, duration + 500);
+      }, duration + totalVoiceDelay + 500);
       timeoutsRef.current.push(endTimeout);
     }
   }, [startClapping]);
 
   /**
+   * Wait for player to load and get real duration
+   */
+  const waitForPlayerDuration = useCallback(async (player: any, maxWait: number = 5000): Promise<number> => {
+    return new Promise((resolve) => {
+      const startTime = Date.now();
+      
+      const checkDuration = () => {
+        const duration = player.duration;
+        if (duration && duration > 0) {
+          console.log(`[useSheelohaPlayer] Got player duration: ${duration}s`);
+          resolve(duration * 1000);
+          return;
+        }
+        
+        if (Date.now() - startTime > maxWait) {
+          console.warn("[useSheelohaPlayer] Timeout waiting for duration, using fallback");
+          resolve(60000); // 60 seconds fallback for long audio
+          return;
+        }
+        
+        // Check again in 50ms
+        setTimeout(checkDuration, 50);
+      };
+      
+      checkDuration();
+    });
+  }, []);
+
+  /**
    * Play on Native using expo-audio
-   * Creates 5 layered voice copies (stereo panning not available on native)
+   * Creates 5 layered voice copies
+   * FIXED: Properly waits for duration before starting clapping
    */
   const playOnNative = useCallback(async (audioUri: string, clappingDelay: ClappingDelay) => {
     console.log("[useSheelohaPlayer] Playing on native");
@@ -320,21 +385,29 @@ export function useSheelohaPlayer() {
     try {
       const players = [player1, player2, player3, player4, player5];
       
-      // Load and configure all players
-      for (const player of players) {
+      // Load first player and wait for duration
+      console.log("[useSheelohaPlayer] Loading audio...");
+      await player1.replace({ uri: audioUri });
+      player1.volume = SHEELOHA_CONFIG.volume;
+      
+      // Wait for the real duration
+      const duration = await waitForPlayerDuration(player1);
+      console.log(`[useSheelohaPlayer] Voice duration: ${duration}ms`);
+      
+      // Load remaining players
+      for (let i = 1; i < players.length; i++) {
         try {
-          await player.replace({ uri: audioUri });
-          player.volume = SHEELOHA_CONFIG.volume;
+          await players[i].replace({ uri: audioUri });
+          players[i].volume = SHEELOHA_CONFIG.volume;
         } catch (e) {
-          console.warn("[useSheelohaPlayer] Failed to load player:", e);
+          console.warn(`[useSheelohaPlayer] Failed to load player ${i + 1}:`, e);
         }
       }
       
-      // Get duration
-      const duration = (player1.duration || 10) * 1000;
-      console.log(`[useSheelohaPlayer] Voice duration: ${duration}ms`);
+      // Calculate total delay for all voice copies
+      const totalVoiceDelay = (SHEELOHA_CONFIG.voiceCopies - 1) * SHEELOHA_CONFIG.delayBetweenCopies;
       
-      // Play voice copies with staggered start (creates layering/chorus effect)
+      // Play voice copies with staggered start
       players.forEach((player, index) => {
         const timeout = setTimeout(() => {
           try {
@@ -347,21 +420,22 @@ export function useSheelohaPlayer() {
         timeoutsRef.current.push(timeout);
       });
       
-      // Start clapping (continues until voice ends)
-      startClapping(clappingDelay, duration, 0.40);
+      // Start clapping synchronized with voice
+      // Clapping continues until all voice copies end
+      startClapping(clappingDelay, duration + totalVoiceDelay, 0.40, 0);
       
-      // End after voice finishes (single round only)
+      // End after all voice copies finish (single round only)
       const endTimeout = setTimeout(() => {
         setState({ isPlaying: false, isProcessing: false });
         console.log("[useSheelohaPlayer] Playback complete (single round)");
-      }, duration + 500);
+      }, duration + totalVoiceDelay + 500);
       timeoutsRef.current.push(endTimeout);
       
     } catch (error) {
       console.error("[useSheelohaPlayer] Native playback error:", error);
       setState({ isPlaying: false, isProcessing: false });
     }
-  }, [player1, player2, player3, player4, player5, startClapping]);
+  }, [player1, player2, player3, player4, player5, startClapping, waitForPlayerDuration]);
 
   /**
    * Main play function
