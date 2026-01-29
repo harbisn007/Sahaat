@@ -319,7 +319,7 @@ export async function getParticipantById(participantId: number) {
   return participants[0] || null;
 }
 
-export async function removeParticipant(roomId: number, userId: number) {
+export async function removeParticipant(roomId: number, userId: string) {
   const db = await getDb();
   if (!db) return;
 
@@ -331,18 +331,6 @@ export async function removeParticipant(roomId: number, userId: number) {
         eq(roomParticipants.userId, userId)
       )
     );
-}
-
-export async function removeUserFromAllRooms(userId: number) {
-  const db = await getDb();
-  if (!db) return;
-
-  // Remove user from all rooms they're participating in
-  await db
-    .delete(roomParticipants)
-    .where(eq(roomParticipants.userId, userId));
-  
-  console.log(`[DB] User ${userId} removed from all rooms`);
 }
 
 export async function deleteAllRooms() {
@@ -365,7 +353,7 @@ export async function deleteAllRooms() {
   console.log("[DB] All rooms and related data deleted on server restart");
 }
 
-export async function getUserActiveRoom(creatorId: number) {
+export async function getUserActiveRoom(creatorId: string) {
   const db = await getDb();
   if (!db) return null;
 
@@ -522,7 +510,7 @@ export async function getLatestKhaloohaCommand(roomId: number) {
 
 export async function setRecordingStatus(data: {
   roomId: number;
-  userId: number;
+  userId: string;
   username: string;
   isRecording: boolean;
   recordingType: "comment" | "tarouk";
@@ -587,7 +575,7 @@ export async function getActiveRecordings(roomId: number) {
   return results;
 }
 
-export async function clearRecordingStatus(roomId: number, userId: number) {
+export async function clearRecordingStatus(roomId: number, userId: string) {
   const db = await getDb();
   if (!db) return;
 
@@ -609,7 +597,7 @@ import { joinRequests } from "../drizzle/schema.js";
 
 export async function createJoinRequest(data: {
   roomId: number;
-  userId: number;
+  userId: string;
   username: string;
   avatar: string;
 }) {
@@ -687,7 +675,7 @@ export async function expireJoinRequest(requestId: number) {
     .where(eq(joinRequests.id, requestId));
 }
 
-export async function promoteViewerToPlayer(roomId: number, userId: number, username: string, avatar: string) {
+export async function promoteViewerToPlayer(roomId: number, userId: string, username: string, avatar: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -727,7 +715,7 @@ export async function promoteViewerToPlayer(roomId: number, userId: number, user
   }
 }
 
-export async function kickPlayer(roomId: number, playerId: number, creatorId: number) {
+export async function kickPlayer(roomId: number, playerId: string, creatorId: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -739,7 +727,7 @@ export async function kickPlayer(roomId: number, playerId: number, creatorId: nu
     .limit(1);
 
   if (!room[0] || room[0].creatorId !== creatorId) {
-    throw new Error("ليس لديك صلاحية الطرد");
+    throw new Error("ليس لديك صلاحية الاستبعاد");
   }
 
   // Remove the player
@@ -759,7 +747,7 @@ export async function kickPlayer(roomId: number, playerId: number, creatorId: nu
 
 export async function updateParticipantProfile(
   roomId: number,
-  userId: number,
+  userId: string,
   newUsername: string,
   newAvatar: string
 ) {

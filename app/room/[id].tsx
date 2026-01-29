@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -17,12 +17,14 @@ import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
 import { RecordingButton } from "@/components/recording-button";
+import { sendCreatorHeartbeat } from "@/hooks/use-socket";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
 import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
 import { RecordingIndicator } from "@/components/recording-indicator";
 import { EditProfileModal } from "@/components/edit-profile-modal";
+import { SpeedWheel } from "@/components/speed-wheel";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
@@ -42,6 +44,17 @@ export default function RoomScreen() {
   };
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  
+  // Responsive button sizes for small screens
+  // Small screen: width < 360px
+  const isSmallScreen = screenWidth < 360;
+  const buttonWidth = isSmallScreen ? 48 : 60;
+  const iconSize = isSmallScreen ? 20 : 24;
+  const smallIconSize = isSmallScreen ? 14 : 18;
+  const wheelWidth = isSmallScreen ? 40 : 50;
+  const fontSize = isSmallScreen ? 7 : 9;
+  
   const roomId = parseInt(id || "0");
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -50,8 +63,8 @@ export default function RoomScreen() {
   const [isApproved, setIsApproved] = useState(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
-  // Clapping speed: 0 = none (1.25x), 1 = every 1.27s (1.25x), 2 = every 1.12s (1.19x), 3 = every 0.7s (1.14x), 4 = none (1.00x normal)
-  const [clappingSpeed, setClappingSpeed] = useState<0 | 1 | 2 | 3 | 4>(0);
+  // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
+  const [clappingDelay, setClappingDelay] = useState<number>(0.50);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
@@ -80,7 +93,7 @@ export default function RoomScreen() {
       }
     };
     
-    if (roomId > 0 && userId > 0) {
+    if (roomId > 0 && userId) {
       updateJoinedAt();
     }
   }, [roomId, userId]);
@@ -430,8 +443,8 @@ export default function RoomScreen() {
       });
       
       // Play sheeloha effect (5 overlapping copies with distance effect)
-      // Use medium speed (2) as default for broadcasts from other users
-      playSheeloha(latestBroadcast.audioUrl, 2);
+      // Use medium delay (0.50s) as default for broadcasts from other users
+      playSheeloha(latestBroadcast.audioUrl, 0.50);
     } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
       // Mark own broadcast as played without playing (already played locally)
       console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
@@ -498,13 +511,13 @@ export default function RoomScreen() {
         }
         console.log("[RoomScreen] Role:", newRole, "Status:", participant.status, "Approved:", newApproved);
       } else {
-        // المستخدم لم يعد موجوداً في الساحة - ربما تم طرده
-        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم طرده
+        // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
+        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم استبعاده
         if (userRole && userRole !== "creator") {
           console.log("[RoomScreen] User was kicked from the room");
           Alert.alert(
-            "تم طردك",
-            "تم طردك من الساحة بواسطة المنشئ",
+            "تم استبعادك",
+            "تم استبعادك من الساحة بواسطة المنشئ",
             [
               {
                 text: "حسناً",
@@ -532,20 +545,20 @@ export default function RoomScreen() {
   });
 
   // Handle kick player
-  const handleKickPlayer = (playerId: number, playerName: string) => {
+  const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
-      "طرد اللاعب",
-      `هل تريد طرد ${playerName} من الساحة؟`,
+      "استبعاد اللاعب",
+      `هل تريد استبعاد ${playerName} من الساحة؟`,
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "طرد",
+          text: "استبعاد",
           style: "destructive",
           onPress: () => {
             kickPlayerMutation.mutate({
               roomId,
               playerId,
-              creatorId: userId || 0,
+              creatorId: userId || "",
             });
           },
         },
@@ -637,7 +650,7 @@ export default function RoomScreen() {
   };
 
   // Handle creator response to join request
-  const handleRespondToJoinRequest = (requestId: number, requestUserId: number, accept: boolean) => {
+  const handleRespondToJoinRequest = (requestId: number, requestUserId: string, accept: boolean) => {
     respondToJoinRequestMutation.mutate({
       requestId,
       accept,
@@ -666,7 +679,7 @@ export default function RoomScreen() {
       const message = `🎙️ دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
         `📍 اسم الساحة: ${roomName}\n` +
         `👤 الداعي: ${username}\n\n` +
-        `انضم الآن كلاعب أو مشاهد:\n${inviteUrl}`;
+        `انضم الآن كلاعب أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
         message,
@@ -705,7 +718,7 @@ export default function RoomScreen() {
       
       await refetch();
       await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مشاهد");
+      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مستمع");
     } catch (error) {
       console.error("[RoomScreen] Error rejecting request:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
@@ -1072,6 +1085,25 @@ export default function RoomScreen() {
   
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
+  // إرسال heartbeat للمنشئ كل 3 ثواني لاكتشاف إغلاق التطبيق
+  useEffect(() => {
+    if (!isCreator || !roomId || !userId) return;
+    
+    // إرسال heartbeat فوري عند الدخول
+    sendCreatorHeartbeat(roomId, userId);
+    console.log("[RoomScreen] Creator heartbeat started for room:", roomId);
+    
+    // إرسال heartbeat كل 3 ثواني
+    const interval = setInterval(() => {
+      sendCreatorHeartbeat(roomId, userId);
+    }, 3000);
+    
+    return () => {
+      clearInterval(interval);
+      console.log("[RoomScreen] Creator heartbeat stopped for room:", roomId);
+    };
+  }, [isCreator, roomId, userId]);
+
   return (
     <ImageBackground 
       source={roomBackground} 
@@ -1107,7 +1139,7 @@ export default function RoomScreen() {
         <View className="flex-1">
           <Text className="text-xl font-bold text-center" style={{ color: '#000000' }}>{roomData.name}</Text>
           <Text className="text-sm text-center" style={{ color: '#000000', opacity: 0.8 }}>
-            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مشاهدين
+            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مستمعين
           </Text>
         </View>
         
@@ -1384,115 +1416,21 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              {/* Clapping Speed Options - vertical layout with "بلا" on top */}
-              <View style={{ alignItems: 'center', justifyContent: 'flex-start' }}>
-                {/* "بلا" button on top */}
-                <TouchableOpacity
-                  onPress={() => setClappingSpeed(0)}
-                  style={{
-                    width: 30,
-                    height: 16,
-                    borderRadius: 4,
-                    backgroundColor: clappingSpeed === 0 ? '#FFD700' : '#5D4037',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: clappingSpeed === 0 ? 0 : 1,
-                    borderColor: '#8B7355',
-                    marginBottom: 4,
-                  }}
-                >
-                  <Text 
-                    style={{ 
-                      color: clappingSpeed === 0 ? '#5D4037' : '#FFD700',
-                      fontSize: 8,
-                      fontWeight: '900',
-                    }}
-                  >
-                    بلا
-                  </Text>
-                </TouchableOpacity>
-                {/* Speed buttons in 2 columns: (1,3) and (2,4) */}
-                <View style={{ flexDirection: 'row', gap: 2 }}>
-                  {/* Column 1: buttons 1 and 3 */}
-                  <View style={{ flexDirection: 'column', gap: 2 }}>
-                    {[1, 3].map((speed) => (
-                      <TouchableOpacity
-                        key={speed}
-                        onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 4,
-                          backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderWidth: clappingSpeed === speed ? 0 : 1,
-                          borderColor: '#8B7355',
-                        }}
-                      >
-                        <Text 
-                          style={{ 
-                            color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                            fontSize: 9,
-                            fontWeight: '900',
-                          }}
-                        >
-                          {speed === 1 ? '١' : '٣'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                  {/* Column 2: buttons 2 and 4 */}
-                  <View style={{ flexDirection: 'column', gap: 2 }}>
-                    {[2, 4].map((speed) => (
-                      <TouchableOpacity
-                        key={speed}
-                        onPress={() => setClappingSpeed(speed as 0 | 1 | 2 | 3 | 4)}
-                        style={{
-                          width: 14,
-                          height: 14,
-                          borderRadius: 4,
-                          backgroundColor: clappingSpeed === speed ? '#FFD700' : '#5D4037',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          borderWidth: clappingSpeed === speed ? 0 : 1,
-                          borderColor: '#8B7355',
-                        }}
-                      >
-                        <Text 
-                          style={{ 
-                            color: clappingSpeed === speed ? '#5D4037' : '#FFD700',
-                            fontSize: 9,
-                            fontWeight: '900',
-                          }}
-                        >
-                          {speed === 2 ? '٢' : '٤'}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: 9,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  الصفقة (الإيقاع)
-                </Text>
-              </View>
+              {/* Clapping Delay Wheel */}
+              <SpeedWheel
+                value={clappingDelay}
+                onChange={setClappingDelay}
+                width={wheelWidth}
+              />
 
               {/* Sheeloha Button */}
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <TouchableOpacity
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
                     opacity: (!lastTaroukUri || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
-                    width: 60,
+                    width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
                     minHeight: 48,
@@ -1524,8 +1462,8 @@ export default function RoomScreen() {
                     stopTarouk();
                     
                     console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
-                    // Play sheeloha effect immediately with selected clapping speed
-                    playSheeloha(lastTaroukUri!, clappingSpeed);
+                    // Play sheeloha effect immediately with selected clapping delay
+                    playSheeloha(lastTaroukUri!, clappingDelay);
                     
                     // Also broadcast to other users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users");
@@ -1544,14 +1482,14 @@ export default function RoomScreen() {
                   disabled={isSheelohaProcessing || isSheelohaActiveGlobally}
                 >
                   <View style={{ flexDirection: 'row', gap: 2 }}>
-                    <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
-                    <MaterialCommunityIcons name="hand-clap" size={24} color="#FFD700" />
+                    <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
+                    <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
                   </View>
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 9,
+                    fontSize: fontSize,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
@@ -1562,13 +1500,13 @@ export default function RoomScreen() {
               </View>
 
               {/* Khalloha Button */}
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <TouchableOpacity
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
                     opacity: (isSheelohaPlaying || isSheelohaActiveGlobally) ? 1 : 0.5,
-                    width: 60,
+                    width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
                     minHeight: 48,
@@ -1596,12 +1534,12 @@ export default function RoomScreen() {
                     }
                   }}
                 >
-                  <MaterialIcons name="pan-tool" size={28} color="#FFD700" />
+                  <MaterialIcons name="pan-tool" size={iconSize + 4} color="#FFD700" />
                 </TouchableOpacity>
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 9,
+                    fontSize: fontSize,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
@@ -1659,7 +1597,7 @@ export default function RoomScreen() {
           {/* Right: Comment & Tarouk (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2">
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <RecordingButton
                   buttonId="comment"
                   isRecording={isRecording && recordingType === "comment"}
@@ -1671,19 +1609,20 @@ export default function RoomScreen() {
                   recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
                   iconComponent={
                     <View style={{ flexDirection: 'row', gap: 2 }}>
-                      <MaterialIcons name="music-note" size={18} color="#FFD700" />
-                      <MaterialIcons name="chat" size={18} color="#FFD700" />
+                      <MaterialIcons name="music-note" size={smallIconSize} color="#FFD700" />
+                      <MaterialIcons name="chat" size={smallIconSize} color="#FFD700" />
                     </View>
                   }
                   label=""
                   showLabel={false}
                   backgroundColor="#5D4037"
                   minHeight={48}
+                  width={buttonWidth}
                 />
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 7,
+                    fontSize: isSmallScreen ? 5 : 7,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,
@@ -1693,7 +1632,7 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              <View style={{ width: 60, alignItems: 'center' }}>
+              <View style={{ width: buttonWidth, alignItems: 'center' }}>
                 <RecordingButton
                   buttonId="tarouk"
                   isRecording={isRecording && recordingType === "tarouk"}
@@ -1705,16 +1644,17 @@ export default function RoomScreen() {
                   backgroundColor="#5D4037"
                   recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
                   iconComponent={
-                    <MaterialCommunityIcons name="microphone-variant" size={24} color="#FFD700" />
+                    <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#FFD700" />
                   }
                   label=""
                   showLabel={false}
                   minHeight={48}
+                  width={buttonWidth}
                 />
                 <Text 
                   style={{ 
                     color: colors.muted,
-                    fontSize: 9,
+                    fontSize: fontSize,
                     fontWeight: '900',
                     textAlign: 'center',
                     marginTop: 4,

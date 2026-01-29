@@ -10,9 +10,9 @@ interface RoomCardProps {
     viewerCount: number;
     acceptedPlayersCount: number;
     isRoomFull: boolean;
-    creatorId: number;
+    creatorId: string;
   };
-  currentUserId: number;
+  currentUserId: string;
   onJoinAsPlayer: () => void;
   onJoinAsViewer: () => void;
   onDirectEnter: () => void;
@@ -106,7 +106,7 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
           onPress={onJoinAsViewer}
         >
           <Text className="font-semibold text-xs" style={{ color: colors.primary }}>
-            مشاهد
+            مستمع
           </Text>
         </TouchableOpacity>
       </View>
