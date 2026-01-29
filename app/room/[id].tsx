@@ -5,7 +5,7 @@ import { Image, ImageBackground, Share } from "react-native";
 
 // Room background image
 const roomBackground = require("@/assets/images/room-background.png");
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
@@ -56,7 +56,7 @@ export default function RoomScreen() {
   const fontSize = isSmallScreen ? 7 : 9;
   
   const roomId = parseInt(id || "0");
-  const scrollViewRef = useRef<ScrollView>(null);
+  const flatListRef = useRef<FlatList>(null);
 
   // State
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
@@ -345,32 +345,56 @@ export default function RoomScreen() {
   // Add 5 second safety margin to avoid losing messages sent right after joining
   const SAFETY_MARGIN_MS = 5000; // 5 seconds
   
+  // حالة محلية للرسائل المؤقتة (Optimistic Updates - مثل الواتساب)
+  type LocalMessage = {
+    type: "audio" | "reaction";
+    id: string;
+    timestamp: Date;
+    username: string;
+    messageType?: string;
+    audioUrl?: string;
+    duration?: number;
+    reactionType?: string;
+    createdAt?: Date;
+    isLocal?: boolean; // علامة للرسائل المحلية
+  };
+  const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
+  
   // All messages are shown in the feed
   const filteredAudioMessages = audioMessages || [];
   
   // All reactions are shown in the feed
   const filteredReactions = reactions || [];
 
-  // Combine filtered audio messages and reactions into a single feed
-  const combinedFeed = [
-    ...filteredAudioMessages.map((msg) => ({
-      type: "audio" as const,
-      id: `audio-${msg.id}`,
-      timestamp: msg.createdAt,
-      username: msg.username,
-      messageType: msg.messageType,
-      audioUrl: msg.audioUrl,
-      duration: msg.duration,
-    })),
-    ...filteredReactions.map((reaction) => ({
-      type: "reaction" as const,
-      id: `reaction-${reaction.id}`,
-      timestamp: reaction.createdAt,
-      username: reaction.username,
-      reactionType: reaction.reactionType,
-      createdAt: reaction.createdAt,
-    })),
-  ].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  // Combine filtered audio messages and reactions into a single feed (memoized for performance)
+  const combinedFeed = useMemo(() => {
+    const serverMessages: LocalMessage[] = [
+      ...filteredAudioMessages.map((msg) => ({
+        type: "audio" as const,
+        id: `audio-${msg.id}`,
+        timestamp: msg.createdAt,
+        username: msg.username,
+        messageType: msg.messageType,
+        audioUrl: msg.audioUrl,
+        duration: msg.duration,
+      })),
+      ...filteredReactions.map((reaction) => ({
+        type: "reaction" as const,
+        id: `reaction-${reaction.id}`,
+        timestamp: reaction.createdAt,
+        username: reaction.username,
+        reactionType: reaction.reactionType,
+        createdAt: reaction.createdAt,
+      })),
+    ];
+    
+    // دمج الرسائل المحلية مع رسائل الخادم (إزالة المكررات)
+    const serverIds = new Set(serverMessages.map(m => m.id));
+    const uniqueLocalMessages = localMessages.filter(m => !serverIds.has(m.id.replace('local-', '')));
+    
+    return [...serverMessages, ...uniqueLocalMessages]
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [filteredAudioMessages, filteredReactions, localMessages]);
 
   // Track played message IDs to avoid replaying
   const [playedMessageIds, setPlayedMessageIds] = useState<Set<number>>(new Set());
@@ -533,7 +557,7 @@ export default function RoomScreen() {
   useEffect(() => {
     if (combinedFeed.length > 0) {
       setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
+        flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
     }
   }, [combinedFeed.length]);
@@ -1062,6 +1086,19 @@ export default function RoomScreen() {
       return;
     }
 
+    // Optimistic Update - إضافة التفاعل محلياً فوراً (مثل الواتساب)
+    const localId = `local-reaction-${Date.now()}`;
+    const now = new Date();
+    setLocalMessages(prev => [...prev, {
+      type: "reaction" as const,
+      id: localId,
+      timestamp: now,
+      username: username,
+      reactionType: reactionType,
+      createdAt: now,
+      isLocal: true,
+    }]);
+
     try {
       console.log("[RoomScreen] Sending reaction:", {
         reactionType,
@@ -1078,6 +1115,9 @@ export default function RoomScreen() {
       });
       
       console.log("[RoomScreen] Reaction sent successfully:", result);
+      
+      // إزالة الرسالة المحلية بعد وصول رد الخادم
+      setLocalMessages(prev => prev.filter(m => m.id !== localId));
       
       // Refetch reactions immediately to show the new reaction
       await refetchReactions();
@@ -1417,40 +1457,49 @@ export default function RoomScreen() {
           })()}
         </View>
 
-        {/* Messages ScrollView */}
+        {/* Messages FlatList - مثل الواتساب للأداء العالي */}
         {combinedFeed.length > 0 ? (
-          <ScrollView 
-            ref={scrollViewRef}
+          <FlatList
+            ref={flatListRef}
+            data={combinedFeed}
+            keyExtractor={(item) => item.id}
             className="flex-1"
             showsVerticalScrollIndicator={true}
             contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 8 }}
-          >
-              {combinedFeed.map((item) => {
-                if (item.type === "audio") {
-                  return (
-                    <MessageBubble
-                      key={item.id}
-                      type="audio"
-                      username={item.username}
-                      messageType={item.messageType}
-                      duration={item.duration}
-                      isPlaying={currentUri === item.audioUrl && isPlaying}
-                      onPlay={() => handlePlayAudio(item.audioUrl)}
-                    />
-                  );
-                } else {
-                  return (
-                    <ReactionMessage
-                      key={item.id}
-                      username={item.username}
-                      reactionType={item.reactionType}
-                      createdAt={item.createdAt}
-                      isOwnMessage={item.username === username}
-                    />
-                  );
-                }
-              })}
-          </ScrollView>
+            // تحسينات الأداء - Virtualization
+            initialNumToRender={15}
+            maxToRenderPerBatch={10}
+            windowSize={10}
+            removeClippedSubviews={Platform.OS !== "web"}
+            getItemLayout={(data, index) => ({
+              length: 60, // ارتفاع تقريبي لكل رسالة
+              offset: 60 * index,
+              index,
+            })}
+            renderItem={({ item }) => {
+              if (item.type === "audio") {
+                return (
+                  <MessageBubble
+                    type="audio"
+                    username={item.username}
+                    messageType={item.messageType}
+                    duration={item.duration}
+                    isPlaying={currentUri === item.audioUrl && isPlaying}
+                    onPlay={() => handlePlayAudio(item.audioUrl || "")}
+                  />
+                );
+              } else {
+                return (
+                  <ReactionMessage
+                    username={item.username}
+                    reactionType={item.reactionType || ""}
+                    createdAt={item.createdAt}
+                    isOwnMessage={item.username === username}
+                  />
+                );
+              }
+            }}
+          />
         ) : (
           <View className="flex-1 items-center justify-center">
             <Text className="text-muted text-center">
