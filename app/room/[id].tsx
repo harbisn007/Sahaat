@@ -125,6 +125,12 @@ export default function RoomScreen() {
   const [socketJoinRequests, setSocketJoinRequests] = useState<any[]>([]);
   const [joinRequestResponse, setJoinRequestResponse] = useState<{ accepted: boolean; requestId: number } | null>(null);
   
+  // نظام الطابور: الطلبات المعروضة حالياً (أول 2) والطلبات المنتظرة
+  const [displayedViewerRequests, setDisplayedViewerRequests] = useState<any[]>([]);
+  const [queuedViewerRequests, setQueuedViewerRequests] = useState<any[]>([]);
+  const [displayedPlayerRequests, setDisplayedPlayerRequests] = useState<any[]>([]);
+  const [queuedPlayerRequests, setQueuedPlayerRequests] = useState<any[]>([]);
+  
   // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
@@ -816,6 +822,106 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Join requests updated (Socket.io + Server):", joinRequests?.length || 0, joinRequests);
     }
   }, [joinRequests, isRoomCreator]);
+  
+  // نظام الطابور لطلبات المشاهدين: عرض 2 طلبات لمدة 4 ثواني ثم التالية
+  useEffect(() => {
+    if (!isRoomCreator || !joinRequests || joinRequests.length === 0) {
+      setDisplayedViewerRequests([]);
+      setQueuedViewerRequests([]);
+      return;
+    }
+    
+    // إضافة الطلبات الجديدة للطابور
+    const newRequests = joinRequests.filter((req: any) => 
+      !displayedViewerRequests.some(d => d.id === req.id) && 
+      !queuedViewerRequests.some(q => q.id === req.id)
+    );
+    
+    if (newRequests.length > 0) {
+      // إذا كان هناك مكان في العرض (أقل من 2)
+      if (displayedViewerRequests.length < 2) {
+        const slotsAvailable = 2 - displayedViewerRequests.length;
+        const toDisplay = newRequests.slice(0, slotsAvailable);
+        const toQueue = newRequests.slice(slotsAvailable);
+        setDisplayedViewerRequests(prev => [...prev, ...toDisplay]);
+        setQueuedViewerRequests(prev => [...prev, ...toQueue]);
+      } else {
+        // إضافة للطابور
+        setQueuedViewerRequests(prev => [...prev, ...newRequests]);
+      }
+    }
+  }, [joinRequests, isRoomCreator]);
+  
+  // مؤقت 4 ثواني لحذف الطلبات المعروضة وعرض التالية
+  useEffect(() => {
+    if (displayedViewerRequests.length === 0) return;
+    
+    const timer = setTimeout(() => {
+      // حذف الطلبات المعروضة من قاعدة البيانات
+      displayedViewerRequests.forEach((req: any) => {
+        expireJoinRequestMutation.mutate({ requestId: req.id });
+      });
+      
+      // عرض أول 2 من الطابور
+      const nextBatch = queuedViewerRequests.slice(0, 2);
+      const remaining = queuedViewerRequests.slice(2);
+      
+      setDisplayedViewerRequests(nextBatch);
+      setQueuedViewerRequests(remaining);
+    }, 4000);
+    
+    return () => clearTimeout(timer);
+  }, [displayedViewerRequests]);
+  
+  // نظام الطابور لطلبات الدخول كلاعب (من خارج الساحة): عرض 2 طلبات لمدة 4 ثواني ثم التالية
+  useEffect(() => {
+    if (!isRoomCreator || !pendingRequests || pendingRequests.length === 0) {
+      setDisplayedPlayerRequests([]);
+      setQueuedPlayerRequests([]);
+      return;
+    }
+    
+    // إضافة الطلبات الجديدة للطابور
+    const newRequests = pendingRequests.filter((req: any) => 
+      !displayedPlayerRequests.some(d => d.id === req.id) && 
+      !queuedPlayerRequests.some(q => q.id === req.id)
+    );
+    
+    if (newRequests.length > 0) {
+      // إذا كان هناك مكان في العرض (أقل من 2)
+      if (displayedPlayerRequests.length < 2) {
+        const slotsAvailable = 2 - displayedPlayerRequests.length;
+        const toDisplay = newRequests.slice(0, slotsAvailable);
+        const toQueue = newRequests.slice(slotsAvailable);
+        setDisplayedPlayerRequests(prev => [...prev, ...toDisplay]);
+        setQueuedPlayerRequests(prev => [...prev, ...toQueue]);
+      } else {
+        // إضافة للطابور
+        setQueuedPlayerRequests(prev => [...prev, ...newRequests]);
+      }
+    }
+  }, [pendingRequests, isRoomCreator]);
+  
+  // مؤقت 4 ثواني لحذف طلبات اللاعبين المعروضة وعرض التالية
+  useEffect(() => {
+    if (displayedPlayerRequests.length === 0) return;
+    
+    const timer = setTimeout(() => {
+      // رفض الطلبات المعروضة تلقائياً (انتهاء الصلاحية)
+      displayedPlayerRequests.forEach((req: any) => {
+        respondToRequestMutation.mutate({ participantId: req.id, accept: false });
+      });
+      
+      // عرض أول 2 من الطابور
+      const nextBatch = queuedPlayerRequests.slice(0, 2);
+      const remaining = queuedPlayerRequests.slice(2);
+      
+      setDisplayedPlayerRequests(nextBatch);
+      setQueuedPlayerRequests(remaining);
+    }, 4000);
+    
+    return () => clearTimeout(timer);
+  }, [displayedPlayerRequests]);
 
   // Expire join request mutation
   const expireJoinRequestMutation = trpc.joinRequests.expire.useMutation();
@@ -1423,10 +1529,10 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Join Requests from Viewers (Only for creator) - Max 2 shown */}
-      {isRoomCreator && joinRequests && joinRequests.length > 0 && (
+      {/* Join Requests from Viewers (Only for creator) - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
+      {isRoomCreator && displayedViewerRequests && displayedViewerRequests.length > 0 && (
         <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
-          {joinRequests.slice(0, 2).map((request) => (
+          {displayedViewerRequests.map((request: any) => (
             <View key={request.id} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
               <View className="flex-row items-center flex-1">
                 <Image
@@ -1458,10 +1564,10 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Old Pending Requests (for player role requests) */}
-      {isCreator && pendingRequests && pendingRequests.length > 0 && (
+      {/* Pending Requests (for player role requests) - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
+      {isRoomCreator && displayedPlayerRequests && displayedPlayerRequests.length > 0 && (
         <View className="px-6 py-3 bg-warning/10 border-b border-warning/30">
-          {pendingRequests.map((request) => (
+          {displayedPlayerRequests.map((request: any) => (
             <View key={request.id} className="flex-row items-center justify-between mb-2">
               <Text className="text-foreground flex-1">
                 طلب انضمام من: <Text className="font-bold">{request.username}</Text>

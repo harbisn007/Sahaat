@@ -1423,3 +1423,8 @@
 - [x] أحداث Socket.io موجودة في الخادم (joinRequestCreated, joinRequestResponded)
 - [x] إضافة استماع Socket.io في العميل (onJoinRequestCreated, onJoinRequestResponded)
 - [x] إيقاف Polling لطلبات الانضمام (refetchInterval: false)
+
+## نظام طابور لطلبات الانضمام
+- [x] تنفيذ نظام طابور لطلبات المشاهدين (2 طلبات × 4 ثواني ثم التالية)
+- [x] تطبيق نفس النظام لطلبات الدخول كلاعب من خارج الساحة
+- [x] توحيد السلوك بين النوعين (2 طلبات × 4 ثواني)
