@@ -346,37 +346,49 @@ export function useSheelohaPlayer() {
 
   /**
    * Wait for player to load and get real duration
+   * On native, player.duration may not be available immediately after replace()
+   * We need to wait for it to be loaded properly
    */
   const waitForPlayerDuration = useCallback(async (player: any, maxWait: number = 5000): Promise<number> => {
     return new Promise((resolve) => {
       const startTime = Date.now();
+      let resolved = false;
       
       const checkDuration = () => {
+        if (resolved) return;
+        
         const duration = player.duration;
-        if (duration && duration > 0) {
-          console.log(`[useSheelohaPlayer] Got player duration: ${duration}s`);
-          resolve(duration * 1000);
+        console.log(`[useSheelohaPlayer] Checking duration: ${duration}`);
+        
+        // On native, duration is in seconds
+        if (duration && duration > 0 && duration < 600) { // Max 10 minutes
+          resolved = true;
+          const durationMs = duration * 1000;
+          console.log(`[useSheelohaPlayer] Got player duration: ${duration}s = ${durationMs}ms`);
+          resolve(durationMs);
           return;
         }
         
         if (Date.now() - startTime > maxWait) {
-          console.warn("[useSheelohaPlayer] Timeout waiting for duration, using fallback");
+          resolved = true;
+          console.warn("[useSheelohaPlayer] Timeout waiting for duration, using fallback 60s");
           resolve(60000); // 60 seconds fallback for long audio
           return;
         }
         
-        // Check again in 50ms
-        setTimeout(checkDuration, 50);
+        // Check again in 100ms (increased from 50ms for native stability)
+        setTimeout(checkDuration, 100);
       };
       
-      checkDuration();
+      // Start checking after a small delay to let the player load
+      setTimeout(checkDuration, 100);
     });
   }, []);
 
   /**
    * Play on Native using expo-audio
    * Creates 5 layered voice copies
-   * FIXED: Properly waits for duration before starting clapping
+   * FIXED: Uses minimum duration guarantee to ensure isPlaying stays true
    */
   const playOnNative = useCallback(async (audioUri: string, clappingDelay: ClappingDelay) => {
     console.log("[useSheelohaPlayer] Playing on native");
@@ -391,8 +403,16 @@ export function useSheelohaPlayer() {
       player1.volume = SHEELOHA_CONFIG.volume;
       
       // Wait for the real duration
-      const duration = await waitForPlayerDuration(player1);
-      console.log(`[useSheelohaPlayer] Voice duration: ${duration}ms`);
+      let duration = await waitForPlayerDuration(player1);
+      console.log(`[useSheelohaPlayer] Voice duration from player: ${duration}ms`);
+      
+      // SAFETY: Ensure minimum duration of 5 seconds to prevent early state reset
+      // This handles cases where duration detection fails on native
+      const MIN_DURATION = 5000; // 5 seconds minimum
+      if (duration < MIN_DURATION) {
+        console.warn(`[useSheelohaPlayer] Duration too short (${duration}ms), using minimum ${MIN_DURATION}ms`);
+        duration = MIN_DURATION;
+      }
       
       // Load remaining players
       for (let i = 1; i < players.length; i++) {
@@ -406,6 +426,8 @@ export function useSheelohaPlayer() {
       
       // Calculate total delay for all voice copies
       const totalVoiceDelay = (SHEELOHA_CONFIG.voiceCopies - 1) * SHEELOHA_CONFIG.delayBetweenCopies;
+      const totalPlaybackTime = duration + totalVoiceDelay;
+      console.log(`[useSheelohaPlayer] Total playback time: ${totalPlaybackTime}ms`);
       
       // Play voice copies with staggered start
       players.forEach((player, index) => {
@@ -422,13 +444,14 @@ export function useSheelohaPlayer() {
       
       // Start clapping synchronized with voice
       // Clapping continues until all voice copies end
-      startClapping(clappingDelay, duration + totalVoiceDelay, 0.40, 0);
+      startClapping(clappingDelay, totalPlaybackTime, 0.40, 0);
       
       // End after all voice copies finish (single round only)
+      // Add 500ms buffer to ensure audio completes
       const endTimeout = setTimeout(() => {
         setState({ isPlaying: false, isProcessing: false });
         console.log("[useSheelohaPlayer] Playback complete (single round)");
-      }, duration + totalVoiceDelay + 500);
+      }, totalPlaybackTime + 500);
       timeoutsRef.current.push(endTimeout);
       
     } catch (error) {
