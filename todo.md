@@ -1418,3 +1418,8 @@
 - [x] إضافة Database Indexing لجميع الجداول (22 فهرس)
 - [x] تحسين الاستعلامات (getRoomWithAllData: 2 استعلام بدلاً من 5)
 - [x] Optimistic Updates موجودة للتفاعلات والتسجيل
+
+## إضافة Socket.io لطلبات الانضمام (فوري)
+- [x] أحداث Socket.io موجودة في الخادم (joinRequestCreated, joinRequestResponded)
+- [x] إضافة استماع Socket.io في العميل (onJoinRequestCreated, onJoinRequestResponded)
+- [x] إيقاف Polling لطلبات الانضمام (refetchInterval: false)

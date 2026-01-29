@@ -121,6 +121,9 @@ export default function RoomScreen() {
   const [socketActiveRecordings, setSocketActiveRecordings] = useState<any[]>([]);
   const [socketSheelohaBroadcast, setSocketSheelohaBroadcast] = useState<any | null>(null);
   const [socketKhaloohaCommand, setSocketKhaloohaCommand] = useState<any | null>(null);
+  // حالة محلية لطلبات الانضمام (فوري عبر Socket.io)
+  const [socketJoinRequests, setSocketJoinRequests] = useState<any[]>([]);
+  const [joinRequestResponse, setJoinRequestResponse] = useState<{ accepted: boolean; requestId: number } | null>(null);
   
   // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
@@ -211,6 +214,29 @@ export default function RoomScreen() {
           ...data,
         });
       },
+      // استماع لطلبات الانضمام الجديدة (فوري للمنشئ)
+      onJoinRequestCreated: (data) => {
+        console.log("[RoomScreen] Join request created via Socket.io:", data);
+        setSocketJoinRequests(prev => {
+          // تجنب التكرار
+          if (prev.some(r => r.id === data.requestId)) return prev;
+          return [{
+            id: data.requestId,
+            userId: data.userId,
+            username: data.username,
+            avatar: data.avatar,
+            createdAt: new Date().toISOString(),
+          }, ...prev];
+        });
+      },
+      // استماع للرد على طلب الانضمام (فوري للمستخدم)
+      onJoinRequestResponded: (data) => {
+        console.log("[RoomScreen] Join request responded via Socket.io:", data);
+        // إزالة الطلب من القائمة المحلية
+        setSocketJoinRequests(prev => prev.filter(r => r.id !== data.requestId));
+        // حفظ الرد لعرضه للمستخدم
+        setJoinRequestResponse({ accepted: data.accepted, requestId: data.requestId });
+      },
     });
   }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
   
@@ -275,10 +301,10 @@ export default function RoomScreen() {
     performAutoJoin();
   }, [autoJoin, username, userId, roomData, avatar, roomId, joinAsViewerMutation, refetch]);
 
-  // جلب طلبات الانضمام - polling كل 3 ثواني (التحديثات عبر Socket.io)
+  // جلب طلبات الانضمام - جلب أولي فقط، التحديثات عبر Socket.io
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 3000 } // تقليل من 500ms إلى 3s
+    { enabled: roomId > 0, refetchInterval: false } // إيقاف polling - Socket.io يحدث فورياً
   );
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
@@ -764,15 +790,30 @@ export default function RoomScreen() {
   const isRoomCreator = roomData?.creatorId === userId;
   console.log("[RoomScreen] isRoomCreator check:", { creatorId: roomData?.creatorId, userId, isRoomCreator, roomId });
   
-  const { data: joinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
+  // جلب طلبات الانضمام - جلب أولي فقط، التحديثات عبر Socket.io
+  const { data: serverJoinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
     { roomId },
-    { enabled: isRoomCreator && roomId > 0, refetchInterval: 300 } // Very fast polling for instant join requests
+    { enabled: isRoomCreator && roomId > 0, refetchInterval: false } // إيقاف polling - Socket.io يحدث فورياً
   );
+  
+  // دمج طلبات الانضمام من الخادم وSocket.io (بدون تكرار)
+  const joinRequests = useMemo(() => {
+    const serverData = serverJoinRequests || [];
+    const socketData = socketJoinRequests || [];
+    // دمج بدون تكرار
+    const merged = [...socketData];
+    serverData.forEach((req: any) => {
+      if (!merged.some(r => r.id === req.id)) {
+        merged.push(req);
+      }
+    });
+    return merged;
+  }, [serverJoinRequests, socketJoinRequests]);
   
   // Log join requests for debugging
   useEffect(() => {
     if (isRoomCreator) {
-      console.log("[RoomScreen] Join requests updated:", joinRequests?.length || 0, joinRequests);
+      console.log("[RoomScreen] Join requests updated (Socket.io + Server):", joinRequests?.length || 0, joinRequests);
     }
   }, [joinRequests, isRoomCreator]);
 
