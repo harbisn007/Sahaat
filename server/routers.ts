@@ -34,35 +34,10 @@ export const appRouter = router({
 
   // Rooms router
   rooms: router({
-    // Get all active rooms
+    // Get all active rooms - محسّن للسرعة
     list: publicProcedure.query(async () => {
-      const rooms = await db.getAllRooms();
-      
-      // Get participant counts for each room
-      const roomsWithCounts = await Promise.all(
-        rooms.map(async (room) => {
-          const totalPlayerCount = await db.getTotalPlayerCount(room.id);
-          const viewerCount = await db.getViewerCount(room.id);
-          const acceptedPlayersCount = await db.getAcceptedPlayersCount(room.id);
-          
-          return {
-            ...room,
-            playerCount: totalPlayerCount,
-            viewerCount,
-            acceptedPlayersCount,
-            isRoomFull: acceptedPlayersCount >= 2,
-          };
-        })
-      );
-      
-      // ترتيب الساحات حسب الأكثر تفاعلاً (مجموع اللاعبين والمشاهدين)
-      const sortedRooms = roomsWithCounts.sort((a, b) => {
-        const totalA = (a.playerCount || 0) + (a.viewerCount || 0);
-        const totalB = (b.playerCount || 0) + (b.viewerCount || 0);
-        return totalB - totalA; // ترتيب تنازلي
-      });
-      
-      return sortedRooms;
+      // استخدام الدالة المحسّنة التي تجلب كل شيء في استعلامين فقط
+      return db.getAllRoomsWithCounts();
     }),
 
     // Get room by ID with participants

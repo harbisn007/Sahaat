@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -118,6 +118,56 @@ export async function getAllRooms() {
     .from(rooms)
     .where(eq(rooms.isActive, "true"))
     .orderBy(desc(rooms.createdAt));
+}
+
+// دالة محسّنة لجلب جميع الساحات مع الإحصائيات في استعلام واحد
+export async function getAllRoomsWithCounts() {
+  const db = await getDb();
+  if (!db) return [];
+
+  // جلب جميع الساحات النشطة
+  const allRooms = await db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.isActive, "true"))
+    .orderBy(desc(rooms.createdAt));
+
+  if (allRooms.length === 0) return [];
+
+  // جلب جميع المشاركين لجميع الساحات في استعلام واحد
+  const roomIds = allRooms.map(r => r.id);
+  const allParticipants = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        inArray(roomParticipants.roomId, roomIds),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  // حساب الإحصائيات لكل ساحة
+  const roomsWithCounts = allRooms.map(room => {
+    const roomParticipantsList = allParticipants.filter(p => p.roomId === room.id);
+    const playerCount = roomParticipantsList.filter(p => p.role === "player" || p.role === "creator").length;
+    const viewerCount = roomParticipantsList.filter(p => p.role === "viewer").length;
+    const acceptedPlayersCount = roomParticipantsList.filter(p => p.role === "player").length;
+
+    return {
+      ...room,
+      playerCount,
+      viewerCount,
+      acceptedPlayersCount,
+      isRoomFull: acceptedPlayersCount >= 2,
+    };
+  });
+
+  // ترتيب حسب الأكثر تفاعلاً
+  return roomsWithCounts.sort((a, b) => {
+    const totalA = a.playerCount + a.viewerCount;
+    const totalB = b.playerCount + b.viewerCount;
+    return totalB - totalA;
+  });
 }
 
 export async function getRoomById(roomId: number) {
