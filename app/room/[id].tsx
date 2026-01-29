@@ -932,6 +932,13 @@ export default function RoomScreen() {
       return;
     }
     
+    // مسح حالة التسجيل فوراً عند إفلات الزر (قبل رفع الملف)
+    setRecordingType(null);
+    if (userId) {
+      clearRecordingStatusMutation.mutate({ roomId, userId });
+      refetchActiveRecordings();
+    }
+    
     try {
       const recording = await stopRecording();
       
@@ -984,19 +991,6 @@ export default function RoomScreen() {
     } catch (error) {
       console.error("Failed to save audio message:", error);
       Alert.alert("خطأ", "فشل حفظ الرسالة الصوتية");
-    } finally {
-      setRecordingType(null);
-      
-      // مسح حالة التسجيل من الخادم
-      if (userId) {
-        try {
-          await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
-          // تحديث فوري لإخفاء المؤشر بدون انتظار polling
-          refetchActiveRecordings();
-        } catch (err) {
-          console.error("[RoomScreen] Failed to clear recording status:", err);
-        }
-      }
     }
   };
 
