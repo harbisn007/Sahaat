@@ -243,31 +243,37 @@ export default function HomeScreen() {
 
       {/* Create Room Button */}
       <View className="px-6 py-4">
-        <TouchableOpacity
-          className="rounded-xl py-3 items-center"
-          style={{ backgroundColor: hasActiveRoom ? '#9CA3AF' : '#D4A574' }}
-          onPress={() => {
-            if (hasActiveRoom) {
-              Alert.alert(
-                "ساحة نشطة موجودة",
-                "لديك ساحة نشطة بالفعل. يرجى إغلاق الساحة الحالية قبل إنشاء ساحة جديدة."
-              );
-            } else {
-              setShowCreateModal(true);
-            }
-          }}
-          disabled={hasActiveRoom}
-        >
-          <Text className="text-background font-semibold text-base">
-            {hasActiveRoom ? "🚫 لديك ساحة نشطة" : "➥ إنشاء ساحة جديدة"}
-          </Text>
-        </TouchableOpacity>
-        {hasActiveRoom && activeRoom && (
+        {hasActiveRoom && activeRoom ? (
+          <View>
+            {/* عداد طلبات اللعب */}
+            {(activeRoom.pendingRequestsCount || 0) > 0 && (
+              <View className="flex-row items-center justify-center mb-2">
+                <View style={{ backgroundColor: '#EF4444', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6 }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{activeRoom.pendingRequestsCount}</Text>
+                </View>
+                <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 13 }}>لديك طلبات لعب</Text>
+              </View>
+            )}
+            {/* الصف الرئيسي: المستطيل الرمادي + زر الانتقال */}
+            <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
+              <View style={{ backgroundColor: '#9CA3AF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}>
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>لديك ساحة نشطة</Text>
+              </View>
+              <TouchableOpacity
+                style={{ backgroundColor: '#D4A574', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
+                onPress={() => router.push(`/room/${activeRoom.id}`)}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>انتقل إلى ساحتك</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
           <TouchableOpacity
-            className="mt-2 bg-primary rounded-xl py-3 items-center"
-            onPress={() => router.push(`/room/${activeRoom.id}`)}
+            className="rounded-xl py-3 items-center"
+            style={{ backgroundColor: '#D4A574' }}
+            onPress={() => setShowCreateModal(true)}
           >
-            <Text className="text-background font-semibold text-base">📍 انتقل إلى غرفتك: {activeRoom.name}</Text>
+            <Text className="text-background font-semibold text-base">➥ إنشاء ساحة جديدة</Text>
           </TouchableOpacity>
         )}
       </View>

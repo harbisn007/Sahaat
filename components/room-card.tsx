@@ -44,9 +44,8 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
         {/* Stats */}
         <View className="flex-row gap-2">
           <View className="flex-row items-center gap-1">
-            <Text className="text-xs text-muted">🎮</Text>
             <Text className="text-xs text-foreground">
-              {room.acceptedPlayersCount}/2
+              {room.acceptedPlayersCount}/2 لاعب
             </Text>
           </View>
           <View className="flex-row items-center gap-1">
@@ -70,9 +69,8 @@ export function RoomCard({ room, currentUserId, onJoinAsPlayer, onJoinAsViewer, 
       {/* Stats */}
       <View className="flex-row gap-2 mb-2">
         <View className="flex-row items-center gap-1">
-          <Text className="text-xs text-muted">🎮</Text>
           <Text className="text-xs text-foreground">
-            {room.acceptedPlayersCount}/2
+            {room.acceptedPlayersCount}/2 لاعب
           </Text>
         </View>
         <View className="flex-row items-center gap-1">
