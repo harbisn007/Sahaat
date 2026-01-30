@@ -89,6 +89,7 @@ export interface ServerToClientEvents {
     userId: string; 
     username: string;
     audioUrl: string;
+    clappingDelay: number; // سرعة التصفيق من المتحكم
     createdAt: string;
   }) => void;
   khaloohaCommand: (data: { 
@@ -344,6 +345,7 @@ export function emitSheelohaBroadcast(
   userId: string, 
   username: string,
   audioUrl: string,
+  clappingDelay: number,
   createdAt: Date
 ): void {
   if (!io) return;
@@ -352,6 +354,7 @@ export function emitSheelohaBroadcast(
     userId, 
     username,
     audioUrl,
+    clappingDelay,
     createdAt: createdAt.toISOString(),
   });
 }

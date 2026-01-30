@@ -65,6 +65,8 @@ export default function RoomScreen() {
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
   const [clappingDelay, setClappingDelay] = useState<number>(0.50);
+  // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
+  const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
@@ -667,8 +669,10 @@ export default function RoomScreen() {
       });
       
       // Play sheeloha effect (5 overlapping copies with distance effect)
-      // Use medium delay (0.50s) as default for broadcasts from other users
-      playSheeloha(latestBroadcast.audioUrl, 0.50);
+      // استخدام سرعة التصفيق المرسلة من المتحكم
+      const broadcastClappingDelay = (latestBroadcast as any).clappingDelay ?? 0.50;
+      console.log("[RoomScreen] Using clappingDelay from broadcast:", broadcastClappingDelay);
+      playSheeloha(latestBroadcast.audioUrl, broadcastClappingDelay);
     } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
       // Mark own broadcast as played without playing (already played locally)
       console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
@@ -1457,6 +1461,29 @@ export default function RoomScreen() {
   const isPlayer = isCreator || (userRole === "player" && isApproved);
   const isViewer = userRole === "viewer";
   
+  // تحديد اللاعبين
+  const player1 = useMemo(() => {
+    return roomData?.participants?.find(
+      (p) => p.role === "player" && p.status === "accepted"
+    ) || null;
+  }, [roomData?.participants]);
+  
+  const player2 = useMemo(() => {
+    const players = roomData?.participants?.filter(
+      (p) => p.role === "player" && p.status === "accepted"
+    ) || [];
+    return players.length > 1 ? players[1] : null;
+  }, [roomData?.participants]);
+  
+  // هل المستخدم الحالي هو المتحكم؟
+  const isCurrentUserController = useMemo(() => {
+    if (!taroukController) return false;
+    if (taroukController === "creator" && userId === roomData?.creatorId) return true;
+    if (taroukController === "player1" && userId === player1?.userId) return true;
+    if (taroukController === "player2" && userId === player2?.userId) return true;
+    return false;
+  }, [taroukController, userId, roomData?.creatorId, player1?.userId, player2?.userId]);
+  
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
   return (
@@ -1797,6 +1824,73 @@ export default function RoomScreen() {
         )}
       </View>
 
+      {/* واجهة بداية الطاروق - فقط للمنشئ */}
+      {isCreator && (
+        <View 
+          className="bg-surface px-4 py-2 border-t border-border"
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+        >
+          <Text style={{ color: '#000000', fontWeight: 'bold', fontSize: 12 }}>
+            بداية الطاروق عند:
+          </Text>
+          <TouchableOpacity
+            onPress={() => setTaroukController(taroukController === "creator" ? null : "creator")}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: taroukController === "creator" ? '#DC2626' : '#E5E7EB',
+            }}
+          >
+            <Text style={{ 
+              color: taroukController === "creator" ? '#FFFFFF' : '#000000', 
+              fontWeight: '600',
+              fontSize: 11,
+            }}>
+              عندي
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => player1 && setTaroukController(taroukController === "player1" ? null : "player1")}
+            disabled={!player1}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: taroukController === "player1" ? '#DC2626' : '#E5E7EB',
+              opacity: player1 ? 1 : 0.4,
+            }}
+          >
+            <Text style={{ 
+              color: taroukController === "player1" ? '#FFFFFF' : '#000000', 
+              fontWeight: '600',
+              fontSize: 11,
+            }}>
+              {player1?.username || 'اللاعب 1'}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => player2 && setTaroukController(taroukController === "player2" ? null : "player2")}
+            disabled={!player2}
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 12,
+              backgroundColor: taroukController === "player2" ? '#DC2626' : '#E5E7EB',
+              opacity: player2 ? 1 : 0.4,
+            }}
+          >
+            <Text style={{ 
+              color: taroukController === "player2" ? '#FFFFFF' : '#000000', 
+              fontWeight: '600',
+              fontSize: 11,
+            }}>
+              {player2?.username || 'اللاعب 2'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Bottom Controls - Compact fixed bar */}
       {/* Players see all controls, Viewers see only reactions */}
       <View 
@@ -1810,12 +1904,14 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              {/* Clapping Delay Wheel */}
-              <SpeedWheel
-                value={clappingDelay}
-                onChange={setClappingDelay}
-                width={wheelWidth}
-              />
+              {/* Clapping Delay Wheel - يظهر فقط للمتحكم المختار */}
+              {isCurrentUserController && (
+                <SpeedWheel
+                  value={clappingDelay}
+                  onChange={setClappingDelay}
+                  width={wheelWidth}
+                />
+              )}
 
               {/* Sheeloha Button */}
               <View style={{ width: buttonWidth, alignItems: 'center' }}>
@@ -1860,12 +1956,13 @@ export default function RoomScreen() {
                     playSheeloha(lastTaroukUri!, clappingDelay);
                     
                     // Also broadcast to other users
-                    console.log("[RoomScreen] Broadcasting sheeloha to all users");
+                    console.log("[RoomScreen] Broadcasting sheeloha to all users with clappingDelay:", clappingDelay);
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
                       userId,
                       username,
                       audioUrl: lastTaroukUri!,
+                      clappingDelay, // إرسال سرعة التصفيق من المتحكم
                     });
                     console.log("[RoomScreen] Sheeloha broadcast created successfully");
                   } catch (error) {
@@ -2026,37 +2123,40 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              <View style={{ width: buttonWidth, alignItems: 'center' }}>
-                <RecordingButton
-                  buttonId="tarouk"
-                  isRecording={isRecording && recordingType === "tarouk"}
-                  isPreparing={isPreparing && recordingType === "tarouk"}
-                  pressAndHold={true}
-                  onPressIn={() => handleStartRecording("tarouk")}
-                  onPressOut={() => handleStopRecording()}
-                  onCancelRecording={handleCancelRecording}
-                  backgroundColor="#5D4037"
-                  recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
-                  iconComponent={
-                    <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#FFD700" />
-                  }
-                  label=""
-                  showLabel={false}
-                  minHeight={48}
-                  width={buttonWidth}
-                />
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: fontSize,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  طاروق
-                </Text>
-              </View>
+              {/* زر طاروق - يظهر فقط عند تحديد متحكم */}
+              {taroukController && (
+                <View style={{ width: buttonWidth, alignItems: 'center' }}>
+                  <RecordingButton
+                    buttonId="tarouk"
+                    isRecording={isRecording && recordingType === "tarouk"}
+                    isPreparing={isPreparing && recordingType === "tarouk"}
+                    pressAndHold={true}
+                    onPressIn={() => handleStartRecording("tarouk")}
+                    onPressOut={() => handleStopRecording()}
+                    onCancelRecording={handleCancelRecording}
+                    backgroundColor="#5D4037"
+                    recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
+                    iconComponent={
+                      <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#FFD700" />
+                    }
+                    label=""
+                    showLabel={false}
+                    minHeight={48}
+                    width={buttonWidth}
+                  />
+                  <Text 
+                    style={{ 
+                      color: colors.muted,
+                      fontSize: fontSize,
+                      fontWeight: '900',
+                      textAlign: 'center',
+                      marginTop: 4,
+                    }}
+                  >
+                    طاروق
+                  </Text>
+                </View>
+              )}
             </View>
           )}
         </View>

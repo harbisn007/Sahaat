@@ -419,6 +419,7 @@ export const appRouter = router({
           userId: z.string(),
           username: z.string(),
           audioUrl: z.string(),
+          clappingDelay: z.number().min(0).max(1.5).default(0.5), // سرعة التصفيق من المتحكم
         })
       )
       .mutation(async ({ input }) => {
@@ -433,6 +434,7 @@ export const appRouter = router({
             input.userId,
             input.username,
             input.audioUrl,
+            input.clappingDelay,
             new Date()
           );
           
