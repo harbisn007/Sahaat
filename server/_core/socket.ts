@@ -1,6 +1,32 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
 
+// نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
+const activeUsers = new Map<string, number>(); // userId -> lastActivityTimestamp
+const ACTIVE_TIMEOUT = 60 * 1000; // 60 ثانية
+
+// تسجيل نشاط مستخدم
+export function recordUserActivity(userId: string): void {
+  activeUsers.set(userId, Date.now());
+}
+
+// حساب عدد المستخدمين النشطين
+export function getActiveUsersCount(): number {
+  const now = Date.now();
+  let count = 0;
+  
+  // حذف المستخدمين غير النشطين وحساب العدد
+  for (const [userId, lastActivity] of activeUsers.entries()) {
+    if (now - lastActivity > ACTIVE_TIMEOUT) {
+      activeUsers.delete(userId);
+    } else {
+      count++;
+    }
+  }
+  
+  return count;
+}
+
 // أنواع الأحداث المدعومة
 export interface ServerToClientEvents {
   // أحداث الساحة

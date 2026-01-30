@@ -19,6 +19,8 @@ import {
   emitPublicInviteCreated,
   emitPublicInviteExpired,
   getOnlineUsersCount,
+  getActiveUsersCount,
+  recordUserActivity,
 } from "./_core/socket";
 
 export const appRouter = router({
@@ -683,11 +685,19 @@ export const appRouter = router({
   stats: router({
     // Get online users count (actual + 50%)
     onlineCount: publicProcedure.query(() => {
-      const actualCount = getOnlineUsersCount();
+      const actualCount = getActiveUsersCount();
       // الرقم المعروض = العدد الفعلي + 50% (رقم صحيح)
       const displayCount = Math.floor(actualCount * 1.5);
       return { count: displayCount };
     }),
+    
+    // تسجيل نشاط المستخدم (heartbeat)
+    heartbeat: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .mutation(({ input }) => {
+        recordUserActivity(input.userId);
+        return { success: true };
+      }),
   }),
 
   // Public invitations router

@@ -2,7 +2,7 @@ import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, FlatList, 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { ImageBackground } from "react-native";
+import { ImageBackground, Image } from "react-native";
 
 import { ScreenContainer } from "@/components/screen-container";
 
@@ -102,6 +102,15 @@ function PublicInviteCard({
   invite: PublicInvitation; 
   onJoin: () => void;
 }) {
+  // تحديد صورة الأفاتار
+  const getAvatarSource = () => {
+    const avatarType = invite.creatorAvatar || 'male';
+    if (avatarType === 'female') {
+      return require('@/assets/images/avatar-female.png');
+    }
+    return require('@/assets/images/avatar-male.png');
+  };
+
   return (
     <View style={{ 
       backgroundColor: 'rgba(255, 255, 255, 0.95)', 
@@ -111,9 +120,16 @@ function PublicInviteCard({
       borderWidth: 1,
       borderColor: '#E5E7EB',
     }}>
-      <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600', marginBottom: 4 }} numberOfLines={1}>
-        {invite.creatorName}
-      </Text>
+      {/* صف الصورة والاسم */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+        <Image 
+          source={getAvatarSource()} 
+          style={{ width: 28, height: 28, borderRadius: 14, marginLeft: 6 }} 
+        />
+        <Text style={{ fontSize: 12, color: '#374151', fontWeight: '600', flex: 1 }} numberOfLines={1}>
+          {invite.creatorName}
+        </Text>
+      </View>
       <TouchableOpacity
         style={{ 
           backgroundColor: '#EF4444', 

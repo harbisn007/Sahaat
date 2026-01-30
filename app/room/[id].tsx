@@ -379,20 +379,20 @@ export default function RoomScreen() {
   // Tarouk player
   const { stopTarouk } = useTaroukPlayer();
 
-  // جلب البيانات الأولية فقط (بدون polling - التحديثات عبر Socket.io)
-  const { data: initialAudioMessages } = trpc.audio.list.useQuery(
+  // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
+  const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
+    { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
   );
 
-  const { data: initialReactions } = trpc.reactions.list.useQuery(
+  const { data: initialReactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
+    { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
   );
 
-  const { data: initialSheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
+  const { data: initialSheelohaBroadcasts, refetch: refetchSheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة فقط
+    { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
   );
   
   // دمج البيانات الأولية مع التحديثات عبر Socket.io
@@ -1340,8 +1340,8 @@ export default function RoomScreen() {
           duration: recording.duration || 0, // Use actual recording duration
         });
         
-        // Refresh audio messages
-        // Socket.io يحدث تلقائياً
+        // Refresh audio messages فوراً
+        await refetchAudioMessages();
       }
     } catch (error) {
       console.error("Failed to save audio message:", error);
@@ -1389,8 +1389,8 @@ export default function RoomScreen() {
       // إزالة الرسالة المحلية بعد وصول رد الخادم
       setLocalMessages(prev => prev.filter(m => m.id !== localId));
       
-      // Refetch reactions immediately to show the new reaction
-      // Socket.io يحدث تلقائياً
+      // Refetch reactions فوراً
+      await refetchReactions();
       console.log("[RoomScreen] Reactions refetched");
     } catch (error: any) {
       console.error("[RoomScreen] Failed to send reaction:", error);
