@@ -470,9 +470,9 @@ export default function HomeScreen() {
       <View className="px-6 py-4">
         {hasActiveRoom && activeRoom ? (
           <View>
-            {/* عداد تنازلي للساحة الممدة (المنجمة) - يظهر للمنشئ فقط */}
-            {activeRoom.hasGoldStar === "true" && activeRoom.goldStarExpiresAt && (
-              <CountdownTimer expiresAt={new Date(activeRoom.goldStarExpiresAt)} />
+            {/* عداد تنازلي للساحة الممدة - يظهر للمنشئ فقط (ساعات التمديد المتبقية) */}
+            {activeRoom.extensionExpiresAt && (
+              <CountdownTimer expiresAt={new Date(activeRoom.extensionExpiresAt)} />
             )}
             {/* عداد طلبات اللعب */}
             {(activeRoom.pendingRequestsCount || 0) > 0 && (

@@ -144,6 +144,9 @@ export const appRouter = router({
           status: "accepted",
         });
 
+        // التحقق من منح النجمة الذهبية (إذا تجاوز عدد المشاهدين 20)
+        await db.checkAndAwardGoldStar(input.roomId);
+
         return { participantId };
       }),
 

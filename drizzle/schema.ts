@@ -34,11 +34,15 @@ export const rooms = mysqlTable("rooms", {
   creatorAvatar: varchar("creatorAvatar", { length: 500 }).default("male").notNull(), // 'male', 'female', or custom URL
   isActive: mysqlEnum("isActive", ["true", "false"]).default("true").notNull(),
   // Gold star fields - awarded when room has more than 20 viewers at once
+  // hasGoldStar: هل الساحة لديها نجمة ظاهرة حالياً
+  // goldStarExpiresAt: وقت انتهاء ظهور النجمة (24 ساعة)
+  // extensionExpiresAt: وقت انتهاء صلاحية التمديد (5 أيام)
   hasGoldStar: mysqlEnum("hasGoldStar", ["true", "false"]).default("false").notNull(),
-  goldStarExpiresAt: timestamp("goldStarExpiresAt"),
-  // When the gold star was lost (for calculating 15-minute deletion timer)
-  goldStarLostAt: timestamp("goldStarLostAt"),
-  // Last player join time (for calculating 15-minute deletion timer)
+  goldStarExpiresAt: timestamp("goldStarExpiresAt"), // 24 ساعة لظهور النجمة
+  extensionExpiresAt: timestamp("extensionExpiresAt"), // 5 أيام للتمديد
+  // When the extension was lost (for calculating 15-minute deletion timer)
+  extensionLostAt: timestamp("extensionLostAt"),
+  // Last player join time (no longer used, kept for compatibility)
   lastPlayerJoinAt: timestamp("lastPlayerJoinAt"),
   // Last player left time (for calculating 15-minute deletion timer)
   lastPlayerLeftAt: timestamp("lastPlayerLeftAt"),

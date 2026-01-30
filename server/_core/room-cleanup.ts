@@ -1,18 +1,18 @@
 /**
  * نظام حذف الساحات الفارغة تلقائياً
  * 
- * الساحات العادية: 15 دقيقة بدون لاعب
- * الساحات ذات النجمة الذهبية: 5 أيام من وقت الحصول على النجمة
+ * النجمة: تظهر لمدة 24 ساعة
+ * التمديد: يستمر لمدة 5 أيام (حتى لو فقدت النجمة)
  * 
- * ترتيب حساب الـ 15 دقيقة:
- * 1. وقت فقدان النجمة (goldStarLostAt)
- * 2. وقت آخر لاعب منضم (lastPlayerJoinAt)
+ * ترتيب حساب الـ 15 دقيقة للحذف التلقائي:
+ * 1. وقت انتهاء التمديد (extensionLostAt)
+ * 2. وقت خروج آخر لاعب (lastPlayerLeftAt)
  * 3. وقت إنشاء الساحة (createdAt)
  */
 
-import { getDb, removeGoldStar } from "../db";
+import { getDb, removeGoldStar, removeExtension } from "../db";
 import { rooms, roomParticipants, audioMessages, reactions, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations } from "../../drizzle/schema";
-import { eq, and, lt, sql } from "drizzle-orm";
+import { eq, and, lt } from "drizzle-orm";
 import { broadcastRoomDeleted } from "./socket";
 
 // الفترة الزمنية بالدقائق قبل حذف الساحة الفارغة
@@ -25,7 +25,6 @@ const CHECK_INTERVAL_MS = 60 * 1000;
  * إزالة تتبع الساحة عند حذفها
  */
 export function removeRoomTracking(roomId: number) {
-  // لم نعد نستخدم Map للتتبع، نعتمد على قاعدة البيانات
   console.log(`[RoomCleanup] Removed tracking for room ${roomId}`);
 }
 
@@ -51,19 +50,20 @@ async function hasNonCreatorPlayer(roomId: number): Promise<boolean> {
 }
 
 /**
- * التحقق مما إذا كانت الساحة لديها نجمة ذهبية نشطة
+ * التحقق مما إذا كانت الساحة لديها تمديد نشط (5 أيام)
  */
-async function hasActiveGoldStar(room: typeof rooms.$inferSelect): Promise<boolean> {
-  if (room.hasGoldStar !== "true" || !room.goldStarExpiresAt) {
+function hasActiveExtension(room: typeof rooms.$inferSelect): boolean {
+  if (!room.extensionExpiresAt) {
     return false;
   }
   
   const now = new Date();
-  return new Date(room.goldStarExpiresAt) > now;
+  return new Date(room.extensionExpiresAt) > now;
 }
 
 /**
- * إزالة النجوم الذهبية المنتهية الصلاحية وتسجيل وقت الفقدان
+ * إزالة النجوم الذهبية المنتهية الصلاحية (24 ساعة)
+ * التمديد يبقى كما هو
  */
 async function cleanupExpiredGoldStars(): Promise<void> {
   const db = await getDb();
@@ -71,8 +71,8 @@ async function cleanupExpiredGoldStars(): Promise<void> {
 
   const now = new Date();
 
-  // جلب الساحات التي انتهت صلاحية نجمتها
-  const expiredRooms = await db
+  // جلب الساحات التي انتهت صلاحية نجمتها (24 ساعة)
+  const expiredStars = await db
     .select()
     .from(rooms)
     .where(
@@ -82,10 +82,39 @@ async function cleanupExpiredGoldStars(): Promise<void> {
       )
     );
 
-  // إزالة النجمة وتسجيل وقت الفقدان لكل ساحة
-  for (const room of expiredRooms) {
-    console.log(`[RoomCleanup] Gold star expired for room ${room.id}, starting 15-minute deletion timer`);
+  // إزالة النجمة فقط - التمديد يبقى
+  for (const room of expiredStars) {
+    console.log(`[RoomCleanup] Gold star expired for room ${room.id} (24h), extension still active`);
     await removeGoldStar(room.id);
+  }
+}
+
+/**
+ * إزالة التمديدات المنتهية الصلاحية (5 أيام)
+ * يبدأ عداد الـ 15 دقيقة
+ */
+async function cleanupExpiredExtensions(): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  const now = new Date();
+
+  // جلب الساحات التي انتهت صلاحية تمديدها (5 أيام)
+  const expiredExtensions = await db
+    .select()
+    .from(rooms)
+    .where(
+      and(
+        lt(rooms.extensionExpiresAt, now)
+      )
+    );
+
+  // إزالة التمديد وتسجيل وقت الفقدان
+  for (const room of expiredExtensions) {
+    if (room.extensionExpiresAt) {
+      console.log(`[RoomCleanup] Extension expired for room ${room.id} (5d), 15-minute deletion timer starts`);
+      await removeExtension(room.id);
+    }
   }
 }
 
@@ -94,9 +123,9 @@ async function cleanupExpiredGoldStars(): Promise<void> {
  * الترتيب: انتهاء التمديد → خروج آخر لاعب → وقت الإنشاء
  */
 function getDeletionTimerStart(room: typeof rooms.$inferSelect): Date {
-  // 1. وقت انتهاء التمديد (فقدان النجمة) - الأولوية الأولى
-  if (room.goldStarLostAt) {
-    return new Date(room.goldStarLostAt);
+  // 1. وقت انتهاء التمديد - الأولوية الأولى
+  if (room.extensionLostAt) {
+    return new Date(room.extensionLostAt);
   }
   
   // 2. وقت خروج/استبعاد آخر لاعب - الأولوية الثانية
@@ -146,8 +175,11 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
   if (!db) return;
 
   try {
-    // أولاً: تنظيف النجوم الذهبية المنتهية (وتسجيل وقت الفقدان)
+    // أولاً: تنظيف النجوم الذهبية المنتهية (24 ساعة)
     await cleanupExpiredGoldStars();
+    
+    // ثانياً: تنظيف التمديدات المنتهية (5 أيام)
+    await cleanupExpiredExtensions();
 
     // جلب جميع الساحات النشطة
     const activeRooms = await db
@@ -161,8 +193,8 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
     for (const room of activeRooms) {
       const roomId = room.id;
 
-      // الساحات ذات النجمة الذهبية النشطة لا تُحذف
-      if (await hasActiveGoldStar(room)) {
+      // الساحات ذات التمديد النشط لا تُحذف
+      if (hasActiveExtension(room)) {
         continue;
       }
 
@@ -174,7 +206,7 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
         continue;
       }
 
-      // لا يوجد لاعب ولا نجمة نشطة - التحقق من المدة
+      // لا يوجد لاعب ولا تمديد نشط - التحقق من المدة
       const timerStart = getDeletionTimerStart(room);
       const elapsedMs = now.getTime() - timerStart.getTime();
 
@@ -193,30 +225,15 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
  * بدء نظام التنظيف التلقائي
  */
 export function startRoomCleanupService(): void {
-  console.log(`[RoomCleanup] Starting cleanup service (timeout: ${EMPTY_ROOM_TIMEOUT_MINUTES} minutes, gold star: 5 days)`);
+  console.log(`[RoomCleanup] Starting cleanup service (timeout: ${EMPTY_ROOM_TIMEOUT_MINUTES} minutes, extension: 5 days, star: 24 hours)`);
 
   // تشغيل الفحص الأول بعد دقيقة
   setTimeout(() => {
     checkAndCleanupEmptyRooms();
   }, CHECK_INTERVAL_MS);
 
-  // تشغيل الفحص الدوري
+  // تشغيل الفحص الدوري كل دقيقة
   setInterval(() => {
     checkAndCleanupEmptyRooms();
   }, CHECK_INTERVAL_MS);
-}
-
-/**
- * حذف ساحة فوراً (عند إغلاقها من المنشئ)
- */
-export async function deleteRoomImmediately(roomId: number): Promise<void> {
-  await deleteRoomCompletely(roomId);
-}
-
-/**
- * تسجيل نشاط لاعب في الساحة (للتوافق مع الكود القديم)
- */
-export function recordPlayerActivity(roomId: number) {
-  // لم نعد نستخدم هذه الدالة، نعتمد على lastPlayerJoinAt في قاعدة البيانات
-  console.log(`[RoomCleanup] Player activity recorded for room ${roomId}`);
 }

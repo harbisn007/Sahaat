@@ -962,44 +962,68 @@ export async function deletePublicInvitationsByRoom(roomId: number) {
     .where(eq(publicInvitations.roomId, roomId));
 }
 
-// ============ Gold Star ============
+// ============ Gold Star & Extension ============
+// النجمة: تظهر لمدة 24 ساعة
+// التمديد: يستمر لمدة 5 أيام
 
 export async function awardGoldStar(roomId: number) {
   const db = await getDb();
   if (!db) return;
 
-  // Gold star expires after 5 days (120 hours)
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 5);
+  // النجمة تنتهي بعد 24 ساعة
+  const starExpiresAt = new Date();
+  starExpiresAt.setHours(starExpiresAt.getHours() + 24);
 
-  // إعادة ضبط goldStarLostAt إلى null عند منح/تجديد النجمة
+  // التمديد ينتهي بعد 5 أيام
+  const extensionExpiresAt = new Date();
+  extensionExpiresAt.setDate(extensionExpiresAt.getDate() + 5);
+
+  // منح النجمة والتمديد معاً
   await db
     .update(rooms)
     .set({ 
       hasGoldStar: "true", 
-      goldStarExpiresAt: expiresAt,
-      goldStarLostAt: null // إعادة ضبط وقت فقدان النجمة
+      goldStarExpiresAt: starExpiresAt, // 24 ساعة للنجمة
+      extensionExpiresAt: extensionExpiresAt, // 5 أيام للتمديد
+      extensionLostAt: null // إعادة ضبط وقت فقدان التمديد
     })
     .where(eq(rooms.id, roomId));
   
-  console.log(`[GoldStar] Awarded/Renewed gold star for room ${roomId}, expires at ${expiresAt.toISOString()}`);
+  console.log(`[GoldStar] Awarded star (24h) and extension (5d) for room ${roomId}`);
 }
 
+// إزالة النجمة فقط (بعد 24 ساعة) - التمديد يستمر
 export async function removeGoldStar(roomId: number) {
   const db = await getDb();
   if (!db) return;
 
-  // تسجيل وقت فقدان النجمة لحساب مدة الحذف التلقائي
+  // إزالة النجمة فقط - التمديد يبقى كما هو
   await db
     .update(rooms)
     .set({ 
       hasGoldStar: "false", 
-      goldStarExpiresAt: null,
-      goldStarLostAt: new Date() // تسجيل وقت فقدان النجمة
+      goldStarExpiresAt: null
+      // extensionExpiresAt يبقى كما هو
     })
     .where(eq(rooms.id, roomId));
   
-  console.log(`[GoldStar] Removed gold star from room ${roomId}, deletion timer starts now`);
+  console.log(`[GoldStar] Star removed from room ${roomId}, extension still active`);
+}
+
+// إزالة التمديد (بعد 5 أيام) - يبدأ عداد الـ 15 دقيقة
+export async function removeExtension(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ 
+      extensionExpiresAt: null,
+      extensionLostAt: new Date() // تسجيل وقت فقدان التمديد لبدء عداد الـ 15 دقيقة
+    })
+    .where(eq(rooms.id, roomId));
+  
+  console.log(`[GoldStar] Extension removed from room ${roomId}, 15-minute deletion timer starts now`);
 }
 
 export async function updateLastPublicInviteTime(roomId: number) {
@@ -1155,7 +1179,7 @@ export async function updateLastPlayerJoinTime(roomId: number) {
     .where(eq(rooms.id, roomId));
 }
 
-// إعادة ضبط حقول النجمة الذهبية عند حذف/إغلاق الساحة
+// إعادة ضبط حقول النجمة والتمديد عند حذف/إغلاق الساحة
 export async function resetGoldStarOnRoomClose(roomId: number) {
   const db = await getDb();
   if (!db) return;
@@ -1165,12 +1189,14 @@ export async function resetGoldStarOnRoomClose(roomId: number) {
     .set({ 
       hasGoldStar: "false", 
       goldStarExpiresAt: null,
-      goldStarLostAt: null,
-      lastPlayerJoinAt: null
+      extensionExpiresAt: null,
+      extensionLostAt: null,
+      lastPlayerJoinAt: null,
+      lastPlayerLeftAt: null
     })
     .where(eq(rooms.id, roomId));
   
-  console.log(`[GoldStar] Reset all gold star fields for room ${roomId} on close`);
+  console.log(`[GoldStar] Reset all star/extension fields for room ${roomId} on close`);
 }
 
 
