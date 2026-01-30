@@ -229,12 +229,8 @@ export default function HomeScreen() {
   );
   const rooms = top10Rooms || [];
   
-  // عدد المتواجدين الآن
-  const { data: onlineStats } = trpc.stats.onlineCount.useQuery(
-    undefined,
-    { refetchInterval: 5000 } // تحديث كل 5 ثواني
-  );
-  const onlineCount = onlineStats?.count || 0;
+  // عدد المتواجدين الآن (يتحدث فورياً عبر Socket.io)
+  const [onlineCount, setOnlineCount] = useState(0);
   
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
     { creatorId: userId },
@@ -283,6 +279,12 @@ export default function HomeScreen() {
     socket.on("publicInviteExpired", (data: { invitationId: number }) => {
       console.log("[Socket] Public invite expired:", data);
       refetch();
+    });
+    
+    // الاستماع لتحديث عدد المتواجدين فورياً
+    socket.on("onlineCountUpdated", (data: { count: number }) => {
+      console.log("[Socket] Online count updated:", data.count);
+      setOnlineCount(data.count);
     });
     
     return () => {

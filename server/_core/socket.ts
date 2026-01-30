@@ -71,6 +71,9 @@ export interface ServerToClientEvents {
     username: string;
     createdAt: string;
   }) => void;
+  
+  // حدث تحديث عدد المتواجدين
+  onlineCountUpdated: (data: { count: number }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -115,8 +118,19 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     transports: ["websocket", "polling"],
   });
 
+  // دالة بث عدد المتواجدين للجميع
+  const broadcastOnlineCount = () => {
+    const actualCount = io!.sockets.sockets.size;
+    const displayCount = Math.floor(actualCount * 1.5);
+    io!.emit("onlineCountUpdated", { count: displayCount });
+    console.log(`[Socket.io] Online count updated: ${displayCount} (actual: ${actualCount})`);
+  };
+
   io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
     console.log(`[Socket.io] Client connected: ${socket.id}`);
+    
+    // بث عدد المتواجدين عند الاتصال
+    broadcastOnlineCount();
 
     // الانضمام لساحة
     socket.on("joinRoom", (roomId: number) => {
@@ -151,6 +165,8 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     // قطع الاتصال
     socket.on("disconnect", (reason) => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
+      // بث عدد المتواجدين عند قطع الاتصال
+      broadcastOnlineCount();
     });
   });
 
