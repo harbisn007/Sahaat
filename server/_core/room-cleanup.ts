@@ -195,6 +195,7 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
 
       // الساحات ذات التمديد النشط لا تُحذف
       if (hasActiveExtension(room)) {
+        console.log(`[RoomCleanup] Room ${roomId} has active extension, skipping`);
         continue;
       }
 
@@ -203,12 +204,17 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
 
       if (hasPlayer) {
         // يوجد لاعب - لا حذف
+        console.log(`[RoomCleanup] Room ${roomId} has player, skipping`);
         continue;
       }
 
       // لا يوجد لاعب ولا تمديد نشط - التحقق من المدة
       const timerStart = getDeletionTimerStart(room);
       const elapsedMs = now.getTime() - timerStart.getTime();
+      const elapsedMinutes = Math.floor(elapsedMs / 60000);
+      const remainingMinutes = EMPTY_ROOM_TIMEOUT_MINUTES - elapsedMinutes;
+      
+      console.log(`[RoomCleanup] Room ${roomId}: created=${room.createdAt}, timerStart=${timerStart.toISOString()}, elapsed=${elapsedMinutes}min, remaining=${remainingMinutes}min`);
 
       if (elapsedMs >= timeoutMs) {
         // مرت 15 دقيقة - حذف الساحة

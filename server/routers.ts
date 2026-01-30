@@ -76,6 +76,9 @@ export const appRouter = router({
           creatorName: input.creatorName,
           creatorAvatar: input.creatorAvatar,
           isActive: "true",
+          createdAt: new Date(), // ضبط وقت الإنشاء صراحةً
+          lastPlayerLeftAt: null, // إعادة ضبط وقت خروج اللاعب
+          extensionLostAt: null, // إعادة ضبط وقت فقدان التمديد
         });
 
         // Add creator as a player
