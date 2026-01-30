@@ -113,6 +113,9 @@ export interface ClientToServerEvents {
   // الانضمام لقناة الدعوات العامة
   joinPublicInvites: () => void;
   leavePublicInvites: () => void;
+  
+  // طلب عدد المتواجدين
+  requestOnlineCount: () => void;
 }
 
 export interface InterServerEvents {
@@ -186,6 +189,14 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     socket.on("leavePublicInvites", () => {
       socket.leave("public-invites");
       console.log(`[Socket.io] Client ${socket.id} left public-invites channel`);
+    });
+
+    // طلب عدد المتواجدين
+    socket.on("requestOnlineCount", () => {
+      const actualCount = io!.sockets.sockets.size;
+      const displayCount = Math.floor(actualCount * 1.5);
+      socket.emit("onlineCountUpdated", { count: displayCount });
+      console.log(`[Socket.io] Sent online count to ${socket.id}: ${displayCount}`);
     });
 
     // قطع الاتصال

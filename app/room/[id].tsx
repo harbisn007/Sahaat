@@ -382,7 +382,7 @@ export default function RoomScreen() {
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
+    { enabled: roomId > 0, refetchInterval: 1000 } // polling كل 1 ثانية لظهور أسرع
   );
 
   const { data: initialReactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(

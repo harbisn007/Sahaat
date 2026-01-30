@@ -303,6 +303,8 @@ export default function HomeScreen() {
     socket.on("connect", () => {
       console.log("[Socket] Connected to public invites channel");
       socket.emit("joinPublicInvites");
+      // طلب عدد المتواجدين عند الاتصال
+      socket.emit("requestOnlineCount");
     });
     
     // الاستماع للدعوات الجديدة
