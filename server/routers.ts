@@ -201,10 +201,16 @@ export const appRouter = router({
         z.object({
           roomId: z.number(),
           userId: z.string(),
+          role: z.string().optional(),
         })
       )
       .mutation(async ({ input }) => {
         await db.removeParticipant(input.roomId, input.userId);
+        
+        // تحديث وقت خروج آخر لاعب (لحساب مدة الحذف التلقائي)
+        if (input.role === "player") {
+          await db.updateLastPlayerLeftTime(input.roomId);
+        }
         
         // بث مغادرة المشارك لجميع المشاركين
         emitParticipantLeft(input.roomId, input.userId);

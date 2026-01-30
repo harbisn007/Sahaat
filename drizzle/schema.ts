@@ -40,6 +40,8 @@ export const rooms = mysqlTable("rooms", {
   goldStarLostAt: timestamp("goldStarLostAt"),
   // Last player join time (for calculating 15-minute deletion timer)
   lastPlayerJoinAt: timestamp("lastPlayerJoinAt"),
+  // Last player left time (for calculating 15-minute deletion timer)
+  lastPlayerLeftAt: timestamp("lastPlayerLeftAt"),
   // Last public invite timestamp - for 5 minute cooldown
   lastPublicInviteAt: timestamp("lastPublicInviteAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

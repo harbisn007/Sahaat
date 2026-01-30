@@ -1172,3 +1172,17 @@ export async function resetGoldStarOnRoomClose(roomId: number) {
   
   console.log(`[GoldStar] Reset all gold star fields for room ${roomId} on close`);
 }
+
+
+// تحديث وقت خروج آخر لاعب من الساحة
+export async function updateLastPlayerLeftTime(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ lastPlayerLeftAt: new Date() })
+    .where(eq(rooms.id, roomId));
+  
+  console.log(`[Room] Updated lastPlayerLeftAt for room ${roomId}`);
+}

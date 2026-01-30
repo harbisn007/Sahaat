@@ -91,17 +91,17 @@ async function cleanupExpiredGoldStars(): Promise<void> {
 
 /**
  * حساب وقت بدء عداد الحذف التلقائي
- * الترتيب: فقدان النجمة → آخر لاعب → وقت الإنشاء
+ * الترتيب: انتهاء التمديد → خروج آخر لاعب → وقت الإنشاء
  */
 function getDeletionTimerStart(room: typeof rooms.$inferSelect): Date {
-  // 1. وقت فقدان النجمة (الأولوية الأولى)
+  // 1. وقت انتهاء التمديد (فقدان النجمة) - الأولوية الأولى
   if (room.goldStarLostAt) {
     return new Date(room.goldStarLostAt);
   }
   
-  // 2. وقت آخر لاعب منضم (الأولوية الثانية)
-  if (room.lastPlayerJoinAt) {
-    return new Date(room.lastPlayerJoinAt);
+  // 2. وقت خروج/استبعاد آخر لاعب - الأولوية الثانية
+  if (room.lastPlayerLeftAt) {
+    return new Date(room.lastPlayerLeftAt);
   }
   
   // 3. وقت إنشاء الساحة (الافتراضي)

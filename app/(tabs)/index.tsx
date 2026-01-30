@@ -51,6 +51,49 @@ function BlinkingTitle({ text, color }: { text: string; color: string }) {
   );
 }
 
+// مكون العداد التنازلي للساحة الممدة (المنجمة)
+function CountdownTimer({ expiresAt }: { expiresAt: Date }) {
+  const [hoursLeft, setHoursLeft] = useState(0);
+
+  useEffect(() => {
+    const calculateHours = () => {
+      const now = new Date();
+      const diff = expiresAt.getTime() - now.getTime();
+      if (diff <= 0) {
+        setHoursLeft(0);
+        return;
+      }
+      const hours = Math.ceil(diff / (1000 * 60 * 60));
+      setHoursLeft(hours);
+    };
+
+    calculateHours();
+    const interval = setInterval(calculateHours, 60000); // تحديث كل دقيقة
+    return () => clearInterval(interval);
+  }, [expiresAt]);
+
+  if (hoursLeft <= 0) return null;
+
+  return (
+    <View style={{ alignItems: 'center', marginBottom: 8 }}>
+      <View style={{
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        borderWidth: 3,
+        borderColor: '#EF4444',
+        backgroundColor: 'transparent',
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        <Text style={{ color: '#EF4444', fontWeight: 'bold', fontSize: 16 }}>
+          {hoursLeft}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 // مكون بطاقة الدعوة العامة
 function PublicInviteCard({ 
   invite, 
@@ -427,6 +470,10 @@ export default function HomeScreen() {
       <View className="px-6 py-4">
         {hasActiveRoom && activeRoom ? (
           <View>
+            {/* عداد تنازلي للساحة الممدة (المنجمة) - يظهر للمنشئ فقط */}
+            {activeRoom.hasGoldStar === "true" && activeRoom.goldStarExpiresAt && (
+              <CountdownTimer expiresAt={new Date(activeRoom.goldStarExpiresAt)} />
+            )}
             {/* عداد طلبات اللعب */}
             {(activeRoom.pendingRequestsCount || 0) > 0 && (
               <View className="flex-row items-center justify-center mb-2">

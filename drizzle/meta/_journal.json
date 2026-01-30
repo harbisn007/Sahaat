@@ -71,6 +71,13 @@
       "when": 1769731228762,
       "tag": "0009_outgoing_epoch",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1769732713811,
+      "tag": "0010_early_greymalkin",
+      "breakpoints": true
     }
   ]
 }
