@@ -576,7 +576,7 @@ export default function HomeScreen() {
           <View style={{ alignItems: 'center', marginBottom: 8 }}>
             <Text style={{ 
               fontWeight: 'bold', 
-              fontSize: 16, 
+              fontSize: 19, 
               color: '#8B5CF6', // لون خزامي
               textDecorationLine: 'underline',
               textShadowColor: '#FFD700', // ذهبي
