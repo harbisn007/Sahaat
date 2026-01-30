@@ -97,10 +97,12 @@ function CountdownTimer({ expiresAt }: { expiresAt: Date }) {
 // مكون بطاقة الدعوة العامة
 function PublicInviteCard({ 
   invite, 
-  onJoin 
+  onJoin,
+  currentUserId
 }: { 
   invite: PublicInvitation; 
   onJoin: () => void;
+  currentUserId: string;
 }) {
   // تحديد صورة الأفاتار
   const getAvatarSource = () => {
@@ -110,6 +112,9 @@ function PublicInviteCard({
     }
     return require('@/assets/images/avatar-male.png');
   };
+
+  // التحقق من أن المستخدم ليس مرسل الدعوة
+  const isOwnInvite = invite.creatorId === currentUserId;
 
   return (
     <View style={{ 
@@ -130,18 +135,32 @@ function PublicInviteCard({
           {invite.creatorName}
         </Text>
       </View>
-      <TouchableOpacity
-        style={{ 
-          backgroundColor: '#EF4444', 
-          borderRadius: 6, 
-          paddingVertical: 6,
-          paddingHorizontal: 10,
-          alignItems: 'center',
-        }}
-        onPress={onJoin}
-      >
-        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>العب معي</Text>
-      </TouchableOpacity>
+      {isOwnInvite ? (
+        <View
+          style={{ 
+            backgroundColor: '#9CA3AF', 
+            borderRadius: 6, 
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>دعوتك</Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={{ 
+            backgroundColor: '#EF4444', 
+            borderRadius: 6, 
+            paddingVertical: 6,
+            paddingHorizontal: 10,
+            alignItems: 'center',
+          }}
+          onPress={onJoin}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>العب معي</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -562,6 +581,7 @@ export default function HomeScreen() {
                   key={invite.id}
                   invite={invite}
                   onJoin={() => handleJoinFromInvite(invite)}
+                  currentUserId={userId}
                 />
               ))
             ) : (

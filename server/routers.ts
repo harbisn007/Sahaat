@@ -135,6 +135,12 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // التحقق من أن المستخدم ليس منشئ الساحة
+        const room = await db.getRoomById(input.roomId);
+        if (room && room.creatorId === input.userId) {
+          throw new Error("لا يمكنك الدخول كمشاهد في ساحتك");
+        }
+        
         // Remove any existing participant record for this user in this room
         await db.removeParticipant(input.roomId, input.userId);
 
