@@ -968,24 +968,38 @@ export async function awardGoldStar(roomId: number) {
   const db = await getDb();
   if (!db) return;
 
-  // Gold star expires after 24 hours
+  // Gold star expires after 5 days (120 hours)
   const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 24);
+  expiresAt.setDate(expiresAt.getDate() + 5);
 
+  // إعادة ضبط goldStarLostAt إلى null عند منح/تجديد النجمة
   await db
     .update(rooms)
-    .set({ hasGoldStar: "true", goldStarExpiresAt: expiresAt })
+    .set({ 
+      hasGoldStar: "true", 
+      goldStarExpiresAt: expiresAt,
+      goldStarLostAt: null // إعادة ضبط وقت فقدان النجمة
+    })
     .where(eq(rooms.id, roomId));
+  
+  console.log(`[GoldStar] Awarded/Renewed gold star for room ${roomId}, expires at ${expiresAt.toISOString()}`);
 }
 
 export async function removeGoldStar(roomId: number) {
   const db = await getDb();
   if (!db) return;
 
+  // تسجيل وقت فقدان النجمة لحساب مدة الحذف التلقائي
   await db
     .update(rooms)
-    .set({ hasGoldStar: "false", goldStarExpiresAt: null })
+    .set({ 
+      hasGoldStar: "false", 
+      goldStarExpiresAt: null,
+      goldStarLostAt: new Date() // تسجيل وقت فقدان النجمة
+    })
     .where(eq(rooms.id, roomId));
+  
+  console.log(`[GoldStar] Removed gold star from room ${roomId}, deletion timer starts now`);
 }
 
 export async function updateLastPublicInviteTime(roomId: number) {
@@ -1127,4 +1141,34 @@ export async function checkAndAwardGoldStar(roomId: number) {
   }
 
   return false;
+}
+
+
+// تحديث وقت آخر لاعب منضم للساحة
+export async function updateLastPlayerJoinTime(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ lastPlayerJoinAt: new Date() })
+    .where(eq(rooms.id, roomId));
+}
+
+// إعادة ضبط حقول النجمة الذهبية عند حذف/إغلاق الساحة
+export async function resetGoldStarOnRoomClose(roomId: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ 
+      hasGoldStar: "false", 
+      goldStarExpiresAt: null,
+      goldStarLostAt: null,
+      lastPlayerJoinAt: null
+    })
+    .where(eq(rooms.id, roomId));
+  
+  console.log(`[GoldStar] Reset all gold star fields for room ${roomId} on close`);
 }

@@ -36,6 +36,10 @@ export const rooms = mysqlTable("rooms", {
   // Gold star fields - awarded when room has more than 20 viewers at once
   hasGoldStar: mysqlEnum("hasGoldStar", ["true", "false"]).default("false").notNull(),
   goldStarExpiresAt: timestamp("goldStarExpiresAt"),
+  // When the gold star was lost (for calculating 15-minute deletion timer)
+  goldStarLostAt: timestamp("goldStarLostAt"),
+  // Last player join time (for calculating 15-minute deletion timer)
+  lastPlayerJoinAt: timestamp("lastPlayerJoinAt"),
   // Last public invite timestamp - for 5 minute cooldown
   lastPublicInviteAt: timestamp("lastPublicInviteAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

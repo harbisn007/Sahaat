@@ -585,6 +585,8 @@ export const appRouter = router({
             }
             // Promote viewer to player (use request data for username and avatar)
             await db.promoteViewerToPlayer(input.roomId, request.userId, request.username, request.avatar);
+            // تحديث وقت آخر لاعب منضم (لحساب مدة الحذف التلقائي)
+            await db.updateLastPlayerJoinTime(input.roomId);
           }
           
           // بث الرد على طلب الانضمام لجميع المشاركين
