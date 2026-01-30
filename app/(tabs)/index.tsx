@@ -229,6 +229,13 @@ export default function HomeScreen() {
   );
   const rooms = top10Rooms || [];
   
+  // عدد المتواجدين الآن
+  const { data: onlineStats } = trpc.stats.onlineCount.useQuery(
+    undefined,
+    { refetchInterval: 5000 } // تحديث كل 5 ثواني
+  );
+  const onlineCount = onlineStats?.count || 0;
+  
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
     { creatorId: userId },
     { refetchInterval: 3000 }
@@ -505,6 +512,16 @@ export default function HomeScreen() {
             <Text className="text-background font-semibold text-base">➥ إنشاء ساحة جديدة</Text>
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* عداد المتواجدين الآن */}
+      <View style={{ alignItems: 'center', paddingVertical: 8 }}>
+        <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: 'bold' }}>
+          المتواجدين الآن
+        </Text>
+        <Text style={{ color: '#22C55E', fontSize: 20, fontWeight: 'bold' }}>
+          {onlineCount}
+        </Text>
       </View>
 
       {/* Main Content - Two Columns */}

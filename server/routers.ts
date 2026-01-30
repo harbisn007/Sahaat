@@ -18,6 +18,7 @@ import {
   emitKhaloohaCommand,
   emitPublicInviteCreated,
   emitPublicInviteExpired,
+  getOnlineUsersCount,
 } from "./_core/socket";
 
 export const appRouter = router({
@@ -675,6 +676,17 @@ export const appRouter = router({
     // Get top 10 rooms sorted by viewers, pending requests, players, then oldest
     list: publicProcedure.query(async () => {
       return db.getTop10Rooms();
+    }),
+  }),
+
+  // Online users count
+  stats: router({
+    // Get online users count (actual + 50%)
+    onlineCount: publicProcedure.query(() => {
+      const actualCount = getOnlineUsersCount();
+      // الرقم المعروض = العدد الفعلي + 50% (رقم صحيح)
+      const displayCount = Math.floor(actualCount * 1.5);
+      return { count: displayCount };
     }),
   }),
 

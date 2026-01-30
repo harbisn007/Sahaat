@@ -363,3 +363,11 @@ export function emitPublicInviteExpired(invitationId: number): void {
   io.to("public-invites").emit("publicInviteExpired", { invitationId });
   console.log(`[Socket.io] Public invite expired: ${invitationId}`);
 }
+
+/**
+ * الحصول على عدد المتصلين الحاليين بالتطبيق
+ */
+export function getOnlineUsersCount(): number {
+  if (!io) return 0;
+  return io.sockets.sockets.size;
+}
