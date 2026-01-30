@@ -1,11 +1,16 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Image } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+
+// صور الأفاتار
+const avatarMale = require('@/assets/images/avatar-male.png');
+const avatarFemale = require('@/assets/images/avatar-female.png');
 
 interface RoomCardProps {
   room: {
     id: number;
     name: string;
     creatorName: string;
+    creatorAvatar?: string;
     playerCount: number;
     viewerCount: number;
     acceptedPlayersCount: number;
@@ -34,6 +39,15 @@ export function RoomCard({
   const isPlayersFull = room.isRoomFull;
   const isCreator = room.creatorId === currentUserId;
   const hasGoldStar = showGoldStar || room.hasGoldStar === "true";
+
+  // تحديد صورة الأفاتار
+  const getAvatarSource = () => {
+    const avatarType = room.creatorAvatar || 'male';
+    if (avatarType === 'female') {
+      return avatarFemale;
+    }
+    return avatarMale;
+  };
 
   // If creator, make the whole card clickable
   if (isCreator) {
@@ -70,7 +84,14 @@ export function RoomCard({
             <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
             <Text className="text-xs">👑</Text>
           </View>
-          <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
+          {/* صورة المنشئ واسمه */}
+          <View className="flex-row items-center gap-1">
+            <Image 
+              source={getAvatarSource()} 
+              style={{ width: 18, height: 18, borderRadius: 9 }} 
+            />
+            <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
+          </View>
         </View>
 
         {/* Stats */}
@@ -118,7 +139,14 @@ export function RoomCard({
           {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
           <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
         </View>
-        <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
+        {/* صورة المنشئ واسمه */}
+        <View className="flex-row items-center gap-1">
+          <Image 
+            source={getAvatarSource()} 
+            style={{ width: 18, height: 18, borderRadius: 9 }} 
+          />
+          <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
+        </View>
       </View>
 
       {/* Stats */}

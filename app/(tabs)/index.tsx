@@ -45,7 +45,7 @@ function BlinkingTitle({ text, color }: { text: string; color: string }) {
   }, []);
 
   return (
-    <Animated.Text style={{ opacity, color, fontWeight: 'bold', fontSize: 14, textDecorationLine: 'underline' }}>
+    <Animated.Text style={{ opacity, color, fontWeight: 'bold', fontSize: 18, textDecorationLine: 'underline' }}>
       {text}
     </Animated.Text>
   );
@@ -592,12 +592,12 @@ export default function HomeScreen() {
           <View style={{ alignItems: 'center', marginBottom: 8 }}>
             <Text style={{ 
               fontWeight: 'bold', 
-              fontSize: 19, 
-              color: '#8B5CF6', // لون خزامي
+              fontSize: 23, 
+              color: '#1F2937', // أسود داكن
               textDecorationLine: 'underline',
               textShadowColor: '#FFD700', // ذهبي
-              textShadowOffset: { width: 1, height: 1 },
-              textShadowRadius: 2,
+              textShadowOffset: { width: 2, height: 2 },
+              textShadowRadius: 4,
             }}>
               ⭐ TOP 10 ⭐
             </Text>
