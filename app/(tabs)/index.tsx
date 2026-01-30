@@ -335,27 +335,49 @@ export default function HomeScreen() {
     }
   }, [pendingInvitesData]);
 
+  // تتبع الدعوات التي تم حذفها محلياً
+  const [expiredInviteIds, setExpiredInviteIds] = useState<Set<number>>(new Set());
+
   useEffect(() => {
     if (displayedInvitesData) {
-      setDisplayedInvites(displayedInvitesData as PublicInvitation[]);
+      // تصفية الدعوات المحذوفة محلياً
+      const filteredInvites = (displayedInvitesData as PublicInvitation[]).filter(
+        invite => !expiredInviteIds.has(invite.id)
+      );
+      setDisplayedInvites(filteredInvites);
     }
-  }, [displayedInvitesData]);
+  }, [displayedInvitesData, expiredInviteIds]);
+
+  // تتبع الدعوات التي تم إنشاء timer لها
+  const timerCreatedRef = useRef<Set<number>>(new Set());
 
   // نظام طابور الدعوات (4 ثواني لكل دعوة)
   useEffect(() => {
     if (displayedInvites.length > 0) {
-      const timer = setTimeout(async () => {
-        const oldestInvite = displayedInvites[0];
-        if (oldestInvite) {
+      // إنشاء timer لكل دعوة معروضة جديدة
+      displayedInvites.forEach((invite) => {
+        // تجاهل الدعوات التي تم حذفها أو إنشاء timer لها مسبقاً
+        if (expiredInviteIds.has(invite.id) || timerCreatedRef.current.has(invite.id)) return;
+        
+        // تسجيل أنه تم إنشاء timer لهذه الدعوة
+        timerCreatedRef.current.add(invite.id);
+        
+        console.log(`[Invite] Setting 4s timer for invite ${invite.id}`);
+        
+        setTimeout(async () => {
           try {
-            await expireInviteMutation.mutateAsync({ invitationId: oldestInvite.id });
+            console.log(`[Invite] Timer fired! Expiring invite ${invite.id}`);
+            // حذف محلي فوري
+            setDisplayedInvites(prev => prev.filter(i => i.id !== invite.id));
+            setExpiredInviteIds(prev => new Set(prev).add(invite.id));
+            // حذف من الخادم
+            await expireInviteMutation.mutateAsync({ invitationId: invite.id });
+            console.log(`[Invite] Successfully expired invite ${invite.id}`);
           } catch (error) {
             console.error("Failed to expire invite:", error);
           }
-        }
-      }, 4000);
-      
-      return () => clearTimeout(timer);
+        }, 4000);
+      });
     }
   }, [displayedInvites]);
 
