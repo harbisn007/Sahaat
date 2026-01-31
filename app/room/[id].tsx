@@ -636,10 +636,12 @@ export default function RoomScreen() {
       return; // Exit and let the next effect run handle new messages
     }
 
-    // Find unplayed NEW messages (after user joined)
+    // Find unplayed NEW messages (after user joined OR sent by current user)
     const unplayedNewMessages = filteredAudioMessages.filter(msg => {
       const messageTime = new Date(msg.createdAt).getTime();
-      return messageTime >= joinTime && !playedMessageIds.has(msg.id);
+      // Play if: message is after join time OR message is from current user (within last 30 seconds)
+      const isRecentOwnMessage = msg.userId === userId && (Date.now() - messageTime) < 30000;
+      return (messageTime >= joinTime || isRecentOwnMessage) && !playedMessageIds.has(msg.id);
     });
 
     if (unplayedNewMessages.length === 0) return;
@@ -653,7 +655,7 @@ export default function RoomScreen() {
     });
     setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
     play(nextMessage.audioUrl);
-  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
+  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt, userId]);
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
@@ -2287,22 +2289,22 @@ export default function RoomScreen() {
           }}>
             <Text style={{ 
               color: '#000000', 
-              fontSize: 14, 
+              fontSize: 17, 
               fontWeight: 'bold',
               marginBottom: 12,
-              textAlign: 'right',
+              textAlign: 'left',
             }}>
               للحصول على افضل تجربة استخدام:
             </Text>
             <Text style={{ 
               color: '#000000', 
-              fontSize: 13, 
-              lineHeight: 22,
-              textAlign: 'right',
+              fontSize: 16, 
+              lineHeight: 26,
+              textAlign: 'left',
             }}>
               عند بداية كل طاروق قم بتحديد من يبدأ الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
               {"\n"}
-              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء الحين بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن.{"\n"}
+              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء اللحن بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن.{"\n"}
               {"\n"}
               ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}
               {"\n"}
