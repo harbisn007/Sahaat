@@ -1,7 +1,7 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
-import { Image, ImageBackground, Share } from "react-native";
+import { Image, ImageBackground, Share, Modal, Pressable } from "react-native";
 
 // Room background image
 const roomBackground = require("@/assets/images/room-background.png");
@@ -74,13 +74,12 @@ export default function RoomScreen() {
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
+  // حالة إشعار التعليمات للمنشئ
+  const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
   // حالة الدعوة العامة
   const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
   const [lastPublicInviteTime, setLastPublicInviteTime] = useState<number | null>(null);
-  
-  // إشعار التعليمات للمنشئ (يظهر مرة واحدة فقط عند إنشاء أول ساحة)
-  const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -637,12 +636,10 @@ export default function RoomScreen() {
       return; // Exit and let the next effect run handle new messages
     }
 
-    // Find unplayed NEW messages (after user joined OR sent by current user)
+    // Find unplayed NEW messages (after user joined)
     const unplayedNewMessages = filteredAudioMessages.filter(msg => {
       const messageTime = new Date(msg.createdAt).getTime();
-      // Play if: message is after join time OR message is from current user (within last 30 seconds)
-      const isRecentOwnMessage = msg.userId === userId && (Date.now() - messageTime) < 30000;
-      return (messageTime >= joinTime || isRecentOwnMessage) && !playedMessageIds.has(msg.id);
+      return messageTime >= joinTime && !playedMessageIds.has(msg.id);
     });
 
     if (unplayedNewMessages.length === 0) return;
@@ -656,7 +653,7 @@ export default function RoomScreen() {
     });
     setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
     play(nextMessage.audioUrl);
-  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt, userId]);
+  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
@@ -670,12 +667,13 @@ export default function RoomScreen() {
     const latestBroadcast = sheelohaBroadcasts[0]; // Already sorted by desc(createdAt)
 
     // Check if it's a new broadcast that hasn't been played yet
-    // Now plays for ALL users including the sender (via server)
+    // AND it's not from the current user (they already played it locally)
     if (
       latestBroadcast &&
-      !playedBroadcastIds.has(latestBroadcast.id)
+      !playedBroadcastIds.has(latestBroadcast.id) &&
+      latestBroadcast.userId !== userId // Skip if it's from current user
     ) {
-      console.log("[RoomScreen] Auto-playing sheeloha broadcast for all users:", {
+      console.log("[RoomScreen] Auto-playing sheeloha broadcast from other user:", {
         id: latestBroadcast.id,
         audioUrl: latestBroadcast.audioUrl,
         username: latestBroadcast.username,
@@ -699,6 +697,10 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Using clappingDelay from broadcast:", broadcastClappingDelay);
       // إذا كانت السرعة 0 أو غير موجودة، لا يتم تشغيل التصفيق
       playSheeloha(latestBroadcast.audioUrl, broadcastClappingDelay || 0);
+    } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
+      // Mark own broadcast as played without playing (already played locally)
+      console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
+      setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
     }
   }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, userId]);
 
@@ -2026,7 +2028,11 @@ export default function RoomScreen() {
                     console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
                     stopTarouk();
                     
-                    // Broadcast to all users (including sender) - sound will play via server for everyone
+                    console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
+                    // Play sheeloha effect immediately with selected clapping delay
+                    playSheeloha(lastTaroukUri!, clappingDelay);
+                    
+                    // Also broadcast to other users
                     console.log("[RoomScreen] Broadcasting sheeloha to all users with clappingDelay:", clappingDelay);
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
@@ -2249,56 +2255,64 @@ export default function RoomScreen() {
         currentAvatar={avatar}
       />
       
-      {/* إشعار التعليمات للمنشئ - يظهر مرة واحدة فقط عند إنشاء أول ساحة */}
+      {/* إشعار التعليمات للمنشئ */}
       <Modal
         visible={showCreatorTutorial}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowCreatorTutorial(false)}
       >
-        <Pressable
-          style={{
-            flex: 1,
-            justifyContent: 'center',
+        <Pressable 
+          style={{ 
+            flex: 1, 
+            backgroundColor: 'rgba(0,0,0,0.5)', 
+            justifyContent: 'center', 
             alignItems: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
             padding: 20,
           }}
           onPress={() => setShowCreatorTutorial(false)}
         >
           <View style={{
             backgroundColor: '#FFFFFF',
-            borderWidth: 2,
-            borderColor: '#FFFFFF',
             borderRadius: 16,
             padding: 20,
             maxWidth: 350,
-            width: '100%',
+            borderWidth: 2,
+            borderColor: '#FFFFFF',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
           }}>
-            <Text style={{
-              color: '#000000',
-              fontSize: 14,
+            <Text style={{ 
+              color: '#000000', 
+              fontSize: 14, 
               fontWeight: 'bold',
               marginBottom: 12,
               textAlign: 'right',
             }}>
-              للحصول على افضل تجربة استخدام :
+              للحصول على افضل تجربة استخدام:
             </Text>
-            <Text style={{
-              color: '#000000',
-              fontSize: 13,
-              lineHeight: 24,
+            <Text style={{ 
+              color: '#000000', 
+              fontSize: 13, 
+              lineHeight: 22,
               textAlign: 'right',
             }}>
-              عند بداية كل طاروق قم بتحديد من يبدا الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
-              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء الحين بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن. ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}{"\n"}
+              عند بداية كل طاروق قم بتحديد من يبدأ الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
+              {"\n"}
+              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء الحين بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن.{"\n"}
+              {"\n"}
+              ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}
+              {"\n"}
               للمحادثات الجانبية او للموال استخدم زر تعليق/موال.
             </Text>
-            <Text style={{
-              color: '#9CA3AF',
-              fontSize: 11,
-              marginTop: 16,
+            <Text style={{ 
+              color: '#888888', 
+              fontSize: 11, 
               textAlign: 'center',
+              marginTop: 16,
             }}>
               انقر للإغلاق
             </Text>
