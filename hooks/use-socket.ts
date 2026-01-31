@@ -40,6 +40,7 @@ interface ServerToClientEvents {
     userId: string; 
     username: string;
     audioUrl: string;
+    clappingDelay: number;
     createdAt: string;
   }) => void;
   khaloohaCommand: (data: { 
@@ -48,12 +49,25 @@ interface ServerToClientEvents {
     username: string;
     createdAt: string;
   }) => void;
+  // أحداث جديدة للمزامنة
+  taroukControllerChanged: (data: { 
+    roomId: number; 
+    controller: "creator" | "player1" | "player2" | null;
+    changedBy: string;
+  }) => void;
+  stopAndPlayNewSheeloha: (data: { 
+    roomId: number; 
+    userId: string;
+    audioUrl: string;
+    clappingDelay: number;
+  }) => void;
 }
 
 interface ClientToServerEvents {
   joinRoom: (roomId: number) => void;
   leaveRoom: (roomId: number) => void;
   requestRoomData: (roomId: number) => void;
+  setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -166,12 +180,22 @@ export function useSocket(roomId: number | null) {
       userId: string; 
       username: string;
       audioUrl: string;
+      clappingDelay: number;
       createdAt: string;
     }) => void;
     onKhaloohaCommand?: (data: { 
       userId: string; 
       username: string;
       createdAt: string;
+    }) => void;
+    onTaroukControllerChanged?: (data: { 
+      controller: "creator" | "player1" | "player2" | null;
+      changedBy: string;
+    }) => void;
+    onStopAndPlayNewSheeloha?: (data: { 
+      userId: string;
+      audioUrl: string;
+      clappingDelay: number;
     }) => void;
   }>({});
 
@@ -261,6 +285,19 @@ export function useSocket(roomId: number | null) {
           }
         });
 
+        // أحداث جديدة للمزامنة
+        socket.on("taroukControllerChanged", (data) => {
+          if (data.roomId === roomId) {
+            callbacksRef.current.onTaroukControllerChanged?.(data);
+          }
+        });
+
+        socket.on("stopAndPlayNewSheeloha", (data) => {
+          if (data.roomId === roomId) {
+            callbacksRef.current.onStopAndPlayNewSheeloha?.(data);
+          }
+        });
+
         // مراقبة حالة الاتصال
         socket.on("connect", () => setIsConnected(true));
         socket.on("disconnect", () => setIsConnected(false));
@@ -289,10 +326,19 @@ export function useSocket(roomId: number | null) {
     callbacksRef.current = { ...callbacksRef.current, ...callbacks };
   }, []);
 
+  // دالة تغيير المتحكم بالطاروق
+  const setTaroukController = useCallback((controller: "creator" | "player1" | "player2" | null) => {
+    if (socketRef.current && roomId) {
+      socketRef.current.emit("setTaroukController", { roomId, controller });
+      console.log("[Socket.io] Set tarouk controller:", controller);
+    }
+  }, [roomId]);
+
   return {
     isConnected,
     connectionError,
     setCallbacks,
+    setTaroukController,
   };
 }
 

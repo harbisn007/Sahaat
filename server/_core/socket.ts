@@ -101,6 +101,21 @@ export interface ServerToClientEvents {
   
   // حدث تحديث عدد المتواجدين
   onlineCountUpdated: (data: { count: number }) => void;
+  
+  // حدث تغيير المتحكم بالطاروق
+  taroukControllerChanged: (data: { 
+    roomId: number; 
+    controller: "creator" | "player1" | "player2" | null;
+    changedBy: string;
+  }) => void;
+  
+  // حدث إيقاف الصوت القديم وتشغيل الجديد
+  stopAndPlayNewSheeloha: (data: { 
+    roomId: number; 
+    userId: string;
+    audioUrl: string;
+    clappingDelay: number;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -117,6 +132,9 @@ export interface ClientToServerEvents {
   
   // طلب عدد المتواجدين
   requestOnlineCount: () => void;
+  
+  // تغيير المتحكم بالطاروق
+  setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
 }
 
 export interface InterServerEvents {
@@ -198,6 +216,18 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       const displayCount = Math.floor(actualCount * 1.5);
       socket.emit("onlineCountUpdated", { count: displayCount });
       console.log(`[Socket.io] Sent online count to ${socket.id}: ${displayCount}`);
+    });
+
+    // تغيير المتحكم بالطاروق
+    socket.on("setTaroukController", (data) => {
+      const { roomId, controller } = data;
+      console.log(`[Socket.io] Tarouk controller changed in room ${roomId} to: ${controller}`);
+      // بث التغيير لجميع المتواجدين في الساحة
+      io!.to(`room:${roomId}`).emit("taroukControllerChanged", {
+        roomId,
+        controller,
+        changedBy: socket.id,
+      });
     });
 
     // قطع الاتصال
@@ -377,6 +407,25 @@ export function emitKhaloohaCommand(
   });
 }
 
+
+/**
+ * بث إيقاف الصوت القديم وتشغيل الجديد
+ */
+export function emitStopAndPlayNewSheeloha(
+  roomId: number,
+  userId: string,
+  audioUrl: string,
+  clappingDelay: number
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("stopAndPlayNewSheeloha", {
+    roomId,
+    userId,
+    audioUrl,
+    clappingDelay,
+  });
+  console.log(`[Socket.io] Stop and play new sheeloha in room ${roomId}`);
+}
 
 /**
  * بث حذف الساحة لجميع المتصلين (للتنظيف التلقائي)

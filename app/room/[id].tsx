@@ -119,7 +119,7 @@ export default function RoomScreen() {
   const [roomClosedAlertShown, setRoomClosedAlertShown] = useState(false);
   
   // Socket.io للاستماع لحدث حذف الساحة فوراً
-  const { setCallbacks } = useSocket(roomId > 0 ? roomId : null);
+  const { setCallbacks, setTaroukController: socketSetTaroukController } = useSocket(roomId > 0 ? roomId : null);
   
   // حالات محلية للبيانات الفورية عبر Socket.io (بدلاً من polling)
   const [socketAudioMessages, setSocketAudioMessages] = useState<any[]>([]);
@@ -248,8 +248,20 @@ export default function RoomScreen() {
         // حفظ الرد لعرضه للمستخدم
         setJoinRequestResponse({ accepted: data.accepted, requestId: data.requestId });
       },
+      // استماع لتغيير المتحكم بالطاروق (مزامنة)
+      onTaroukControllerChanged: (data) => {
+        console.log("[RoomScreen] Tarouk controller changed via Socket.io:", data);
+        setTaroukController(data.controller);
+      },
+      // استماع لإيقاف الصوت القديم وتشغيل الجديد (مزامنة)
+      onStopAndPlayNewSheeloha: (data) => {
+        console.log("[RoomScreen] Stop and play new sheeloha via Socket.io:", data);
+        // إيقاف الصوت القديم وتشغيل الجديد
+        stopSheeloha();
+        playSheeloha(data.audioUrl, data.clappingDelay);
+      },
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
+  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, stopSheeloha, playSheeloha]);
   
   // التحقق من حذف الساحة عبر polling (احتياطي)
   useEffect(() => {
@@ -1852,7 +1864,11 @@ export default function RoomScreen() {
             بداية الطاروق عند:
           </Text>
           <TouchableOpacity
-            onPress={() => setTaroukController(taroukController === "creator" ? null : "creator")}
+            onPress={() => {
+              const newController = taroukController === "creator" ? null : "creator";
+              setTaroukController(newController);
+              socketSetTaroukController(newController);
+            }}
             style={{
               paddingHorizontal: 10,
               paddingVertical: 4,
@@ -1869,7 +1885,13 @@ export default function RoomScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => player1 && setTaroukController(taroukController === "player1" ? null : "player1")}
+            onPress={() => {
+              if (player1) {
+                const newController = taroukController === "player1" ? null : "player1";
+                setTaroukController(newController);
+                socketSetTaroukController(newController);
+              }
+            }}
             disabled={!player1}
             style={{
               paddingHorizontal: 10,
@@ -1888,7 +1910,13 @@ export default function RoomScreen() {
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            onPress={() => player2 && setTaroukController(taroukController === "player2" ? null : "player2")}
+            onPress={() => {
+              if (player2) {
+                const newController = taroukController === "player2" ? null : "player2";
+                setTaroukController(newController);
+                socketSetTaroukController(newController);
+              }
+            }}
             disabled={!player2}
             style={{
               paddingHorizontal: 10,
