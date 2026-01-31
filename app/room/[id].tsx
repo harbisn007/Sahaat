@@ -637,10 +637,12 @@ export default function RoomScreen() {
       return; // Exit and let the next effect run handle new messages
     }
 
-    // Find unplayed NEW messages (after user joined)
+    // Find unplayed NEW messages (after user joined OR sent by current user)
     const unplayedNewMessages = filteredAudioMessages.filter(msg => {
       const messageTime = new Date(msg.createdAt).getTime();
-      return messageTime >= joinTime && !playedMessageIds.has(msg.id);
+      // Play if: message is after join time OR message is from current user (within last 30 seconds)
+      const isRecentOwnMessage = msg.userId === userId && (Date.now() - messageTime) < 30000;
+      return (messageTime >= joinTime || isRecentOwnMessage) && !playedMessageIds.has(msg.id);
     });
 
     if (unplayedNewMessages.length === 0) return;
@@ -654,7 +656,7 @@ export default function RoomScreen() {
     });
     setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
     play(nextMessage.audioUrl);
-  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
+  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt, userId]);
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
