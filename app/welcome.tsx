@@ -112,7 +112,7 @@ export default function WelcomeScreen() {
     return { valid: true, message: "" };
   };
 
-  // دخول كضيف
+  // دخول (بحساب زائر)
   const handleGuestLogin = async () => {
     Keyboard.dismiss();
     const trimmedName = name.trim();
@@ -371,7 +371,7 @@ export default function WelcomeScreen() {
 
               {/* Name Input */}
               <Text className="text-sm text-muted mb-2 text-center">
-                أدخل اسمك
+                أدخل اسمك الذي يظهر للآخرين
               </Text>
               
               <TextInput
@@ -403,7 +403,7 @@ export default function WelcomeScreen() {
                     <ActivityIndicator color={colors.background} />
                   ) : (
                     <Text className="text-background font-semibold text-base">
-                      دخول كضيف
+                      دخول (بحساب زائر)
                     </Text>
                   )}
                 </TouchableOpacity>

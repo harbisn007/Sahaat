@@ -1854,8 +1854,8 @@ export default function RoomScreen() {
         )}
       </View>
 
-      {/* واجهة بداية الطاروق - فقط للمنشئ */}
-      {isCreator && (
+      {/* واجهة بداية الطاروق - فقط للمنشئ (لا تظهر للمشاهدين) */}
+      {isCreator && !isViewer && (
         <View 
           className="bg-surface px-4 py-2 border-t border-border"
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
@@ -1950,8 +1950,8 @@ export default function RoomScreen() {
           {/* Left: Sheeloha & Khalloha (Players only) */}
           {isPlayer && (
             <View className="flex-row gap-2 flex-1">
-              {/* Clapping Delay Wheel - يظهر فقط للمتحكم المختار */}
-              {isCurrentUserController && (
+              {/* Clapping Delay Wheel - يظهر فقط للمتحكم المختار (لا يظهر للمشاهدين) */}
+              {isCurrentUserController && !isViewer && (
                 <SpeedWheel
                   value={clappingDelay}
                   onChange={setClappingDelay}
@@ -2168,8 +2168,8 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              {/* زر طاروق - يظهر فقط عند تحديد متحكم */}
-              {taroukController && (
+              {/* زر طاروق - يظهر فقط للمنشئ واللاعبين بعد اختيار متحكم (لا يظهر للمشاهدين) */}
+              {taroukController && !isViewer && (
                 <View style={{ width: buttonWidth, alignItems: 'center' }}>
                   <RecordingButton
                     buttonId="tarouk"

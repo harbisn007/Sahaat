@@ -29,6 +29,35 @@ interface PublicInvitation {
   createdAt: Date;
 }
 
+// صور البنر الثلاث
+const saduBanner1 = require("@/assets/images/sadu-banner-1.png");
+const saduBanner2 = require("@/assets/images/sadu-banner-2.png");
+const saduBanner3 = require("@/assets/images/sadu-banner-3.png");
+
+// مكون بنر السدو المتحرك
+function SaduBanner() {
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+  const banners = [saduBanner1, saduBanner2, saduBanner3];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBannerIndex((prevIndex) => (prevIndex + 1) % banners.length);
+    }, 30000); // تبديل كل 30 ثانية
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <View style={{ width: '100%', height: 60, marginVertical: 4 }}>
+      <Image
+        source={banners[currentBannerIndex]}
+        style={{ width: '100%', height: 60 }}
+        resizeMode="cover"
+      />
+    </View>
+  );
+}
+
 // مكون عنوان يومض
 function BlinkingTitle({ text, color }: { text: string; color: string }) {
   const opacity = useRef(new Animated.Value(1)).current;
@@ -523,6 +552,22 @@ export default function HomeScreen() {
           
           <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
           
+          {/* زر العودة إلى ساحتك - يظهر فقط إذا كان لديك ساحة نشطة */}
+          {hasActiveRoom && activeRoom && (
+            <TouchableOpacity
+              onPress={() => router.push(`/room/${activeRoom.id}`)}
+              style={{
+                backgroundColor: '#D4A574',
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderWidth: 1,
+                borderColor: '#E6E6FA',
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 10 }}>العودة لساحتك</Text>
+            </TouchableOpacity>
+          )}
           {/* زر تغيير الملف الشخصي */}
           <TouchableOpacity
             onPress={handleChangeProfile}
@@ -531,8 +576,11 @@ export default function HomeScreen() {
             <MaterialIcons name="person" size={24} color="#D4A574" />
           </TouchableOpacity>
         </View>
-        <Text className="text-sm text-muted text-center">مرحباً {username}</Text>
-      </View>
+        
+        </View>
+
+      {/* بنر الإعلان - تبديل الصور كل 30 ثانية */}
+      <SaduBanner />
 
       {/* Create Room Button */}
       <View className="px-6 py-4">
@@ -551,18 +599,6 @@ export default function HomeScreen() {
                 <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 13 }}>لديك طلبات لعب</Text>
               </View>
             )}
-            {/* الصف الرئيسي: المستطيل الرمادي + زر الانتقال */}
-            <View className="flex-row items-center justify-center" style={{ gap: 8 }}>
-              <View style={{ backgroundColor: '#9CA3AF', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 }}>
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>لديك ساحة نشطة</Text>
-              </View>
-              <TouchableOpacity
-                style={{ backgroundColor: '#D4A574', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 }}
-                onPress={() => router.push(`/room/${activeRoom.id}`)}
-              >
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 12 }}>انتقل إلى ساحتك</Text>
-              </TouchableOpacity>
-            </View>
           </View>
         ) : (
           <TouchableOpacity
