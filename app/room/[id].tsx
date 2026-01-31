@@ -669,10 +669,11 @@ export default function RoomScreen() {
       });
       
       // Play sheeloha effect (5 overlapping copies with distance effect)
-      // استخدام سرعة التصفيق المرسلة من المتحكم
-      const broadcastClappingDelay = (latestBroadcast as any).clappingDelay ?? 0.50;
+      // استخدام سرعة التصفيق المرسلة من المتحكم - إذا لم تُرسل لا يكون هناك تصفيق
+      const broadcastClappingDelay = (latestBroadcast as any).clappingDelay;
       console.log("[RoomScreen] Using clappingDelay from broadcast:", broadcastClappingDelay);
-      playSheeloha(latestBroadcast.audioUrl, broadcastClappingDelay);
+      // إذا كانت السرعة 0 أو غير موجودة، لا يتم تشغيل التصفيق
+      playSheeloha(latestBroadcast.audioUrl, broadcastClappingDelay || 0);
     } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
       // Mark own broadcast as played without playing (already played locally)
       console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
@@ -764,7 +765,13 @@ export default function RoomScreen() {
 
   // Kick player mutation (creator only)
   const kickPlayerMutation = trpc.kick.player.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
+      // إعادة ضبط المتحكم إذا كان اللاعب المستبعد هو المتحكم
+      if (taroukController === "player1" && variables.playerId === player1?.userId) {
+        setTaroukController(null);
+      } else if (taroukController === "player2" && variables.playerId === player2?.userId) {
+        setTaroukController(null);
+      }
       refetch();
     },
     onError: (error) => {
@@ -1474,6 +1481,17 @@ export default function RoomScreen() {
     ) || [];
     return players.length > 1 ? players[1] : null;
   }, [roomData?.participants]);
+  
+  // إعادة ضبط المتحكم عند خروج اللاعب المتحكم
+  useEffect(() => {
+    if (taroukController === "player1" && !player1) {
+      console.log("[RoomScreen] Player1 left, resetting taroukController");
+      setTaroukController(null);
+    } else if (taroukController === "player2" && !player2) {
+      console.log("[RoomScreen] Player2 left, resetting taroukController");
+      setTaroukController(null);
+    }
+  }, [taroukController, player1, player2]);
   
   // هل المستخدم الحالي هو المتحكم؟
   const isCurrentUserController = useMemo(() => {
