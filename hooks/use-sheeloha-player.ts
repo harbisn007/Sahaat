@@ -100,48 +100,6 @@ export function useSheelohaPlayer() {
   }, []);
 
   /**
-   * Play 4 ending claps after sheeloha finishes
-   * Delays: 0.45s between 1-2-3, 0.75s between 3-4
-   */
-  const playEndingClaps = useCallback(() => {
-    console.log("[useSheelohaPlayer] Playing 4 ending claps");
-    
-    const playClap = (index: number) => {
-      if (Platform.OS === "web") {
-        const clapAudio = new Audio("/sounds/sheeloha-claps.mp3");
-        clapAudio.volume = 0.40;
-        clapAudio.play().catch(console.warn);
-        webAudioRef.current.push(clapAudio);
-        console.log(`[useSheelohaPlayer] Ending clap ${index} played (web)`);
-      } else {
-        try {
-          clapPlayer.seekTo(0);
-          clapPlayer.volume = 0.40;
-          clapPlayer.play();
-          console.log(`[useSheelohaPlayer] Ending clap ${index} played (native)`);
-        } catch (e) {
-          console.warn("[useSheelohaPlayer] Failed to play ending clap:", e);
-        }
-      }
-    };
-    
-    // التصفيقة الأولى - فوراً
-    playClap(1);
-    
-    // التصفيقة الثانية - بعد 0.45 ثانية
-    const timeout2 = setTimeout(() => playClap(2), 450);
-    timeoutsRef.current.push(timeout2);
-    
-    // التصفيقة الثالثة - بعد 0.45 ثانية من الثانية
-    const timeout3 = setTimeout(() => playClap(3), 900);
-    timeoutsRef.current.push(timeout3);
-    
-    // التصفيقة الرابعة - بعد 0.75 ثانية من الثالثة
-    const timeout4 = setTimeout(() => playClap(4), 1650);
-    timeoutsRef.current.push(timeout4);
-  }, [clapPlayer]);
-
-  /**
    * Stop all sheeloha sounds
    */
   const stopSheeloha = useCallback(() => {
@@ -338,16 +296,9 @@ export function useSheelohaPlayer() {
       startClapping(clappingDelay, duration + totalVoiceDelay, 0.40, 0);
       
       // End after all voice copies finish (single round only)
-      // Then play 4 ending claps
       const endTimeout = setTimeout(() => {
-        console.log("[useSheelohaPlayer] Voice playback complete, starting ending claps");
-        playEndingClaps();
-        // الانتهاء بعد التصفيقات الأربع (1650ms + بعض الوقت للتصفيقة الأخيرة)
-        const finalTimeout = setTimeout(() => {
-          setState({ isPlaying: false, isProcessing: false });
-          console.log("[useSheelohaPlayer] Playback complete (with ending claps)");
-        }, 2000);
-        timeoutsRef.current.push(finalTimeout);
+        setState({ isPlaying: false, isProcessing: false });
+        console.log("[useSheelohaPlayer] Playback complete (single round)");
       }, duration + totalVoiceDelay + 500);
       timeoutsRef.current.push(endTimeout);
       
@@ -385,18 +336,13 @@ export function useSheelohaPlayer() {
       // Start clapping
       startClapping(clappingDelay, duration + totalVoiceDelay, 0.40, 0);
       
-      // End after voice finishes, then play ending claps
+      // End after voice finishes
       const endTimeout = setTimeout(() => {
-        console.log("[useSheelohaPlayer] Voice playback complete (fallback), starting ending claps");
-        playEndingClaps();
-        const finalTimeout = setTimeout(() => {
-          setState({ isPlaying: false, isProcessing: false });
-        }, 2000);
-        timeoutsRef.current.push(finalTimeout);
+        setState({ isPlaying: false, isProcessing: false });
       }, duration + totalVoiceDelay + 500);
       timeoutsRef.current.push(endTimeout);
     }
-  }, [startClapping, playEndingClaps]);
+  }, [startClapping]);
 
   /**
    * Wait for player to load and get real duration
@@ -501,16 +447,10 @@ export function useSheelohaPlayer() {
       startClapping(clappingDelay, totalPlaybackTime, 0.40, 0);
       
       // End after all voice copies finish (single round only)
-      // Add 500ms buffer to ensure audio completes, then play ending claps
+      // Add 500ms buffer to ensure audio completes
       const endTimeout = setTimeout(() => {
-        console.log("[useSheelohaPlayer] Voice playback complete (native), starting ending claps");
-        playEndingClaps();
-        // الانتهاء بعد التصفيقات الأربع
-        const finalTimeout = setTimeout(() => {
-          setState({ isPlaying: false, isProcessing: false });
-          console.log("[useSheelohaPlayer] Playback complete (with ending claps)");
-        }, 2000);
-        timeoutsRef.current.push(finalTimeout);
+        setState({ isPlaying: false, isProcessing: false });
+        console.log("[useSheelohaPlayer] Playback complete (single round)");
       }, totalPlaybackTime + 500);
       timeoutsRef.current.push(endTimeout);
       

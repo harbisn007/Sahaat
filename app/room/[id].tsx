@@ -668,13 +668,12 @@ export default function RoomScreen() {
     const latestBroadcast = sheelohaBroadcasts[0]; // Already sorted by desc(createdAt)
 
     // Check if it's a new broadcast that hasn't been played yet
-    // AND it's not from the current user (they already played it locally)
+    // Now plays for ALL users including the sender (via server)
     if (
       latestBroadcast &&
-      !playedBroadcastIds.has(latestBroadcast.id) &&
-      latestBroadcast.userId !== userId // Skip if it's from current user
+      !playedBroadcastIds.has(latestBroadcast.id)
     ) {
-      console.log("[RoomScreen] Auto-playing sheeloha broadcast from other user:", {
+      console.log("[RoomScreen] Auto-playing sheeloha broadcast for all users:", {
         id: latestBroadcast.id,
         audioUrl: latestBroadcast.audioUrl,
         username: latestBroadcast.username,
