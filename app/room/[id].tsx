@@ -698,10 +698,6 @@ export default function RoomScreen() {
       console.log("[RoomScreen] Using clappingDelay from broadcast:", broadcastClappingDelay);
       // إذا كانت السرعة 0 أو غير موجودة، لا يتم تشغيل التصفيق
       playSheeloha(latestBroadcast.audioUrl, broadcastClappingDelay || 0);
-    } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
-      // Mark own broadcast as played without playing (already played locally)
-      console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
-      setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
     }
   }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, userId]);
 
@@ -2029,11 +2025,7 @@ export default function RoomScreen() {
                     console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
                     stopTarouk();
                     
-                    console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
-                    // Play sheeloha effect immediately with selected clapping delay
-                    playSheeloha(lastTaroukUri!, clappingDelay);
-                    
-                    // Also broadcast to other users
+                    // Broadcast to all users (including sender) - sound will play via server for everyone
                     console.log("[RoomScreen] Broadcasting sheeloha to all users with clappingDelay:", clappingDelay);
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
