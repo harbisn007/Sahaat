@@ -160,7 +160,7 @@ export default function RoomScreen() {
           );
         }
       },
-      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
+      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية + تشغيل فوري
       onAudioMessageCreated: (data) => {
         console.log("[RoomScreen] New audio message via Socket.io:", data);
         setSocketAudioMessages(prev => {
@@ -176,6 +176,13 @@ export default function RoomScreen() {
             createdAt: data.createdAt,
           }, ...prev];
         });
+        // تشغيل فوري للصوت عند استقباله
+        if (data.audioUrl) {
+          console.log("[RoomScreen] Auto-playing new message immediately:", data.messageId);
+          play(data.audioUrl);
+          // تعليم الرسالة كمُشغَّلة لتجنب التكرار
+          setPlayedMessageIds(prev => new Set(prev).add(data.messageId));
+        }
       },
       // استماع للتفاعلات الجديدة - إضافة مباشرة للحالة المحلية
       onReactionCreated: (data) => {
