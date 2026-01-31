@@ -1,7 +1,7 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
-import { Image, ImageBackground, Share, Modal, Pressable } from "react-native";
+import { Image, ImageBackground, Share } from "react-native";
 
 // Room background image
 const roomBackground = require("@/assets/images/room-background.png");
@@ -64,7 +64,7 @@ export default function RoomScreen() {
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
-  const [clappingDelay, setClappingDelay] = useState<number>(0.80);
+  const [clappingDelay, setClappingDelay] = useState<number>(0.50);
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -74,8 +74,6 @@ export default function RoomScreen() {
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
-  // حالة إشعار التعليمات للمنشئ
-  const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
   // حالة الدعوة العامة
   const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
@@ -160,7 +158,7 @@ export default function RoomScreen() {
           );
         }
       },
-      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية + تشغيل فوري
+      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
       onAudioMessageCreated: (data) => {
         console.log("[RoomScreen] New audio message via Socket.io:", data);
         setSocketAudioMessages(prev => {
@@ -176,13 +174,6 @@ export default function RoomScreen() {
             createdAt: data.createdAt,
           }, ...prev];
         });
-        // تشغيل فوري للصوت عند استقباله
-        if (data.audioUrl) {
-          console.log("[RoomScreen] Auto-playing new message immediately:", data.messageId);
-          play(data.audioUrl);
-          // تعليم الرسالة كمُشغَّلة لتجنب التكرار
-          setPlayedMessageIds(prev => new Set(prev).add(data.messageId));
-        }
       },
       // استماع للتفاعلات الجديدة - إضافة مباشرة للحالة المحلية
       onReactionCreated: (data) => {
@@ -763,21 +754,6 @@ export default function RoomScreen() {
         if (userRole !== newRole) {
           console.log("[RoomScreen] Role changed:", userRole, "->", newRole);
           setUserRole(newRole);
-          
-          // إظهار إشعار التعليمات للمنشئ لأول مرة فقط
-          if (newRole === "creator") {
-            (async () => {
-              try {
-                const tutorialShown = await AsyncStorage.getItem('creator_tutorial_shown');
-                if (tutorialShown !== 'true') {
-                  setShowCreatorTutorial(true);
-                  await AsyncStorage.setItem('creator_tutorial_shown', 'true');
-                }
-              } catch (error) {
-                console.error('خطأ في التحقق من إشعار التعليمات:', error);
-              }
-            })();
-          }
         }
         if (isApproved !== newApproved) {
           console.log("[RoomScreen] Approval changed:", isApproved, "->", newApproved);
@@ -944,7 +920,7 @@ export default function RoomScreen() {
       
       setDisplayedRequests(nextBatch);
       setQueuedRequests(remaining);
-    }, 10000);
+    }, 4000);
     
     return () => clearTimeout(timer);
   }, [displayedRequests]);
@@ -960,14 +936,14 @@ export default function RoomScreen() {
       setLastRequestTime(Date.now());
       // Immediately refetch to show request to creator
       refetch();
-      // Auto-expire after 10 seconds
+      // Auto-expire after 4 seconds
       setTimeout(() => {
         setHasPendingRequest(false);
         // Also expire in database
         if (data.requestId) {
           expireJoinRequestMutation.mutate({ requestId: data.requestId });
         }
-      }, 10000);
+      }, 4000);
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message);
@@ -1901,8 +1877,6 @@ export default function RoomScreen() {
               const newController = taroukController === "creator" ? null : "creator";
               setTaroukController(newController);
               socketSetTaroukController(newController);
-              // إعادة ضبط سرعة التصفيق إلى القيمة الافتراضية عند تحديد متحكم جديد
-              if (newController) setClappingDelay(0.80);
             }}
             style={{
               paddingHorizontal: 10,
@@ -1925,8 +1899,6 @@ export default function RoomScreen() {
                 const newController = taroukController === "player1" ? null : "player1";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
-                // إعادة ضبط سرعة التصفيق إلى القيمة الافتراضية عند تحديد متحكم جديد
-                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player1}
@@ -1952,8 +1924,6 @@ export default function RoomScreen() {
                 const newController = taroukController === "player2" ? null : "player2";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
-                // إعادة ضبط سرعة التصفيق إلى القيمة الافتراضية عند تحديد متحكم جديد
-                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player2}
@@ -2261,71 +2231,6 @@ export default function RoomScreen() {
         currentName={username || ""}
         currentAvatar={avatar}
       />
-      
-      {/* إشعار التعليمات للمنشئ */}
-      <Modal
-        visible={showCreatorTutorial}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowCreatorTutorial(false)}
-      >
-        <Pressable 
-          style={{ 
-            flex: 1, 
-            backgroundColor: 'rgba(0,0,0,0.5)', 
-            justifyContent: 'center', 
-            alignItems: 'center',
-            padding: 20,
-          }}
-          onPress={() => setShowCreatorTutorial(false)}
-        >
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 20,
-            maxWidth: 350,
-            borderWidth: 2,
-            borderColor: '#FFFFFF',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 8,
-          }}>
-            <Text style={{ 
-              color: '#000000', 
-              fontSize: 17, 
-              fontWeight: 'bold',
-              marginBottom: 12,
-              textAlign: 'left',
-            }}>
-              للحصول على افضل تجربة استخدام:
-            </Text>
-            <Text style={{ 
-              color: '#000000', 
-              fontSize: 16, 
-              lineHeight: 26,
-              textAlign: 'left',
-            }}>
-              عند بداية كل طاروق قم بتحديد من يبدأ الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
-              {"\n"}
-              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء اللحن بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن.{"\n"}
-              {"\n"}
-              ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}
-              {"\n"}
-              للمحادثات الجانبية او للموال استخدم زر تعليق/موال.
-            </Text>
-            <Text style={{ 
-              color: '#888888', 
-              fontSize: 11, 
-              textAlign: 'center',
-              marginTop: 16,
-            }}>
-              انقر للإغلاق
-            </Text>
-          </View>
-        </Pressable>
-      </Modal>
     </ScreenContainer>
     </ImageBackground>
   );

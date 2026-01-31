@@ -1,6 +1,5 @@
-import { useState, useRef, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator, Modal, Pressable } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState, useRef } from "react";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
@@ -28,41 +27,6 @@ export default function WelcomeScreen() {
   const { loginAsGuest, loginWithGoogle, loginWithApple } = useUser();
   const colors = useColors();
   const scrollViewRef = useRef<ScrollView>(null);
-
-  // حالة صندوق الإقرار والتعهد
-  const [showTermsModal, setShowTermsModal] = useState(false);
-  const [termsAccepted, setTermsAccepted] = useState<boolean | null>(null);
-  const [termsChecked, setTermsChecked] = useState(false);
-
-  // التحقق من قبول الإقرار عند تحميل الصفحة
-  useEffect(() => {
-    const checkTermsAccepted = async () => {
-      try {
-        const accepted = await AsyncStorage.getItem('terms_accepted');
-        if (accepted === 'true') {
-          setTermsAccepted(true);
-        } else {
-          setShowTermsModal(true);
-        }
-      } catch (error) {
-        console.error('خطأ في التحقق من الإقرار:', error);
-        setShowTermsModal(true);
-      }
-    };
-    checkTermsAccepted();
-  }, []);
-
-  // حفظ قبول الإقرار
-  const handleAcceptTerms = async () => {
-    if (!termsChecked) return;
-    try {
-      await AsyncStorage.setItem('terms_accepted', 'true');
-      setTermsAccepted(true);
-      setShowTermsModal(false);
-    } catch (error) {
-      console.error('خطأ في حفظ الإقرار:', error);
-    }
-  };
 
   // التحقق من توفر Google/Apple
   const googleConfigured = isGoogleAuthConfigured();
@@ -506,80 +470,6 @@ export default function WelcomeScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
-
-      {/* صندوق الإقرار والتعهد - يظهر مرة واحدة فقط عند أول تشغيل */}
-      <Modal
-        visible={showTermsModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View style={{
-          flex: 1,
-          justifyContent: 'center',
-          alignItems: 'center',
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          padding: 20,
-        }}>
-          <View style={{
-            backgroundColor: '#E8D5B7',
-            borderWidth: 4,
-            borderColor: '#EF4444',
-            borderRadius: 16,
-            padding: 20,
-            maxWidth: 350,
-            width: '100%',
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <Pressable
-                onPress={() => setTermsChecked(!termsChecked)}
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderWidth: 2,
-                  borderColor: '#EF4444',
-                  borderRadius: 4,
-                  marginLeft: 10,
-                  marginTop: 2,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: termsChecked ? '#EF4444' : 'transparent',
-                }}
-              >
-                {termsChecked && (
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>✓</Text>
-                )}
-              </Pressable>
-              
-              <Text style={{
-                flex: 1,
-                color: '#000000',
-                fontSize: 16,
-                lineHeight: 26,
-                textAlign: 'left',
-              }}>
-                أقر وأتعهد عند استخدامي لتطبيق / منصة ساحات المحاورة بالالتزام التام بقواعد الذوق العام وتجنب أي طرح يسبب الفرقة او يسيء للنظام العام او القيم الدينية او يسيء لأي مكون من مكونات المجتمع وان لا اقوم بأي فعل من افعال الجرائم المعلوماتية ، وأتحمل المسؤولية الكاملة عن كل ما يصدر من حسابي من رسائل أو وسائط، وأقر بأن إدارة المنصة لها الحق في تزويد الجهات المعنية ببياناتي عند حدوث أي مخالفة نظامية.
-              </Text>
-            </View>
-            
-            <TouchableOpacity
-              onPress={handleAcceptTerms}
-              disabled={!termsChecked}
-              style={{
-                backgroundColor: termsChecked ? '#22C55E' : '#9CA3AF',
-                borderRadius: 8,
-                paddingVertical: 12,
-                marginTop: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                موافق
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </ImageBackground>
   );
 }

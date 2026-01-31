@@ -407,7 +407,7 @@ export default function HomeScreen() {
           } catch (error) {
             console.error("Failed to expire invite:", error);
           }
-        }, 10000);
+        }, 4000);
       });
     }
   }, [displayedInvites]);
@@ -611,13 +611,13 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* عداد المتواجدين الآن - العدد الفعلي + 50% */}
+      {/* عداد المتواجدين الآن */}
       <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-        <Text style={{ color: '#000000', fontSize: 12, fontWeight: 'bold' }}>
+        <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: 'bold' }}>
           المتواجدين الآن
         </Text>
         <Text style={{ color: '#22C55E', fontSize: 20, fontWeight: 'bold' }}>
-          {Math.ceil(onlineCount + (onlineCount * 0.5))}
+          {onlineCount}
         </Text>
       </View>
 
