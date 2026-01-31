@@ -64,7 +64,7 @@ export default function RoomScreen() {
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
-  const [clappingDelay, setClappingDelay] = useState<number>(0.50);
+  const [clappingDelay, setClappingDelay] = useState<number>(0.80);
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -920,7 +920,7 @@ export default function RoomScreen() {
       
       setDisplayedRequests(nextBatch);
       setQueuedRequests(remaining);
-    }, 4000);
+    }, 10000);
     
     return () => clearTimeout(timer);
   }, [displayedRequests]);
@@ -936,14 +936,14 @@ export default function RoomScreen() {
       setLastRequestTime(Date.now());
       // Immediately refetch to show request to creator
       refetch();
-      // Auto-expire after 4 seconds
+      // Auto-expire after 10 seconds
       setTimeout(() => {
         setHasPendingRequest(false);
         // Also expire in database
         if (data.requestId) {
           expireJoinRequestMutation.mutate({ requestId: data.requestId });
         }
-      }, 4000);
+      }, 10000);
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message);
@@ -1877,6 +1877,8 @@ export default function RoomScreen() {
               const newController = taroukController === "creator" ? null : "creator";
               setTaroukController(newController);
               socketSetTaroukController(newController);
+              // إعادة ضبط سرعة التصفيق إلى القيمة الافتراضية عند تحديد متحكم جديد
+              if (newController) setClappingDelay(0.80);
             }}
             style={{
               paddingHorizontal: 10,
@@ -1899,6 +1901,8 @@ export default function RoomScreen() {
                 const newController = taroukController === "player1" ? null : "player1";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
+                // إعادة ضبط سرعة التصفيق إلى القيمة الافتراضية عند تحديد متحكم جديد
+                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player1}
@@ -1924,6 +1928,8 @@ export default function RoomScreen() {
                 const newController = taroukController === "player2" ? null : "player2";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
+                // إعادة ضبط سرعة التصفيق إلى القيمة الافتراضية عند تحديد متحكم جديد
+                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player2}
