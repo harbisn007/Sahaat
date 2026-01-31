@@ -253,15 +253,10 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Tarouk controller changed via Socket.io:", data);
         setTaroukController(data.controller);
       },
-      // استماع لإيقاف الصوت القديم وتشغيل الجديد (مزامنة)
-      onStopAndPlayNewSheeloha: (data) => {
-        console.log("[RoomScreen] Stop and play new sheeloha via Socket.io:", data);
-        // إيقاف الصوت القديم وتشغيل الجديد
-        stopSheeloha();
-        playSheeloha(data.audioUrl, data.clappingDelay);
-      },
+      // استماع لإيقاف الصوت القديم وتشغيل الجديد (مزامنة) - سيتم إعداده لاحقاً بعد تعريف useSheelohaPlayer
+      // onStopAndPlayNewSheeloha سيتم إعداده في useEffect منفصل بعد تعريف stopSheeloha و playSheeloha
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, stopSheeloha, playSheeloha]);
+  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
   
   // التحقق من حذف الساحة عبر polling (احتياطي)
   useEffect(() => {
@@ -392,6 +387,20 @@ export default function RoomScreen() {
   
   // Tarouk player
   const { stopTarouk } = useTaroukPlayer();
+
+  // إعداد onStopAndPlayNewSheeloha بعد تعريف stopSheeloha و playSheeloha
+  useEffect(() => {
+    if (!roomId || roomId <= 0) return;
+    
+    setCallbacks({
+      onStopAndPlayNewSheeloha: (data) => {
+        console.log("[RoomScreen] Stop and play new sheeloha via Socket.io:", data);
+        // إيقاف الصوت القديم وتشغيل الجديد
+        stopSheeloha();
+        playSheeloha(data.audioUrl, data.clappingDelay);
+      },
+    });
+  }, [roomId, setCallbacks, stopSheeloha, playSheeloha]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
@@ -1436,6 +1445,40 @@ export default function RoomScreen() {
     }
   };
 
+  // تحديد اللاعبين - يجب أن يكون قبل أي early return
+  const player1 = useMemo(() => {
+    return roomData?.participants?.find(
+      (p) => p.role === "player" && p.status === "accepted"
+    ) || null;
+  }, [roomData?.participants]);
+  
+  const player2 = useMemo(() => {
+    const players = roomData?.participants?.filter(
+      (p) => p.role === "player" && p.status === "accepted"
+    ) || [];
+    return players.length > 1 ? players[1] : null;
+  }, [roomData?.participants]);
+  
+  // إعادة ضبط المتحكم عند خروج اللاعب المتحكم
+  useEffect(() => {
+    if (taroukController === "player1" && !player1) {
+      console.log("[RoomScreen] Player1 left, resetting taroukController");
+      setTaroukController(null);
+    } else if (taroukController === "player2" && !player2) {
+      console.log("[RoomScreen] Player2 left, resetting taroukController");
+      setTaroukController(null);
+    }
+  }, [taroukController, player1, player2]);
+  
+  // هل المستخدم الحالي هو المتحكم؟
+  const isCurrentUserController = useMemo(() => {
+    if (!taroukController) return false;
+    if (taroukController === "creator" && userId === roomData?.creatorId) return true;
+    if (taroukController === "player1" && userId === player1?.userId) return true;
+    if (taroukController === "player2" && userId === player2?.userId) return true;
+    return false;
+  }, [taroukController, userId, roomData?.creatorId, player1?.userId, player2?.userId]);
+
   // Safety check: ensure all required data is available
   if (!userId || !username) {
     console.log("[RoomScreen] Missing user data, redirecting to welcome");
@@ -1479,40 +1522,6 @@ export default function RoomScreen() {
   // isPlayer includes creator OR approved player
   const isPlayer = isCreator || (userRole === "player" && isApproved);
   const isViewer = userRole === "viewer";
-  
-  // تحديد اللاعبين
-  const player1 = useMemo(() => {
-    return roomData?.participants?.find(
-      (p) => p.role === "player" && p.status === "accepted"
-    ) || null;
-  }, [roomData?.participants]);
-  
-  const player2 = useMemo(() => {
-    const players = roomData?.participants?.filter(
-      (p) => p.role === "player" && p.status === "accepted"
-    ) || [];
-    return players.length > 1 ? players[1] : null;
-  }, [roomData?.participants]);
-  
-  // إعادة ضبط المتحكم عند خروج اللاعب المتحكم
-  useEffect(() => {
-    if (taroukController === "player1" && !player1) {
-      console.log("[RoomScreen] Player1 left, resetting taroukController");
-      setTaroukController(null);
-    } else if (taroukController === "player2" && !player2) {
-      console.log("[RoomScreen] Player2 left, resetting taroukController");
-      setTaroukController(null);
-    }
-  }, [taroukController, player1, player2]);
-  
-  // هل المستخدم الحالي هو المتحكم؟
-  const isCurrentUserController = useMemo(() => {
-    if (!taroukController) return false;
-    if (taroukController === "creator" && userId === roomData?.creatorId) return true;
-    if (taroukController === "player1" && userId === player1?.userId) return true;
-    if (taroukController === "player2" && userId === player2?.userId) return true;
-    return false;
-  }, [taroukController, userId, roomData?.creatorId, player1?.userId, player2?.userId]);
   
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
