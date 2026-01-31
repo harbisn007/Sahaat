@@ -64,7 +64,7 @@ export default function RoomScreen() {
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
-  const [clappingDelay, setClappingDelay] = useState<number>(0.50);
+  const [clappingDelay, setClappingDelay] = useState<number>(0.80);
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -78,6 +78,8 @@ export default function RoomScreen() {
   const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
   const [lastPublicInviteTime, setLastPublicInviteTime] = useState<number | null>(null);
+  // إشعار التعليمات للمنشئ عند إنشاء أول ساحة
+  const [showCreatorInstructions, setShowCreatorInstructions] = useState(false);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -469,7 +471,7 @@ export default function RoomScreen() {
     const now = Date.now();
     const timeSinceBroadcast = now - broadcastTime;
     // Sheeloha plays for about 3.5 seconds, add buffer
-    return timeSinceBroadcast < 4000; // 4 seconds
+    return timeSinceBroadcast < 10000; // 10 seconds
   }, [sheelohaBroadcasts, sheelohaDisabledUntil]);
 
   // جلب أولي لأمر خلوها (بدون polling - التحديثات عبر Socket.io)
@@ -783,6 +785,23 @@ export default function RoomScreen() {
     }
   }, [roomData, username, userRole, isApproved]);
 
+  // عرض إشعار التعليمات للمنشئ عند إنشاء أول ساحة
+  useEffect(() => {
+    const checkFirstRoom = async () => {
+      if (userRole === "creator" && roomData) {
+        const hasSeenInstructions = await AsyncStorage.getItem(`creator_instructions_seen_${roomId}`);
+        if (!hasSeenInstructions) {
+          setShowCreatorInstructions(true);
+          await AsyncStorage.setItem(`creator_instructions_seen_${roomId}`, 'true');
+          // إخفاء الإشعار بعد 10 ثواني
+          setTimeout(() => {
+            setShowCreatorInstructions(false);
+          }, 10000);
+        }
+      }
+    };
+    checkFirstRoom();
+  }, [userRole, roomData, roomId]);
 
   // Kick player mutation (creator only)
   const kickPlayerMutation = trpc.kick.player.useMutation({
@@ -920,7 +939,7 @@ export default function RoomScreen() {
       
       setDisplayedRequests(nextBatch);
       setQueuedRequests(remaining);
-    }, 4000);
+    }, 10000);
     
     return () => clearTimeout(timer);
   }, [displayedRequests]);
@@ -943,7 +962,7 @@ export default function RoomScreen() {
         if (data.requestId) {
           expireJoinRequestMutation.mutate({ requestId: data.requestId });
         }
-      }, 4000);
+      }, 10000);
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message);
@@ -1621,6 +1640,35 @@ export default function RoomScreen() {
         </View>
       )}
 
+      {/* إشعار التعليمات للمنشئ */}
+      {showCreatorInstructions && (
+        <View style={{
+          backgroundColor: 'rgba(34, 197, 94, 0.15)',
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(34, 197, 94, 0.3)',
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        }}>
+          <Text style={{
+            color: '#000000',
+            fontSize: 16,
+            fontWeight: '600',
+            textAlign: 'left',
+            marginBottom: 4,
+          }}>
+            مرحباً بك في ساحتك!
+          </Text>
+          <Text style={{
+            color: '#000000',
+            fontSize: 17,
+            textAlign: 'left',
+            lineHeight: 24,
+          }}>
+            انتظر انضمام اللاعبين، ثم اختر من يبدأ اللحن واضبط سرعة التصفيق من عجلة التحكم.
+          </Text>
+        </View>
+      )}
+
       {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
       {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
         <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
@@ -1877,6 +1925,7 @@ export default function RoomScreen() {
               const newController = taroukController === "creator" ? null : "creator";
               setTaroukController(newController);
               socketSetTaroukController(newController);
+              if (newController) setClappingDelay(0.80);
             }}
             style={{
               paddingHorizontal: 10,
@@ -1899,6 +1948,7 @@ export default function RoomScreen() {
                 const newController = taroukController === "player1" ? null : "player1";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
+                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player1}
@@ -1924,6 +1974,7 @@ export default function RoomScreen() {
                 const newController = taroukController === "player2" ? null : "player2";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
+                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player2}

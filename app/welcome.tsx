@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator, Modal, Pressable } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser } from "@/lib/user-context";
@@ -27,6 +28,29 @@ export default function WelcomeScreen() {
   const { loginAsGuest, loginWithGoogle, loginWithApple } = useUser();
   const colors = useColors();
   const scrollViewRef = useRef<ScrollView>(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+
+  // التحقق من قبول الإقرار سابقاً
+  React.useEffect(() => {
+    const checkTerms = async () => {
+      const accepted = await AsyncStorage.getItem('terms_accepted');
+      if (accepted === 'true') {
+        setTermsAccepted(true);
+      } else {
+        setShowTermsModal(true);
+      }
+    };
+    checkTerms();
+  }, []);
+
+  // دالة قبول الإقرار
+  const handleAcceptTerms = async () => {
+    await AsyncStorage.setItem('terms_accepted', 'true');
+    setTermsAccepted(true);
+    setShowTermsModal(false);
+  };
 
   // التحقق من توفر Google/Apple
   const googleConfigured = isGoogleAuthConfigured();
@@ -470,6 +494,80 @@ export default function WelcomeScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
+      
+      {/* Modal صندوق الإقرار والتعهد */}
+      <Modal
+        visible={showTermsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={{
+          flex: 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          justifyContent: 'center',
+          alignItems: 'center',
+          padding: 20,
+        }}>
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 20,
+            width: '100%',
+            maxWidth: 400,
+            borderWidth: 3,
+            borderColor: '#DC2626',
+          }}>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+              <Pressable
+                onPress={() => setTermsChecked(!termsChecked)}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderWidth: 2,
+                  borderColor: '#DC2626',
+                  borderRadius: 4,
+                  marginLeft: 10,
+                  marginTop: 2,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  backgroundColor: termsChecked ? '#EF4444' : 'transparent',
+                }}
+              >
+                {termsChecked && (
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>✓</Text>
+                )}
+              </Pressable>
+              
+              <Text style={{
+                flex: 1,
+                color: '#000000',
+                fontSize: 16,
+                lineHeight: 26,
+                textAlign: 'left',
+              }}>
+                أقر وأتعهد عند استخدامي لتطبيق / منصة ساحات المحاورة بالالتزام التام بقواعد الذوق العام وتجنب أي طرح يسبب الفرقة او يسيء للنظام العام او القيم الدينية او يسيء لأي مكون من مكونات المجتمع وان لا اقوم بأي فعل من افعال الجرائم المعلوماتية ، وأتحمل المسؤولية الكاملة عن كل ما يصدر من حسابي من رسائل أو وسائط، وأقر بأن إدارة المنصة لها الحق في تزويد الجهات المعنية ببياناتي عند حدوث أي مخالفة نظامية.
+              </Text>
+            </View>
+            
+            <TouchableOpacity
+              onPress={handleAcceptTerms}
+              disabled={!termsChecked}
+              style={{
+                backgroundColor: termsChecked ? '#22C55E' : '#9CA3AF',
+                borderRadius: 8,
+                paddingVertical: 12,
+                marginTop: 16,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+                موافق
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ImageBackground>
   );
 }
