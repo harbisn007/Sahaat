@@ -1937,7 +1937,7 @@ export default function RoomScreen() {
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
-                    opacity: (!lastTaroukUri || isSheelohaPlaying || isSheelohaProcessing || isSheelohaActiveGlobally) ? 0.5 : 1,
+                    opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
                     width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
@@ -1947,13 +1947,6 @@ export default function RoomScreen() {
                   onPress={async () => {
                   console.log("[RoomScreen] Sheeloha button pressed");
                   console.log("[RoomScreen] Current lastTaroukUri:", lastTaroukUri);
-                  console.log("[RoomScreen] isSheelohaActiveGlobally:", isSheelohaActiveGlobally);
-                  
-                  // Check if sheeloha is already playing globally
-                  if (isSheelohaActiveGlobally) {
-                    console.log("[RoomScreen] Sheeloha already active globally, ignoring press");
-                    return;
-                  }
                   
                   if (!lastTaroukUri) {
                     Alert.alert("تنبيه", "لا توجد رسائل طاروق");
@@ -1965,6 +1958,12 @@ export default function RoomScreen() {
                   }
                   
                   try {
+                    // إيقاف الصوت القديم إذا كان يشتغل
+                    if (isSheelohaPlaying) {
+                      console.log("[RoomScreen] Stopping previous sheeloha before playing new one");
+                      stopSheeloha();
+                    }
+                    
                     // Stop tarouk sound first before playing sheeloha
                     console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
                     stopTarouk();
@@ -1988,7 +1987,7 @@ export default function RoomScreen() {
                     Alert.alert("خطأ", "فشل بث شيلوها");
                   }
                   }}
-                  disabled={isSheelohaPlaying || isSheelohaProcessing || isSheelohaActiveGlobally}
+                  disabled={isSheelohaProcessing}
                 >
                   <View style={{ flexDirection: 'row', gap: 2 }}>
                     <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
@@ -2014,7 +2013,7 @@ export default function RoomScreen() {
                   className="rounded items-center justify-center"
                   style={{
                     backgroundColor: "#5D4037",
-                    opacity: (isSheelohaPlaying || isSheelohaActiveGlobally) ? 1 : 0.5,
+                    opacity: isSheelohaPlaying ? 1 : 0.5,
                     width: buttonWidth,
                     paddingVertical: 4,
                     paddingHorizontal: 4,
