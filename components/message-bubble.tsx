@@ -77,12 +77,25 @@ export function MessageBubble({
   };
 
   return (
-    <View className="px-2 py-0.5 items-start">
+    <TouchableOpacity 
+      className="px-2 py-0.5 items-start"
+      onPress={onPlay}
+      activeOpacity={0.7}
+    >
       <View 
         className="rounded-lg px-2 py-1 max-w-[75%]"
-        style={{ backgroundColor: colors.surface }}
+        style={{ 
+          backgroundColor: colors.surface,
+          borderWidth: isPlaying ? 2 : 0,
+          borderColor: isPlaying ? colors.primary : 'transparent',
+        }}
       >
         <View className="flex-row items-center gap-1.5">
+          {/* Play/Pause Icon */}
+          <Text className="text-sm">
+            {isPlaying ? "🔊" : "▶️"}
+          </Text>
+          
           {/* Duration */}
           <Text className="text-[10px] text-muted font-mono">
             {formatDuration(duration || 0)}
@@ -109,6 +122,6 @@ export function MessageBubble({
           </Text>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 }

@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -78,6 +78,9 @@ export default function RoomScreen() {
   const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
   const [lastPublicInviteTime, setLastPublicInviteTime] = useState<number | null>(null);
+  
+  // إشعار التعليمات للمنشئ (يظهر مرة واحدة فقط عند إنشاء أول ساحة)
+  const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -754,6 +757,21 @@ export default function RoomScreen() {
         if (userRole !== newRole) {
           console.log("[RoomScreen] Role changed:", userRole, "->", newRole);
           setUserRole(newRole);
+          
+          // إظهار إشعار التعليمات للمنشئ لأول مرة فقط
+          if (newRole === "creator") {
+            (async () => {
+              try {
+                const tutorialShown = await AsyncStorage.getItem('creator_tutorial_shown');
+                if (tutorialShown !== 'true') {
+                  setShowCreatorTutorial(true);
+                  await AsyncStorage.setItem('creator_tutorial_shown', 'true');
+                }
+              } catch (error) {
+                console.error('خطأ في التحقق من إشعار التعليمات:', error);
+              }
+            })();
+          }
         }
         if (isApproved !== newApproved) {
           console.log("[RoomScreen] Approval changed:", isApproved, "->", newApproved);
@@ -2237,6 +2255,63 @@ export default function RoomScreen() {
         currentName={username || ""}
         currentAvatar={avatar}
       />
+      
+      {/* إشعار التعليمات للمنشئ - يظهر مرة واحدة فقط عند إنشاء أول ساحة */}
+      <Modal
+        visible={showCreatorTutorial}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCreatorTutorial(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            padding: 20,
+          }}
+          onPress={() => setShowCreatorTutorial(false)}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderWidth: 2,
+            borderColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 20,
+            maxWidth: 350,
+            width: '100%',
+          }}>
+            <Text style={{
+              color: '#000000',
+              fontSize: 14,
+              fontWeight: 'bold',
+              marginBottom: 12,
+              textAlign: 'right',
+            }}>
+              للحصول على افضل تجربة استخدام :
+            </Text>
+            <Text style={{
+              color: '#000000',
+              fontSize: 13,
+              lineHeight: 24,
+              textAlign: 'right',
+            }}>
+              عند بداية كل طاروق قم بتحديد من يبدا الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
+              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء الحين بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن. ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}{"\n"}
+              للمحادثات الجانبية او للموال استخدم زر تعليق/موال.
+            </Text>
+            <Text style={{
+              color: '#9CA3AF',
+              fontSize: 11,
+              marginTop: 16,
+              textAlign: 'center',
+            }}>
+              انقر للإغلاق
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
     </ScreenContainer>
     </ImageBackground>
   );
