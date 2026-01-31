@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator, Modal, Pressable } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
@@ -33,7 +33,7 @@ export default function WelcomeScreen() {
   const [termsAccepted, setTermsAccepted] = useState(false);
 
   // التحقق من قبول الإقرار سابقاً
-  React.useEffect(() => {
+  useEffect(() => {
     const checkTerms = async () => {
       const accepted = await AsyncStorage.getItem('terms_accepted');
       if (accepted === 'true') {
