@@ -48,6 +48,10 @@ export const rooms = mysqlTable("rooms", {
   lastPlayerLeftAt: timestamp("lastPlayerLeftAt"),
   // Last public invite timestamp - for 5 minute cooldown
   lastPublicInviteAt: timestamp("lastPublicInviteAt"),
+  // Tarouk controller - who controls the tarouk (creator, player1, player2, or null)
+  taroukController: mysqlEnum("taroukController", ["creator", "player1", "player2"]),
+  // Clapping delay in seconds (0.05-1.50)
+  clappingDelay: varchar("clappingDelay", { length: 10 }).default("0.80"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

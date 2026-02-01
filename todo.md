@@ -1773,3 +1773,22 @@
 - [x] إضافة refetchInterval للـ queries في صفحة الساحة
 - [x] تحديث بيانات الساحة والرسائل وطلبات الانضمام بشكل مستمر
 - [x] تفعيل polling لطلبات الانضمام (كل 3 ثواني) كـ fallback لـ Socket.io
+
+## إضافة invalidate/refetch فوري عند الأحداث المهمة
+- [ ] إضافة invalidate/refetch فوري عند تشغيل الصوت (طاروق/تعليق)
+- [ ] إضافة invalidate/refetch فوري عند تغيير عجلة السرعة
+- [ ] إضافة invalidate/refetch فوري عند شيلوها
+- [ ] إضافة invalidate/refetch فوري عند اختيار متحكم جديد
+- [ ] إضافة invalidate/refetch فوري عند ظهور زر طاروق وعجلة التصفيق
+
+
+## إصلاح مزامنة الأحداث بين الأجهزة (polling سريع)
+- [x] إضافة حقول taroukController و clappingDelay لجدول الغرف في قاعدة البيانات
+- [x] إضافة دوال updateTaroukController و updateClappingDelay و getRoomControlState في db.ts
+- [x] إضافة API endpoints: getControlState, setTaroukController, setClappingDelay في routers.ts
+- [x] إضافة polling سريع (500ms) لحالة التحكم في صفحة الغرفة
+- [x] إضافة mutations لتحديث المتحكم والسرعة عبر API
+- [x] إرسال تغيير المتحكم للخادم فوراً عند الضغط على الأزرار
+- [x] إرسال تغيير السرعة للخادم فوراً عند تحريك العجلة
+- [x] تحديث الحالة المحلية عند وصول بيانات جديدة من الخادم
+- [ ] اختبار المزامنة بين جهازين مختلفين (يحتاج اختبار من المستخدم)

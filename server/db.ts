@@ -1212,3 +1212,54 @@ export async function updateLastPlayerLeftTime(roomId: number) {
   
   console.log(`[Room] Updated lastPlayerLeftAt for room ${roomId}`);
 }
+
+
+// ============ Tarouk Controller & Clapping Delay ============
+
+// تحديث المتحكم بالطاروق
+export async function updateTaroukController(roomId: number, controller: "creator" | "player1" | "player2" | null) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ taroukController: controller })
+    .where(eq(rooms.id, roomId));
+  
+  console.log(`[Room] Updated taroukController for room ${roomId} to: ${controller}`);
+}
+
+// تحديث سرعة التصفيق
+export async function updateClappingDelay(roomId: number, delay: number) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db
+    .update(rooms)
+    .set({ clappingDelay: delay.toString() })
+    .where(eq(rooms.id, roomId));
+  
+  console.log(`[Room] Updated clappingDelay for room ${roomId} to: ${delay}`);
+}
+
+// جلب حالة المتحكم والسرعة
+export async function getRoomControlState(roomId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const result = await db
+    .select({
+      taroukController: rooms.taroukController,
+      clappingDelay: rooms.clappingDelay,
+    })
+    .from(rooms)
+    .where(eq(rooms.id, roomId))
+    .limit(1);
+  
+  if (!result[0]) return null;
+  
+  return {
+    taroukController: result[0].taroukController,
+    clappingDelay: parseFloat(result[0].clappingDelay || "0.80"),
+  };
+}

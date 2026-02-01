@@ -269,6 +269,43 @@ export const appRouter = router({
         const activeRoom = await db.getUserActiveRoom(input.creatorId);
         return activeRoom;
       }),
+
+    // Get room control state (taroukController + clappingDelay)
+    getControlState: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.getRoomControlState(input.roomId);
+      }),
+
+    // Update tarouk controller
+    setTaroukController: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          controller: z.enum(["creator", "player1", "player2"]).nullable(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        await db.updateTaroukController(input.roomId, input.controller);
+        // بث التغيير لجميع المشاركين
+        emitRoomUpdated(input.roomId);
+        return { success: true };
+      }),
+
+    // Update clapping delay
+    setClappingDelay: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          delay: z.number().min(0.05).max(1.5),
+        })
+      )
+      .mutation(async ({ input }) => {
+        await db.updateClappingDelay(input.roomId, input.delay);
+        // بث التغيير لجميع المشاركين
+        emitRoomUpdated(input.roomId);
+        return { success: true };
+      }),
   }),
 
   // Audio messages router

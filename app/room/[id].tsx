@@ -596,6 +596,16 @@ export default function RoomScreen() {
   const setRecordingStatusMutation = trpc.recording.setStatus.useMutation();
   const clearRecordingStatusMutation = trpc.recording.clear.useMutation();
 
+  // Mutations for control state (taroukController + clappingDelay)
+  const setTaroukControllerMutation = trpc.rooms.setTaroukController.useMutation();
+  const setClappingDelayMutation = trpc.rooms.setClappingDelay.useMutation();
+
+  // Polling لحالة التحكم (المتحكم + السرعة) - كل 500ms للتحديث الفوري
+  const { data: controlState } = trpc.rooms.getControlState.useQuery(
+    { roomId },
+    { enabled: roomId > 0, refetchInterval: 500 } // polling سريع للتحكم
+  );
+
   // Show ALL messages in the feed (don't filter by joinedAt)
   // But only AUTO-PLAY messages sent AFTER user joined
   // Add 5 second safety margin to avoid losing messages sent right after joining
@@ -1577,6 +1587,22 @@ export default function RoomScreen() {
     return false;
   }, [taroukController, userId, roomData?.creatorId, player1?.userId, player2?.userId]);
 
+  // تحديث الحالة المحلية عند وصول بيانات جديدة من الخادم (المتحكم + السرعة)
+  useEffect(() => {
+    if (controlState) {
+      // تحديث المتحكم إذا تغير
+      if (controlState.taroukController !== taroukController) {
+        console.log("[RoomScreen] Control state update - taroukController:", controlState.taroukController);
+        setTaroukController(controlState.taroukController);
+      }
+      // تحديث السرعة إذا تغيرت (فقط لغير المتحكم - المتحكم يغير محلياً)
+      if (!isCurrentUserController && controlState.clappingDelay !== clappingDelay) {
+        console.log("[RoomScreen] Control state update - clappingDelay:", controlState.clappingDelay);
+        setClappingDelay(controlState.clappingDelay);
+      }
+    }
+  }, [controlState, taroukController, clappingDelay, isCurrentUserController]);
+
   // Safety check: ensure all required data is available
   if (!userId || !username) {
     console.log("[RoomScreen] Missing user data, redirecting to welcome");
@@ -2032,7 +2058,12 @@ export default function RoomScreen() {
               const newController = taroukController === "creator" ? null : "creator";
               setTaroukController(newController);
               socketSetTaroukController(newController);
-              if (newController) setClappingDelay(0.80);
+              // إرسال للخادم عبر API للتحديث الفوري
+              setTaroukControllerMutation.mutate({ roomId, controller: newController });
+              if (newController) {
+                setClappingDelay(0.80);
+                setClappingDelayMutation.mutate({ roomId, delay: 0.80 });
+              }
             }}
             style={{
               paddingHorizontal: 10,
@@ -2055,7 +2086,12 @@ export default function RoomScreen() {
                 const newController = taroukController === "player1" ? null : "player1";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
-                if (newController) setClappingDelay(0.80);
+                // إرسال للخادم عبر API للتحديث الفوري
+                setTaroukControllerMutation.mutate({ roomId, controller: newController });
+                if (newController) {
+                  setClappingDelay(0.80);
+                  setClappingDelayMutation.mutate({ roomId, delay: 0.80 });
+                }
               }
             }}
             disabled={!player1}
@@ -2081,7 +2117,12 @@ export default function RoomScreen() {
                 const newController = taroukController === "player2" ? null : "player2";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
-                if (newController) setClappingDelay(0.80);
+                // إرسال للخادم عبر API للتحديث الفوري
+                setTaroukControllerMutation.mutate({ roomId, controller: newController });
+                if (newController) {
+                  setClappingDelay(0.80);
+                  setClappingDelayMutation.mutate({ roomId, delay: 0.80 });
+                }
               }
             }}
             disabled={!player2}
@@ -2121,7 +2162,11 @@ export default function RoomScreen() {
               {isCurrentUserController && !isViewer && (
                 <SpeedWheel
                   value={clappingDelay}
-                  onChange={setClappingDelay}
+                  onChange={(newDelay) => {
+                    setClappingDelay(newDelay);
+                    // إرسال للخادم عبر API للتحديث الفوري
+                    setClappingDelayMutation.mutate({ roomId, delay: newDelay });
+                  }}
                   width={wheelWidth}
                 />
               )}
