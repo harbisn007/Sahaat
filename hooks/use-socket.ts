@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 // أنواع الأحداث من الخادم
 interface ServerToClientEvents {
@@ -99,14 +100,25 @@ interface ClientToServerEvents {
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
 
 // الحصول على عنوان الخادم
+// يستخدم نفس المنطق في trpc.ts و oauth.ts للحصول على العنوان الصحيح
 function getServerUrl(): string {
-  if (Platform.OS === "web") {
-    // على الويب، نستخدم نفس المنفذ
+  const baseUrl = getApiBaseUrl();
+  if (baseUrl) {
+    console.log("[Socket.io] Using API base URL:", baseUrl);
+    return baseUrl;
+  }
+  
+  // Fallback للويب فقط
+  if (Platform.OS === "web" && typeof window !== "undefined") {
     const protocol = window.location.protocol === "https:" ? "https:" : "http:";
     const host = window.location.hostname;
-    return `${protocol}//${host}:3000`;
+    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
+    const apiHost = host.replace(/^8081-/, "3000-");
+    return `${protocol}//${apiHost}`;
   }
-  // على الموبايل، نستخدم عنوان الخادم
+  
+  // هذا لن يُستخدم لأن getApiBaseUrl يُرجع قيمة دائماً
+  console.warn("[Socket.io] No API URL found, using localhost (will fail on mobile)");
   return "http://127.0.0.1:3000";
 }
 
