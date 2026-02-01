@@ -110,9 +110,20 @@ export function useTaroukPlayer() {
         console.log("[useTaroukPlayer] Using native expo-audio (clapping handled separately)");
         // Native platform: Use expo-audio (clapping handled in component)
         
-        // Replace the player source
+        // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
+        try {
+          await AudioModule.setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: false,
+          });
+          console.log("[useTaroukPlayer] Audio mode reset for playback");
+        } catch (e) {
+          console.warn("[useTaroukPlayer] Failed to reset audio mode:", e);
+        }
+        
+        // Replace the player source with object format { uri }
         console.log("[useTaroukPlayer] Replacing player source");
-        nativePlayer.replace(audioUri);
+        nativePlayer.replace({ uri: audioUri });
         
         // Wait for player to be ready
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -194,9 +205,20 @@ export function useTaroukPlayer() {
         console.log("[useTaroukPlayer] Using native expo-audio");
         // Native platform: Use expo-audio with playback rate
         
-        // Replace the player source
+        // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
+        try {
+          await AudioModule.setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: false,
+          });
+          console.log("[useTaroukPlayer] Audio mode reset for playback");
+        } catch (e) {
+          console.warn("[useTaroukPlayer] Failed to reset audio mode:", e);
+        }
+        
+        // Replace the player source with object format { uri }
         console.log("[useTaroukPlayer] Replacing player source");
-        nativePlayer.replace(audioUri);
+        nativePlayer.replace({ uri: audioUri });
         
         // Wait for player to be ready
         await new Promise(resolve => setTimeout(resolve, 200));

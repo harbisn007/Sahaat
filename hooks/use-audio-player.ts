@@ -112,6 +112,18 @@ export function useAudioPlayerHook() {
         // Native: Use expo-audio player with object format
         console.log("[useAudioPlayerHook] Using expo-audio player");
         
+        // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
+        // This fixes the conflict with microphone initialization that sets allowsRecording: true
+        try {
+          await AudioModule.setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: false,
+          });
+          console.log("[useAudioPlayerHook] Audio mode reset for playback");
+        } catch (e) {
+          console.warn("[useAudioPlayerHook] Failed to reset audio mode:", e);
+        }
+        
         // Replace the player source with object format { uri: uri }
         console.log("[useAudioPlayerHook] Replacing player source with { uri }");
         player.replace({ uri: uri });

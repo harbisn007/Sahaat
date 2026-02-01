@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Platform } from "react-native";
-import { useAudioPlayer } from "expo-audio";
+import { useAudioPlayer, AudioModule } from "expo-audio";
 
 /**
  * Clapping Delay Configuration
@@ -236,6 +236,18 @@ export function useSheelohaPlayer() {
     setState({ isPlaying: true, isProcessing: true });
     
     try {
+      // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
+      // This fixes the conflict with microphone initialization
+      try {
+        await AudioModule.setAudioModeAsync({
+          playsInSilentMode: true,
+          allowsRecording: false,
+        });
+        console.log("[useSheelohaPlayer] Audio mode reset for playback");
+      } catch (e) {
+        console.warn("[useSheelohaPlayer] Failed to reset audio mode:", e);
+      }
+      
       const players = [player1, player2, player3, player4, player5];
       
       // Load audio into all players

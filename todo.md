@@ -1727,3 +1727,7 @@
 - [x] إصلاح خطأ TypeScript: lastTaroukUri used before declaration
 - [x] نقل useEffect الذي يستخدم lastTaroukUri إلى ما بعد تعريفه
 - [x] إنشاء اختبار لـ use-audio-player.ts
+
+- [x] إصلاح تعارض Audio Mode بين تهيئة الميكروفون وتشغيل الصوت
+- [x] إصلاح use-tarouk-player.ts - استخدام { uri } وإعادة ضبط audio mode
+- [x] إصلاح use-sheeloha-player.ts - إعادة ضبط audio mode قبل التشغيل
