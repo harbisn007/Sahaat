@@ -96,6 +96,49 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 5000, retry: false } // تقليل من 500ms إلى 5s
   );
 
+  // استرجاع taroukController من AsyncStorage عند دخول الساحة (للمنشئ فقط)
+  useEffect(() => {
+    const loadTaroukController = async () => {
+      try {
+        const storageKey = `taroukController_${roomId}`;
+        const saved = await AsyncStorage.getItem(storageKey);
+        if (saved) {
+          const controller = saved as "creator" | "player1" | "player2";
+          console.log("[RoomScreen] Loaded taroukController from storage:", controller);
+          setTaroukController(controller);
+        }
+      } catch (error) {
+        console.error("[RoomScreen] Failed to load taroukController:", error);
+      }
+    };
+    
+    if (roomId > 0) {
+      loadTaroukController();
+    }
+  }, [roomId]);
+
+  // حفظ taroukController في AsyncStorage عند تغييره
+  useEffect(() => {
+    const saveTaroukController = async () => {
+      try {
+        const storageKey = `taroukController_${roomId}`;
+        if (taroukController) {
+          await AsyncStorage.setItem(storageKey, taroukController);
+          console.log("[RoomScreen] Saved taroukController to storage:", taroukController);
+        } else {
+          await AsyncStorage.removeItem(storageKey);
+          console.log("[RoomScreen] Removed taroukController from storage");
+        }
+      } catch (error) {
+        console.error("[RoomScreen] Failed to save taroukController:", error);
+      }
+    };
+    
+    if (roomId > 0) {
+      saveTaroukController();
+    }
+  }, [roomId, taroukController]);
+
   // Update joinedAt to current time on every room entry
   useEffect(() => {
     const updateJoinedAt = async () => {
