@@ -116,35 +116,6 @@ export interface ServerToClientEvents {
     audioUrl: string;
     clappingDelay: number;
   }) => void;
-  
-  // حدث تحديث صوت الصفوف (Choir Effect)
-  sufoofSoundUpdated: (data: {
-    roomId: number;
-    audioUrl: string; // رابط الصوت الأصلي
-    choirAudioUrl: string; // رابط الصوت المعالج بتأثير الجوقة
-    userId: string;
-    username: string;
-    createdAt: string;
-  }) => void;
-  
-  // حدث شيلوها الجديد - تشغيل صوت الصفوف مع التصفيق
-  playSufoofSheeloha: (data: {
-    roomId: number;
-    choirAudioUrl: string; // رابط صوت الصفوف المعالج
-    clappingDelay: number; // سرعة التصفيق من العجلة
-    userId: string;
-    username: string;
-  }) => void;
-  
-  // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
-  playAudioMessage: (data: {
-    roomId: number;
-    messageId: number;
-    audioUrl: string;
-    messageType: string; // "tarouk" | "comment"
-    userId: string;
-    username: string;
-  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -504,74 +475,4 @@ export function emitPublicInviteExpired(invitationId: number): void {
 export function getOnlineUsersCount(): number {
   if (!io) return 0;
   return io.sockets.sockets.size;
-}
-
-
-/**
- * بث تحديث صوت الصفوف (Choir Effect)
- */
-export function emitSufoofSoundUpdated(
-  roomId: number,
-  audioUrl: string,
-  choirAudioUrl: string,
-  userId: string,
-  username: string,
-  createdAt: Date
-): void {
-  if (!io) return;
-  io.to(`room:${roomId}`).emit("sufoofSoundUpdated", {
-    roomId,
-    audioUrl,
-    choirAudioUrl,
-    userId,
-    username,
-    createdAt: createdAt.toISOString(),
-  });
-  console.log(`[Socket.io] Sufoof sound updated in room ${roomId}`);
-}
-
-
-/**
- * بث شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق عند الجميع
- */
-export function emitPlaySufoofSheeloha(
-  roomId: number,
-  choirAudioUrl: string,
-  clappingDelay: number,
-  userId: string,
-  username: string
-): void {
-  if (!io) return;
-  io.to(`room:${roomId}`).emit("playSufoofSheeloha", {
-    roomId,
-    choirAudioUrl,
-    clappingDelay,
-    userId,
-    username,
-  });
-  console.log(`[Socket.io] Play sufoof sheeloha in room ${roomId}: ${choirAudioUrl}`);
-}
-
-
-/**
- * بث تشغيل رسالة صوتية عند الجميع في الساحة
- */
-export function emitPlayAudioMessage(
-  roomId: number,
-  messageId: number,
-  audioUrl: string,
-  messageType: string,
-  userId: string,
-  username: string
-): void {
-  if (!io) return;
-  io.to(`room:${roomId}`).emit("playAudioMessage", {
-    roomId,
-    messageId,
-    audioUrl,
-    messageType,
-    userId,
-    username,
-  });
-  console.log(`[Socket.io] Play audio message in room ${roomId}: ${messageType} by ${username}`);
 }
