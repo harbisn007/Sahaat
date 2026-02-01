@@ -1458,7 +1458,7 @@ export default function RoomScreen() {
           });
         } else {
           // Native: Read file as base64
-          const FileSystem = await import("expo-file-system/legacy");
+          const FileSystem = await import("expo-file-system");
           base64Data = await FileSystem.readAsStringAsync(recording.uri, {
             encoding: FileSystem.EncodingType.Base64,
           });
@@ -2207,8 +2207,16 @@ export default function RoomScreen() {
                       console.log("[RoomScreen] Stopping any playing audio...");
                       stopTarouk();
                       stop(); // إيقاف الرسائل الصوتية
+                      stopSheeloha(); // إيقاف أي شيلوها سابقة
                       
-                      // بث شيلوها الجديدة للخادم - الخادم سيبث للجميع
+                      // ===== تشغيل محلي فوري للضاغط =====
+                      console.log("[RoomScreen] Playing sheeloha LOCALLY for the presser:", {
+                        audioUrl: audioToPlay,
+                        clappingDelay,
+                      });
+                      playSheeloha(audioToPlay, clappingDelay);
+                      
+                      // بث شيلوها الجديدة للخادم - الخادم سيبث للآخرين
                       console.log("[RoomScreen] Sending playSufoof to server:", {
                         choirAudioUrl: audioToPlay,
                         clappingDelay,
