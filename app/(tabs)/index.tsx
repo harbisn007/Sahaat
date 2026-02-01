@@ -625,21 +625,18 @@ export default function HomeScreen() {
       <View className="flex-1 flex-row px-2">
         {/* العمود الأيسر - الدعوات العامة (⅓) */}
         <View style={{ width: leftColumnWidth - 8, paddingHorizontal: 4, position: 'relative' }}>
-          {/* خلفية نقشة السدو */}
-          <Image 
-            source={require('@/assets/images/sadu-pattern.jpg')}
-            style={{ 
-              position: 'absolute', 
-              top: 0, 
-              left: 0, 
-              right: 0, 
-              bottom: 0,
-              width: '100%',
-              height: '100%',
-              opacity: 0.12,
-            }}
-            resizeMode="repeat"
-          />
+          {/* خلفية نقشة السدو - خلف كل العناصر */}
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }} pointerEvents="none">
+            <Image 
+              source={require('@/assets/images/sadu-pattern.jpg')}
+              style={{ 
+                width: '100%',
+                height: '100%',
+                opacity: 0.12,
+              }}
+              resizeMode="repeat"
+            />
+          </View>
           {/* عنوان الدعوات العامة */}
           <View style={{ alignItems: 'center', marginBottom: 8 }}>
             <BlinkingTitle text="الدعوات العامة" color="#EF4444" />
