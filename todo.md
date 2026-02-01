@@ -1717,3 +1717,13 @@
 - [x] إضافة استماع لحدث playAudioMessage في use-socket.ts
 - [x] إضافة معالج onPlayAudioMessage في [id].tsx
 - [ ] اختبار تشغيل الأصوات عند الجميع
+
+
+## إصلاح مشكلة عدم عمل الأصوات (الجلسة الحالية)
+- [x] تشخيص مشكلة عدم تشغيل الأصوات (طاروق/تعليق/شيلوها)
+- [x] إصلاح use-audio-player.ts لاستخدام صيغة { uri: uri } مع player.replace()
+- [x] إضافة دعم Web باستخدام HTML5 Audio API
+- [x] فصل منطق Web و Native بشكل واضح
+- [x] إصلاح خطأ TypeScript: lastTaroukUri used before declaration
+- [x] نقل useEffect الذي يستخدم lastTaroukUri إلى ما بعد تعريفه
+- [x] إنشاء اختبار لـ use-audio-player.ts

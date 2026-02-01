@@ -488,25 +488,6 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 1000 } // polling كل 1 ثانية لظهور أسرع
   );
 
-  // تحديث sufoofSound تلقائياً عند تغير lastTaroukUri (كبديل لحين وصول الصوت المعالج)
-  // هذا يضمن أن شيلوها تعمل حتى لو لم تصل رسالة sufoofSoundUpdated
-  useEffect(() => {
-    if (lastTaroukUri) {
-      // تحديث sufoofSound عند كل تغيير في lastTaroukUri
-      // إذا كان الرابط مختلفاً عن المحفوظ
-      if (!sufoofSound || sufoofSound.audioUrl !== lastTaroukUri) {
-        console.log("[RoomScreen] Updating sufoofSound from lastTaroukUri:", lastTaroukUri);
-        setSufoofSound({
-          audioUrl: lastTaroukUri,
-          choirAudioUrl: lastTaroukUri, // استخدام الصوت الأصلي كبديل مؤقت
-          userId: "",
-          username: "",
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
-  }, [lastTaroukUri]);
-
   const { data: initialReactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
@@ -706,6 +687,25 @@ export default function RoomScreen() {
     // Return audio URL string for playSheeloha
     return lastTarouk.audioUrl;
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
+
+  // تحديث sufoofSound تلقائياً عند تغير lastTaroukUri (كبديل لحين وصول الصوت المعالج)
+  // هذا يضمن أن شيلوها تعمل حتى لو لم تصل رسالة sufoofSoundUpdated
+  useEffect(() => {
+    if (lastTaroukUri) {
+      // تحديث sufoofSound عند كل تغيير في lastTaroukUri
+      // إذا كان الرابط مختلفاً عن المحفوظ
+      if (!sufoofSound || sufoofSound.audioUrl !== lastTaroukUri) {
+        console.log("[RoomScreen] Updating sufoofSound from lastTaroukUri:", lastTaroukUri);
+        setSufoofSound({
+          audioUrl: lastTaroukUri,
+          choirAudioUrl: lastTaroukUri, // استخدام الصوت الأصلي كبديل مؤقت
+          userId: "",
+          username: "",
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  }, [lastTaroukUri, sufoofSound]);
 
   // Track messages (old messages marked as played, new messages tracked for UI)
   // Audio playback is handled via Socket.io from the server

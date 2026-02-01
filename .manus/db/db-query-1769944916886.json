@@ -1,0 +1,30 @@
+{
+  "query": "SELECT * FROM audio_messages LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute SELECT * FROM audio_messages LIMIT 5;",
+  "rows": [
+    {
+      "id": "1920002",
+      "roomId": "2340002",
+      "userId": "guest_1769935099468_dkbjkuz0d",
+      "username": "تلببب",
+      "messageType": "comment",
+      "audioUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/audio/1769944742401-nvftk8-recording-1769944742164.m4a",
+      "duration": "7",
+      "createdAt": "2026-02-01 11:19:02"
+    },
+    {
+      "id": "1920003",
+      "roomId": "2340002",
+      "userId": "guest_1769935099468_dkbjkuz0d",
+      "username": "تلببب",
+      "messageType": "tarouk",
+      "audioUrl": "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/audio/1769944772959-368v3j-recording-1769944772690.m4a",
+      "duration": "10",
+      "createdAt": "2026-02-01 11:19:33"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\troomId\tuserId\tusername\tmessageType\taudioUrl\tduration\tcreatedAt\n1920002\t2340002\tguest_1769935099468_dkbjkuz0d\tتلببب\tcomment\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/audio/1769944742401-nvftk8-recording-1769944742164.m4a\t7\t2026-02-01 11:19:02\n1920003\t2340002\tguest_1769935099468_dkbjkuz0d\tتلببب\ttarouk\thttps://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/audio/1769944772959-368v3j-recording-1769944772690.m4a\t10\t2026-02-01 11:19:33\n",
+  "stderr": "",
+  "execution_time_ms": 1588
+}
