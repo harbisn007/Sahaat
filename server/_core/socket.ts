@@ -116,6 +116,16 @@ export interface ServerToClientEvents {
     audioUrl: string;
     clappingDelay: number;
   }) => void;
+  
+  // حدث تحديث صوت الصفوف (Choir Effect)
+  sufoofSoundUpdated: (data: {
+    roomId: number;
+    audioUrl: string; // رابط الصوت الأصلي
+    choirAudioUrl: string; // رابط الصوت المعالج بتأثير الجوقة
+    userId: string;
+    username: string;
+    createdAt: string;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -475,4 +485,28 @@ export function emitPublicInviteExpired(invitationId: number): void {
 export function getOnlineUsersCount(): number {
   if (!io) return 0;
   return io.sockets.sockets.size;
+}
+
+
+/**
+ * بث تحديث صوت الصفوف (Choir Effect)
+ */
+export function emitSufoofSoundUpdated(
+  roomId: number,
+  audioUrl: string,
+  choirAudioUrl: string,
+  userId: string,
+  username: string,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("sufoofSoundUpdated", {
+    roomId,
+    audioUrl,
+    choirAudioUrl,
+    userId,
+    username,
+    createdAt: createdAt.toISOString(),
+  });
+  console.log(`[Socket.io] Sufoof sound updated in room ${roomId}`);
 }

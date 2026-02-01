@@ -81,6 +81,14 @@ export default function RoomScreen() {
   // إشعار التعليمات للمنشئ عند إنشاء أول ساحة
   // إشعار التعليمات للمنشئ (يظهر مرة واحدة فقط عند إنشاء أول ساحة)
   const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
+  // صوت الصفوف (Choir Effect) - يتحدث مع كل تسجيل طاروق جديد
+  const [sufoofSound, setSufoofSound] = useState<{
+    audioUrl: string; // رابط الصوت الأصلي
+    choirAudioUrl: string; // رابط الصوت المعالج بتأثير الجوقة
+    userId: string;
+    username: string;
+    createdAt: string;
+  } | null>(null);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -401,6 +409,17 @@ export default function RoomScreen() {
         // إيقاف الصوت القديم وتشغيل الجديد
         stopSheeloha();
         playSheeloha(data.audioUrl, data.clappingDelay);
+      },
+      // استقبال تحديث صوت الصفوف (Choir Effect)
+      onSufoofSoundUpdated: (data) => {
+        console.log("[RoomScreen] Sufoof sound updated via Socket.io:", data);
+        setSufoofSound({
+          audioUrl: data.audioUrl,
+          choirAudioUrl: data.choirAudioUrl,
+          userId: data.userId,
+          username: data.username,
+          createdAt: data.createdAt,
+        });
       },
     });
   }, [roomId, setCallbacks, stopSheeloha, playSheeloha]);

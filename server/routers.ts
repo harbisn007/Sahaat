@@ -22,7 +22,9 @@ import {
   getOnlineUsersCount,
   getActiveUsersCount,
   recordUserActivity,
+  emitSufoofSoundUpdated,
 } from "./_core/socket";
+import { processAndUploadChoirEffect } from "./choir-effect";
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -290,6 +292,7 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         const messageId = await db.addAudioMessage(input);
+        const now = new Date();
         
         // بث الرسالة الصوتية الجديدة لجميع المشاركين
         emitAudioMessageCreated(
@@ -300,8 +303,50 @@ export const appRouter = router({
           input.messageType,
           input.audioUrl,
           input.duration,
-          new Date()
+          now
         );
+        
+        // إذا كان التسجيل طاروق، قم بمعالجة صوت الصفوف (Choir Effect) في الخلفية
+        if (input.messageType === "tarouk") {
+          // معالجة في الخلفية بدون انتظار (للسرعة)
+          (async () => {
+            try {
+              console.log("[API] Processing choir effect for tarouk:", input.audioUrl);
+              
+              // دالة رفع الملف إلى S3
+              const { storagePut } = await import("./storage");
+              const uploadToS3 = async (base64Data: string, fileName: string) => {
+                const buffer = Buffer.from(base64Data, "base64");
+                const timestamp = Date.now();
+                const randomSuffix = Math.random().toString(36).substring(7);
+                const fileKey = `choir/${timestamp}-${randomSuffix}-${fileName}`;
+                return storagePut(fileKey, buffer, "audio/mp4");
+              };
+              
+              // تطبيق تأثير الجوقة ورفع النتيجة
+              const { url: choirAudioUrl } = await processAndUploadChoirEffect(
+                input.audioUrl,
+                uploadToS3
+              );
+              
+              console.log("[API] Choir effect processed:", choirAudioUrl);
+              
+              // بث تحديث صوت الصفوف لجميع المشاركين
+              emitSufoofSoundUpdated(
+                input.roomId,
+                input.audioUrl,
+                choirAudioUrl,
+                input.userId,
+                input.username,
+                now
+              );
+              
+            } catch (error) {
+              console.error("[API] Failed to process choir effect:", error);
+              // لا نرمي الخطأ - المعالجة اختيارية
+            }
+          })();
+        }
         
         return { messageId };
       }),
