@@ -23,6 +23,7 @@ import {
   getActiveUsersCount,
   recordUserActivity,
   emitSufoofSoundUpdated,
+  emitPlaySufoofSheeloha,
 } from "./_core/socket";
 import { processAndUploadChoirEffect } from "./choir-effect";
 
@@ -494,6 +495,37 @@ export const appRouter = router({
       .input(z.object({ roomId: z.number() }))
       .query(async ({ input }) => {
         return db.getRecentSheelohaBroadcasts(input.roomId, 10);
+      }),
+
+    // شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق عند الجميع
+    playSufoof: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          userId: z.string(),
+          username: z.string(),
+          choirAudioUrl: z.string(), // رابط صوت الصفوف المعالج
+          clappingDelay: z.number().min(0).max(1.5).default(0.5), // سرعة التصفيق
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          console.log("[API] Playing sufoof sheeloha:", input);
+          
+          // بث شيلوها الجديدة لجميع المشاركين
+          emitPlaySufoofSheeloha(
+            input.roomId,
+            input.choirAudioUrl,
+            input.clappingDelay,
+            input.userId,
+            input.username
+          );
+          
+          return { success: true };
+        } catch (error) {
+          console.error("[API] Failed to play sufoof sheeloha:", error);
+          throw new Error("فشل تشغيل شيلوها");
+        }
       }),
   }),
 

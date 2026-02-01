@@ -136,11 +136,12 @@ export function useSheelohaPlayer() {
       const interval = setInterval(playClap, delayMs);
       intervalsRef.current.push(interval);
       
-      // Stop clapping when voice ends
+      // Stop clapping 0.10 seconds before voice ends
+      const stopTime = Math.max(0, durationMs - 100); // 100ms = 0.10 seconds
       const timeout = setTimeout(() => {
         clearInterval(interval);
-        console.log("[useSheelohaPlayer] Clapping stopped");
-      }, durationMs);
+        console.log("[useSheelohaPlayer] Clapping stopped (0.10s before end)");
+      }, stopTime);
       timeoutsRef.current.push(timeout);
     } else {
       // Native: Use clapPlayer
@@ -161,11 +162,12 @@ export function useSheelohaPlayer() {
       const interval = setInterval(playClap, delayMs);
       intervalsRef.current.push(interval);
       
-      // Stop clapping when voice ends
+      // Stop clapping 0.10 seconds before voice ends
+      const stopTime = Math.max(0, durationMs - 100); // 100ms = 0.10 seconds
       const timeout = setTimeout(() => {
         clearInterval(interval);
-        console.log("[useSheelohaPlayer] Clapping stopped");
-      }, durationMs);
+        console.log("[useSheelohaPlayer] Clapping stopped (0.10s before end)");
+      }, stopTime);
       timeoutsRef.current.push(timeout);
     }
   }, [clapPlayer]);

@@ -343,6 +343,7 @@ export default function RoomScreen() {
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
   const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
+  const playSufoofMutation = trpc.sheeloha.playSufoof.useMutation();
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
 
@@ -420,6 +421,14 @@ export default function RoomScreen() {
           username: data.username,
           createdAt: data.createdAt,
         });
+      },
+      // استقبال شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق
+      onPlaySufoofSheeloha: (data) => {
+        console.log("[RoomScreen] Play sufoof sheeloha via Socket.io:", data);
+        // إيقاف أي شيلوها تعمل حالياً
+        stopSheeloha();
+        // تشغيل صوت الصفوف مع التصفيق
+        playSheeloha(data.choirAudioUrl, data.clappingDelay);
       },
     });
   }, [roomId, setCallbacks, stopSheeloha, playSheeloha]);
@@ -2080,13 +2089,42 @@ export default function RoomScreen() {
                     // ===== حدث جديد لزر شيلوها =====
                     console.log("[RoomScreen] Sheeloha button pressed - NEW EVENT");
                     
-                    // TODO: اكتب المنطق الجديد هنا
-                    // المتغيرات المتاحة:
-                    // - sufoofSound: صوت الصفوف المعالج (choirAudioUrl)
-                    // - lastTaroukUri: رابط آخر صوت طاروق
-                    // - clappingDelay: سرعة التصفيق من العجلة
-                    // - roomId, userId, username
+                    // التحقق من وجود صوت الصفوف
+                    if (!sufoofSound?.choirAudioUrl) {
+                      Alert.alert("تنبيه", "لا يوجد صوت صفوف متاح. سجل طاروق أولاً.");
+                      return;
+                    }
                     
+                    if (!username) {
+                      Alert.alert("خطأ", "يجب تسجيل الدخول");
+                      return;
+                    }
+                    
+                    try {
+                      // إيقاف أي صوت يعمل حالياً
+                      console.log("[RoomScreen] Stopping any playing audio...");
+                      stopTarouk();
+                      stop(); // إيقاف الرسائل الصوتية
+                      
+                      // بث شيلوها الجديدة للخادم - الخادم سيبث للجميع
+                      console.log("[RoomScreen] Sending playSufoof to server:", {
+                        choirAudioUrl: sufoofSound.choirAudioUrl,
+                        clappingDelay,
+                      });
+                      
+                      await playSufoofMutation.mutateAsync({
+                        roomId,
+                        userId,
+                        username,
+                        choirAudioUrl: sufoofSound.choirAudioUrl,
+                        clappingDelay,
+                      });
+                      
+                      console.log("[RoomScreen] Sheeloha sent to server successfully");
+                    } catch (error) {
+                      console.error("[RoomScreen] Failed to play sheeloha:", error);
+                      Alert.alert("خطأ", "فشل تشغيل شيلوها");
+                    }
                   }}
                   disabled={isSheelohaProcessing}
                 >

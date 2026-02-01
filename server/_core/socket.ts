@@ -126,6 +126,15 @@ export interface ServerToClientEvents {
     username: string;
     createdAt: string;
   }) => void;
+  
+  // حدث شيلوها الجديد - تشغيل صوت الصفوف مع التصفيق
+  playSufoofSheeloha: (data: {
+    roomId: number;
+    choirAudioUrl: string; // رابط صوت الصفوف المعالج
+    clappingDelay: number; // سرعة التصفيق من العجلة
+    userId: string;
+    username: string;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -509,4 +518,26 @@ export function emitSufoofSoundUpdated(
     createdAt: createdAt.toISOString(),
   });
   console.log(`[Socket.io] Sufoof sound updated in room ${roomId}`);
+}
+
+
+/**
+ * بث شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق عند الجميع
+ */
+export function emitPlaySufoofSheeloha(
+  roomId: number,
+  choirAudioUrl: string,
+  clappingDelay: number,
+  userId: string,
+  username: string
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("playSufoofSheeloha", {
+    roomId,
+    choirAudioUrl,
+    clappingDelay,
+    userId,
+    username,
+  });
+  console.log(`[Socket.io] Play sufoof sheeloha in room ${roomId}: ${choirAudioUrl}`);
 }

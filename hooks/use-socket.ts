@@ -70,6 +70,14 @@ interface ServerToClientEvents {
     username: string;
     createdAt: string;
   }) => void;
+  // حدث شيلوها الجديد - تشغيل صوت الصفوف مع التصفيق
+  playSufoofSheeloha: (data: {
+    roomId: number;
+    choirAudioUrl: string;
+    clappingDelay: number;
+    userId: string;
+    username: string;
+  }) => void;
 }
 
 interface ClientToServerEvents {
@@ -213,6 +221,12 @@ export function useSocket(roomId: number | null) {
       username: string;
       createdAt: string;
     }) => void;
+    onPlaySufoofSheeloha?: (data: {
+      choirAudioUrl: string;
+      clappingDelay: number;
+      userId: string;
+      username: string;
+    }) => void;
   }>({});
 
   // الاتصال والانضمام للساحة
@@ -318,6 +332,14 @@ export function useSocket(roomId: number | null) {
         socket.on("sufoofSoundUpdated", (data) => {
           if (data.roomId === roomId) {
             callbacksRef.current.onSufoofSoundUpdated?.(data);
+          }
+        });
+
+        // حدث شيلوها الجديد - تشغيل صوت الصفوف مع التصفيق
+        socket.on("playSufoofSheeloha", (data) => {
+          if (data.roomId === roomId) {
+            console.log("[Socket.io] Received playSufoofSheeloha:", data);
+            callbacksRef.current.onPlaySufoofSheeloha?.(data);
           }
         });
 
