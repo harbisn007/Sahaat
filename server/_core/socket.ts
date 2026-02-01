@@ -564,8 +564,23 @@ export function emitPlayAudioMessage(
   userId: string,
   username: string
 ): void {
-  if (!io) return;
-  io.to(`room:${roomId}`).emit("playAudioMessage", {
+  if (!io) {
+    console.error("[Socket.io] ERROR: io is null, cannot emit playAudioMessage");
+    return;
+  }
+  
+  const roomName = `room:${roomId}`;
+  const room = io.sockets.adapter.rooms.get(roomName);
+  const socketsInRoom = room ? room.size : 0;
+  
+  console.log(`[Socket.io] ========== EMITTING playAudioMessage ==========`);
+  console.log(`[Socket.io] Room: ${roomName}`);
+  console.log(`[Socket.io] Sockets in room: ${socketsInRoom}`);
+  console.log(`[Socket.io] Message type: ${messageType}`);
+  console.log(`[Socket.io] Audio URL: ${audioUrl}`);
+  console.log(`[Socket.io] User: ${username} (${userId})`);
+  
+  io.to(roomName).emit("playAudioMessage", {
     roomId,
     messageId,
     audioUrl,
@@ -573,5 +588,6 @@ export function emitPlayAudioMessage(
     userId,
     username,
   });
-  console.log(`[Socket.io] Play audio message in room ${roomId}: ${messageType} by ${username}`);
+  
+  console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets`);
 }

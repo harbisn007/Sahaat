@@ -422,9 +422,31 @@ export function useSocket(roomId: number | null) {
 
     return () => {
       mounted = false;
-      if (socketRef.current && roomId !== null) {
-        socketRef.current.emit("leaveRoom", roomId);
-        console.log("[Socket.io] Left room:", roomId);
+      if (socketRef.current) {
+        // إزالة جميع الـ listeners لمنع التراكم
+        socketRef.current.off("roomUpdated");
+        socketRef.current.off("roomDeleted");
+        socketRef.current.off("participantJoined");
+        socketRef.current.off("participantLeft");
+        socketRef.current.off("joinRequestCreated");
+        socketRef.current.off("joinRequestResponded");
+        socketRef.current.off("audioMessageCreated");
+        socketRef.current.off("reactionCreated");
+        socketRef.current.off("recordingStatusChanged");
+        socketRef.current.off("sheelohaBroadcast");
+        socketRef.current.off("khaloohaCommand");
+        socketRef.current.off("taroukControllerChanged");
+        socketRef.current.off("stopAndPlayNewSheeloha");
+        socketRef.current.off("sufoofSoundUpdated");
+        socketRef.current.off("playSufoofSheeloha");
+        socketRef.current.off("playAudioMessage");
+        socketRef.current.off("connect");
+        socketRef.current.off("disconnect");
+        
+        if (roomId !== null) {
+          socketRef.current.emit("leaveRoom", roomId);
+          console.log("[Socket.io] Left room and removed listeners:", roomId);
+        }
       }
     };
   }, [roomId]);
