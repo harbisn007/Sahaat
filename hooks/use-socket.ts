@@ -302,7 +302,13 @@ export function useSocket(roomId: number | null) {
         });
 
         socket.on("joinRequestCreated", (data) => {
+          console.log("[Socket.io] ========== RECEIVED joinRequestCreated ==========");
+          console.log("[Socket.io] Data:", JSON.stringify(data));
+          console.log("[Socket.io] Current roomId:", roomId);
+          console.log("[Socket.io] Match:", data.roomId === roomId);
+          
           if (data.roomId === roomId) {
+            console.log("[Socket.io] Calling onJoinRequestCreated callback...");
             callbacksRef.current.onJoinRequestCreated?.(data);
           }
         });
@@ -373,15 +379,36 @@ export function useSocket(roomId: number | null) {
 
         // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
         socket.on("playAudioMessage", (data) => {
+          console.log("[Socket.io] ========== RECEIVED playAudioMessage ==========");
+          console.log("[Socket.io] Data:", JSON.stringify(data));
+          console.log("[Socket.io] Current roomId:", roomId);
+          console.log("[Socket.io] Data roomId:", data.roomId);
+          console.log("[Socket.io] Match:", data.roomId === roomId);
+          console.log("[Socket.io] Callback exists:", !!callbacksRef.current.onPlayAudioMessage);
+          
           if (data.roomId === roomId) {
-            console.log("[Socket.io] Received playAudioMessage:", data);
+            console.log("[Socket.io] Calling onPlayAudioMessage callback...");
             callbacksRef.current.onPlayAudioMessage?.(data);
+            console.log("[Socket.io] Callback called successfully");
+          } else {
+            console.log("[Socket.io] Room ID mismatch, ignoring");
           }
         });
 
-        // مراقبة حالة الاتصال
-        socket.on("connect", () => setIsConnected(true));
-        socket.on("disconnect", () => setIsConnected(false));
+        // مراقبة حالة الاتصال وإعادة الانضمام للغرفة عند إعادة الاتصال
+        socket.on("connect", () => {
+          console.log("[Socket.io] Connected, rejoining room:", roomId);
+          setIsConnected(true);
+          // إعادة الانضمام للغرفة عند إعادة الاتصال
+          if (roomId) {
+            socket.emit("joinRoom", roomId);
+            console.log("[Socket.io] Rejoined room after reconnect:", roomId);
+          }
+        });
+        socket.on("disconnect", (reason) => {
+          console.log("[Socket.io] Disconnected, reason:", reason);
+          setIsConnected(false);
+        });
 
       } catch (error) {
         console.error("[Socket.io] Failed to connect:", error);

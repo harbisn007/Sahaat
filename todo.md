@@ -1749,3 +1749,9 @@
 - [x] إعادة كتابة use-audio-player.ts باستخدام createAudioPlayer
 - [x] إعادة كتابة use-tarouk-player.ts باستخدام createAudioPlayer
 - [x] إعادة كتابة use-sheeloha-player.ts باستخدام createAudioPlayer
+
+## مشاكل جديدة مبلغ عنها (1 فبراير 2026)
+- [x] Expo: الصوت المرسل يعمل لكن المستقبل لا يعمل - تم إصلاح إعادة الانضمام للغرفة عند إعادة الاتصال
+- [ ] Android APK: لا يعمل الصوت نهائياً - يحتاج اختبار بعد الإصلاحات
+- [x] طلبات الانضمام لا تظهر مباشرة - تم إصلاح إعادة الانضمام للغرفة
+- [x] إضافة رسائل تتبع مفصلة لـ playAudioMessage و joinRequestCreated
