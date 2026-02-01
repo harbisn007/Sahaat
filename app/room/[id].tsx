@@ -707,14 +707,15 @@ export default function RoomScreen() {
     }
   }, [lastTaroukUri, sufoofSound]);
 
-  // Track messages (old messages marked as played, new messages tracked for UI)
-  // Audio playback is handled via Socket.io from the server
+  // Track messages (old messages marked as played for UI tracking only)
+  // Audio playback is handled ONLY via Socket.io from the server (no local auto-play)
+  // This prevents double-play issue where Socket.io and local auto-play conflict
   useEffect(() => {
     if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
 
     const joinTime = joinedAt.getTime();
     
-    // Mark ALL old messages as played (before user joined)
+    // Mark ALL old messages as played (before user joined) - for UI tracking only
     const oldMessageIds: number[] = [];
     filteredAudioMessages.forEach(msg => {
       const messageTime = new Date(msg.createdAt).getTime();
@@ -723,35 +724,19 @@ export default function RoomScreen() {
       }
     });
     
-    // If there are old messages to mark, do it first and return
+    // Mark old messages as played (UI tracking only - no audio playback)
     if (oldMessageIds.length > 0) {
-      console.log("[RoomScreen] Marking old messages as played:", oldMessageIds);
+      console.log("[RoomScreen] Marking old messages as played (UI only):", oldMessageIds);
       setPlayedMessageIds(prev => {
         const newSet = new Set(prev);
         oldMessageIds.forEach(id => newSet.add(id));
         return newSet;
       });
-      return; // Exit and let the next effect run handle new messages
     }
-
-    // Find unplayed NEW messages (after user joined)
-    const unplayedNewMessages = filteredAudioMessages.filter(msg => {
-      const messageTime = new Date(msg.createdAt).getTime();
-      return messageTime >= joinTime && !playedMessageIds.has(msg.id);
-    });
-
-    if (unplayedNewMessages.length === 0) return;
-
-    // Play the first unplayed new message
-    const nextMessage = unplayedNewMessages[0];
-    console.log("[RoomScreen] Auto-playing new message:", {
-      id: nextMessage.id,
-      username: nextMessage.username,
-      messageType: nextMessage.messageType,
-    });
-    setPlayedMessageIds(prev => new Set(prev).add(nextMessage.id));
-    play(nextMessage.audioUrl);
-  }, [filteredAudioMessages, playedMessageIds, play, isJoinedAtLoaded, joinedAt]);
+    
+    // NOTE: Audio playback is handled via Socket.io onPlayAudioMessage callback
+    // No local auto-play here to prevent double-play conflicts
+  }, [filteredAudioMessages, playedMessageIds, isJoinedAtLoaded, joinedAt]);
 
   // Listen for sheeloha broadcasts and auto-play for ALL users
   const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());

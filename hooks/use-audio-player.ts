@@ -61,16 +61,10 @@ export function useAudioPlayerHook() {
     try {
       console.log("[useAudioPlayerHook] Play requested for:", uri.substring(0, 100));
       
-      // If same URI is already playing, stop it
+      // If same URI is already playing, ignore the request (don't stop it)
+      // This prevents double-play conflicts from Socket.io and local triggers
       if (currentUri === uri) {
-        console.log("[useAudioPlayerHook] Stopping current playback (same URI)");
-        if (Platform.OS === "web" && webAudioRef.current) {
-          webAudioRef.current.pause();
-          webAudioRef.current.currentTime = 0;
-        } else {
-          player.pause();
-        }
-        setCurrentUri(null);
+        console.log("[useAudioPlayerHook] Same URI already playing, ignoring request");
         return;
       }
 
