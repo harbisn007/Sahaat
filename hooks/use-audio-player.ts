@@ -1,88 +1,67 @@
-import { useState, useEffect, useRef } from "react";
-import { useAudioPlayer, useAudioPlayerStatus, AudioModule } from "expo-audio";
+import { useState, useRef, useCallback } from "react";
+import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { Platform } from "react-native";
 
+/**
+ * Hook لتشغيل الأصوات - يستخدم createAudioPlayer لتحكم أفضل
+ * 
+ * المشاكل التي تم حلها:
+ * 1. استخدام createAudioPlayer بدلاً من useAudioPlayer لتجنب مشاكل lifecycle
+ * 2. إنشاء player جديد لكل صوت بدلاً من replace
+ * 3. تنظيف الـ player القديم قبل إنشاء جديد
+ */
 export function useAudioPlayerHook() {
   const [currentUri, setCurrentUri] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<AudioPlayer | null>(null);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
-  
-  // Create a single player instance with empty source initially
-  const player = useAudioPlayer("");
-  const status = useAudioPlayerStatus(player);
 
-  // Initialize audio mode once on mount
-  useEffect(() => {
-    const initAudioMode = async () => {
-      try {
-        await AudioModule.setAudioModeAsync({
-          playsInSilentMode: true,
-          allowsRecording: false,
-        });
-        console.log("[useAudioPlayerHook] Audio mode initialized for playback");
-      } catch (error) {
-        console.error("[useAudioPlayerHook] Failed to set audio mode:", error);
-      }
-    };
-    
-    if (Platform.OS !== "web") {
-      initAudioMode();
-    }
-
-    // Cleanup player on unmount
-    return () => {
-      try {
-        if (Platform.OS !== "web") {
-          player.remove();
-        }
+  // تنظيف الـ player الحالي
+  const cleanup = useCallback(() => {
+    try {
+      if (Platform.OS === "web") {
         if (webAudioRef.current) {
           webAudioRef.current.pause();
           webAudioRef.current.src = "";
           webAudioRef.current = null;
         }
-      } catch (e) {
-        console.log("[useAudioPlayerHook] Cleanup error:", e);
+      } else {
+        if (playerRef.current) {
+          try {
+            playerRef.current.pause();
+            playerRef.current.release();
+          } catch (e) {
+            console.log("[useAudioPlayerHook] Cleanup error (ignored):", e);
+          }
+          playerRef.current = null;
+        }
       }
-    };
+    } catch (e) {
+      console.log("[useAudioPlayerHook] Cleanup error:", e);
+    }
   }, []);
 
-  // Auto-reset when playback finishes (native only)
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    
-    if (status.playing === false && status.currentTime > 0 && status.duration > 0) {
-      if (status.currentTime >= status.duration - 0.1) {
-        console.log("[useAudioPlayerHook] Playback finished, resetting");
-        setCurrentUri(null);
-      }
-    }
-  }, [status.playing, status.currentTime, status.duration]);
-
-  const play = async (uri: string) => {
+  const play = useCallback(async (uri: string) => {
     try {
-      console.log("[useAudioPlayerHook] Play requested for:", uri.substring(0, 100));
+      console.log("[useAudioPlayerHook] ========== PLAY REQUESTED ==========");
+      console.log("[useAudioPlayerHook] URI:", uri.substring(0, 100));
+      console.log("[useAudioPlayerHook] Platform:", Platform.OS);
       
-      // If same URI is already playing, ignore the request (don't stop it)
-      // This prevents double-play conflicts from Socket.io and local triggers
-      if (currentUri === uri) {
-        console.log("[useAudioPlayerHook] Same URI already playing, ignoring request");
+      // إذا كان نفس الـ URI يعمل حالياً، تجاهل الطلب
+      if (currentUri === uri && isPlaying) {
+        console.log("[useAudioPlayerHook] Same URI already playing, ignoring");
         return;
       }
 
-      // Stop current playback if different URI
-      if (currentUri) {
-        console.log("[useAudioPlayerHook] Stopping previous playback");
-        if (Platform.OS === "web" && webAudioRef.current) {
-          webAudioRef.current.pause();
-          webAudioRef.current.src = "";
-        } else {
-          player.pause();
-        }
-      }
+      // تنظيف أي تشغيل سابق
+      console.log("[useAudioPlayerHook] Cleaning up previous player...");
+      cleanup();
 
       setCurrentUri(uri);
+      setIsPlaying(true);
 
       if (Platform.OS === "web") {
-        // Web: Use HTML5 Audio
+        // ========== WEB: استخدام HTML5 Audio ==========
         console.log("[useAudioPlayerHook] Using Web Audio API");
         
         const audio = new Audio(uri);
@@ -92,70 +71,95 @@ export function useAudioPlayerHook() {
         audio.onended = () => {
           console.log("[useAudioPlayerHook] Web audio ended");
           setCurrentUri(null);
+          setIsPlaying(false);
         };
         
         audio.onerror = (e) => {
           console.error("[useAudioPlayerHook] Web audio error:", e);
           setCurrentUri(null);
+          setIsPlaying(false);
         };
         
         await audio.play();
-        console.log("[useAudioPlayerHook] Web audio playing");
+        console.log("[useAudioPlayerHook] Web audio playing successfully");
         
       } else {
-        // Native: Use expo-audio player with object format
-        console.log("[useAudioPlayerHook] Using expo-audio player");
+        // ========== NATIVE: استخدام expo-audio ==========
+        console.log("[useAudioPlayerHook] Using expo-audio (Native)");
         
-        // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
-        // This fixes the conflict with microphone initialization that sets allowsRecording: true
+        // 1. ضبط audio mode للتشغيل
         try {
+          console.log("[useAudioPlayerHook] Setting audio mode...");
           await AudioModule.setAudioModeAsync({
             playsInSilentMode: true,
             allowsRecording: false,
           });
-          console.log("[useAudioPlayerHook] Audio mode reset for playback");
+          console.log("[useAudioPlayerHook] Audio mode set successfully");
         } catch (e) {
-          console.warn("[useAudioPlayerHook] Failed to reset audio mode:", e);
+          console.warn("[useAudioPlayerHook] Failed to set audio mode:", e);
         }
         
-        // Replace the player source with object format { uri: uri }
-        console.log("[useAudioPlayerHook] Replacing player source with { uri }");
-        player.replace({ uri: uri });
+        // 2. إنشاء player جديد مع الـ URI مباشرة
+        console.log("[useAudioPlayerHook] Creating new AudioPlayer with URI...");
+        const newPlayer = createAudioPlayer(uri);
+        playerRef.current = newPlayer;
         
-        // Small delay to ensure source is loaded
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // 3. الاستماع لأحداث الـ player
+        newPlayer.addListener("playbackStatusUpdate", (status) => {
+          console.log("[useAudioPlayerHook] Status update:", {
+            isLoaded: status.isLoaded,
+            isPlaying: status.playing,
+            currentTime: status.currentTime,
+            duration: status.duration,
+          });
+          
+          // إذا انتهى التشغيل
+          if (status.isLoaded && !status.playing && status.currentTime > 0) {
+            if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
+              console.log("[useAudioPlayerHook] Playback finished");
+              setCurrentUri(null);
+              setIsPlaying(false);
+            }
+          }
+        });
         
-        // Start playback
-        console.log("[useAudioPlayerHook] Starting playback");
-        player.play();
+        // 4. انتظار تحميل الصوت
+        console.log("[useAudioPlayerHook] Waiting for audio to load...");
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        console.log("[useAudioPlayerHook] Playback command sent successfully");
+        // 5. التحقق من أن الـ player جاهز
+        if (!playerRef.current) {
+          console.error("[useAudioPlayerHook] Player was cleaned up before playback");
+          return;
+        }
+        
+        // 6. بدء التشغيل
+        console.log("[useAudioPlayerHook] Starting playback...");
+        newPlayer.play();
+        console.log("[useAudioPlayerHook] Play command sent!");
+        console.log("[useAudioPlayerHook] ========== PLAY COMPLETE ==========");
       }
     } catch (error) {
-      console.error("[useAudioPlayerHook] Failed to play audio:", error);
+      console.error("[useAudioPlayerHook] ========== PLAY ERROR ==========");
+      console.error("[useAudioPlayerHook] Error:", error);
       setCurrentUri(null);
+      setIsPlaying(false);
     }
-  };
+  }, [currentUri, isPlaying, cleanup]);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     try {
       console.log("[useAudioPlayerHook] Stop requested");
-      
-      if (Platform.OS === "web" && webAudioRef.current) {
-        webAudioRef.current.pause();
-        webAudioRef.current.currentTime = 0;
-      } else {
-        player.pause();
-      }
-      
+      cleanup();
       setCurrentUri(null);
+      setIsPlaying(false);
     } catch (error) {
       console.error("[useAudioPlayerHook] Failed to stop audio:", error);
     }
-  };
+  }, [cleanup]);
 
   return {
-    isPlaying: Platform.OS === "web" ? !!currentUri : status.playing,
+    isPlaying,
     currentUri,
     play,
     stop,

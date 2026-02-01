@@ -1741,3 +1741,11 @@
 
 ## إصلاح اتصال Socket.io على الهاتف
 - [x] تغيير عنوان Socket.io من localhost إلى العنوان العام (getApiBaseUrl)
+
+## إصلاح عدم عمل الصوت في Expo Go و APK (Android)
+- [x] مراجعة use-audio-player.ts
+- [x] إضافة رسائل تتبع مفصلة
+- [x] تحديد سبب عدم التشغيل (useAudioPlayer مع source فارغ)
+- [x] إعادة كتابة use-audio-player.ts باستخدام createAudioPlayer
+- [x] إعادة كتابة use-tarouk-player.ts باستخدام createAudioPlayer
+- [x] إعادة كتابة use-sheeloha-player.ts باستخدام createAudioPlayer

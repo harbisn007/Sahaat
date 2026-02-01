@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Platform } from "react-native";
-import { useAudioPlayer, useAudioPlayerStatus, AudioModule } from "expo-audio";
+import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { playWithTaroukEffects, playWithTaroukAndClapEffects, TAROUK_EFFECTS } from "@/lib/audio-effects";
 
 interface TaroukPlayerState {
@@ -9,6 +9,10 @@ interface TaroukPlayerState {
   isProcessing: boolean;
 }
 
+/**
+ * Hook لتشغيل الأصوات مع تأثيرات الطاروق
+ * تم إعادة كتابته باستخدام createAudioPlayer لتجنب مشاكل useAudioPlayer
+ */
 export function useTaroukPlayer() {
   const [state, setState] = useState<TaroukPlayerState>({
     isPlaying: false,
@@ -17,53 +21,24 @@ export function useTaroukPlayer() {
   });
 
   const [webStopFn, setWebStopFn] = useState<(() => void) | null>(null);
-  
-  // Native audio player with empty source initially
-  const nativePlayer = useAudioPlayer("");
-  const nativeStatus = useAudioPlayerStatus(nativePlayer);
+  const playerRef = useRef<AudioPlayer | null>(null);
 
-  // Initialize audio mode once on mount
-  useEffect(() => {
-    const initAudioMode = async () => {
-      try {
-        await AudioModule.setAudioModeAsync({
-          playsInSilentMode: true,
-          allowsRecording: false,
-        });
-        console.log("[useTaroukPlayer] Audio mode initialized");
-      } catch (error) {
-        console.error("[useTaroukPlayer] Failed to set audio mode:", error);
-      }
-    };
-    initAudioMode();
-
-    // Cleanup on unmount
-    return () => {
-      try {
-        if (Platform.OS !== "web") {
-          nativePlayer.remove();
+  // تنظيف الـ player الحالي
+  const cleanup = useCallback(() => {
+    try {
+      if (playerRef.current) {
+        try {
+          playerRef.current.pause();
+          playerRef.current.release();
+        } catch (e) {
+          console.log("[useTaroukPlayer] Cleanup error (ignored):", e);
         }
-      } catch (e) {
-        console.log("[useTaroukPlayer] Cleanup error:", e);
+        playerRef.current = null;
       }
-    };
-  }, []);
-
-  // Auto-reset when native playback finishes
-  useEffect(() => {
-    if (Platform.OS !== "web" && state.currentUri) {
-      if (nativeStatus.playing === false && nativeStatus.currentTime > 0 && nativeStatus.duration > 0) {
-        if (nativeStatus.currentTime >= nativeStatus.duration - 0.1) {
-          console.log("[useTaroukPlayer] Native playback finished");
-          setState({
-            isPlaying: false,
-            currentUri: null,
-            isProcessing: false,
-          });
-        }
-      }
+    } catch (e) {
+      console.log("[useTaroukPlayer] Cleanup error:", e);
     }
-  }, [nativeStatus.playing, nativeStatus.currentTime, nativeStatus.duration, state.currentUri]);
+  }, []);
 
   /**
    * Play audio with Tarouk effects AND clapping merged together
@@ -71,10 +46,15 @@ export function useTaroukPlayer() {
    * On native: Uses expo-audio (clapping handled separately in component)
    */
   const playTaroukWithClap = useCallback(async (audioUri: string, clapSoundUri: string) => {
-    console.log("[useTaroukPlayer] playTaroukWithClap called with URI:", audioUri.substring(0, 100));
+    console.log("[useTaroukPlayer] ========== playTaroukWithClap ==========");
+    console.log("[useTaroukPlayer] URI:", audioUri.substring(0, 100));
     
     // Stop any current playback
-    await stopTarouk();
+    if (webStopFn) {
+      webStopFn();
+      setWebStopFn(null);
+    }
+    cleanup();
 
     setState({
       isPlaying: false,
@@ -85,7 +65,6 @@ export function useTaroukPlayer() {
     try {
       if (Platform.OS === "web") {
         console.log("[useTaroukPlayer] Using Web Audio API with merged clapping");
-        // Web platform: Use Web Audio API with merged clapping
         const player = await playWithTaroukAndClapEffects(audioUri, clapSoundUri, () => {
           console.log("[useTaroukPlayer] Web playback finished");
           setState({
@@ -107,40 +86,54 @@ export function useTaroukPlayer() {
           throw new Error("Failed to create audio player");
         }
       } else {
-        console.log("[useTaroukPlayer] Using native expo-audio (clapping handled separately)");
-        // Native platform: Use expo-audio (clapping handled in component)
+        console.log("[useTaroukPlayer] Using native expo-audio");
         
-        // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
+        // 1. ضبط audio mode للتشغيل
         try {
           await AudioModule.setAudioModeAsync({
             playsInSilentMode: true,
             allowsRecording: false,
           });
-          console.log("[useTaroukPlayer] Audio mode reset for playback");
+          console.log("[useTaroukPlayer] Audio mode set");
         } catch (e) {
-          console.warn("[useTaroukPlayer] Failed to reset audio mode:", e);
+          console.warn("[useTaroukPlayer] Failed to set audio mode:", e);
         }
         
-        // Replace the player source with object format { uri }
-        console.log("[useTaroukPlayer] Replacing player source");
-        nativePlayer.replace({ uri: audioUri });
+        // 2. إنشاء player جديد
+        console.log("[useTaroukPlayer] Creating new AudioPlayer...");
+        const newPlayer = createAudioPlayer(audioUri);
+        playerRef.current = newPlayer;
         
-        // Wait for player to be ready
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // 3. الاستماع لأحداث الـ player
+        newPlayer.addListener("playbackStatusUpdate", (status) => {
+          if (status.isLoaded && !status.playing && status.currentTime > 0) {
+            if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
+              console.log("[useTaroukPlayer] Native playback finished");
+              setState({
+                isPlaying: false,
+                currentUri: null,
+                isProcessing: false,
+              });
+            }
+          }
+        });
         
-        // Set playback rate for speed effect (if supported)
+        // 4. انتظار تحميل الصوت
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 5. ضبط سرعة التشغيل (تأثير الطاروق)
         try {
-          if (typeof nativePlayer.setPlaybackRate === 'function') {
-            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
+          if (typeof newPlayer.setPlaybackRate === 'function') {
+            newPlayer.setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
             console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.pitch.playbackRate);
           }
         } catch (e) {
           console.warn("[useTaroukPlayer] setPlaybackRate not supported:", e);
         }
 
-        // Start playback
-        console.log("[useTaroukPlayer] Starting native playback");
-        nativePlayer.play();
+        // 6. بدء التشغيل
+        console.log("[useTaroukPlayer] Starting playback...");
+        newPlayer.play();
 
         setState({
           isPlaying: true,
@@ -148,17 +141,17 @@ export function useTaroukPlayer() {
           isProcessing: false,
         });
         
-        console.log("[useTaroukPlayer] Native playback started successfully");
+        console.log("[useTaroukPlayer] Playback started successfully");
       }
     } catch (error) {
-      console.error("[useTaroukPlayer] Failed to play Tarouk audio:", error);
+      console.error("[useTaroukPlayer] Failed to play:", error);
       setState({
         isPlaying: false,
         currentUri: null,
         isProcessing: false,
       });
     }
-  }, [nativePlayer]);
+  }, [webStopFn, cleanup]);
 
   /**
    * Play audio with Tarouk effects (chorus + slow down)
@@ -166,10 +159,15 @@ export function useTaroukPlayer() {
    * On native: Uses expo-audio with playback rate adjustment
    */
   const playTarouk = useCallback(async (audioUri: string) => {
-    console.log("[useTaroukPlayer] playTarouk called with URI:", audioUri.substring(0, 100));
+    console.log("[useTaroukPlayer] ========== playTarouk ==========");
+    console.log("[useTaroukPlayer] URI:", audioUri.substring(0, 100));
     
     // Stop any current playback
-    await stopTarouk();
+    if (webStopFn) {
+      webStopFn();
+      setWebStopFn(null);
+    }
+    cleanup();
 
     setState({
       isPlaying: false,
@@ -180,7 +178,6 @@ export function useTaroukPlayer() {
     try {
       if (Platform.OS === "web") {
         console.log("[useTaroukPlayer] Using Web Audio API");
-        // Web platform: Use Web Audio API with full effects
         const player = await playWithTaroukEffects(audioUri, () => {
           console.log("[useTaroukPlayer] Web playback finished");
           setState({
@@ -203,40 +200,53 @@ export function useTaroukPlayer() {
         }
       } else {
         console.log("[useTaroukPlayer] Using native expo-audio");
-        // Native platform: Use expo-audio with playback rate
         
-        // IMPORTANT: Reset audio mode before playback to ensure allowsRecording is false
+        // 1. ضبط audio mode للتشغيل
         try {
           await AudioModule.setAudioModeAsync({
             playsInSilentMode: true,
             allowsRecording: false,
           });
-          console.log("[useTaroukPlayer] Audio mode reset for playback");
+          console.log("[useTaroukPlayer] Audio mode set");
         } catch (e) {
-          console.warn("[useTaroukPlayer] Failed to reset audio mode:", e);
+          console.warn("[useTaroukPlayer] Failed to set audio mode:", e);
         }
         
-        // Replace the player source with object format { uri }
-        console.log("[useTaroukPlayer] Replacing player source");
-        nativePlayer.replace({ uri: audioUri });
+        // 2. إنشاء player جديد
+        console.log("[useTaroukPlayer] Creating new AudioPlayer...");
+        const newPlayer = createAudioPlayer(audioUri);
+        playerRef.current = newPlayer;
         
-        // Wait for player to be ready
-        await new Promise(resolve => setTimeout(resolve, 200));
+        // 3. الاستماع لأحداث الـ player
+        newPlayer.addListener("playbackStatusUpdate", (status) => {
+          if (status.isLoaded && !status.playing && status.currentTime > 0) {
+            if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
+              console.log("[useTaroukPlayer] Native playback finished");
+              setState({
+                isPlaying: false,
+                currentUri: null,
+                isProcessing: false,
+              });
+            }
+          }
+        });
         
-        // Set playback rate for speed effect (if supported)
+        // 4. انتظار تحميل الصوت
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 5. ضبط سرعة التشغيل (تأثير الطاروق)
         try {
-          // Note: setPlaybackRate might not be available on all platforms
-          if (typeof nativePlayer.setPlaybackRate === 'function') {
-            nativePlayer.setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
+          if (typeof newPlayer.setPlaybackRate === 'function') {
+            newPlayer.setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
             console.log("[useTaroukPlayer] Playback rate set to", TAROUK_EFFECTS.pitch.playbackRate);
           }
         } catch (e) {
           console.warn("[useTaroukPlayer] setPlaybackRate not supported:", e);
         }
 
-        // Start playback
-        console.log("[useTaroukPlayer] Starting native playback");
-        nativePlayer.play();
+        // 6. بدء التشغيل
+        console.log("[useTaroukPlayer] Starting playback...");
+        newPlayer.play();
 
         setState({
           isPlaying: true,
@@ -244,17 +254,17 @@ export function useTaroukPlayer() {
           isProcessing: false,
         });
         
-        console.log("[useTaroukPlayer] Native playback started successfully");
+        console.log("[useTaroukPlayer] Playback started successfully");
       }
     } catch (error) {
-      console.error("[useTaroukPlayer] Failed to play Tarouk audio:", error);
+      console.error("[useTaroukPlayer] Failed to play:", error);
       setState({
         isPlaying: false,
         currentUri: null,
         isProcessing: false,
       });
     }
-  }, [nativePlayer]);
+  }, [webStopFn, cleanup]);
 
   /**
    * Stop current Tarouk playback
@@ -267,21 +277,14 @@ export function useTaroukPlayer() {
       setWebStopFn(null);
     }
 
-    if (state.currentUri && Platform.OS !== "web") {
-      try {
-        nativePlayer.pause();
-        console.log("[useTaroukPlayer] Native playback paused");
-      } catch (e) {
-        console.warn("[useTaroukPlayer] Error pausing native player:", e);
-      }
-    }
+    cleanup();
 
     setState({
       isPlaying: false,
       currentUri: null,
       isProcessing: false,
     });
-  }, [webStopFn, state.currentUri, nativePlayer]);
+  }, [webStopFn, cleanup]);
 
   return {
     isPlaying: state.isPlaying,
