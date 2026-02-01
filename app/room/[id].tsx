@@ -866,9 +866,13 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Role:", newRole, "Status:", participant.status, "Approved:", newApproved);
       } else {
         // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
-        // إذا كان لديه دور سابق (ليس null) وليس المنشئ، فهذا يعني أنه تم استبعاده
-        if (userRole && userRole !== "creator") {
+        // إذا كان لديه دور سابق (ليس null) وليس المنشئ وكان مقبولاً، فهذا يعني أنه تم استبعاده
+        // إذا لم يكن مقبولاً (طلب معلق)، فهذا يعني أنه خرج بنفسه أو رُفض طلبه
+        if (userRole && userRole !== "creator" && isApproved) {
           console.log("[RoomScreen] User was kicked from the room");
+          // إعادة ضبط الحالة لمنع التكرار
+          setUserRole(null);
+          setIsApproved(false);
           Alert.alert(
             "تم استبعادك",
             "تم استبعادك من الساحة بواسطة المنشئ",
@@ -2427,7 +2431,7 @@ export default function RoomScreen() {
                     backgroundColor="#5D4037"
                     recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
                     iconComponent={
-                      <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#FFD700" />
+                      <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#EF4444" />
                     }
                     label=""
                     showLabel={false}

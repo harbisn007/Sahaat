@@ -42,16 +42,16 @@ function SaduBanner() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentBannerIndex((prevIndex) => (prevIndex + 1) % banners.length);
-    }, 30000); // تبديل كل 30 ثانية
+    }, 20000); // تبديل كل 20 ثانية
 
     return () => clearInterval(interval);
   }, []);
 
   return (
-    <View style={{ width: '100%', height: 60, marginVertical: 4 }}>
+    <View style={{ width: '103%', height: 60, marginVertical: 4, alignSelf: 'center' }}>
       <Image
         source={banners[currentBannerIndex]}
-        style={{ width: '100%', height: 60 }}
+        style={{ width: '100%', height: 60, borderRadius: 8 }}
         resizeMode="cover"
       />
     </View>
@@ -408,7 +408,7 @@ export default function HomeScreen() {
         // تسجيل أنه تم إنشاء timer لهذه الدعوة
         timerCreatedRef.current.add(invite.id);
         
-        console.log(`[Invite] Setting 4s timer for invite ${invite.id}`);
+        console.log(`[Invite] Setting 15s timer for invite ${invite.id}`);
         
         setTimeout(async () => {
           try {
@@ -422,7 +422,7 @@ export default function HomeScreen() {
           } catch (error) {
             console.error("Failed to expire invite:", error);
           }
-        }, 4000);
+        }, 15000);
       });
     }
   }, [displayedInvites]);
@@ -475,7 +475,12 @@ export default function HomeScreen() {
         avatar: avatar || "male",
       });
 
-      router.push(`/room/${roomId}`);
+      // إظهار رسالة للمستخدم أن طلبه قيد الانتظار - لا يدخل كمستمع
+      Alert.alert(
+        "تم إرسال الطلب",
+        "طلبك قيد الانتظار. سيتم إشعارك عند قبول المنشئ لطلبك."
+      );
+      // البقاء في صفحة الساحات - لا ننتقل للساحة
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام");
     }
@@ -498,7 +503,7 @@ export default function HomeScreen() {
     }
   };
 
-  // الانضمام عبر الدعوة العامة (يرسل طلب انضمام كلاعب)
+  // الانضمام عبر الدعوة العامة (يرسل طلب انضمام كلاعب ويبقى في صفحة الساحات)
   const handleJoinFromInvite = async (invite: PublicInvitation) => {
     if (!username || !userId) {
       Alert.alert("خطأ", "يرجى تسجيل الدخول أولاً");
@@ -514,15 +519,12 @@ export default function HomeScreen() {
         avatar: avatar || "male",
       });
       
-      // الانتقال للساحة كمشاهد (سيتم ترقيته للاعب عند القبول)
-      await joinAsViewerMutation.mutateAsync({
-        roomId: invite.roomId,
-        userId,
-        username,
-        avatar: avatar || "male",
-      });
-      
-      router.push(`/room/${invite.roomId}`);
+      // إظهار رسالة للمستخدم أن طلبه قيد الانتظار - لا يدخل كمستمع
+      Alert.alert(
+        "تم إرسال الطلب",
+        "طلبك قيد الانتظار. سيتم إشعارك عند قبول المنشئ لطلبك."
+      );
+      // البقاء في صفحة الساحات - لا ننتقل للساحة
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام");
     }
@@ -672,13 +674,7 @@ export default function HomeScreen() {
                   currentUserId={userId}
                 />
               ))
-            ) : (
-              <View style={{ alignItems: 'center', paddingTop: 20 }}>
-                <Text style={{ color: '#9CA3AF', fontSize: 11, textAlign: 'center' }}>
-                  لا توجد دعوات حالياً
-                </Text>
-              </View>
-            )}
+            ) : null}
             </ScrollView>
           </View>
         </View>
