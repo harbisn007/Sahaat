@@ -373,10 +373,10 @@ export default function RoomScreen() {
     performAutoJoin();
   }, [autoJoin, username, userId, roomData, avatar, roomId, joinAsViewerMutation, refetch]);
 
-  // جلب طلبات الانضمام - جلب أولي فقط، التحديثات عبر Socket.io
+  // جلب طلبات الانضمام - polling كل 3 ثواني + Socket.io للتحديثات الفورية
   const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
     { roomId },
-    { enabled: roomId > 0, refetchInterval: false } // إيقاف polling - Socket.io يحدث فورياً
+    { enabled: roomId > 0, refetchInterval: 3000 } // polling كل 3 ثواني كـ fallback
   );
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
@@ -929,10 +929,10 @@ export default function RoomScreen() {
   const isRoomCreator = roomData?.creatorId === userId;
   console.log("[RoomScreen] isRoomCreator check:", { creatorId: roomData?.creatorId, userId, isRoomCreator, roomId });
   
-  // جلب طلبات الانضمام - جلب أولي فقط، التحديثات عبر Socket.io
+  // جلب طلبات الانضمام - polling كل 3 ثواني + Socket.io للتحديثات الفورية
   const { data: serverJoinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
     { roomId },
-    { enabled: isRoomCreator && roomId > 0, refetchInterval: false } // إيقاف polling - Socket.io يحدث فورياً
+    { enabled: isRoomCreator && roomId > 0, refetchInterval: 3000 } // polling كل 3 ثواني كـ fallback
   );
   
   // دمج طلبات الانضمام من الخادم وSocket.io (بدون تكرار)
