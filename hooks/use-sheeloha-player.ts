@@ -10,8 +10,11 @@ import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
  */
 export type ClappingDelay = number;
 
-// Clapping sound asset - local file (أربع تصفيقات قصيرة)
-const CLAP_SOUND_URI = require("@/assets/sounds/sheeloha-claps.mp3");
+// ملف التصفيقة الواحدة القصيرة - للتصفيق المتكرر
+const SINGLE_CLAP_URI = require("@/assets/sounds/single-clap-short.mp3");
+
+// ملف الأربع تصفيقات - للنهاية فقط
+const END_CLAPS_URI = require("@/assets/sounds/sheeloha-claps.mp3");
 
 /**
  * Sheeloha Effect Configuration - Natural Chorus
@@ -32,8 +35,8 @@ const SHEELOHA_CONFIG = {
     { delay: 100, volume: 0.45, pan: -0.6 },   // نسخة 4: بعيد - يسار
     { delay: 100, volume: 0.45, pan: 0.6 },    // نسخة 5: بعيد - يمين
   ],
-  repeatingClapVolume: 0.40, // مستوى صوت التصفيق المتكرر 40%
-  endClapVolume: 0.35, // مستوى صوت التصفيق عند النهاية 35%
+  repeatingClapVolume: 0.50, // مستوى صوت التصفيق المتكرر 50%
+  endClapVolume: 0.40, // مستوى صوت التصفيق عند النهاية 40%
 };
 
 interface SheelohaPlayerState {
@@ -55,7 +58,7 @@ export function useSheelohaPlayer() {
 
   // Store players for cleanup
   const playersRef = useRef<AudioPlayer[]>([]);
-  const clapPlayerRef = useRef<AudioPlayer | null>(null);
+  const repeatingClapPlayerRef = useRef<AudioPlayer | null>(null);
   const endClapPlayerRef = useRef<AudioPlayer | null>(null);
   
   // Store timeouts and intervals for cleanup
@@ -81,14 +84,14 @@ export function useSheelohaPlayer() {
     });
     playersRef.current = [];
     
-    if (clapPlayerRef.current) {
+    if (repeatingClapPlayerRef.current) {
       try {
-        clapPlayerRef.current.pause();
-        clapPlayerRef.current.release();
+        repeatingClapPlayerRef.current.pause();
+        repeatingClapPlayerRef.current.release();
       } catch (e) {
         // Ignore
       }
-      clapPlayerRef.current = null;
+      repeatingClapPlayerRef.current = null;
     }
     
     if (endClapPlayerRef.current) {
@@ -155,9 +158,9 @@ export function useSheelohaPlayer() {
     console.log(`[useSheelohaPlayer] Starting repeating clapping: delay=${delayMs}ms, duration=${durationMs}ms`);
     
     if (Platform.OS === "web") {
-      // Web: Create audio elements for clapping
+      // Web: Create audio elements for clapping (single clap file)
       const playClap = () => {
-        const clapAudio = new Audio("/sounds/sheeloha-claps.mp3");
+        const clapAudio = new Audio("/sounds/single-clap-short.mp3");
         clapAudio.volume = SHEELOHA_CONFIG.repeatingClapVolume;
         clapAudio.play().catch(console.warn);
         webAudioRef.current.push(clapAudio);
@@ -178,17 +181,17 @@ export function useSheelohaPlayer() {
       }, stopTime);
       timeoutsRef.current.push(timeout);
     } else {
-      // Native: Create clap player
+      // Native: Create clap player with single clap sound
       try {
-        const clapPlayer = createAudioPlayer(CLAP_SOUND_URI);
-        clapPlayerRef.current = clapPlayer;
+        const clapPlayer = createAudioPlayer(SINGLE_CLAP_URI);
+        repeatingClapPlayerRef.current = clapPlayer;
         clapPlayer.volume = SHEELOHA_CONFIG.repeatingClapVolume;
         
         const playClap = () => {
           try {
-            if (clapPlayerRef.current && !isReleasedRef.current) {
-              clapPlayerRef.current.seekTo(0);
-              clapPlayerRef.current.play();
+            if (repeatingClapPlayerRef.current && !isReleasedRef.current) {
+              repeatingClapPlayerRef.current.seekTo(0);
+              repeatingClapPlayerRef.current.play();
             }
           } catch (e) {
             console.warn("[useSheelohaPlayer] Failed to play clap:", e);
@@ -219,14 +222,15 @@ export function useSheelohaPlayer() {
   }, []);
 
   /**
-   * Play clapping sound ONCE at the end
-   * @param durationMs - When to play the clap (at the end of voices)
+   * Play 4 claps at the end of the audio
+   * يستخدم ملف الأربع تصفيقات (sheeloha-claps.mp3)
+   * @param durationMs - When to play the claps (near the end of voices)
    */
-  const playEndClap = useCallback(async (durationMs: number) => {
-    console.log(`[useSheelohaPlayer] Will play end clap at ${durationMs}ms`);
+  const playEndClaps = useCallback(async (durationMs: number) => {
+    console.log(`[useSheelohaPlayer] Will play end claps at ${durationMs}ms`);
     
     const timeout = setTimeout(async () => {
-      console.log("[useSheelohaPlayer] Playing end clap NOW");
+      console.log("[useSheelohaPlayer] Playing end claps NOW (4 claps)");
       
       if (Platform.OS === "web") {
         const clapAudio = new Audio("/sounds/sheeloha-claps.mp3");
@@ -236,17 +240,17 @@ export function useSheelohaPlayer() {
       } else {
         try {
           if (!isReleasedRef.current) {
-            const endClapPlayer = createAudioPlayer(CLAP_SOUND_URI);
+            const endClapPlayer = createAudioPlayer(END_CLAPS_URI);
             endClapPlayerRef.current = endClapPlayer;
             endClapPlayer.volume = SHEELOHA_CONFIG.endClapVolume;
             
             // Wait for clap to load
             await new Promise(resolve => setTimeout(resolve, 100));
             endClapPlayer.play();
-            console.log("[useSheelohaPlayer] End clap played");
+            console.log("[useSheelohaPlayer] End claps played (4 claps)");
           }
         } catch (e) {
-          console.warn("[useSheelohaPlayer] Failed to play end clap:", e);
+          console.warn("[useSheelohaPlayer] Failed to play end claps:", e);
         }
       }
     }, durationMs);
@@ -299,24 +303,24 @@ export function useSheelohaPlayer() {
         timeoutsRef.current.push(timeout);
       });
       
-      // Start repeating clapping based on wheel speed
+      // Start repeating clapping based on wheel speed (single clap file)
       startRepeatingClap(clappingDelay, durationMs);
       
-      // Play clap ONCE at the end of voices
-      playEndClap(durationMs - 200); // قبل نهاية الصوت بـ 200ms
+      // Play 4 claps at the end (end claps file)
+      playEndClaps(durationMs - 200); // قبل نهاية الصوت بـ 200ms
       
       // End after voice finishes
       const endTimeout = setTimeout(() => {
         setState({ isPlaying: false, isProcessing: false });
         console.log("[useSheelohaPlayer] Playback complete");
-      }, totalDuration + 1000); // إضافة وقت للتصفيق
+      }, totalDuration + 1500); // إضافة وقت للتصفيق النهائي
       timeoutsRef.current.push(endTimeout);
       
     } catch (error) {
       console.error("[useSheelohaPlayer] Web playback error:", error);
       setState({ isPlaying: false, isProcessing: false });
     }
-  }, [startRepeatingClap, playEndClap]);
+  }, [startRepeatingClap, playEndClaps]);
 
   /**
    * Play on Native using expo-audio - Natural Chorus Effect
@@ -387,18 +391,18 @@ export function useSheelohaPlayer() {
         timeoutsRef.current.push(timeout);
       });
       
-      // 6. تشغيل التصفيق المتكرر حسب سرعة العجلة
+      // 6. تشغيل التصفيق المتكرر حسب سرعة العجلة (ملف التصفيقة الواحدة)
       startRepeatingClap(clappingDelay, durationMs);
       
-      // 7. تشغيل التصفيق مرة واحدة عند نهاية الصوت
-      playEndClap(durationMs - 200); // قبل نهاية الصوت بـ 200ms
+      // 7. تشغيل 4 تصفيقات عند نهاية الصوت (ملف الأربع تصفيقات)
+      playEndClaps(durationMs - 200); // قبل نهاية الصوت بـ 200ms
       
       // 8. إنهاء بعد انتهاء الصوت والتصفيق
       const endTimeout = setTimeout(() => {
         setState({ isPlaying: false, isProcessing: false });
         cleanupPlayers();
         console.log("[useSheelohaPlayer] Playback complete");
-      }, totalDuration + 1000); // إضافة وقت للتصفيق
+      }, totalDuration + 1500); // إضافة وقت للتصفيق النهائي
       timeoutsRef.current.push(endTimeout);
       
     } catch (error) {
@@ -406,7 +410,7 @@ export function useSheelohaPlayer() {
       setState({ isPlaying: false, isProcessing: false });
       cleanupPlayers();
     }
-  }, [startRepeatingClap, playEndClap, cleanupPlayers]);
+  }, [startRepeatingClap, playEndClaps, cleanupPlayers]);
 
   /**
    * Main play function
