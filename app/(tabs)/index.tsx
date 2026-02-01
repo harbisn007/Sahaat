@@ -293,8 +293,15 @@ export default function HomeScreen() {
   );
   const rooms = top10Rooms || [];
   
-  // عدد المتواجدين الآن (يتحدث فورياً عبر Socket.io)
-  const [onlineCount, setOnlineCount] = useState(0);
+  // عدد المتواجدين الآن (يتحدث فورياً عبر tRPC polling)
+  const { data: onlineCountData } = trpc.stats.onlineCount.useQuery(
+    undefined,
+    { refetchInterval: 3000 } // تحديث كل 3 ثواني
+  );
+  const onlineCount = onlineCountData?.count ?? 0;
+  
+  // Heartbeat لتسجيل نشاط المستخدم
+  const heartbeatMutation = trpc.stats.heartbeat.useMutation();
   
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery(
     { creatorId: userId },
@@ -332,8 +339,6 @@ export default function HomeScreen() {
     socket.on("connect", () => {
       console.log("[Socket] Connected to public invites channel");
       socket.emit("joinPublicInvites");
-      // طلب عدد المتواجدين عند الاتصال
-      socket.emit("requestOnlineCount");
     });
     
     // الاستماع للدعوات الجديدة
@@ -346,18 +351,28 @@ export default function HomeScreen() {
       console.log("[Socket] Public invite expired:", data);
       refetch();
     });
-    
-    // الاستماع لتحديث عدد المتواجدين فورياً
-    socket.on("onlineCountUpdated", (data: { count: number }) => {
-      console.log("[Socket] Online count updated:", data.count);
-      setOnlineCount(data.count);
-    });
+
     
     return () => {
       socket.emit("leavePublicInvites");
       socket.disconnect();
     };
   }, []);
+
+  // Heartbeat لتسجيل نشاط المستخدم كل 30 ثانية
+  useEffect(() => {
+    if (!userId) return;
+    
+    // إرسال heartbeat فوراً عند الدخول
+    heartbeatMutation.mutate({ userId });
+    
+    // إرسال heartbeat كل 30 ثانية
+    const interval = setInterval(() => {
+      heartbeatMutation.mutate({ userId });
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, [userId]);
 
   // تحديث الدعوات من البيانات
   useEffect(() => {
