@@ -16,6 +16,7 @@ import {
   emitRecordingStatusChanged,
   emitSheelohaBroadcast,
   emitKhaloohaCommand,
+  emitStopAndPlayNewSheeloha,
   emitPublicInviteCreated,
   emitPublicInviteExpired,
   getOnlineUsersCount,
@@ -428,14 +429,12 @@ export const appRouter = router({
           const broadcastId = await db.createSheelohaBroadcast(input);
           console.log("[API] Sheeloha broadcast created with ID:", broadcastId);
           
-          // بث شيلوها لجميع المشاركين
-          emitSheelohaBroadcast(
+          // بث إيقاف الصوت القديم وتشغيل الجديد لجميع المشاركين
+          emitStopAndPlayNewSheeloha(
             input.roomId,
             input.userId,
-            input.username,
             input.audioUrl,
-            input.clappingDelay,
-            new Date()
+            input.clappingDelay
           );
           
           return { broadcastId };

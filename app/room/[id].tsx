@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -79,7 +79,8 @@ export default function RoomScreen() {
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
   const [lastPublicInviteTime, setLastPublicInviteTime] = useState<number | null>(null);
   // إشعار التعليمات للمنشئ عند إنشاء أول ساحة
-  const [showCreatorInstructions, setShowCreatorInstructions] = useState(false);
+  // إشعار التعليمات للمنشئ (يظهر مرة واحدة فقط عند إنشاء أول ساحة)
+  const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -785,23 +786,19 @@ export default function RoomScreen() {
     }
   }, [roomData, username, userRole, isApproved]);
 
-  // عرض إشعار التعليمات للمنشئ عند إنشاء أول ساحة
+  // عرض إشعار التعليمات للمنشئ عند إنشاء أول ساحة (مرة واحدة فقط)
   useEffect(() => {
     const checkFirstRoom = async () => {
       if (userRole === "creator" && roomData) {
-        const hasSeenInstructions = await AsyncStorage.getItem(`creator_instructions_seen_${roomId}`);
-        if (!hasSeenInstructions) {
-          setShowCreatorInstructions(true);
-          await AsyncStorage.setItem(`creator_instructions_seen_${roomId}`, 'true');
-          // إخفاء الإشعار بعد 10 ثواني
-          setTimeout(() => {
-            setShowCreatorInstructions(false);
-          }, 10000);
+        const tutorialShown = await AsyncStorage.getItem('creator_tutorial_shown');
+        if (tutorialShown !== 'true') {
+          setShowCreatorTutorial(true);
+          await AsyncStorage.setItem('creator_tutorial_shown', 'true');
         }
       }
     };
     checkFirstRoom();
-  }, [userRole, roomData, roomId]);
+  }, [userRole, roomData]);
 
   // Kick player mutation (creator only)
   const kickPlayerMutation = trpc.kick.player.useMutation({
@@ -1640,34 +1637,62 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* إشعار التعليمات للمنشئ */}
-      {showCreatorInstructions && (
-        <View style={{
-          backgroundColor: 'rgba(34, 197, 94, 0.15)',
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(34, 197, 94, 0.3)',
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-        }}>
-          <Text style={{
-            color: '#000000',
-            fontSize: 16,
-            fontWeight: '600',
-            textAlign: 'left',
-            marginBottom: 4,
+      {/* إشعار التعليمات للمنشئ - يظهر مرة واحدة فقط عند إنشاء أول ساحة */}
+      <Modal
+        visible={showCreatorTutorial}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCreatorTutorial(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            padding: 20,
+          }}
+          onPress={() => setShowCreatorTutorial(false)}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderWidth: 2,
+            borderColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 20,
+            maxWidth: 350,
+            width: '100%',
           }}>
-            مرحباً بك في ساحتك!
-          </Text>
-          <Text style={{
-            color: '#000000',
-            fontSize: 17,
-            textAlign: 'left',
-            lineHeight: 24,
-          }}>
-            انتظر انضمام اللاعبين، ثم اختر من يبدأ اللحن واضبط سرعة التصفيق من عجلة التحكم.
-          </Text>
-        </View>
-      )}
+            <Text style={{
+              color: '#000000',
+              fontSize: 17,
+              fontWeight: 'bold',
+              marginBottom: 12,
+              textAlign: 'right',
+            }}>
+              للحصول على افضل تجربة استخدام :
+            </Text>
+            <Text style={{
+              color: '#000000',
+              fontSize: 16,
+              lineHeight: 26,
+              textAlign: 'right',
+            }}>
+              عند بداية كل طاروق قم بتحديد من يبدا الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
+              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء اللحن بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن. ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}{"\n"}
+              للمحادثات الجانبية او للموال استخدم زر تعليق/موال.
+            </Text>
+            <Text style={{
+              color: '#9CA3AF',
+              fontSize: 14,
+              marginTop: 16,
+              textAlign: 'center',
+            }}>
+              انقر للإغلاق
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
       {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
@@ -2046,30 +2071,20 @@ export default function RoomScreen() {
                   }
                   
                   try {
-                    // إيقاف الصوت القديم إذا كان يشتغل
-                    if (isSheelohaPlaying) {
-                      console.log("[RoomScreen] Stopping previous sheeloha before playing new one");
-                      stopSheeloha();
-                    }
-                    
-                    // Stop tarouk sound first before playing sheeloha
+                    // إيقاف صوت الطاروق أولاً
                     console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
                     stopTarouk();
                     
-                    console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
-                    // Play sheeloha effect immediately with selected clapping delay
-                    playSheeloha(lastTaroukUri!, clappingDelay);
-                    
-                    // Also broadcast to other users
-                    console.log("[RoomScreen] Broadcasting sheeloha to all users with clappingDelay:", clappingDelay);
+                    // إرسال شيلوها للخادم - الخادم سيبث للجميع (بما فيهم المرسل)
+                    console.log("[RoomScreen] Sending sheeloha to server with clappingDelay:", clappingDelay);
                     await createSheelohaBroadcastMutation.mutateAsync({
                       roomId,
                       userId,
                       username,
                       audioUrl: lastTaroukUri!,
-                      clappingDelay, // إرسال سرعة التصفيق من المتحكم
+                      clappingDelay,
                     });
-                    console.log("[RoomScreen] Sheeloha broadcast created successfully");
+                    console.log("[RoomScreen] Sheeloha sent to server successfully");
                   } catch (error) {
                     console.error("[RoomScreen] Failed to broadcast sheeloha:", error);
                     Alert.alert("خطأ", "فشل بث شيلوها");
