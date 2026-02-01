@@ -1467,9 +1467,9 @@ export default function RoomScreen() {
           });
         } else {
           // Native: Read file as base64
-          const FileSystem = await import("expo-file-system");
-          base64Data = await FileSystem.readAsStringAsync(recording.uri, {
-            encoding: FileSystem.EncodingType.Base64,
+          const FileSystemModule = await import("expo-file-system/legacy");
+          base64Data = await FileSystemModule.readAsStringAsync(recording.uri, {
+            encoding: FileSystemModule.EncodingType.Base64,
           });
         }
         
