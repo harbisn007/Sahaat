@@ -74,6 +74,8 @@ export default function RoomScreen() {
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
+  // تتبع آخر رسالة شغّلها المستخدم محلياً (لمنع التشغيل المزدوج)
+  const [locallyPlayedAudioUrls, setLocallyPlayedAudioUrls] = useState<Set<string>>(new Set());
   // حالة الدعوة العامة
   const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
@@ -476,11 +478,18 @@ export default function RoomScreen() {
       // استقبال أمر تشغيل رسالة صوتية عند الجميع (من الخادم)
       onPlayAudioMessage: (data) => {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
-        // تشغيل الصوت عند الجميع
+        
+        // تخطي التشغيل إذا كان المستخدم هو المسجّل (شغّل محلياً بالفعل)
+        if (data.userId === userId) {
+          console.log("[RoomScreen] Skipping audio playback - already played locally by recorder");
+          return;
+        }
+        
+        // تشغيل الصوت عند الآخرين فقط
         play(data.audioUrl);
       },
     });
-  }, [roomId, setCallbacks, stopSheeloha, playSheeloha, play]);
+  }, [roomId, setCallbacks, stopSheeloha, playSheeloha, play, userId]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
@@ -1470,7 +1479,12 @@ export default function RoomScreen() {
           fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
         });
         
+        // ===== تشغيل محلي فوري للمسجّل =====
+        console.log("[RoomScreen] Playing recorded audio LOCALLY for the recorder:", url);
+        play(url);
+        
         // Save to database with S3 URL (with actual duration from recording)
+        // الخادم سيبث للآخرين عبر Socket.io (وسيتخطى المسجّل لأنه شغّل محلياً)
         await createAudioMutation.mutateAsync({
           roomId,
           userId,
