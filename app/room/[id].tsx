@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -64,7 +64,7 @@ export default function RoomScreen() {
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
-  const [clappingDelay, setClappingDelay] = useState<number>(0.50);
+  const [clappingDelay, setClappingDelay] = useState<number>(0.80);
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -78,12 +78,66 @@ export default function RoomScreen() {
   const [canSendPublicInvite, setCanSendPublicInvite] = useState(true);
   const [isSendingPublicInvite, setIsSendingPublicInvite] = useState(false);
   const [lastPublicInviteTime, setLastPublicInviteTime] = useState<number | null>(null);
+  // إشعار التعليمات للمنشئ عند إنشاء أول ساحة
+  // إشعار التعليمات للمنشئ (يظهر مرة واحدة فقط عند إنشاء أول ساحة)
+  const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
+  // صوت الصفوف (Choir Effect) - يتحدث مع كل تسجيل طاروق جديد
+  const [sufoofSound, setSufoofSound] = useState<{
+    audioUrl: string; // رابط الصوت الأصلي
+    choirAudioUrl: string; // رابط الصوت المعالج بتأثير الجوقة
+    userId: string;
+    username: string;
+    createdAt: string;
+  } | null>(null);
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 5000, retry: false } // تقليل من 500ms إلى 5s
   );
+
+  // استرجاع taroukController من AsyncStorage عند دخول الساحة (للمنشئ فقط)
+  useEffect(() => {
+    const loadTaroukController = async () => {
+      try {
+        const storageKey = `taroukController_${roomId}`;
+        const saved = await AsyncStorage.getItem(storageKey);
+        if (saved) {
+          const controller = saved as "creator" | "player1" | "player2";
+          console.log("[RoomScreen] Loaded taroukController from storage:", controller);
+          setTaroukController(controller);
+        }
+      } catch (error) {
+        console.error("[RoomScreen] Failed to load taroukController:", error);
+      }
+    };
+    
+    if (roomId > 0) {
+      loadTaroukController();
+    }
+  }, [roomId]);
+
+  // حفظ taroukController في AsyncStorage عند تغييره
+  useEffect(() => {
+    const saveTaroukController = async () => {
+      try {
+        const storageKey = `taroukController_${roomId}`;
+        if (taroukController) {
+          await AsyncStorage.setItem(storageKey, taroukController);
+          console.log("[RoomScreen] Saved taroukController to storage:", taroukController);
+        } else {
+          await AsyncStorage.removeItem(storageKey);
+          console.log("[RoomScreen] Removed taroukController from storage");
+        }
+      } catch (error) {
+        console.error("[RoomScreen] Failed to save taroukController:", error);
+      }
+    };
+    
+    if (roomId > 0) {
+      saveTaroukController();
+    }
+  }, [roomId, taroukController]);
 
   // Update joinedAt to current time on every room entry
   useEffect(() => {
@@ -332,6 +386,7 @@ export default function RoomScreen() {
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
   const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
+  const playSufoofMutation = trpc.sheeloha.playSufoof.useMutation();
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
 
@@ -399,14 +454,58 @@ export default function RoomScreen() {
         stopSheeloha();
         playSheeloha(data.audioUrl, data.clappingDelay);
       },
+      // استقبال تحديث صوت الصفوف (Choir Effect)
+      onSufoofSoundUpdated: (data) => {
+        console.log("[RoomScreen] Sufoof sound updated via Socket.io:", data);
+        setSufoofSound({
+          audioUrl: data.audioUrl,
+          choirAudioUrl: data.choirAudioUrl,
+          userId: data.userId,
+          username: data.username,
+          createdAt: data.createdAt,
+        });
+      },
+      // استقبال شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق
+      onPlaySufoofSheeloha: (data) => {
+        console.log("[RoomScreen] Play sufoof sheeloha via Socket.io:", data);
+        // إيقاف أي شيلوها تعمل حالياً
+        stopSheeloha();
+        // تشغيل صوت الصفوف مع التصفيق
+        playSheeloha(data.choirAudioUrl, data.clappingDelay);
+      },
+      // استقبال أمر تشغيل رسالة صوتية عند الجميع (من الخادم)
+      onPlayAudioMessage: (data) => {
+        console.log("[RoomScreen] Play audio message via Socket.io:", data);
+        // تشغيل الصوت عند الجميع
+        play(data.audioUrl);
+      },
     });
-  }, [roomId, setCallbacks, stopSheeloha, playSheeloha]);
+  }, [roomId, setCallbacks, stopSheeloha, playSheeloha, play]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 1000 } // polling كل 1 ثانية لظهور أسرع
   );
+
+  // تحديث sufoofSound تلقائياً عند تغير lastTaroukUri (كبديل لحين وصول الصوت المعالج)
+  // هذا يضمن أن شيلوها تعمل حتى لو لم تصل رسالة sufoofSoundUpdated
+  useEffect(() => {
+    if (lastTaroukUri) {
+      // تحديث sufoofSound عند كل تغيير في lastTaroukUri
+      // إذا كان الرابط مختلفاً عن المحفوظ
+      if (!sufoofSound || sufoofSound.audioUrl !== lastTaroukUri) {
+        console.log("[RoomScreen] Updating sufoofSound from lastTaroukUri:", lastTaroukUri);
+        setSufoofSound({
+          audioUrl: lastTaroukUri,
+          choirAudioUrl: lastTaroukUri, // استخدام الصوت الأصلي كبديل مؤقت
+          userId: "",
+          username: "",
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  }, [lastTaroukUri]);
 
   const { data: initialReactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
@@ -469,7 +568,7 @@ export default function RoomScreen() {
     const now = Date.now();
     const timeSinceBroadcast = now - broadcastTime;
     // Sheeloha plays for about 3.5 seconds, add buffer
-    return timeSinceBroadcast < 4000; // 4 seconds
+    return timeSinceBroadcast < 10000; // 10 seconds
   }, [sheelohaBroadcasts, sheelohaDisabledUntil]);
 
   // جلب أولي لأمر خلوها (بدون polling - التحديثات عبر Socket.io)
@@ -608,13 +707,14 @@ export default function RoomScreen() {
     return lastTarouk.audioUrl;
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
-  // Auto-play new messages for all users
+  // Track messages (old messages marked as played, new messages tracked for UI)
+  // Audio playback is handled via Socket.io from the server
   useEffect(() => {
     if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
 
     const joinTime = joinedAt.getTime();
     
-    // First, mark ALL old messages as played (before user joined) - do this BEFORE checking for new messages
+    // Mark ALL old messages as played (before user joined)
     const oldMessageIds: number[] = [];
     filteredAudioMessages.forEach(msg => {
       const messageTime = new Date(msg.createdAt).getTime();
@@ -783,6 +883,19 @@ export default function RoomScreen() {
     }
   }, [roomData, username, userRole, isApproved]);
 
+  // عرض إشعار التعليمات للمنشئ عند إنشاء أول ساحة (مرة واحدة فقط)
+  useEffect(() => {
+    const checkFirstRoom = async () => {
+      if (userRole === "creator" && roomData) {
+        const tutorialShown = await AsyncStorage.getItem('creator_tutorial_shown');
+        if (tutorialShown !== 'true') {
+          setShowCreatorTutorial(true);
+          await AsyncStorage.setItem('creator_tutorial_shown', 'true');
+        }
+      }
+    };
+    checkFirstRoom();
+  }, [userRole, roomData]);
 
   // Kick player mutation (creator only)
   const kickPlayerMutation = trpc.kick.player.useMutation({
@@ -920,7 +1033,7 @@ export default function RoomScreen() {
       
       setDisplayedRequests(nextBatch);
       setQueuedRequests(remaining);
-    }, 4000);
+    }, 10000);
     
     return () => clearTimeout(timer);
   }, [displayedRequests]);
@@ -943,7 +1056,7 @@ export default function RoomScreen() {
         if (data.requestId) {
           expireJoinRequestMutation.mutate({ requestId: data.requestId });
         }
-      }, 4000);
+      }, 10000);
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message);
@@ -1621,6 +1734,63 @@ export default function RoomScreen() {
         </View>
       )}
 
+      {/* إشعار التعليمات للمنشئ - يظهر مرة واحدة فقط عند إنشاء أول ساحة */}
+      <Modal
+        visible={showCreatorTutorial}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowCreatorTutorial(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            justifyContent: 'center',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            padding: 20,
+          }}
+          onPress={() => setShowCreatorTutorial(false)}
+        >
+          <View style={{
+            backgroundColor: '#FFFFFF',
+            borderWidth: 2,
+            borderColor: '#FFFFFF',
+            borderRadius: 16,
+            padding: 20,
+            maxWidth: 350,
+            width: '100%',
+          }}>
+            <Text style={{
+              color: '#000000',
+              fontSize: 17,
+              fontWeight: 'bold',
+              marginBottom: 12,
+              textAlign: 'right',
+            }}>
+              للحصول على افضل تجربة استخدام :
+            </Text>
+            <Text style={{
+              color: '#000000',
+              fontSize: 16,
+              lineHeight: 26,
+              textAlign: 'right',
+            }}>
+              عند بداية كل طاروق قم بتحديد من يبدا الطاروق بالضغط على اسم الشاعر (سيظهر باللون الاحمر عند اختياره){"\n"}
+              ثم قم بضبط اللحن مع الصفوف بالضغط على زر طاروق وغناء اللحن بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة ايقاع التصفيق حتى تصل للايقاع المتناسب مع اللحن. ثم ابدأ بارسال الابيات بالضغط المستمر على زر طاروق للارسال.{"\n"}{"\n"}
+              للمحادثات الجانبية او للموال استخدم زر تعليق/موال.
+            </Text>
+            <Text style={{
+              color: '#9CA3AF',
+              fontSize: 14,
+              marginTop: 16,
+              textAlign: 'center',
+            }}>
+              انقر للإغلاق
+            </Text>
+          </View>
+        </Pressable>
+      </Modal>
+
       {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
       {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
         <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
@@ -1877,6 +2047,7 @@ export default function RoomScreen() {
               const newController = taroukController === "creator" ? null : "creator";
               setTaroukController(newController);
               socketSetTaroukController(newController);
+              if (newController) setClappingDelay(0.80);
             }}
             style={{
               paddingHorizontal: 10,
@@ -1899,6 +2070,7 @@ export default function RoomScreen() {
                 const newController = taroukController === "player1" ? null : "player1";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
+                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player1}
@@ -1924,6 +2096,7 @@ export default function RoomScreen() {
                 const newController = taroukController === "player2" ? null : "player2";
                 setTaroukController(newController);
                 socketSetTaroukController(newController);
+                if (newController) setClappingDelay(0.80);
               }
             }}
             disabled={!player2}
@@ -1982,47 +2155,48 @@ export default function RoomScreen() {
                     borderRadius: 8,
                   }}
                   onPress={async () => {
-                  console.log("[RoomScreen] Sheeloha button pressed");
-                  console.log("[RoomScreen] Current lastTaroukUri:", lastTaroukUri);
-                  
-                  if (!lastTaroukUri) {
-                    Alert.alert("تنبيه", "لا توجد رسائل طاروق");
-                    return;
-                  }
-                  if (!username) {
-                    Alert.alert("خطأ", "يجب تسجيل الدخول");
-                    return;
-                  }
-                  
-                  try {
-                    // إيقاف الصوت القديم إذا كان يشتغل
-                    if (isSheelohaPlaying) {
-                      console.log("[RoomScreen] Stopping previous sheeloha before playing new one");
-                      stopSheeloha();
+                    // ===== حدث جديد لزر شيلوها =====
+                    console.log("[RoomScreen] Sheeloha button pressed - NEW EVENT");
+                    console.log("[RoomScreen] sufoofSound:", sufoofSound);
+                    console.log("[RoomScreen] lastTaroukUri:", lastTaroukUri);
+                    
+                    // التحقق من وجود صوت الصفوف أو آخر طاروق
+                    const audioToPlay = sufoofSound?.choirAudioUrl || lastTaroukUri;
+                    if (!audioToPlay) {
+                      Alert.alert("تنبيه", "لا يوجد صوت صفوف متاح. سجل طاروق أولاً.");
+                      return;
                     }
                     
-                    // Stop tarouk sound first before playing sheeloha
-                    console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
-                    stopTarouk();
+                    if (!username) {
+                      Alert.alert("خطأ", "يجب تسجيل الدخول");
+                      return;
+                    }
                     
-                    console.log("[RoomScreen] Playing sheeloha effect (5 overlapping copies)");
-                    // Play sheeloha effect immediately with selected clapping delay
-                    playSheeloha(lastTaroukUri!, clappingDelay);
-                    
-                    // Also broadcast to other users
-                    console.log("[RoomScreen] Broadcasting sheeloha to all users with clappingDelay:", clappingDelay);
-                    await createSheelohaBroadcastMutation.mutateAsync({
-                      roomId,
-                      userId,
-                      username,
-                      audioUrl: lastTaroukUri!,
-                      clappingDelay, // إرسال سرعة التصفيق من المتحكم
-                    });
-                    console.log("[RoomScreen] Sheeloha broadcast created successfully");
-                  } catch (error) {
-                    console.error("[RoomScreen] Failed to broadcast sheeloha:", error);
-                    Alert.alert("خطأ", "فشل بث شيلوها");
-                  }
+                    try {
+                      // إيقاف أي صوت يعمل حالياً
+                      console.log("[RoomScreen] Stopping any playing audio...");
+                      stopTarouk();
+                      stop(); // إيقاف الرسائل الصوتية
+                      
+                      // بث شيلوها الجديدة للخادم - الخادم سيبث للجميع
+                      console.log("[RoomScreen] Sending playSufoof to server:", {
+                        choirAudioUrl: audioToPlay,
+                        clappingDelay,
+                      });
+                      
+                      await playSufoofMutation.mutateAsync({
+                        roomId,
+                        userId,
+                        username,
+                        choirAudioUrl: audioToPlay,
+                        clappingDelay,
+                      });
+                      
+                      console.log("[RoomScreen] Sheeloha sent to server successfully");
+                    } catch (error) {
+                      console.error("[RoomScreen] Failed to play sheeloha:", error);
+                      Alert.alert("خطأ", "فشل تشغيل شيلوها");
+                    }
                   }}
                   disabled={isSheelohaProcessing}
                 >
