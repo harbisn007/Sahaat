@@ -135,6 +135,16 @@ export interface ServerToClientEvents {
     userId: string;
     username: string;
   }) => void;
+  
+  // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
+  playAudioMessage: (data: {
+    roomId: number;
+    messageId: number;
+    audioUrl: string;
+    messageType: string; // "tarouk" | "comment"
+    userId: string;
+    username: string;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -540,4 +550,28 @@ export function emitPlaySufoofSheeloha(
     username,
   });
   console.log(`[Socket.io] Play sufoof sheeloha in room ${roomId}: ${choirAudioUrl}`);
+}
+
+
+/**
+ * بث تشغيل رسالة صوتية عند الجميع في الساحة
+ */
+export function emitPlayAudioMessage(
+  roomId: number,
+  messageId: number,
+  audioUrl: string,
+  messageType: string,
+  userId: string,
+  username: string
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("playAudioMessage", {
+    roomId,
+    messageId,
+    audioUrl,
+    messageType,
+    userId,
+    username,
+  });
+  console.log(`[Socket.io] Play audio message in room ${roomId}: ${messageType} by ${username}`);
 }

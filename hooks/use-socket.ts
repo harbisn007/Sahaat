@@ -78,6 +78,15 @@ interface ServerToClientEvents {
     userId: string;
     username: string;
   }) => void;
+  // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
+  playAudioMessage: (data: {
+    roomId: number;
+    messageId: number;
+    audioUrl: string;
+    messageType: string;
+    userId: string;
+    username: string;
+  }) => void;
 }
 
 interface ClientToServerEvents {
@@ -227,6 +236,13 @@ export function useSocket(roomId: number | null) {
       userId: string;
       username: string;
     }) => void;
+    onPlayAudioMessage?: (data: {
+      messageId: number;
+      audioUrl: string;
+      messageType: string;
+      userId: string;
+      username: string;
+    }) => void;
   }>({});
 
   // الاتصال والانضمام للساحة
@@ -340,6 +356,14 @@ export function useSocket(roomId: number | null) {
           if (data.roomId === roomId) {
             console.log("[Socket.io] Received playSufoofSheeloha:", data);
             callbacksRef.current.onPlaySufoofSheeloha?.(data);
+          }
+        });
+
+        // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
+        socket.on("playAudioMessage", (data) => {
+          if (data.roomId === roomId) {
+            console.log("[Socket.io] Received playAudioMessage:", data);
+            callbacksRef.current.onPlayAudioMessage?.(data);
           }
         });
 

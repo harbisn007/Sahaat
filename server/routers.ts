@@ -24,6 +24,7 @@ import {
   recordUserActivity,
   emitSufoofSoundUpdated,
   emitPlaySufoofSheeloha,
+  emitPlayAudioMessage,
 } from "./_core/socket";
 import { processAndUploadChoirEffect } from "./choir-effect";
 
@@ -295,7 +296,7 @@ export const appRouter = router({
         const messageId = await db.addAudioMessage(input);
         const now = new Date();
         
-        // بث الرسالة الصوتية الجديدة لجميع المشاركين
+        // بث الرسالة الصوتية الجديدة لجميع المشاركين (لتحديث القائمة)
         emitAudioMessageCreated(
           input.roomId,
           messageId,
@@ -305,6 +306,16 @@ export const appRouter = router({
           input.audioUrl,
           input.duration,
           now
+        );
+        
+        // بث أمر تشغيل الصوت عند الجميع (لتشغيل الصوت تلقائياً)
+        emitPlayAudioMessage(
+          input.roomId,
+          messageId,
+          input.audioUrl,
+          input.messageType,
+          input.userId,
+          input.username
         );
         
         // إذا كان التسجيل طاروق، قم بمعالجة صوت الصفوف (Choir Effect) في الخلفية

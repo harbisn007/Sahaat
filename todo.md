@@ -1701,3 +1701,19 @@
 - [x] حفظ taroukController في AsyncStorage عند تغييره
 - [x] استرجاع taroukController من AsyncStorage عند دخول الساحة
 - [x] التأكد من عدم إعادة تعيين الاختيار عند العودة
+
+## إصلاح مشكلة عدم تشغيل الأصوات
+- [x] فحص كود تشغيل الصوت (طاروق/تعليق)
+- [x] فحص كود تشغيل شيلوها
+- [x] التأكد من تفعيل الصوت في وضع الصامت (iOS)
+- [x] إصلاح player.replace لاستخدام object format
+
+
+## تشغيل الأصوات عبر الخادم (Socket.io) - ليس محلياً
+- [x] إزالة التشغيل التلقائي المحلي من العميل
+- [x] إضافة حدث playAudioMessage في socket.ts
+- [x] إضافة دالة emitPlayAudioMessage للبث
+- [x] تعديل audio.create لبث أمر التشغيل للجميع
+- [x] إضافة استماع لحدث playAudioMessage في use-socket.ts
+- [x] إضافة معالج onPlayAudioMessage في [id].tsx
+- [ ] اختبار تشغيل الأصوات عند الجميع
