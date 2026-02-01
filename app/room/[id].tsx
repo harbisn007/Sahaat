@@ -1615,7 +1615,8 @@ export default function RoomScreen() {
         setClappingDelay(controlState.clappingDelay);
       }
     }
-  }, [controlState, taroukController, clappingDelay, isCurrentUserController]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [controlState]); // فقط controlState لمنع الحلقة اللانهائية
 
   // Safety check: ensure all required data is available
   if (!userId || !username) {
