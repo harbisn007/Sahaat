@@ -56,6 +56,10 @@ interface SheelohaPlayerState {
 // Web Audio Context for distance effect
 let webAudioContext: AudioContext | null = null;
 
+// Single clap audio element for web (reused to prevent overlap)
+let webClapAudio: HTMLAudioElement | null = null;
+let webClapSource: MediaElementAudioSourceNode | null = null;
+
 /**
  * Hook for playing Sheeloha effect - 5 أصوات قادمة من بعيد
  * - 5 أصوات بتأخيرات مختلفة
@@ -82,6 +86,9 @@ export function useSheelohaPlayer() {
   
   // Track if players have been released
   const isReleasedRef = useRef(false);
+  
+  // Track if clap is currently playing (to prevent overlap)
+  const isClapPlayingRef = useRef(false);
   
   // Cleanup all players
   const cleanupPlayers = useCallback(() => {
@@ -153,6 +160,13 @@ export function useSheelohaPlayer() {
     webAudioRef.current = [];
     webAudioSourcesRef.current = [];
     
+    // Stop single clap audio
+    if (webClapAudio) {
+      webClapAudio.pause();
+      webClapAudio.currentTime = 0;
+    }
+    isClapPlayingRef.current = false;
+    
     // Stop native players
     cleanupPlayers();
     
@@ -163,7 +177,7 @@ export function useSheelohaPlayer() {
    * Apply distance effect (lowpass filter only - no reverb)
    * يعطي إحساس أن الصوت قادم من بعيد
    */
-  const applyDistanceEffect = useCallback((audioElement: HTMLAudioElement) => {
+  const applyDistanceEffect = useCallback((audioElement: HTMLAudioElement): boolean => {
     try {
       // Initialize Web Audio Context if needed
       if (!webAudioContext) {
@@ -187,9 +201,44 @@ export function useSheelohaPlayer() {
       lowpass.connect(context.destination);
       
       console.log("[useSheelohaPlayer] Distance effect applied (lowpass only, no reverb)");
+      return true;
     } catch (e) {
       console.warn("[useSheelohaPlayer] Failed to apply distance effect:", e);
-      // Fallback: connect directly to destination
+      return false;
+    }
+  }, []);
+
+  /**
+   * Initialize single clap audio for web (reused to prevent overlap)
+   */
+  const initWebClapAudio = useCallback(() => {
+    if (Platform.OS !== "web") return;
+    
+    if (!webClapAudio) {
+      webClapAudio = new Audio("/sounds/single-clap-short.mp3");
+      webClapAudio.volume = SHEELOHA_CONFIG.repeatingClapVolume;
+      webClapAudio.crossOrigin = "anonymous";
+      
+      // Apply distance effect once
+      try {
+        if (!webAudioContext) {
+          webAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+        webClapSource = webAudioContext.createMediaElementSource(webClapAudio);
+        const lowpass = webAudioContext.createBiquadFilter();
+        lowpass.type = "lowpass";
+        lowpass.frequency.value = SHEELOHA_CONFIG.distanceEffect.lowpassFrequency;
+        lowpass.Q.value = SHEELOHA_CONFIG.distanceEffect.lowpassQ;
+        webClapSource.connect(lowpass);
+        lowpass.connect(webAudioContext.destination);
+      } catch (e) {
+        console.warn("[useSheelohaPlayer] Failed to apply distance effect to clap:", e);
+      }
+      
+      // Track when clap finishes
+      webClapAudio.addEventListener("ended", () => {
+        isClapPlayingRef.current = false;
+      });
     }
   }, []);
 
@@ -208,17 +257,25 @@ export function useSheelohaPlayer() {
     console.log(`[useSheelohaPlayer] Starting repeating clapping: delay=${delayMs}ms, duration=${durationMs}ms`);
     
     if (Platform.OS === "web") {
-      // Web: Create audio elements for clapping with distance effect
+      // Initialize single clap audio (reused)
+      initWebClapAudio();
+      
+      // Play clap function - only plays if previous clap finished
       const playClap = () => {
-        const clapAudio = new Audio("/sounds/single-clap-short.mp3");
-        clapAudio.volume = SHEELOHA_CONFIG.repeatingClapVolume;
-        clapAudio.crossOrigin = "anonymous";
-        webAudioRef.current.push(clapAudio);
+        if (!webClapAudio) return;
         
-        // Apply distance effect (lowpass only)
-        applyDistanceEffect(clapAudio);
+        // Only play if not already playing (prevent overlap)
+        if (isClapPlayingRef.current) {
+          console.log("[useSheelohaPlayer] Skipping clap - previous still playing");
+          return;
+        }
         
-        clapAudio.play().catch(console.warn);
+        isClapPlayingRef.current = true;
+        webClapAudio.currentTime = 0;
+        webClapAudio.play().catch((e) => {
+          console.warn("[useSheelohaPlayer] Failed to play clap:", e);
+          isClapPlayingRef.current = false;
+        });
       };
       
       // Play first clap
@@ -245,11 +302,24 @@ export function useSheelohaPlayer() {
         const playClap = () => {
           try {
             if (repeatingClapPlayerRef.current && !isReleasedRef.current) {
+              // Only play if not already playing (prevent overlap)
+              if (isClapPlayingRef.current) {
+                console.log("[useSheelohaPlayer] Skipping clap - previous still playing");
+                return;
+              }
+              
+              isClapPlayingRef.current = true;
               repeatingClapPlayerRef.current.seekTo(0);
               repeatingClapPlayerRef.current.play();
+              
+              // Reset flag after clap duration (400ms)
+              setTimeout(() => {
+                isClapPlayingRef.current = false;
+              }, 400);
             }
           } catch (e) {
             console.warn("[useSheelohaPlayer] Failed to play clap:", e);
+            isClapPlayingRef.current = false;
           }
         };
         
@@ -274,7 +344,7 @@ export function useSheelohaPlayer() {
         console.warn("[useSheelohaPlayer] Failed to create clap player:", e);
       }
     }
-  }, [applyDistanceEffect]);
+  }, [initWebClapAudio]);
 
   /**
    * Play 4 claps at the end of the audio
@@ -395,6 +465,7 @@ export function useSheelohaPlayer() {
     console.log("[useSheelohaPlayer] URI:", audioUri.substring(0, 100));
     setState({ isPlaying: true, isProcessing: true });
     isReleasedRef.current = false;
+    isClapPlayingRef.current = false;
     
     try {
       // 1. ضبط audio mode للتشغيل
@@ -494,6 +565,7 @@ export function useSheelohaPlayer() {
     
     // Reset released flag
     isReleasedRef.current = false;
+    isClapPlayingRef.current = false;
     
     // Small delay to ensure cleanup
     await new Promise(resolve => setTimeout(resolve, 100));
