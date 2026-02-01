@@ -439,6 +439,25 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 1000 } // polling كل 1 ثانية لظهور أسرع
   );
 
+  // تحديث sufoofSound تلقائياً عند تغير lastTaroukUri (كبديل لحين وصول الصوت المعالج)
+  // هذا يضمن أن شيلوها تعمل حتى لو لم تصل رسالة sufoofSoundUpdated
+  useEffect(() => {
+    if (lastTaroukUri) {
+      // تحديث sufoofSound عند كل تغيير في lastTaroukUri
+      // إذا كان الرابط مختلفاً عن المحفوظ
+      if (!sufoofSound || sufoofSound.audioUrl !== lastTaroukUri) {
+        console.log("[RoomScreen] Updating sufoofSound from lastTaroukUri:", lastTaroukUri);
+        setSufoofSound({
+          audioUrl: lastTaroukUri,
+          choirAudioUrl: lastTaroukUri, // استخدام الصوت الأصلي كبديل مؤقت
+          userId: "",
+          username: "",
+          createdAt: new Date().toISOString(),
+        });
+      }
+    }
+  }, [lastTaroukUri]);
+
   const { data: initialReactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
@@ -2088,9 +2107,12 @@ export default function RoomScreen() {
                   onPress={async () => {
                     // ===== حدث جديد لزر شيلوها =====
                     console.log("[RoomScreen] Sheeloha button pressed - NEW EVENT");
+                    console.log("[RoomScreen] sufoofSound:", sufoofSound);
+                    console.log("[RoomScreen] lastTaroukUri:", lastTaroukUri);
                     
-                    // التحقق من وجود صوت الصفوف
-                    if (!sufoofSound?.choirAudioUrl) {
+                    // التحقق من وجود صوت الصفوف أو آخر طاروق
+                    const audioToPlay = sufoofSound?.choirAudioUrl || lastTaroukUri;
+                    if (!audioToPlay) {
                       Alert.alert("تنبيه", "لا يوجد صوت صفوف متاح. سجل طاروق أولاً.");
                       return;
                     }
@@ -2108,7 +2130,7 @@ export default function RoomScreen() {
                       
                       // بث شيلوها الجديدة للخادم - الخادم سيبث للجميع
                       console.log("[RoomScreen] Sending playSufoof to server:", {
-                        choirAudioUrl: sufoofSound.choirAudioUrl,
+                        choirAudioUrl: audioToPlay,
                         clappingDelay,
                       });
                       
@@ -2116,7 +2138,7 @@ export default function RoomScreen() {
                         roomId,
                         userId,
                         username,
-                        choirAudioUrl: sufoofSound.choirAudioUrl,
+                        choirAudioUrl: audioToPlay,
                         clappingDelay,
                       });
                       
