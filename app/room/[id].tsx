@@ -2077,37 +2077,16 @@ export default function RoomScreen() {
                     borderRadius: 8,
                   }}
                   onPress={async () => {
-                  console.log("[RoomScreen] Sheeloha button pressed");
-                  console.log("[RoomScreen] Current lastTaroukUri:", lastTaroukUri);
-                  
-                  if (!lastTaroukUri) {
-                    Alert.alert("تنبيه", "لا توجد رسائل طاروق");
-                    return;
-                  }
-                  if (!username) {
-                    Alert.alert("خطأ", "يجب تسجيل الدخول");
-                    return;
-                  }
-                  
-                  try {
-                    // إيقاف صوت الطاروق أولاً
-                    console.log("[RoomScreen] Stopping tarouk before playing sheeloha");
-                    stopTarouk();
+                    // ===== حدث جديد لزر شيلوها =====
+                    console.log("[RoomScreen] Sheeloha button pressed - NEW EVENT");
                     
-                    // إرسال شيلوها للخادم - الخادم سيبث للجميع (بما فيهم المرسل)
-                    console.log("[RoomScreen] Sending sheeloha to server with clappingDelay:", clappingDelay);
-                    await createSheelohaBroadcastMutation.mutateAsync({
-                      roomId,
-                      userId,
-                      username,
-                      audioUrl: lastTaroukUri!,
-                      clappingDelay,
-                    });
-                    console.log("[RoomScreen] Sheeloha sent to server successfully");
-                  } catch (error) {
-                    console.error("[RoomScreen] Failed to broadcast sheeloha:", error);
-                    Alert.alert("خطأ", "فشل بث شيلوها");
-                  }
+                    // TODO: اكتب المنطق الجديد هنا
+                    // المتغيرات المتاحة:
+                    // - sufoofSound: صوت الصفوف المعالج (choirAudioUrl)
+                    // - lastTaroukUri: رابط آخر صوت طاروق
+                    // - clappingDelay: سرعة التصفيق من العجلة
+                    // - roomId, userId, username
+                    
                   }}
                   disabled={isSheelohaProcessing}
                 >
