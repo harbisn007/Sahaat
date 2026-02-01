@@ -125,52 +125,103 @@ function getServerUrl(): string {
 // Singleton للاتصال
 let socketInstance: SocketType | null = null;
 let connectionPromise: Promise<SocketType> | null = null;
+let isConnecting = false;
+
+// مراقبة حالة الاتصال العامة
+let globalConnectionListeners: Set<(connected: boolean) => void> = new Set();
+
+function notifyConnectionChange(connected: boolean) {
+  globalConnectionListeners.forEach(listener => listener(connected));
+}
 
 function getSocket(): Promise<SocketType> {
+  // إذا كان متصلاً، أرجعه مباشرة
   if (socketInstance?.connected) {
+    console.log("[Socket.io] Already connected, returning existing socket");
     return Promise.resolve(socketInstance);
   }
 
+  // إذا كان هناك محاولة اتصال جارية، انتظرها
   if (connectionPromise) {
+    console.log("[Socket.io] Connection in progress, waiting...");
     return connectionPromise;
   }
 
-  connectionPromise = new Promise((resolve, reject) => {
+  // إذا كان هناك socket موجود لكن غير متصل، أعد الاتصال
+  if (socketInstance && !socketInstance.connected) {
+    console.log("[Socket.io] Socket exists but disconnected, reconnecting...");
+    socketInstance.connect();
+    
+    // انتظر الاتصال
+    connectionPromise = new Promise((resolve) => {
+      const onConnect = () => {
+        console.log("[Socket.io] Reconnected:", socketInstance?.id);
+        socketInstance?.off("connect", onConnect);
+        connectionPromise = null;
+        notifyConnectionChange(true);
+        resolve(socketInstance!);
+      };
+      socketInstance!.on("connect", onConnect);
+      
+      // Timeout - لكن لا نرجع socket غير متصل
+      setTimeout(() => {
+        if (!socketInstance?.connected) {
+          console.warn("[Socket.io] Reconnection timeout, will keep trying in background");
+          socketInstance?.off("connect", onConnect);
+          connectionPromise = null;
+          // أرجع الـ socket حتى لو غير متصل - سيتصل لاحقاً
+          resolve(socketInstance!);
+        }
+      }, 10000);
+    });
+    return connectionPromise;
+  }
+
+  // إنشاء socket جديد
+  console.log("[Socket.io] Creating new socket connection...");
+  connectionPromise = new Promise((resolve) => {
     const serverUrl = getServerUrl();
     console.log("[Socket.io] Connecting to:", serverUrl);
 
     socketInstance = io(serverUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
-      reconnectionAttempts: 5,
+      reconnectionAttempts: Infinity, // محاولة إعادة الاتصال بلا حدود
       reconnectionDelay: 1000,
-      timeout: 10000,
+      reconnectionDelayMax: 5000,
+      timeout: 20000,
+      autoConnect: true,
     });
 
     socketInstance.on("connect", () => {
-      console.log("[Socket.io] Connected:", socketInstance?.id);
+      console.log("[Socket.io] ========== CONNECTED ==========");
+      console.log("[Socket.io] Socket ID:", socketInstance?.id);
       connectionPromise = null;
+      notifyConnectionChange(true);
       resolve(socketInstance!);
     });
 
     socketInstance.on("connect_error", (error) => {
       console.error("[Socket.io] Connection error:", error.message);
-      connectionPromise = null;
-      // لا نرفض، نحاول إعادة الاتصال
+      notifyConnectionChange(false);
+      // Socket.io سيحاول إعادة الاتصال تلقائياً
     });
 
     socketInstance.on("disconnect", (reason) => {
-      console.log("[Socket.io] Disconnected:", reason);
+      console.log("[Socket.io] ========== DISCONNECTED ==========");
+      console.log("[Socket.io] Reason:", reason);
+      notifyConnectionChange(false);
+      // Socket.io سيحاول إعادة الاتصال تلقائياً
     });
 
-    // Timeout للاتصال
+    // Timeout - لكن أرجع الـ socket حتى لو غير متصل (سيتصل لاحقاً)
     setTimeout(() => {
       if (!socketInstance?.connected) {
-        console.warn("[Socket.io] Connection timeout, falling back to polling");
+        console.warn("[Socket.io] Initial connection timeout, socket will connect in background");
         connectionPromise = null;
         resolve(socketInstance!);
       }
-    }, 5000);
+    }, 10000);
   });
 
   return connectionPromise;
@@ -262,6 +313,20 @@ export function useSocket(roomId: number | null) {
     if (!roomId) return;
 
     let mounted = true;
+    let hasJoinedRoom = false;
+
+    // دالة للانضمام للغرفة - تُستخدم عند الاتصال وإعادة الاتصال
+    function joinRoom(socket: SocketType) {
+      if (!mounted || !socket.connected) {
+        console.log("[Socket.io] Cannot join room - not connected or unmounted");
+        return;
+      }
+      socket.emit("joinRoom", roomId!);
+      hasJoinedRoom = true;
+      console.log("[Socket.io] ========== JOINED ROOM ==========");
+      console.log("[Socket.io] Room ID:", roomId);
+      console.log("[Socket.io] Socket ID:", socket.id);
+    }
 
     async function connect() {
       try {
@@ -272,9 +337,14 @@ export function useSocket(roomId: number | null) {
         setIsConnected(socket.connected);
         setConnectionError(null);
 
-        // الانضمام للساحة
-        socket.emit("joinRoom", roomId!);
-        console.log("[Socket.io] Joined room:", roomId);
+        console.log("[Socket.io] Got socket, connected:", socket.connected);
+
+        // الانضمام للساحة فقط إذا كان متصلاً
+        if (socket.connected) {
+          joinRoom(socket);
+        } else {
+          console.log("[Socket.io] Socket not connected yet, will join room on connect");
+        }
 
         // الاستماع للأحداث
         socket.on("roomUpdated", (data) => {
@@ -395,15 +465,14 @@ export function useSocket(roomId: number | null) {
           }
         });
 
-        // مراقبة حالة الاتصال وإعادة الانضمام للغرفة عند إعادة الاتصال
+        // مراقبة حالة الاتصال وإعادة الانضمام للغرفة عند الاتصال/إعادة الاتصال
         socket.on("connect", () => {
-          console.log("[Socket.io] Connected, rejoining room:", roomId);
+          console.log("[Socket.io] ========== SOCKET CONNECTED ==========");
+          console.log("[Socket.io] Socket ID:", socket.id);
+          console.log("[Socket.io] Has joined room before:", hasJoinedRoom);
           setIsConnected(true);
-          // إعادة الانضمام للغرفة عند إعادة الاتصال
-          if (roomId) {
-            socket.emit("joinRoom", roomId);
-            console.log("[Socket.io] Rejoined room after reconnect:", roomId);
-          }
+          // الانضمام للغرفة (سواء أول مرة أو إعادة اتصال)
+          joinRoom(socket);
         });
         socket.on("disconnect", (reason) => {
           console.log("[Socket.io] Disconnected, reason:", reason);
