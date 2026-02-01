@@ -1,12 +1,15 @@
-import { useState, useEffect } from "react";
-import { useAudioPlayer, useAudioPlayerStatus, AudioModule } from "expo-audio";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { useAudioPlayer, AudioModule } from "expo-audio";
+import { Platform } from "react-native";
 
 export function useAudioPlayerHook() {
   const [currentUri, setCurrentUri] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const playerRef = useRef<ReturnType<typeof useAudioPlayer> | null>(null);
   
-  // Create a single player instance with empty source initially
+  // Create a single player instance
   const player = useAudioPlayer("");
-  const status = useAudioPlayerStatus(player);
+  playerRef.current = player;
 
   // Initialize audio mode once on mount
   useEffect(() => {
@@ -26,72 +29,113 @@ export function useAudioPlayerHook() {
     // Cleanup player on unmount
     return () => {
       try {
-        player.remove();
+        if (playerRef.current) {
+          playerRef.current.remove();
+        }
       } catch (e) {
         console.log("[useAudioPlayerHook] Cleanup error:", e);
       }
     };
   }, []);
 
-  // Auto-reset when playback finishes
-  useEffect(() => {
-    if (status.playing === false && status.currentTime > 0 && status.duration > 0) {
-      if (status.currentTime >= status.duration - 0.1) {
-        console.log("[useAudioPlayerHook] Playback finished, resetting");
-        setCurrentUri(null);
-      }
-    }
-  }, [status.playing, status.currentTime, status.duration]);
-
-  const play = async (uri: string) => {
+  const play = useCallback(async (uri: string) => {
     try {
       console.log("[useAudioPlayerHook] Play requested for:", uri.substring(0, 100));
       
+      if (!uri) {
+        console.warn("[useAudioPlayerHook] No URI provided");
+        return;
+      }
+
       // If same URI is already playing, stop it
-      if (currentUri === uri && status.playing) {
-        console.log("[useAudioPlayerHook] Stopping current playback");
+      if (currentUri === uri && isPlaying) {
+        console.log("[useAudioPlayerHook] Stopping current playback (same URI)");
         player.pause();
         setCurrentUri(null);
+        setIsPlaying(false);
         return;
       }
 
       // Stop current playback if different URI
-      if (currentUri && currentUri !== uri && status.playing) {
+      if (isPlaying) {
         console.log("[useAudioPlayerHook] Stopping previous playback");
         player.pause();
       }
 
-      // Replace the player source
-      console.log("[useAudioPlayerHook] Replacing player source");
-      player.replace(uri);
-      setCurrentUri(uri);
+      // Replace the player source with object format
+      console.log("[useAudioPlayerHook] Replacing player source with:", uri);
       
-      // Small delay to ensure source is loaded
-      await new Promise(resolve => setTimeout(resolve, 200));
+      try {
+        // Use object format for replace
+        player.replace({ uri: uri });
+        setCurrentUri(uri);
+        
+        // Wait for source to load
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
+        // Start playback
+        console.log("[useAudioPlayerHook] Starting playback...");
+        player.play();
+        setIsPlaying(true);
+        
+        console.log("[useAudioPlayerHook] Playback started successfully");
+      } catch (replaceError) {
+        console.error("[useAudioPlayerHook] Replace/play error:", replaceError);
+        // Try alternative approach - direct string
+        try {
+          console.log("[useAudioPlayerHook] Trying alternative approach...");
+          player.replace(uri as any);
+          await new Promise(resolve => setTimeout(resolve, 300));
+          player.play();
+          setIsPlaying(true);
+          setCurrentUri(uri);
+        } catch (altError) {
+          console.error("[useAudioPlayerHook] Alternative approach also failed:", altError);
+          throw altError;
+        }
+      }
       
-      // Start playback
-      console.log("[useAudioPlayerHook] Starting playback");
-      player.play();
-      
-      console.log("[useAudioPlayerHook] Playback command sent successfully");
     } catch (error) {
       console.error("[useAudioPlayerHook] Failed to play audio:", error);
       setCurrentUri(null);
+      setIsPlaying(false);
     }
-  };
+  }, [player, currentUri, isPlaying]);
 
-  const stop = () => {
+  const stop = useCallback(() => {
     try {
       console.log("[useAudioPlayerHook] Stop requested");
       player.pause();
       setCurrentUri(null);
+      setIsPlaying(false);
     } catch (error) {
       console.error("[useAudioPlayerHook] Failed to stop audio:", error);
     }
-  };
+  }, [player]);
+
+  // Monitor player status
+  useEffect(() => {
+    const checkStatus = () => {
+      try {
+        if (player.playing !== undefined) {
+          if (!player.playing && isPlaying && currentUri) {
+            // Playback finished
+            console.log("[useAudioPlayerHook] Playback finished");
+            setIsPlaying(false);
+            setCurrentUri(null);
+          }
+        }
+      } catch (e) {
+        // Ignore status check errors
+      }
+    };
+    
+    const interval = setInterval(checkStatus, 500);
+    return () => clearInterval(interval);
+  }, [player, isPlaying, currentUri]);
 
   return {
-    isPlaying: status.playing,
+    isPlaying,
     currentUri,
     play,
     stop,
