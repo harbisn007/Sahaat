@@ -1049,8 +1049,7 @@ export default function RoomScreen() {
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation({
     onSuccess: (data) => {
       console.log("[RoomScreen] Join request created successfully:", data);
-      setHasPendingRequest(true);
-      setLastRequestTime(Date.now());
+      // الحالة تم تحديثها فوراً في handleRequestJoinAsPlayer
       // Immediately refetch to show request to creator
       refetch();
       // Auto-expire after 4 seconds
@@ -1095,6 +1094,11 @@ export default function RoomScreen() {
       Alert.alert("خطأ", "يجب تسجيل الدخول");
       return;
     }
+    
+    // تحديث فوري للحالة قبل انتظار الخادم - لسرعة الاستجابة
+    setHasPendingRequest(true);
+    setLastRequestTime(Date.now());
+    
     console.log("[RoomScreen] Sending join request...");
     createJoinRequestMutation.mutate({
       roomId,
