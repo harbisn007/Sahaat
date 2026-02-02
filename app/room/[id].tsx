@@ -458,6 +458,13 @@ export default function RoomScreen() {
       // استقبال شيلوها - تشغيل الصوت الأصلي مع التصفيق
       onPlaySufoofSheeloha: (data) => {
         console.log("[RoomScreen] Play sufoof sheeloha via Socket.io:", data);
+        
+        // تخطي التشغيل إذا كان المستخدم هو الضاغط (شغّل محلياً بالفعل)
+        if (data.userId === userId) {
+          console.log("[RoomScreen] Skipping sheeloha playback - already played locally by presser");
+          return;
+        }
+        
         // إيقاف أي شيلوها تعمل حالياً
         stopSheeloha();
         // تشغيل الصوت الأصلي مع التصفيق
