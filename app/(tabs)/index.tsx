@@ -591,13 +591,7 @@ export default function HomeScreen() {
               <Text style={{ color: '#fff', fontWeight: '600', fontSize: 10 }}>العودة لساحتك</Text>
             </TouchableOpacity>
           )}
-          {/* زر تغيير الملف الشخصي */}
-          <TouchableOpacity
-            onPress={handleChangeProfile}
-            className="p-2"
-          >
-            <MaterialIcons name="person" size={24} color="#D4A574" />
-          </TouchableOpacity>
+
         </View>
         
         </View>
