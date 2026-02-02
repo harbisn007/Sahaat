@@ -71,10 +71,10 @@ interface ServerToClientEvents {
     username: string;
     createdAt: string;
   }) => void;
-  // حدث شيلوها الجديد - تشغيل صوت الصفوف مع التصفيق
+  // حدث شيلوها - تشغيل الصوت الأصلي مع التصفيق
   playSufoofSheeloha: (data: {
     roomId: number;
-    choirAudioUrl: string;
+    audioUrl: string;
     clappingDelay: number;
     userId: string;
     username: string;
@@ -294,7 +294,7 @@ export function useSocket(roomId: number | null) {
       createdAt: string;
     }) => void;
     onPlaySufoofSheeloha?: (data: {
-      choirAudioUrl: string;
+      audioUrl: string;
       clappingDelay: number;
       userId: string;
       username: string;

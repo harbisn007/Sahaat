@@ -26,7 +26,7 @@ import {
   emitPlaySufoofSheeloha,
   emitPlayAudioMessage,
 } from "./_core/socket";
-import { processAndUploadChoirEffect } from "./choir-effect";
+// تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -355,47 +355,7 @@ export const appRouter = router({
           input.username
         );
         
-        // إذا كان التسجيل طاروق، قم بمعالجة صوت الصفوف (Choir Effect) في الخلفية
-        if (input.messageType === "tarouk") {
-          // معالجة في الخلفية بدون انتظار (للسرعة)
-          (async () => {
-            try {
-              console.log("[API] Processing choir effect for tarouk:", input.audioUrl);
-              
-              // دالة رفع الملف إلى S3
-              const { storagePut } = await import("./storage");
-              const uploadToS3 = async (base64Data: string, fileName: string) => {
-                const buffer = Buffer.from(base64Data, "base64");
-                const timestamp = Date.now();
-                const randomSuffix = Math.random().toString(36).substring(7);
-                const fileKey = `choir/${timestamp}-${randomSuffix}-${fileName}`;
-                return storagePut(fileKey, buffer, "audio/mp4");
-              };
-              
-              // تطبيق تأثير الجوقة ورفع النتيجة
-              const { url: choirAudioUrl } = await processAndUploadChoirEffect(
-                input.audioUrl,
-                uploadToS3
-              );
-              
-              console.log("[API] Choir effect processed:", choirAudioUrl);
-              
-              // بث تحديث صوت الصفوف لجميع المشاركين
-              emitSufoofSoundUpdated(
-                input.roomId,
-                input.audioUrl,
-                choirAudioUrl,
-                input.userId,
-                input.username,
-                now
-              );
-              
-            } catch (error) {
-              console.error("[API] Failed to process choir effect:", error);
-              // لا نرمي الخطأ - المعالجة اختيارية
-            }
-          })();
-        }
+        // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً في شيلوها
         
         return { messageId };
       }),
@@ -552,7 +512,7 @@ export const appRouter = router({
           roomId: z.number(),
           userId: z.string(),
           username: z.string(),
-          choirAudioUrl: z.string(), // رابط صوت الصفوف المعالج
+          audioUrl: z.string(), // رابط الصوت الأصلي
           clappingDelay: z.number().min(0).max(1.5).default(0.5), // سرعة التصفيق
         })
       )
@@ -560,10 +520,10 @@ export const appRouter = router({
         try {
           console.log("[API] Playing sufoof sheeloha:", input);
           
-          // بث شيلوها الجديدة لجميع المشاركين
+          // بث شيلوها لجميع المشاركين (الصوت الأصلي)
           emitPlaySufoofSheeloha(
             input.roomId,
-            input.choirAudioUrl,
+            input.audioUrl,
             input.clappingDelay,
             input.userId,
             input.username

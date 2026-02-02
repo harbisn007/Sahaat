@@ -83,14 +83,7 @@ export default function RoomScreen() {
   // إشعار التعليمات للمنشئ عند إنشاء أول ساحة
   // إشعار التعليمات للمنشئ (يظهر مرة واحدة فقط عند إنشاء أول ساحة)
   const [showCreatorTutorial, setShowCreatorTutorial] = useState(false);
-  // صوت الصفوف (Choir Effect) - يتحدث مع كل تسجيل طاروق جديد
-  const [sufoofSound, setSufoofSound] = useState<{
-    audioUrl: string; // رابط الصوت الأصلي
-    choirAudioUrl: string; // رابط الصوت المعالج بتأثير الجوقة
-    userId: string;
-    username: string;
-    createdAt: string;
-  } | null>(null);
+  // تم إلغاء sufoofSound - الصوت الأصلي (lastTaroukUri) يُستخدم دائماً
 
   // جلب بيانات الساحة - polling كل 5 ثواني فقط (التحديثات الفورية عبر Socket.io)
   const { data: roomData, isLoading, refetch, error } = trpc.rooms.getById.useQuery(
@@ -461,24 +454,14 @@ export default function RoomScreen() {
         stopSheeloha();
         playSheeloha(data.audioUrl, data.clappingDelay);
       },
-      // استقبال تحديث صوت الصفوف (Choir Effect)
-      onSufoofSoundUpdated: (data) => {
-        console.log("[RoomScreen] Sufoof sound updated via Socket.io:", data);
-        setSufoofSound({
-          audioUrl: data.audioUrl,
-          choirAudioUrl: data.choirAudioUrl,
-          userId: data.userId,
-          username: data.username,
-          createdAt: data.createdAt,
-        });
-      },
-      // استقبال شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق
+      // تم إلغاء onSufoofSoundUpdated - الصوت الأصلي يُستخدم دائماً
+      // استقبال شيلوها - تشغيل الصوت الأصلي مع التصفيق
       onPlaySufoofSheeloha: (data) => {
         console.log("[RoomScreen] Play sufoof sheeloha via Socket.io:", data);
         // إيقاف أي شيلوها تعمل حالياً
         stopSheeloha();
-        // تشغيل صوت الصفوف مع التصفيق
-        playSheeloha(data.choirAudioUrl, data.clappingDelay);
+        // تشغيل الصوت الأصلي مع التصفيق
+        playSheeloha(data.audioUrl, data.clappingDelay);
       },
       // استقبال أمر تشغيل رسالة صوتية عند الجميع (من الخادم)
       onPlayAudioMessage: (data) => {
@@ -712,24 +695,7 @@ export default function RoomScreen() {
     return lastTarouk.audioUrl;
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
-  // تحديث sufoofSound تلقائياً عند تغير lastTaroukUri (كبديل لحين وصول الصوت المعالج)
-  // هذا يضمن أن شيلوها تعمل حتى لو لم تصل رسالة sufoofSoundUpdated
-  useEffect(() => {
-    if (lastTaroukUri) {
-      // تحديث sufoofSound عند كل تغيير في lastTaroukUri
-      // إذا كان الرابط مختلفاً عن المحفوظ
-      if (!sufoofSound || sufoofSound.audioUrl !== lastTaroukUri) {
-        console.log("[RoomScreen] Updating sufoofSound from lastTaroukUri:", lastTaroukUri);
-        setSufoofSound({
-          audioUrl: lastTaroukUri,
-          choirAudioUrl: lastTaroukUri, // استخدام الصوت الأصلي كبديل مؤقت
-          userId: "",
-          username: "",
-          createdAt: new Date().toISOString(),
-        });
-      }
-    }
-  }, [lastTaroukUri, sufoofSound]);
+  // تم إلغاء تحديث sufoofSound - الصوت الأصلي (lastTaroukUri) يُستخدم مباشرة
 
   // Track messages (old messages marked as played for UI tracking only)
   // Audio playback is handled ONLY via Socket.io from the server (no local auto-play)
@@ -2218,11 +2184,11 @@ export default function RoomScreen() {
                   onPress={async () => {
                     // ===== حدث جديد لزر شيلوها =====
                     console.log("[RoomScreen] Sheeloha button pressed - NEW EVENT");
-                    console.log("[RoomScreen] sufoofSound:", sufoofSound);
+                    // تم إلغاء sufoofSound - الصوت الأصلي يُستخدم دائماً
                     console.log("[RoomScreen] lastTaroukUri:", lastTaroukUri);
                     
-                    // التحقق من وجود صوت الصفوف أو آخر طاروق
-                    const audioToPlay = sufoofSound?.choirAudioUrl || lastTaroukUri;
+                    // استخدام الصوت الأصلي دائماً (آخر طاروق)
+                    const audioToPlay = lastTaroukUri;
                     if (!audioToPlay) {
                       Alert.alert("تنبيه", "لا يوجد صوت صفوف متاح. سجل طاروق أولاً.");
                       return;
@@ -2247,9 +2213,9 @@ export default function RoomScreen() {
                       });
                       playSheeloha(audioToPlay, clappingDelay);
                       
-                      // بث شيلوها الجديدة للخادم - الخادم سيبث للآخرين
+                      // بث شيلوها للخادم - الخادم سيبث للآخرين (الصوت الأصلي)
                       console.log("[RoomScreen] Sending playSufoof to server:", {
-                        choirAudioUrl: audioToPlay,
+                        audioUrl: audioToPlay,
                         clappingDelay,
                       });
                       
@@ -2257,7 +2223,7 @@ export default function RoomScreen() {
                         roomId,
                         userId,
                         username,
-                        choirAudioUrl: audioToPlay,
+                        audioUrl: audioToPlay,
                         clappingDelay,
                       });
                       
