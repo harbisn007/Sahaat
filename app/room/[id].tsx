@@ -1592,17 +1592,23 @@ export default function RoomScreen() {
   // تحديث الحالة المحلية عند وصول بيانات جديدة من الخادم (المتحكم + السرعة)
   useEffect(() => {
     if (controlState) {
+      // تخطي جميع التحديثات إذا كان التغيير محلياً حديثاً (خلال 3 ثواني)
+      // هذا يمنع التحديث المزدوج الذي يسبب اختفاء الأزرار
+      const timeSinceLocalChange = Date.now() - lastLocalClappingChangeRef.current;
+      const isRecentLocalChange = timeSinceLocalChange < 3000;
+      
+      if (isRecentLocalChange) {
+        console.log("[RoomScreen] Skipping control state update - recent local change");
+        return;
+      }
+      
       // تحديث المتحكم إذا تغير
       if (controlState.taroukController !== taroukController) {
         console.log("[RoomScreen] Control state update - taroukController:", controlState.taroukController);
         setTaroukController(controlState.taroukController);
       }
-      // تحديث السرعة إذا تغيرت (فقط لغير المتحكم - المتحكم يغير محلياً)
-      // تخطي التحديث إذا كان التغيير محلياً حديثاً (خلال 2 ثانية)
-      const timeSinceLocalChange = Date.now() - lastLocalClappingChangeRef.current;
-      const isRecentLocalChange = timeSinceLocalChange < 2000;
-      
-      if (!isRecentLocalChange && controlState.clappingDelay !== clappingDelay) {
+      // تحديث السرعة إذا تغيرت
+      if (controlState.clappingDelay !== clappingDelay) {
         console.log("[RoomScreen] Control state update - clappingDelay:", controlState.clappingDelay);
         setClappingDelay(controlState.clappingDelay);
       }
