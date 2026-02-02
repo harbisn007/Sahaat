@@ -29,14 +29,14 @@ const SHEELOHA_CONFIG = {
   voiceCopies: 5,
   // تسريع الأصوات الخمسة بنسبة ثابتة
   playbackRate: 1.10, // تسريع 10%
-  // إعدادات كل نسخة: تأخيرات طبيعية صغيرة ونفس مستوى الصوت
-  // كلهم يبدون قادمين من بعيد (نفس المسافة تقريباً)
+  // إعدادات كل نسخة: تبدأ معاً بمستويات مختلفة
+  // يعطي إحساس بصوت أكثر امتلاءً وعمقاً بدون صدى
   voiceSettings: [
-    { delay: 0,  volume: 0.85 },   // صوت 1
-    { delay: 15, volume: 0.85 },   // صوت 2
-    { delay: 30, volume: 0.85 },   // صوت 3
-    { delay: 45, volume: 0.85 },   // صوت 4
-    { delay: 60, volume: 0.85 },   // صوت 5
+    { delay: 0, volume: 0.65 },   // صوت 1 - 65%
+    { delay: 0, volume: 0.60 },   // صوت 2 - 60%
+    { delay: 0, volume: 0.45 },   // صوت 3 - 45%
+    { delay: 0, volume: 0.40 },   // صوت 4 - 40%
+    { delay: 0, volume: 0.35 },   // صوت 5 - 35%
   ],
   // مستوى صوت التصفيق المتكرر
   repeatingClapVolume: 0.55,
@@ -423,8 +423,8 @@ export function useSheelohaPlayer() {
       // المدة الفعلية بعد التسريع (التسريع يقصّر المدة)
       const originalDurationMs = audioElements[0].duration * 1000;
       const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
-      const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
-      const totalDuration = durationMs + maxDelay;
+      // كل الأصوات تبدأ معاً (delay = 0) فلا حاجة لإضافة maxDelay
+      const totalDuration = durationMs;
       
       console.log(`[useSheelohaPlayer] Voice duration: ${durationMs}ms, total: ${totalDuration}ms`);
       
@@ -513,8 +513,8 @@ export function useSheelohaPlayer() {
       // على Native لا يوجد تسريع، المدة هي الأصلية
       const durationMs = originalDurationMs;
       
-      const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
-      const totalDuration = durationMs + maxDelay;
+      // كل الأصوات تبدأ معاً (delay = 0) فلا حاجة لإضافة maxDelay
+      const totalDuration = durationMs;
       
       console.log(`[useSheelohaPlayer] Voice duration: ${durationMs}ms, total: ${totalDuration}ms`);
       
