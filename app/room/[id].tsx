@@ -1446,10 +1446,11 @@ export default function RoomScreen() {
           });
         }
         
-        // Upload to S3
+        // Upload to S3 (مع تسريع 1.15 للطاروق)
         const { url } = await uploadAudioMutation.mutateAsync({
           base64Data,
           fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
+          speedUp: currentRecordingType === "tarouk", // تسريع الطاروق فقط
         });
         
         // ===== تشغيل محلي فوري للمسجّل =====

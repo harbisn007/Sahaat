@@ -374,13 +374,21 @@ export const appRouter = router({
       z.object({
         base64Data: z.string(),
         fileName: z.string(),
+        speedUp: z.boolean().optional(), // تسريع الصوت بنسبة 1.15 للطاروق
       })
     )
     .mutation(async ({ input }) => {
       const { storagePut } = await import("./storage");
+      const { speedUpAudio } = await import("./audio-processor");
       
       // Convert base64 to buffer
-      const buffer = Buffer.from(input.base64Data, "base64");
+      let buffer: Buffer = Buffer.from(input.base64Data, "base64");
+      
+      // تسريع الصوت إذا كان مطلوباً (للطاروق)
+      if (input.speedUp) {
+        console.log("[uploadAudio] Speeding up audio by 1.15x");
+        buffer = await speedUpAudio(buffer, 1.15);
+      }
       
       // Generate unique file key
       const timestamp = Date.now();
