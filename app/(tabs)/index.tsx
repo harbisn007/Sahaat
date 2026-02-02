@@ -232,22 +232,25 @@ export default function HomeScreen() {
         {
           text: "خروج",
           style: "destructive",
-          onPress: () => {
-            router.replace("/welcome");
-            (async () => {
-              try {
-                if (activeRoom) {
-                  deleteRoomMutation.mutate({ roomId: activeRoom.id });
-                }
-                if (isGuest) {
-                  await clearAllData();
-                } else {
-                  await logout();
-                }
-              } catch (error) {
-                console.error("فشل تسجيل الخروج:", error);
+          onPress: async () => {
+            try {
+              // حذف الساحة أولاً وانتظار اكتمال الحذف
+              if (activeRoom) {
+                await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
               }
-            })();
+              // ثم تسجيل الخروج
+              if (isGuest) {
+                await clearAllData();
+              } else {
+                await logout();
+              }
+              // أخيراً الانتقال لصفحة الترحيب
+              router.replace("/welcome");
+            } catch (error) {
+              console.error("فشل تسجيل الخروج:", error);
+              // حتى لو فشل الحذف، ننتقل لصفحة الترحيب
+              router.replace("/welcome");
+            }
           },
         },
       ]
@@ -268,18 +271,21 @@ export default function HomeScreen() {
         {
           text: "تغيير",
           style: "destructive",
-          onPress: () => {
-            router.replace("/welcome");
-            (async () => {
-              try {
-                if (activeRoom) {
-                  deleteRoomMutation.mutate({ roomId: activeRoom.id });
-                }
-                await logout();
-              } catch (error) {
-                console.error("فشل تسجيل الخروج:", error);
+          onPress: async () => {
+            try {
+              // حذف الساحة أولاً وانتظار اكتمال الحذف
+              if (activeRoom) {
+                await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
               }
-            })();
+              // ثم تسجيل الخروج
+              await logout();
+              // أخيراً الانتقال لصفحة الترحيب
+              router.replace("/welcome");
+            } catch (error) {
+              console.error("فشل تغيير الملف الشخصي:", error);
+              // حتى لو فشل الحذف، ننتقل لصفحة الترحيب
+              router.replace("/welcome");
+            }
           },
         },
       ]
