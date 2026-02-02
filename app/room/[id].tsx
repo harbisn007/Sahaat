@@ -65,6 +65,8 @@ export default function RoomScreen() {
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
   const [clappingDelay, setClappingDelay] = useState<number>(0.80);
+  // تتبع آخر تغيير محلي للعجلة (لمنع التحديث المزدوج)
+  const lastLocalClappingChangeRef = useRef<number>(0);
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -1596,7 +1598,11 @@ export default function RoomScreen() {
         setTaroukController(controlState.taroukController);
       }
       // تحديث السرعة إذا تغيرت (فقط لغير المتحكم - المتحكم يغير محلياً)
-      if (!isCurrentUserController && controlState.clappingDelay !== clappingDelay) {
+      // تخطي التحديث إذا كان التغيير محلياً حديثاً (خلال 2 ثانية)
+      const timeSinceLocalChange = Date.now() - lastLocalClappingChangeRef.current;
+      const isRecentLocalChange = timeSinceLocalChange < 2000;
+      
+      if (!isRecentLocalChange && controlState.clappingDelay !== clappingDelay) {
         console.log("[RoomScreen] Control state update - clappingDelay:", controlState.clappingDelay);
         setClappingDelay(controlState.clappingDelay);
       }
@@ -2167,6 +2173,8 @@ export default function RoomScreen() {
                 <SpeedWheel
                   value={clappingDelay}
                   onChange={(newDelay) => {
+                    // تسجيل وقت التغيير المحلي (لمنع التحديث المزدوج من الخادم)
+                    lastLocalClappingChangeRef.current = Date.now();
                     setClappingDelay(newDelay);
                     // إرسال للخادم عبر API للتحديث الفوري
                     setClappingDelayMutation.mutate({ roomId, delay: newDelay });
