@@ -420,9 +420,9 @@ export function useSheelohaPlayer() {
         audioElements[0].load();
       });
       
-      // المدة الفعلية بعد التسريع
+      // المدة الفعلية بعد التسريع (التسريع يقصّر المدة)
       const originalDurationMs = audioElements[0].duration * 1000;
-      const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
+      const durationMs = originalDurationMs;
       const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
       const totalDuration = durationMs + maxDelay;
       
@@ -504,13 +504,12 @@ export function useSheelohaPlayer() {
       console.log("[useSheelohaPlayer] Waiting for audio to load...");
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 4. الحصول على المدة (المدة الفعلية بعد التسريع)
-      let originalDurationMs = (players[0].duration || 0) * 1000;
-      if (originalDurationMs <= 0) {
+      // 4. الحصول على المدة (المدة الأصلية - التسريع يقصّرها تلقائياً)
+      let durationMs = (players[0].duration || 0) * 1000;
+      if (durationMs <= 0) {
         console.warn("[useSheelohaPlayer] Could not get duration, using 10 seconds fallback");
-        originalDurationMs = 10000;
+        durationMs = 10000;
       }
-      const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
       
       const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
       const totalDuration = durationMs + maxDelay;
