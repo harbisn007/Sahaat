@@ -201,16 +201,11 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Room deleted via Socket.io:", roomName);
         if (!roomClosedAlertShown) {
           setRoomClosedAlertShown(true);
+          // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
+          router.replace("/");
           Alert.alert(
             "تم إغلاق الساحة",
-            `تم إغلاق ساحة: ${roomName || savedRoomName}`,
-            [
-              {
-                text: "حسناً",
-                onPress: () => router.replace("/"),
-              },
-            ],
-            { cancelable: false }
+            `تم إغلاق ساحة: ${roomName || savedRoomName}`
           );
         }
       },
@@ -323,16 +318,11 @@ export default function RoomScreen() {
     if (roomNotFound && !roomClosedAlertShown) {
       console.log("[RoomScreen] Room closed detected via polling - error:", error?.message, "roomData:", !!roomData);
       setRoomClosedAlertShown(true);
+      // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
+      router.replace("/");
       Alert.alert(
         "تم إغلاق الساحة",
-        `تم إغلاق ساحة: ${savedRoomName}`,
-        [
-          {
-            text: "حسناً",
-            onPress: () => router.replace("/"),
-          },
-        ],
-        { cancelable: false }
+        `تم إغلاق ساحة: ${savedRoomName}`
       );
     }
   }, [isLoading, roomData, savedRoomName, error, roomClosedAlertShown]);
@@ -853,16 +843,11 @@ export default function RoomScreen() {
           // إعادة ضبط الحالة لمنع التكرار
           setUserRole(null);
           setIsApproved(false);
+          // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
+          router.replace("/");
           Alert.alert(
             "تم استبعادك",
-            "تم استبعادك من الساحة بواسطة المنشئ",
-            [
-              {
-                text: "حسناً",
-                onPress: () => router.replace("/"),
-              },
-            ],
-            { cancelable: false }
+            "تم استبعادك من الساحة بواسطة المنشئ"
           );
         } else {
           console.log("[RoomScreen] Participant not found for username:", username);
