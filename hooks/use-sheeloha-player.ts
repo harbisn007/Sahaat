@@ -27,6 +27,8 @@ const END_CLAPS_URI = require("@/assets/sounds/sheeloha-claps.mp3");
  */
 const SHEELOHA_CONFIG = {
   voiceCopies: 5,
+  // تسريع الأصوات الخمسة بنسبة ثابتة
+  playbackRate: 1.10, // تسريع 10%
   // إعدادات كل نسخة: تأخير بسيط ومستوى صوت مختلف
   // كلهم يبدون قادمين من بعيد (نفس المسافة تقريباً)
   voiceSettings: [
@@ -285,11 +287,12 @@ export function useSheelohaPlayer() {
       const interval = setInterval(playClap, delayMs);
       intervalsRef.current.push(interval);
       
-      // Stop clapping 0.10 seconds before voice ends
-      const stopTime = Math.max(0, durationMs - 100);
+      // إيقاف التصفيق قبل نهاية الصوت بمقدار تصفيقة واحدة + هامش
+      // لإلغاء التكرار الأخير قبل نهاية الصوت
+      const stopTime = Math.max(0, durationMs - delayMs - 100);
       const timeout = setTimeout(() => {
         clearInterval(interval);
-        console.log("[useSheelohaPlayer] Repeating clapping stopped");
+        console.log("[useSheelohaPlayer] Repeating clapping stopped (last clap skipped)");
       }, stopTime);
       timeoutsRef.current.push(timeout);
     } else {
@@ -333,11 +336,12 @@ export function useSheelohaPlayer() {
         const interval = setInterval(playClap, delayMs);
         intervalsRef.current.push(interval);
         
-        // Stop clapping 0.10 seconds before voice ends
-        const stopTime = Math.max(0, durationMs - 100);
+        // إيقاف التصفيق قبل نهاية الصوت بمقدار تصفيقة واحدة + هامش
+        // لإلغاء التكرار الأخير قبل نهاية الصوت
+        const stopTime = Math.max(0, durationMs - delayMs - 100);
         const timeout = setTimeout(() => {
           clearInterval(interval);
-          console.log("[useSheelohaPlayer] Repeating clapping stopped");
+          console.log("[useSheelohaPlayer] Repeating clapping stopped (last clap skipped)");
         }, stopTime);
         timeoutsRef.current.push(timeout);
       } catch (e) {
@@ -403,6 +407,7 @@ export function useSheelohaPlayer() {
         const audio = new Audio(audioUri);
         const settings = SHEELOHA_CONFIG.voiceSettings[i];
         audio.volume = settings.volume;
+        audio.playbackRate = SHEELOHA_CONFIG.playbackRate; // تسريع 1.10x
         audio.crossOrigin = "anonymous";
         audioElements.push(audio);
         webAudioRef.current.push(audio);
@@ -415,7 +420,9 @@ export function useSheelohaPlayer() {
         audioElements[0].load();
       });
       
-      const durationMs = audioElements[0].duration * 1000;
+      // المدة الفعلية بعد التسريع
+      const originalDurationMs = audioElements[0].duration * 1000;
+      const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
       const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
       const totalDuration = durationMs + maxDelay;
       
@@ -487,21 +494,23 @@ export function useSheelohaPlayer() {
         const player = createAudioPlayer(audioUri);
         const settings = SHEELOHA_CONFIG.voiceSettings[i];
         player.volume = settings.volume;
+        player.playbackRate = SHEELOHA_CONFIG.playbackRate; // تسريع 1.10x
         players.push(player);
         playersRef.current.push(player);
-        console.log(`[useSheelohaPlayer] Player ${i + 1} created (volume: ${settings.volume}, delay: ${settings.delay}ms)`);
+        console.log(`[useSheelohaPlayer] Player ${i + 1} created (volume: ${settings.volume}, delay: ${settings.delay}ms, rate: ${SHEELOHA_CONFIG.playbackRate})`);
       }
       
       // 3. انتظار تحميل الأصوات
       console.log("[useSheelohaPlayer] Waiting for audio to load...");
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 4. الحصول على المدة
-      let durationMs = (players[0].duration || 0) * 1000;
-      if (durationMs <= 0) {
+      // 4. الحصول على المدة (المدة الفعلية بعد التسريع)
+      let originalDurationMs = (players[0].duration || 0) * 1000;
+      if (originalDurationMs <= 0) {
         console.warn("[useSheelohaPlayer] Could not get duration, using 10 seconds fallback");
-        durationMs = 10000;
+        originalDurationMs = 10000;
       }
+      const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
       
       const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
       const totalDuration = durationMs + maxDelay;
