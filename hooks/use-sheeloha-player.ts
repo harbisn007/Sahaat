@@ -494,10 +494,10 @@ export function useSheelohaPlayer() {
         const player = createAudioPlayer(audioUri);
         const settings = SHEELOHA_CONFIG.voiceSettings[i];
         player.volume = settings.volume;
-        player.playbackRate = SHEELOHA_CONFIG.playbackRate; // تسريع 1.10x
+        // ملاحظة: playbackRate للقراءة فقط على Native، التسريع يعمل على الويب فقط
         players.push(player);
         playersRef.current.push(player);
-        console.log(`[useSheelohaPlayer] Player ${i + 1} created (volume: ${settings.volume}, delay: ${settings.delay}ms, rate: ${SHEELOHA_CONFIG.playbackRate})`);
+        console.log(`[useSheelohaPlayer] Player ${i + 1} created (volume: ${settings.volume}, delay: ${settings.delay}ms)`);
       }
       
       // 3. انتظار تحميل الأصوات
@@ -510,8 +510,8 @@ export function useSheelohaPlayer() {
         console.warn("[useSheelohaPlayer] Could not get duration, using 10 seconds fallback");
         originalDurationMs = 10000;
       }
-      // المدة الفعلية = المدة الأصلية / سرعة التشغيل
-      const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
+      // على Native لا يوجد تسريع، المدة هي الأصلية
+      const durationMs = originalDurationMs;
       
       const maxDelay = SHEELOHA_CONFIG.voiceSettings[SHEELOHA_CONFIG.voiceCopies - 1].delay;
       const totalDuration = durationMs + maxDelay;
