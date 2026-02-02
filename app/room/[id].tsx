@@ -1804,8 +1804,7 @@ export default function RoomScreen() {
               fontSize: 17,
               fontWeight: 'bold',
               marginBottom: 12,
-              textAlign: 'right',
-              writingDirection: 'rtl',
+              textAlign: 'left',
             }}>
               للحصول على افضل تجربة استخدام:
             </Text>
@@ -1813,8 +1812,7 @@ export default function RoomScreen() {
               color: '#000000',
               fontSize: 16,
               lineHeight: 28,
-              textAlign: 'right',
-              writingDirection: 'rtl',
+              textAlign: 'left',
             }}>
               عند بداية كل طاروق جديد؛{"\n"}
               • قم بتحديد من يبدأ الطاروق بالضغط على اسم الشاعر (سيظهر باللون الأحمر عند اختياره).{"\n"}
