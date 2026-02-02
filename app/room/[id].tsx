@@ -99,6 +99,7 @@ export default function RoomScreen() {
   );
 
   // استرجاع taroukController من AsyncStorage عند دخول الساحة (للمنشئ فقط)
+  // إذا لم يكن هناك قيمة محفوظة والمستخدم هو المنشئ، يتم تعيين "creator" كقيمة افتراضية
   useEffect(() => {
     const loadTaroukController = async () => {
       try {
@@ -108,16 +109,20 @@ export default function RoomScreen() {
           const controller = saved as "creator" | "player1" | "player2";
           console.log("[RoomScreen] Loaded taroukController from storage:", controller);
           setTaroukController(controller);
+        } else if (roomData?.creatorId === userId) {
+          // المنشئ يدخل لأول مرة - تعيين "عندي" كقيمة افتراضية
+          console.log("[RoomScreen] Setting default taroukController to 'creator' for room creator");
+          setTaroukController("creator");
         }
       } catch (error) {
         console.error("[RoomScreen] Failed to load taroukController:", error);
       }
     };
     
-    if (roomId > 0) {
+    if (roomId > 0 && roomData && userId) {
       loadTaroukController();
     }
-  }, [roomId]);
+  }, [roomId, roomData, userId]);
 
   // حفظ taroukController في AsyncStorage عند تغييره
   useEffect(() => {
@@ -924,7 +929,7 @@ export default function RoomScreen() {
   // Handle kick player
   const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
-      "استبعاد اللاعب",
+      "استبعاد الشاعر",
       `هل تريد استبعاد ${playerName} من الساحة؟`,
       [
         { text: "إلغاء", style: "cancel" },
@@ -1079,7 +1084,7 @@ export default function RoomScreen() {
         refetch(),
       ]);
       if (variables.accept) {
-        Alert.alert("تم القبول", "تم قبول اللاعب في الساحة");
+        Alert.alert("تم القبول", "تم قبول الشاعر في الساحة");
       }
     },
     onError: (error) => {
@@ -1177,7 +1182,7 @@ export default function RoomScreen() {
       const message = `🎙️ دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
         `📍 اسم الساحة: ${roomName}\n` +
         `👤 الداعي: ${username}\n\n` +
-        `انضم الآن كلاعب أو مستمع:\n${inviteUrl}`;
+        `انضم الآن كشاعر أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
         message,
@@ -1197,7 +1202,7 @@ export default function RoomScreen() {
       });
       await refetch();
       await refetchRequests();
-      Alert.alert("تم القبول", "تم قبول اللاعب بنجاح");
+      Alert.alert("تم القبول", "تم قبول الشاعر بنجاح");
     } catch (error) {
       Alert.alert("خطأ", "حدث خطأ أثناء قبول الطلب");
     }
@@ -1707,7 +1712,7 @@ export default function RoomScreen() {
         <View className="flex-1">
           <Text className="text-xl font-bold text-center" style={{ color: '#000000' }}>{roomData.name}</Text>
           <Text className="text-sm text-center" style={{ color: '#000000', opacity: 0.8 }}>
-            {roomData.acceptedPlayersCount}/2 لاعبين · {roomData.viewerCount} مستمعين
+            {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
           </Text>
         </View>
         
@@ -1843,7 +1848,7 @@ export default function RoomScreen() {
                   />
                 )}
                 <Text style={{ color: '#000', fontWeight: '600' }}>
-                  {request.username} يريد الانضمام كلاعب
+                  {request.username} يريد الانضمام كشاعر
                 </Text>
               </View>
               <View className="flex-row gap-2">
@@ -2136,7 +2141,7 @@ export default function RoomScreen() {
               fontWeight: '600',
               fontSize: 11,
             }}>
-              {player1?.username || 'اللاعب 1'}
+              {player1?.username || 'شاعر 1'}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -2167,7 +2172,7 @@ export default function RoomScreen() {
               fontWeight: '600',
               fontSize: 11,
             }}>
-              {player2?.username || 'اللاعب 2'}
+              {player2?.username || 'شاعر 2'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -2367,7 +2372,7 @@ export default function RoomScreen() {
                 <View className="flex-row items-center gap-2">
                   <MaterialIcons name="person-add" size={24} color="#fff" />
                   <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-                    {hasPendingRequest ? 'طلبك قيد الانتظار...' : 'طلب الانضمام كلاعب'}
+                    {hasPendingRequest ? 'طلبك قيد الانتظار...' : 'طلب الانضمام كشاعر'}
                   </Text>
                 </View>
               </TouchableOpacity>

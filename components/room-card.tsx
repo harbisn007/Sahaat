@@ -98,7 +98,7 @@ export function RoomCard({
         <View className="flex-row gap-2">
           <View className="flex-row items-center gap-1">
             <Text className="text-xs text-foreground">
-              {room.acceptedPlayersCount}/2 لاعب
+              {room.acceptedPlayersCount}/2 شاعر
             </Text>
           </View>
           <View className="flex-row items-center gap-1">
@@ -153,7 +153,7 @@ export function RoomCard({
       <View className="flex-row gap-2 mb-2">
         <View className="flex-row items-center gap-1">
           <Text className="text-xs text-foreground">
-            {room.acceptedPlayersCount}/2 لاعب
+            {room.acceptedPlayersCount}/2 شاعر
           </Text>
         </View>
         <View className="flex-row items-center gap-1">

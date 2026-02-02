@@ -378,7 +378,7 @@ export default function InviteScreen() {
                 <Text className="text-foreground font-semibold">{inviterName}</Text>
               </View>
               <View className="flex-row items-center justify-between">
-                <Text className="text-muted text-sm">اللاعبون:</Text>
+                <Text className="text-muted text-sm">الشعراء:</Text>
                 <Text className="text-foreground font-semibold">{playerCount}/2</Text>
               </View>
             </View>
@@ -394,7 +394,7 @@ export default function InviteScreen() {
                 <View className="flex-row items-center gap-2">
                   <MaterialIcons name="sports-esports" size={24} color="white" />
                   <Text className="text-white font-bold text-lg">
-                    {requestJoinMutation.isPending ? "جاري الطلب..." : "طلب الانضمام كلاعب"}
+                    {requestJoinMutation.isPending ? "جاري الطلب..." : "طلب الانضمام كشاعر"}
                   </Text>
                 </View>
                 {isRoomFull && (
