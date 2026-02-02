@@ -98,7 +98,14 @@ export function useAudioRecorder() {
   // Internal function to actually start recording
   const doStartRecording = useCallback(async (): Promise<boolean> => {
     if (Platform.OS === "web") {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // تفعيل Echo Cancellation و Noise Suppression على الويب
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       
@@ -124,11 +131,13 @@ export function useAudioRecorder() {
     } else {
       // Native implementation
       
-      // Set audio mode
+      // Set audio mode with voice communication for echo cancellation
       try {
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
+          // تفعيل وضع الاتصال الصوتي لتقليل التقاط أصوات الجهاز
+          interruptionMode: 'duckOthers', // خفض صوت التطبيقات الأخرى أثناء التسجيل
         });
       } catch (modeError) {
         console.warn("[useAudioRecorder] Audio mode failed:", modeError);
