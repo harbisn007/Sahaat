@@ -577,13 +577,19 @@ export function useSheelohaPlayer() {
     isReleasedRef.current = false;
     isClapPlayingRef.current = false;
     
+    // إضافة Cache Buster لإجبار تحميل الصوت من جديد
+    // هذا يحل مشكلة تشغيل الصوت الأصلي عند تسجيل الشاشة
+    const cacheBuster = `${audioUri.includes("?") ? "&" : "?"}t=${Date.now()}`;
+    const audioUriWithCacheBuster = `${audioUri}${cacheBuster}`;
+    console.log("[useSheelohaPlayer] Audio URI with cache buster:", audioUriWithCacheBuster);
+    
     // Small delay to ensure cleanup
     await new Promise(resolve => setTimeout(resolve, 100));
     
     if (Platform.OS === "web") {
-      await playOnWeb(audioUri, clappingDelay);
+      await playOnWeb(audioUriWithCacheBuster, clappingDelay);
     } else {
-      await playOnNative(audioUri, clappingDelay);
+      await playOnNative(audioUriWithCacheBuster, clappingDelay);
     }
   }, [stopSheeloha, playOnWeb, playOnNative]);
 
