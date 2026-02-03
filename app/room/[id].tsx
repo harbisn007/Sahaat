@@ -204,8 +204,8 @@ export default function RoomScreen() {
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
           Alert.alert(
-            "تم إغلاق الساحة",
-            `تم إغلاق ساحة: ${roomName || savedRoomName}`
+            "تم حذف الساحة",
+            `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
           );
         }
       },
@@ -321,8 +321,8 @@ export default function RoomScreen() {
       // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
       router.replace("/");
       Alert.alert(
-        "تم إغلاق الساحة",
-        `تم إغلاق ساحة: ${savedRoomName}`
+        "تم حذف الساحة",
+        `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
       );
     }
   }, [isLoading, roomData, savedRoomName, error, roomClosedAlertShown]);
