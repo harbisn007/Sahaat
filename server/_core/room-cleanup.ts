@@ -100,18 +100,23 @@ async function cleanupExpiredExtensions(): Promise<void> {
   const now = new Date();
 
   // جلب الساحات التي انتهت صلاحية تمديدها (5 أيام)
+  // ملاحظة مهمة: يجب التحقق من أن extensionExpiresAt موجود قبل مقارنته
   const expiredExtensions = await db
     .select()
     .from(rooms)
     .where(
       and(
+        // التحقق من أن التمديد موجود
+        // @ts-ignore - Drizzle doesn't support isNotNull directly in some versions
+        rooms.extensionExpiresAt,
+        // والتحقق من أنه انتهى
         lt(rooms.extensionExpiresAt, now)
       )
     );
 
   // إزالة التمديد وتسجيل وقت الفقدان
   for (const room of expiredExtensions) {
-    if (room.extensionExpiresAt) {
+    if (room.extensionExpiresAt && new Date(room.extensionExpiresAt) <= now) {
       console.log(`[RoomCleanup] Extension expired for room ${room.id} (5d), 15-minute deletion timer starts`);
       await removeExtension(room.id);
     }
