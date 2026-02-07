@@ -19,7 +19,6 @@ interface RoomCardProps {
     hasGoldStar?: "true" | "false";
   };
   currentUserId: string;
-  onJoinAsPlayer: () => void;
   onJoinAsViewer: () => void;
   onDirectEnter: () => void;
   showGoldStar?: boolean;
@@ -29,7 +28,6 @@ interface RoomCardProps {
 export function RoomCard({ 
   room, 
   currentUserId, 
-  onJoinAsPlayer, 
   onJoinAsViewer, 
   onDirectEnter,
   showGoldStar = false,
@@ -162,35 +160,19 @@ export function RoomCard({
         </View>
       </View>
 
-      {/* Action Buttons - Stacked vertically for compact design */}
-      <View className="gap-1">
-        <TouchableOpacity
-          className="rounded-lg py-1.5 items-center"
-          style={{
-            backgroundColor: isPlayersFull ? colors.muted : '#EF4444',
-            opacity: isPlayersFull ? 0.5 : 1,
-          }}
-          onPress={onJoinAsPlayer}
-          disabled={isPlayersFull}
+      {/* Action Button - Dخول */}
+      <TouchableOpacity
+        className="rounded-lg py-1.5 items-center"
+        style={{ backgroundColor: '#EF4444' }}
+        onPress={onJoinAsViewer}
+      >
+        <Text
+          className="font-semibold text-xs"
+          style={{ color: '#FFFFFF' }}
         >
-          <Text
-            className="font-semibold text-xs"
-            style={{ color: '#FFFFFF' }}
-          >
-            {isPlayersFull ? "ممتلئة" : "العب"}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          className="bg-surface border rounded-lg py-1.5 items-center"
-          style={{ borderColor: '#3B82F6' }}
-          onPress={onJoinAsViewer}
-        >
-          <Text className="font-semibold text-xs" style={{ color: '#3B82F6' }}>
-            استمع
-          </Text>
-        </TouchableOpacity>
-      </View>
+          دخول
+        </Text>
+      </TouchableOpacity>
     </View>
   );
 }
