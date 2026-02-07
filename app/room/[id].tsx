@@ -776,6 +776,38 @@ export default function RoomScreen() {
     }
   }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, userId]);
 
+  // Track played audio messages to avoid duplicate playback
+  const [playedAudioIds, setPlayedAudioIds] = useState<Set<string>>(new Set());
+
+  // Auto-play audio messages for other users (not the sender)
+  useEffect(() => {
+    if (!audioMessages || audioMessages.length === 0) return;
+    
+    // Get the latest audio message
+    const latestAudio = audioMessages[0];
+    
+    // Check if this is a new message that hasn't been played yet
+    if (
+      latestAudio &&
+      !playedAudioIds.has(latestAudio.id) &&
+      latestAudio.userId !== userId // Only play if not the sender
+    ) {
+      console.log("[RoomScreen] Auto-playing audio message from:", {
+        id: latestAudio.id,
+        username: latestAudio.username,
+        messageType: latestAudio.messageType,
+        senderUserId: latestAudio.userId,
+        currentUserId: userId
+      });
+      
+      // Mark as played
+      setPlayedAudioIds(prev => new Set(prev).add(latestAudio.id));
+      
+      // Play the audio
+      play(latestAudio.audioUrl);
+    }
+  }, [audioMessages, playedAudioIds, userId, play]);
+
   // Listen for khalooha commands and stop sheeloha for all users
   const [lastProcessedKhaloohaId, setLastProcessedKhaloohaId] = useState<number | null>(null);
   

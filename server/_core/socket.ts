@@ -164,6 +164,10 @@ export interface ClientToServerEvents {
   
   // تغيير المتحكم بالطاروق
   setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
+  
+  // الانضمام لقناة المنشئ (لاستلام إشعارات طلبات الانضمام)
+  joinCreatorChannel: (userId: string) => void;
+  leaveCreatorChannel: (userId: string) => void;
 }
 
 export interface InterServerEvents {
