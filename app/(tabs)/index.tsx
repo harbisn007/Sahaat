@@ -13,6 +13,7 @@ import { RoomCard } from "@/components/room-card";
 import { CreateRoomModal } from "@/components/create-room-modal";
 import { trpc } from "@/lib/trpc";
 import { useSocketConnection } from "@/hooks/use-socket";
+import { useNotificationBell } from "@/hooks/use-notification-bell";
 import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
 
@@ -209,6 +210,8 @@ export default function HomeScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const isConnected = useSocketConnection();
   const socketRef = useRef<Socket | null>(null);
+  const creatorSocketRef = useRef<Socket | null>(null);
+  const playedJoinRequestsRef = useRef<Set<string>>(new Set());
   
   // حالة الدعوات العامة
   const [displayedInvites, setDisplayedInvites] = useState<PublicInvitation[]>([]);
@@ -330,8 +333,10 @@ export default function HomeScreen() {
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation();
   const markDisplayedMutation = trpc.publicInvitations.markDisplayed.useMutation();
   const expireInviteMutation = trpc.publicInvitations.expire.useMutation();
+  const { playBell } = useNotificationBell();
   
   const hasActiveRoom = !!activeRoom;
+  const creatorRoomsRef = useRef<Set<number>>(new Set());
 
   // الانضمام لقناة الدعوات العامة
   useEffect(() => {

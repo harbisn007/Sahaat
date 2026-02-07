@@ -1141,18 +1141,41 @@ export default function RoomScreen() {
   const handleSendPublicInvite = async () => {
     if (!canSendPublicInvite || isSendingPublicInvite) return;
     
-    setIsSendingPublicInvite(true);
-    try {
-      await sendPublicInviteMutation.mutateAsync({
-        roomId,
-        creatorId: userId,
-        creatorName: username || '',
-        creatorAvatar: avatar || 'male',
-        roomName: roomData?.name || 'ساحة المحاورة',
-      });
-    } finally {
-      setIsSendingPublicInvite(false);
-    }
+    Alert.prompt(
+      'دعوة عامة',
+      'أضف رسالة للدعوة (12 حرف كحد أقصى)',
+      [
+        {
+          text: 'إلغاء',
+          onPress: () => {},
+          style: 'cancel',
+        },
+        {
+          text: 'إرسال',
+          onPress: async (text: string | undefined) => {
+            const limitedText = text?.substring(0, 12) || 'وين الشعار؟';
+            // تخزين رسالة الدعوة لاستخدامها لاحقاً
+            localStorage.setItem(`publicInviteMessage_${roomId}`, limitedText);
+            
+            setIsSendingPublicInvite(true);
+            try {
+              await sendPublicInviteMutation.mutateAsync({
+                roomId,
+                creatorId: userId,
+                creatorName: username || '',
+                creatorAvatar: avatar || 'male',
+                roomName: roomData?.name || 'ساحة المحاورة',
+              });
+            } finally {
+              setIsSendingPublicInvite(false);
+            }
+          },
+        },
+      ],
+      'plain-text',
+      'وين الشعّار؟',
+      'default'
+    );
   };
 
   // Share invite link using web URL (clickable in messaging apps)
