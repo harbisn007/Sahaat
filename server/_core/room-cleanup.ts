@@ -29,24 +29,24 @@ export function removeRoomTracking(roomId: number) {
 }
 
 /**
- * التحقق من وجود لاعب (غير المنشئ) في الساحة
+ * التحقق من وجود أي مشارك نشط في الساحة (بما فيهم المنشئ)
+ * الساحة لا تُحذف طالما المنشئ موجود فيها
  */
-async function hasNonCreatorPlayer(roomId: number): Promise<boolean> {
+async function hasActiveParticipant(roomId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
 
-  const players = await db
+  const participants = await db
     .select()
     .from(roomParticipants)
     .where(
       and(
         eq(roomParticipants.roomId, roomId),
-        eq(roomParticipants.role, "player"),
         eq(roomParticipants.status, "accepted")
       )
     );
 
-  return players.length > 0;
+  return participants.length > 0;
 }
 
 /**
@@ -205,11 +205,11 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
       }
 
       // التحقق من وجود لاعب
-      const hasPlayer = await hasNonCreatorPlayer(roomId);
+      const hasParticipant = await hasActiveParticipant(roomId);
 
-      if (hasPlayer) {
-        // يوجد لاعب - لا حذف
-        console.log(`[RoomCleanup] Room ${roomId} has player, skipping`);
+      if (hasParticipant) {
+        // يوجد مشارك نشط (منشئ أو لاعب) - لا حذف
+        console.log(`[RoomCleanup] Room ${roomId} has active participant, skipping`);
         continue;
       }
 

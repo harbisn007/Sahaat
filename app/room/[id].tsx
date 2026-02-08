@@ -1139,18 +1139,18 @@ export default function RoomScreen() {
 
   // حالة نافذة الدعوة العامة
   const [showPublicInviteModal, setShowPublicInviteModal] = useState(false);
-  const [publicInviteText, setPublicInviteText] = useState('وين الشعّار؟');
+  const [publicInviteText, setPublicInviteText] = useState('مطلوب شاعر');
 
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {
     if (!canSendPublicInvite || isSendingPublicInvite) return;
-    setPublicInviteText('وين الشعّار؟');
+    setPublicInviteText('مطلوب شاعر');
     setShowPublicInviteModal(true);
   };
 
   // دالة تأكيد إرسال الدعوة
   const confirmSendPublicInvite = async () => {
-    const limitedText = publicInviteText?.substring(0, 12) || 'وين الشعّار؟';
+    const limitedText = publicInviteText?.substring(0, 18) || 'مطلوب شاعر';
     setShowPublicInviteModal(false);
     setIsSendingPublicInvite(true);
     try {
@@ -1873,13 +1873,13 @@ export default function RoomScreen() {
               دعوة عامة
             </Text>
             <Text style={{ fontSize: 13, textAlign: 'center', marginBottom: 16, color: '#666' }}>
-              أضف رسالة للدعوة (12 حرف كحد أقصى)
+              أضف رسالة للدعوة (18 حرف كحد أقصى)
             </Text>
             <TextInput
               value={publicInviteText}
-              onChangeText={(t) => setPublicInviteText(t.substring(0, 12))}
-              maxLength={12}
-              placeholder="وين الشعّار؟"
+              onChangeText={(t) => setPublicInviteText(t.substring(0, 18))}
+              maxLength={18}
+              placeholder="مطلوب شاعر"
               placeholderTextColor="#999"
               style={{
                 borderWidth: 1,

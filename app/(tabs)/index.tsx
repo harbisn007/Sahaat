@@ -190,7 +190,7 @@ function PublicInviteCard({
           onPress={onJoin}
         >
           <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }} numberOfLines={1}>
-            {invite.message || 'وين الشعّار؟'}
+            {invite.message || 'مطلوب شاعر'}
           </Text>
         </TouchableOpacity>
       )}
@@ -608,21 +608,32 @@ export default function HomeScreen() {
           
           <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
           
-          {/* زر العودة إلى ساحتك - يظهر فقط إذا كان لديك ساحة نشطة */}
+          {/* زر العودة إلى ساحتك + عداد الطلبات */}
           {hasActiveRoom && activeRoom && (
-            <TouchableOpacity
-              onPress={() => router.push(`/room/${activeRoom.id}`)}
-              style={{
-                backgroundColor: '#D4A574',
-                borderRadius: 6,
-                paddingHorizontal: 8,
-                paddingVertical: 4,
-                borderWidth: 1,
-                borderColor: '#E6E6FA',
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 10 }}>العودة لساحتك</Text>
-            </TouchableOpacity>
+            <View style={{ alignItems: 'flex-end' }}>
+              <TouchableOpacity
+                onPress={() => router.push(`/room/${activeRoom.id}`)}
+                style={{
+                  backgroundColor: '#D4A574',
+                  borderRadius: 6,
+                  paddingHorizontal: 8,
+                  paddingVertical: 4,
+                  borderWidth: 1,
+                  borderColor: '#E6E6FA',
+                }}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 10 }}>العودة لساحتك</Text>
+              </TouchableOpacity>
+              {/* عداد طلبات اللعب - تحت زر العودة */}
+              {(activeRoom.pendingRequestsCount || 0) > 0 && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 10, marginLeft: 4 }}>طلبات لعب</Text>
+                  <View style={{ backgroundColor: '#EF4444', borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1 }}>
+                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>{activeRoom.pendingRequestsCount}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
           )}
 
         </View>
@@ -639,15 +650,6 @@ export default function HomeScreen() {
             {/* عداد تنازلي للساحة الممدة - يظهر للمنشئ فقط (ساعات التمديد المتبقية) */}
             {activeRoom.extensionExpiresAt && (
               <CountdownTimer expiresAt={new Date(activeRoom.extensionExpiresAt)} />
-            )}
-            {/* عداد طلبات اللعب */}
-            {(activeRoom.pendingRequestsCount || 0) > 0 && (
-              <View className="flex-row items-center justify-center mb-2">
-                <View style={{ backgroundColor: '#EF4444', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 2, marginRight: 6 }}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>{activeRoom.pendingRequestsCount}</Text>
-                </View>
-                <Text style={{ color: '#EF4444', fontWeight: '600', fontSize: 13 }}>لديك طلبات لعب</Text>
-              </View>
             )}
           </View>
         ) : (

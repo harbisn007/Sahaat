@@ -838,7 +838,7 @@ export const appRouter = router({
           creatorName: z.string(),
           creatorAvatar: z.string(),
           roomName: z.string(),
-          message: z.string().max(12).optional(),
+          message: z.string().max(18).optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -851,7 +851,7 @@ export const appRouter = router({
         // Create invitation
         const invitationId = await db.createPublicInvitation({
           ...input,
-          message: input.message || 'وين الشعّار؟',
+          message: input.message || 'مطلوب شاعر',
         });
         
         // Update last invite time

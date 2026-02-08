@@ -6,7 +6,6 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { deleteAllRooms } from "../db";
 import { initializeSocketIO } from "./socket";
 import { startRoomCleanupService } from "./room-cleanup";
 
@@ -30,9 +29,6 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  // Delete all rooms on server restart (for development)
-  await deleteAllRooms();
-  
   const app = express();
   const server = createServer(app);
 
