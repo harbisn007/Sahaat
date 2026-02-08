@@ -16,6 +16,7 @@ import { useSocketConnection } from "@/hooks/use-socket";
 import { useNotificationBell } from "@/hooks/use-notification-bell";
 import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
+import { getAvatarSourceById } from "@/lib/avatars";
 
 // نوع الدعوة العامة
 interface PublicInvitation {
@@ -135,14 +136,8 @@ function PublicInviteCard({
   onJoin: () => void;
   currentUserId: string;
 }) {
-  // تحديد صورة الأفاتار
-  const getAvatarSource = () => {
-    const avatarType = invite.creatorAvatar || 'male';
-    if (avatarType === 'female') {
-      return require('@/assets/images/avatar-female.png');
-    }
-    return require('@/assets/images/avatar-male.png');
-  };
+  // تحيد صورة الأفاتار
+  const getAvatarSource = () => getAvatarSourceById(invite.creatorAvatar);
 
   // التحقق من أن المستخدم ليس مرسل الدعوة
   const isOwnInvite = invite.creatorId === currentUserId;

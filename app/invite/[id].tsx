@@ -13,8 +13,7 @@ import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthC
 import { Platform } from "react-native";
 
 const welcomeBackground = require("@/assets/images/welcome-background.png");
-const avatarMale = require("@/assets/images/avatar-male.png");
-const avatarFemale = require("@/assets/images/avatar-female.png");
+import { AVATAR_OPTIONS, getAvatarSourceById, DEFAULT_VIEWER_AVATAR } from "@/lib/avatars";
 
 export default function InviteScreen() {
   const { id, inviter } = useLocalSearchParams<{ id: string; inviter?: string }>();
@@ -75,7 +74,7 @@ export default function InviteScreen() {
           await joinAsViewerMutation.mutateAsync({
             roomId,
             username,
-            avatar: avatar || "male",
+            avatar: avatar || DEFAULT_VIEWER_AVATAR,
             userId,
           });
           router.replace(`/room/${roomId}?role=viewer`);
@@ -96,7 +95,7 @@ export default function InviteScreen() {
         // Create guest name: "ضيف + inviter name" or "ضيف"
         const inviterName = inviter || "";
         const guestName = inviterName ? `ضيف ${inviterName}` : `ضيف ${roomId}`;
-        const guestAvatar: AvatarType = "male"; // Default to male avatar
+        const guestAvatar: AvatarType = DEFAULT_VIEWER_AVATAR; // Default neutral avatar for viewers
         
         console.log("[InviteScreen] Creating guest account:", guestName);
         
@@ -446,54 +445,23 @@ export default function InviteScreen() {
                 اختر صورتك الشخصية
               </Text>
               
-              <View className="flex-row justify-center items-center gap-4 mb-4">
-                <TouchableOpacity
-                  onPress={() => { setEditAvatar('male'); setCustomAvatarUri(null); }}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: editAvatar === 'male' ? colors.primary : 'transparent',
-                    borderRadius: 35,
-                    padding: 2,
-                    opacity: anyLoading ? 0.5 : 1,
-                  }}
-                >
-                  <Image source={avatarMale} style={{ width: 50, height: 50, borderRadius: 25 }} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={() => { setEditAvatar('female'); setCustomAvatarUri(null); }}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: editAvatar === 'female' ? colors.primary : 'transparent',
-                    borderRadius: 35,
-                    padding: 2,
-                    opacity: anyLoading ? 0.5 : 1,
-                  }}
-                >
-                  <Image source={avatarFemale} style={{ width: 50, height: 50, borderRadius: 25 }} />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  onPress={handlePickImage}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: customAvatarUri ? colors.primary : 'transparent',
-                    borderRadius: 35,
-                    padding: 2,
-                    opacity: anyLoading ? 0.5 : 1,
-                  }}
-                >
-                  {customAvatarUri ? (
-                    <Image source={{ uri: customAvatarUri }} style={{ width: 50, height: 50, borderRadius: 25 }} />
-                  ) : (
-                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: colors.border, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ fontSize: 18 }}>📷</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                {AVATAR_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.id}
+                    onPress={() => { setEditAvatar(opt.id); setCustomAvatarUri(null); }}
+                    disabled={anyLoading}
+                    style={{
+                      borderWidth: 3,
+                      borderColor: editAvatar === opt.id ? colors.primary : 'transparent',
+                      borderRadius: 25,
+                      padding: 2,
+                      opacity: anyLoading ? 0.5 : 1,
+                    }}
+                  >
+                    <Image source={opt.source} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                  </TouchableOpacity>
+                ))}
               </View>
 
               {/* Name Input */}

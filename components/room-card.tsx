@@ -1,9 +1,7 @@
 import { View, Text, TouchableOpacity, Image } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 
-// صور الأفاتار
-const avatarMale = require('@/assets/images/avatar-male.png');
-const avatarFemale = require('@/assets/images/avatar-female.png');
+import { getAvatarSourceById } from "@/lib/avatars";
 
 interface RoomCardProps {
   room: {
@@ -39,13 +37,7 @@ export function RoomCard({
   const hasGoldStar = showGoldStar || room.hasGoldStar === "true";
 
   // تحديد صورة الأفاتار
-  const getAvatarSource = () => {
-    const avatarType = room.creatorAvatar || 'male';
-    if (avatarType === 'female') {
-      return avatarFemale;
-    }
-    return avatarMale;
-  };
+  const getAvatarSource = () => getAvatarSourceById(room.creatorAvatar);
 
   // If creator, make the whole card clickable
   if (isCreator) {

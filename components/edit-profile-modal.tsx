@@ -13,8 +13,7 @@ import {
 import { MaterialIcons } from "@expo/vector-icons";
 import { AvatarType } from "@/lib/user-context";
 
-const avatarMale = require("@/assets/images/avatar-male.png");
-const avatarFemale = require("@/assets/images/avatar-female.png");
+import { AVATAR_OPTIONS, getAvatarSourceById } from "@/lib/avatars";
 
 interface EditProfileModalProps {
   visible: boolean;
@@ -69,11 +68,7 @@ export function EditProfileModal({
     }
   };
 
-  const getAvatarSource = (avatar: AvatarType) => {
-    if (avatar === "male") return avatarMale;
-    if (avatar === "female") return avatarFemale;
-    return { uri: avatar };
-  };
+  const getAvatarSource = (avatar: AvatarType) => getAvatarSourceById(avatar);
 
   return (
     <Modal
@@ -104,56 +99,32 @@ export function EditProfileModal({
               {/* Avatar Selection */}
               <View className="mb-6">
                 <Text className="text-sm text-muted mb-3 text-center">اختر صورتك</Text>
-                <View className="flex-row justify-center gap-4">
-                  {/* Male Avatar */}
-                  <TouchableOpacity
-                    onPress={() => setSelectedAvatar("male")}
-                    className={`rounded-full p-1 ${
-                      selectedAvatar === "male" ? "border-2" : ""
-                    }`}
-                    style={{
-                      borderColor: selectedAvatar === "male" ? "#8B4513" : "transparent",
-                    }}
-                  >
-                    <Image
-                      source={avatarMale}
-                      className="w-20 h-20 rounded-full"
-                      resizeMode="cover"
-                    />
-                    {selectedAvatar === "male" && (
-                      <View
-                        className="absolute -bottom-1 -right-1 rounded-full p-1"
-                        style={{ backgroundColor: "#8B4513" }}
-                      >
-                        <MaterialIcons name="check" size={16} color="white" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
-
-                  {/* Female Avatar */}
-                  <TouchableOpacity
-                    onPress={() => setSelectedAvatar("female")}
-                    className={`rounded-full p-1 ${
-                      selectedAvatar === "female" ? "border-2" : ""
-                    }`}
-                    style={{
-                      borderColor: selectedAvatar === "female" ? "#8B4513" : "transparent",
-                    }}
-                  >
-                    <Image
-                      source={avatarFemale}
-                      className="w-20 h-20 rounded-full"
-                      resizeMode="cover"
-                    />
-                    {selectedAvatar === "female" && (
-                      <View
-                        className="absolute -bottom-1 -right-1 rounded-full p-1"
-                        style={{ backgroundColor: "#8B4513" }}
-                      >
-                        <MaterialIcons name="check" size={16} color="white" />
-                      </View>
-                    )}
-                  </TouchableOpacity>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 10 }}>
+                  {AVATAR_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.id}
+                      onPress={() => setSelectedAvatar(opt.id)}
+                      style={{
+                        borderWidth: 3,
+                        borderColor: selectedAvatar === opt.id ? '#8B4513' : 'transparent',
+                        borderRadius: 35,
+                        padding: 2,
+                      }}
+                    >
+                      <Image
+                        source={opt.source}
+                        style={{ width: 56, height: 56, borderRadius: 28 }}
+                        resizeMode="cover"
+                      />
+                      {selectedAvatar === opt.id && (
+                        <View
+                          style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: '#8B4513', borderRadius: 10, padding: 2 }}
+                        >
+                          <MaterialIcons name="check" size={14} color="white" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
 

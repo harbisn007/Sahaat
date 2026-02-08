@@ -27,21 +27,14 @@ import { EditProfileModal } from "@/components/edit-profile-modal";
 import { SpeedWheel } from "@/components/speed-wheel";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { getAvatarSourceById } from "@/lib/avatars";
 
 export default function RoomScreen() {
   const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
   const { username, userId, avatar, setUserData } = useUser();
 
-  // Avatar images
-  const avatarMale = require("@/assets/images/avatar-male.png");
-  const avatarFemale = require("@/assets/images/avatar-female.png");
-
   // Helper function to get avatar source
-  const getAvatarSource = (avatarValue: string | undefined | null) => {
-    if (!avatarValue || avatarValue === "male") return avatarMale;
-    if (avatarValue === "female") return avatarFemale;
-    return { uri: avatarValue }; // Custom URL
-  };
+  const getAvatarSource = (avatarValue: string | undefined | null) => getAvatarSourceById(avatarValue);
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
@@ -1771,7 +1764,7 @@ export default function RoomScreen() {
         >
           <View className="flex-row items-center gap-2">
             <Image
-              source={avatar === 'female' ? avatarFemale : avatarMale}
+              source={getAvatarSource(avatar)}
               className="w-8 h-8 rounded-full"
               resizeMode="cover"
             />

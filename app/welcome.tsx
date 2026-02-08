@@ -10,9 +10,8 @@ import type { AvatarType } from "@/lib/user-context";
 import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
-// Import avatar images
-const avatarMale = require("@/assets/images/avatar-male.png");
-const avatarFemale = require("@/assets/images/avatar-female.png");
+// Import avatar system
+import { AVATAR_OPTIONS, getAvatarSourceById } from "@/lib/avatars";
 
 // Welcome background image
 const welcomeBackground = require("@/assets/images/welcome-background.png");
@@ -84,13 +83,8 @@ export default function WelcomeScreen() {
     }
   };
 
-  const handleSelectMale = () => {
-    setSelectedAvatar('male');
-    setCustomAvatarUri(null);
-  };
-
-  const handleSelectFemale = () => {
-    setSelectedAvatar('female');
+  const handleSelectAvatar = (avatarId: string) => {
+    setSelectedAvatar(avatarId);
     setCustomAvatarUri(null);
   };
 
@@ -321,76 +315,26 @@ export default function WelcomeScreen() {
                 اختر صورتك الشخصية
               </Text>
               
-              <View className="flex-row justify-center items-center gap-4 mb-6">
-                {/* Male Avatar */}
-                <TouchableOpacity
-                  onPress={handleSelectMale}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: selectedAvatar === 'male' ? colors.primary : 'transparent',
-                    borderRadius: 50,
-                    padding: 3,
-                    opacity: anyLoading ? 0.5 : 1,
-                  }}
-                >
-                  <Image
-                    source={avatarMale}
-                    style={{ width: 70, height: 70, borderRadius: 35 }}
-                  />
-                </TouchableOpacity>
-
-                {/* Female Avatar */}
-                <TouchableOpacity
-                  onPress={handleSelectFemale}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: selectedAvatar === 'female' ? colors.primary : 'transparent',
-                    borderRadius: 50,
-                    padding: 3,
-                    opacity: anyLoading ? 0.5 : 1,
-                  }}
-                >
-                  <Image
-                    source={avatarFemale}
-                    style={{ width: 70, height: 70, borderRadius: 35 }}
-                  />
-                </TouchableOpacity>
-
-                {/* Custom Avatar */}
-                <TouchableOpacity
-                  onPress={handlePickImage}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: customAvatarUri ? colors.primary : 'transparent',
-                    borderRadius: 50,
-                    padding: 3,
-                    opacity: anyLoading ? 0.5 : 1,
-                  }}
-                >
-                  {customAvatarUri ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                {AVATAR_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.id}
+                    onPress={() => handleSelectAvatar(opt.id)}
+                    disabled={anyLoading}
+                    style={{
+                      borderWidth: 3,
+                      borderColor: selectedAvatar === opt.id ? colors.primary : 'transparent',
+                      borderRadius: 35,
+                      padding: 2,
+                      opacity: anyLoading ? 0.5 : 1,
+                    }}
+                  >
                     <Image
-                      source={{ uri: customAvatarUri }}
-                      style={{ width: 70, height: 70, borderRadius: 35 }}
+                      source={opt.source}
+                      style={{ width: 60, height: 60, borderRadius: 30 }}
                     />
-                  ) : (
-                    <View 
-                      style={{ 
-                        width: 70, 
-                        height: 70, 
-                        borderRadius: 35, 
-                        backgroundColor: colors.border,
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                      }}
-                    >
-                      <Text style={{ fontSize: 24 }}>📷</Text>
-                    </View>
-                  )}
-                  <Text className="text-xs text-muted text-center mt-1">رفع صورة</Text>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
               </View>
 
               {/* Name Input */}
