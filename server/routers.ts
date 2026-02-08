@@ -130,6 +130,18 @@ export const appRouter = router({
           status: "pending",
         });
 
+        // إرسال إشعار للمنشئ عبر قناته الخاصة (طلب انضمام كلاعب)
+        const room = await db.getRoomById(input.roomId);
+        if (room) {
+          emitCreatorJoinRequest(
+            input.roomId,
+            room.creatorId,
+            "player",
+            input.userId,
+            input.username
+          );
+        }
+
         return { participantId };
       }),
 

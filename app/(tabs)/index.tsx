@@ -13,7 +13,6 @@ import { RoomCard } from "@/components/room-card";
 import { CreateRoomModal } from "@/components/create-room-modal";
 import { trpc } from "@/lib/trpc";
 import { useSocketConnection } from "@/hooks/use-socket";
-import { useNotificationBell } from "@/hooks/use-notification-bell";
 import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
 import { getAvatarSourceById } from "@/lib/avatars";
@@ -212,7 +211,6 @@ export default function HomeScreen() {
   const { username, userId, avatar, accountType, isLoading: userLoading, logout, clearAllData } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const isConnected = useSocketConnection();
-  const { playBell } = useNotificationBell();
   const socketRef = useRef<Socket | null>(null);
   const creatorSocketRef = useRef<Socket | null>(null);
   const playedJoinRequestsRef = useRef<Set<string>>(new Set());
@@ -372,17 +370,8 @@ export default function HomeScreen() {
       refetch();
     });
 
-    // الاستماع لإشعارات طلبات الانضمام للمنشئ
-    // الجرس يعمل فقط عندما المنشئ في صفحة الساحات (هذه الصفحة)
-    // لا يعمل عندما يكون داخل ساحته (لأنه يرى الطلبات مباشرة)
-    socket.on("creatorJoinRequest", (data: { roomId: number; creatorId: string; requestType: string; requesterId: string; requesterName: string }) => {
-      console.log("[Socket] Join request for creator:", data);
-      // تشغيل صوت الجرس - المنشئ في صفحة الساحات (خارج ساحته)
-      if (data.creatorId === userId) {
-        playBell();
-        console.log("[Socket] Playing notification bell for creator");
-      }
-    });
+    // ملاحظة: صوت الجرس لطلبات الانضمام يتم التعامل معه عالمياً في GlobalCreatorNotifier
+    // لا حاجة لتكراره هنا
 
     
     // الاستماع لردود طلبات الانضمام (للدعوات العامة - المستخدم في صفحة الساحات)
