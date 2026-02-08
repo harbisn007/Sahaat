@@ -168,7 +168,7 @@ export default function RoomScreen() {
   const [roomClosedAlertShown, setRoomClosedAlertShown] = useState(false);
   
   // Socket.io للاستماع لحدث حذف الساحة فوراً
-  const { setCallbacks, setTaroukController: socketSetTaroukController } = useSocket(roomId > 0 ? roomId : null);
+  const { setCallbacks, setTaroukController: socketSetTaroukController } = useSocket(roomId > 0 ? roomId : null, userId);
   
   // حالات محلية للبيانات الفورية عبر Socket.io (بدلاً من polling)
   const [socketAudioMessages, setSocketAudioMessages] = useState<any[]>([]);
@@ -287,10 +287,18 @@ export default function RoomScreen() {
       // استماع للرد على طلب الانضمام (فوري للمستخدم)
       onJoinRequestResponded: (data) => {
         console.log("[RoomScreen] Join request responded via Socket.io:", data);
-        // إزالة الطلب من القائمة المحلية
+        // إزالة الطلب من القائمة المحلية (للمنشئ)
         setSocketJoinRequests(prev => prev.filter(r => r.id !== data.requestId));
-        // حفظ الرد لعرضه للمستخدم
-        setJoinRequestResponse({ accepted: data.accepted, requestId: data.requestId });
+        // حفظ الرد لعرضه للمستخدم المعني فقط (الذي أرسل الطلب)
+        if (data.userId === userId) {
+          setJoinRequestResponse({ accepted: data.accepted, requestId: data.requestId });
+        }
+        // تحديث البيانات يتم عبر onRoomUpdated -> refetch
+      },
+      // استماع لتحديث الساحة (مثل قبول طلب انضمام) - refetch فوري
+      onRoomUpdated: () => {
+        console.log("[RoomScreen] Room updated via Socket.io - refetching...");
+        refetch();
       },
       // استماع لتغيير المتحكم بالطاروق (مزامنة)
       onTaroukControllerChanged: (data) => {
@@ -300,7 +308,27 @@ export default function RoomScreen() {
       // استماع لإيقاف الصوت القديم وتشغيل الجديد (مزامنة) - سيتم إعداده لاحقاً بعد تعريف useSheelohaPlayer
       // onStopAndPlayNewSheeloha سيتم إعداده في useEffect منفصل بعد تعريف stopSheeloha و playSheeloha
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown]);
+  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
+
+  // مراقبة الرد على طلب الانضمام - إعلام المستمع أنه أصبح لاعباً
+  useEffect(() => {
+    if (!joinRequestResponse) return;
+    
+    if (joinRequestResponse.accepted) {
+      console.log("[RoomScreen] Join request ACCEPTED - refetching room data...");
+      // refetch فوري لتحديث الدور
+      refetch();
+      setHasPendingRequest(false);
+      Alert.alert("تم القبول", "تم قبولك كشاعر في الساحة! يمكنك الآن التسجيل والمشاركة.");
+    } else {
+      console.log("[RoomScreen] Join request REJECTED");
+      setHasPendingRequest(false);
+      Alert.alert("تم الرفض", "لم يتم قبول طلبك للانضمام كشاعر.");
+    }
+    
+    // إعادة ضبط الحالة
+    setJoinRequestResponse(null);
+  }, [joinRequestResponse]);
   
   // التحقق من حذف الساحة عبر polling (احتياطي)
   useEffect(() => {

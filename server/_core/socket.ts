@@ -177,6 +177,10 @@ export interface ClientToServerEvents {
   // الانضمام لقناة المنشئ (لاستلام إشعارات طلبات الانضمام)
   joinCreatorChannel: (userId: string) => void;
   leaveCreatorChannel: (userId: string) => void;
+  
+  // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
+  joinUserChannel: (userId: string) => void;
+  leaveUserChannel: (userId: string) => void;
 }
 
 export interface InterServerEvents {
@@ -285,6 +289,18 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client ${socket.id} left creator channel for user ${userId}`);
     });
 
+    // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
+    socket.on("joinUserChannel", (userId: string) => {
+      socket.join(`user:${userId}`);
+      console.log(`[Socket.io] Client ${socket.id} joined user channel for ${userId}`);
+    });
+
+    // مغادرة قناة المستخدم الشخصية
+    socket.on("leaveUserChannel", (userId: string) => {
+      socket.leave(`user:${userId}`);
+      console.log(`[Socket.io] Client ${socket.id} left user channel for ${userId}`);
+    });
+
     // قطع الاتصال
     socket.on("disconnect", (reason) => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
@@ -351,7 +367,10 @@ export function emitJoinRequestCreated(roomId: number, requestId: number, userId
  */
 export function emitJoinRequestResponded(roomId: number, requestId: number, accepted: boolean, userId: string): void {
   if (!io) return;
+  // بث للمتواجدين في الساحة (للمستمعين داخل الساحة)
   io.to(`room:${roomId}`).emit("joinRequestResponded", { roomId, requestId, accepted, userId });
+  // بث إضافي لقناة المستخدم الشخصية (لمن أرسل طلب من صفحة الساحات عبر الدعوة العامة)
+  io.to(`user:${userId}`).emit("joinRequestResponded", { roomId, requestId, accepted, userId });
 }
 
 /**

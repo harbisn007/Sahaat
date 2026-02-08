@@ -356,7 +356,8 @@ export default function HomeScreen() {
       // الانضمام لقناة المنشئ لاستقبال إشعارات طلبات الانضمام
       if (userId) {
         socket.emit("joinCreatorChannel", userId);
-        console.log("[Socket] Joined creator channel for:", userId);
+        socket.emit("joinUserChannel", userId);
+        console.log("[Socket] Joined creator + user channels for:", userId);
       }
     });
     
@@ -384,10 +385,27 @@ export default function HomeScreen() {
     });
 
     
+    // الاستماع لردود طلبات الانضمام (للدعوات العامة - المستخدم في صفحة الساحات)
+    socket.on("joinRequestResponded", (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => {
+      console.log("[Socket] Join request response received:", data);
+      if (data.userId === userId) {
+        if (data.accepted) {
+          Alert.alert(
+            "تم القبول!",
+            "تم قبولك كشاعر. سيتم توجيهك للساحة.",
+            [{ text: "دخول الساحة", onPress: () => router.push(`/room/${data.roomId}`) }]
+          );
+        } else {
+          Alert.alert("تم الرفض", "لم يتم قبول طلبك للانضمام كشاعر.");
+        }
+      }
+    });
+
     return () => {
       socket.emit("leavePublicInvites");
       if (userId) {
         socket.emit("leaveCreatorChannel", userId);
+        socket.emit("leaveUserChannel", userId);
       }
       socket.disconnect();
     };

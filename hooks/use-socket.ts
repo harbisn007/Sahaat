@@ -95,6 +95,8 @@ interface ClientToServerEvents {
   leaveRoom: (roomId: number) => void;
   requestRoomData: (roomId: number) => void;
   setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
+  joinUserChannel: (userId: string) => void;
+  leaveUserChannel: (userId: string) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -230,7 +232,7 @@ function getSocket(): Promise<SocketType> {
 /**
  * Hook للاتصال بـ Socket.io والاستماع لأحداث الساحة
  */
-export function useSocket(roomId: number | null) {
+export function useSocket(roomId: number | null, userId?: string | null) {
   const socketRef = useRef<SocketType | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
@@ -322,10 +324,15 @@ export function useSocket(roomId: number | null) {
         return;
       }
       socket.emit("joinRoom", roomId!);
+      // الانضمام لقناة المستخدم الشخصية لاستقبال إشعارات طلبات الانضمام
+      if (userId) {
+        socket.emit("joinUserChannel", userId);
+      }
       hasJoinedRoom = true;
       console.log("[Socket.io] ========== JOINED ROOM ==========");
       console.log("[Socket.io] Room ID:", roomId);
       console.log("[Socket.io] Socket ID:", socket.id);
+      console.log("[Socket.io] User channel:", userId ? `user:${userId}` : "none");
     }
 
     async function connect() {
@@ -514,11 +521,14 @@ export function useSocket(roomId: number | null) {
         
         if (roomId !== null) {
           socketRef.current.emit("leaveRoom", roomId);
+          if (userId) {
+            socketRef.current.emit("leaveUserChannel", userId);
+          }
           console.log("[Socket.io] Left room and removed listeners:", roomId);
         }
       }
     };
-  }, [roomId]);
+  }, [roomId, userId]);
 
   // دوال تسجيل الـ callbacks
   const setCallbacks = useCallback((callbacks: typeof callbacksRef.current) => {

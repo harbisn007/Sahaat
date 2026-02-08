@@ -224,6 +224,17 @@ export const appRouter = router({
           }
         }
 
+        // بث الرد على طلب الانضمام لقناة المستخدم الشخصية
+        emitJoinRequestResponded(
+          participant.roomId,
+          input.participantId,
+          input.accept,
+          participant.userId
+        );
+        
+        // بث تحديث الساحة لجميع المشاركين
+        emitRoomUpdated(participant.roomId);
+        
         return { success: true };
       }),
 
