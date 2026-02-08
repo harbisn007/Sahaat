@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
 import { useAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -1137,44 +1137,34 @@ export default function RoomScreen() {
     },
   });
 
+  // حالة نافذة الدعوة العامة
+  const [showPublicInviteModal, setShowPublicInviteModal] = useState(false);
+  const [publicInviteText, setPublicInviteText] = useState('وين الشعّار؟');
+
   // دالة إرسال الدعوة العامة
-  const handleSendPublicInvite = async () => {
+  const handleSendPublicInvite = () => {
     if (!canSendPublicInvite || isSendingPublicInvite) return;
-    
-    Alert.prompt(
-      'دعوة عامة',
-      'أضف رسالة للدعوة (12 حرف كحد أقصى)',
-      [
-        {
-          text: 'إلغاء',
-          onPress: () => {},
-          style: 'cancel',
-        },
-        {
-          text: 'إرسال',
-          onPress: async (text: string | undefined) => {
-            const limitedText = text?.substring(0, 12) || 'وين الشعّار؟';
-            
-            setIsSendingPublicInvite(true);
-            try {
-              await sendPublicInviteMutation.mutateAsync({
-                roomId,
-                creatorId: userId,
-                creatorName: username || '',
-                creatorAvatar: avatar || 'male',
-                roomName: roomData?.name || 'ساحة المحاورة',
-                message: limitedText,
-              });
-            } finally {
-              setIsSendingPublicInvite(false);
-            }
-          },
-        },
-      ],
-      'plain-text',
-      'وين الشعّار؟',
-      'default'
-    );
+    setPublicInviteText('وين الشعّار؟');
+    setShowPublicInviteModal(true);
+  };
+
+  // دالة تأكيد إرسال الدعوة
+  const confirmSendPublicInvite = async () => {
+    const limitedText = publicInviteText?.substring(0, 12) || 'وين الشعّار؟';
+    setShowPublicInviteModal(false);
+    setIsSendingPublicInvite(true);
+    try {
+      await sendPublicInviteMutation.mutateAsync({
+        roomId,
+        creatorId: userId,
+        creatorName: username || '',
+        creatorAvatar: avatar || 'male',
+        roomName: roomData?.name || 'ساحة المحاورة',
+        message: limitedText,
+      });
+    } finally {
+      setIsSendingPublicInvite(false);
+    }
   };
 
   // Share invite link using web URL (clickable in messaging apps)
@@ -1855,6 +1845,83 @@ export default function RoomScreen() {
               انقر للإغلاق
             </Text>
           </View>
+        </Pressable>
+      </Modal>
+
+      {/* نافذة الدعوة العامة */}
+      <Modal
+        visible={showPublicInviteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPublicInviteModal(false)}
+      >
+        <Pressable
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}
+          onPress={() => setShowPublicInviteModal(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: '#fff',
+              borderRadius: 16,
+              padding: 24,
+              width: '80%',
+              maxWidth: 320,
+            }}
+            onPress={() => {}}
+          >
+            <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8, color: '#000' }}>
+              دعوة عامة
+            </Text>
+            <Text style={{ fontSize: 13, textAlign: 'center', marginBottom: 16, color: '#666' }}>
+              أضف رسالة للدعوة (12 حرف كحد أقصى)
+            </Text>
+            <TextInput
+              value={publicInviteText}
+              onChangeText={(t) => setPublicInviteText(t.substring(0, 12))}
+              maxLength={12}
+              placeholder="وين الشعّار؟"
+              placeholderTextColor="#999"
+              style={{
+                borderWidth: 1,
+                borderColor: '#ddd',
+                borderRadius: 10,
+                padding: 12,
+                fontSize: 16,
+                textAlign: 'center',
+                marginBottom: 20,
+                color: '#000',
+                backgroundColor: '#f9f9f9',
+              }}
+              returnKeyType="done"
+              onSubmitEditing={confirmSendPublicInvite}
+            />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#f0f0f0',
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                }}
+                onPress={() => setShowPublicInviteModal(false)}
+              >
+                <Text style={{ color: '#666', fontWeight: '600', fontSize: 15 }}>إلغاء</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  backgroundColor: '#EF4444',
+                  paddingVertical: 12,
+                  borderRadius: 10,
+                  alignItems: 'center',
+                }}
+                onPress={confirmSendPublicInvite}
+              >
+                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>إرسال</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
         </Pressable>
       </Modal>
 
