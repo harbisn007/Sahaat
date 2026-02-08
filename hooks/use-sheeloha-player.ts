@@ -17,36 +17,36 @@ const SINGLE_CLAP_URI = require("@/assets/sounds/single-clap-short.mp3");
 const END_CLAPS_URI = require("@/assets/sounds/sheeloha-claps.mp3");
 
 /**
- * Sheeloha Effect Configuration - 5 أصوات قادمة من بعيد
+ * Sheeloha Effect Configuration - محاكاة صوت الصفوف
  * 
- * التأثير:
- * - 5 أصوات بتأخيرات مختلفة (تحاكي 5 أشخاص ينادون من بعيد)
- * - تأثير البُعد عبر lowpass filter فقط (بدون صدى)
- * - لا يوجد تأثير جوقة معدني
- * - صوت نظيف وطبيعي
+ * التأثير المطلوب: صوت جمهور يردد بيت الشعر جماعياً
+ * - كل شخص يبدأ بتوقيت مختلف قليلاً (micro-delay)
+ * - كل شخص صوته بدرجة مختلفة قليلاً (detune) - على الويب فقط
+ * - كل شخص بسرعة مختلفة قليلاً (playbackRate) - على الويب فقط
+ * - الصوت يأتي من بعيد (lowpass filter) - على الويب فقط
+ * - ليس جوقة/معندي - فوضى منظمة طبيعية
  */
 const SHEELOHA_CONFIG = {
   voiceCopies: 5,
-  // تسريع الأصوات الخمسة بنسبة ثابتة
-  playbackRate: 1.10, // تسريع 10%
-  // إعدادات كل نسخة: تبدأ معاً بمستويات مختلفة
-  // يعطي إحساس بصوت أكثر امتلاءً وعمقاً بدون صدى
+  // إعدادات كل نسخة: تأخير + حجم + درجة صوت + سرعة
+  // التأخير 20-80ms يحاكي عدم تزامن الجمهور الطبيعي
+  // Detune ±5-15 cents يحاكي اختلاف درجات الأصوات (ليس كثيراً حتى لا يصبح جوقة)
+  // PlaybackRate مختلف قليلاً يضيف طبيعية
   voiceSettings: [
-    { delay: 0, volume: 0.65 },   // صوت 1 - 65%
-    { delay: 0, volume: 0.60 },   // صوت 2 - 60%
-    { delay: 0, volume: 0.45 },   // صوت 3 - 45%
-    { delay: 0, volume: 0.40 },   // صوت 4 - 40%
-    { delay: 0, volume: 0.35 },   // صوت 5 - 35%
+    { delay: 0,  volume: 0.60, detune: 0,    playbackRate: 1.00 },  // صوت 1 - الأصلي
+    { delay: 35, volume: 0.55, detune: 12,   playbackRate: 1.01 },  // صوت 2 - أعلى قليلاً
+    { delay: 65, volume: 0.50, detune: -15,  playbackRate: 0.99 },  // صوت 3 - أخفض قليلاً
+    { delay: 25, volume: 0.52, detune: 8,    playbackRate: 1.015 }, // صوت 4
+    { delay: 50, volume: 0.48, detune: -10,  playbackRate: 0.985 }, // صوت 5
   ],
   // مستوى صوت التصفيق المتكرر
   repeatingClapVolume: 0.55,
   // مستوى صوت التصفيق النهائي
   endClapVolume: 0.45,
-  // إعدادات تأثير البُعد (lowpass filter فقط - بدون صدى)
+  // إعدادات تأثير البُعد (lowpass filter - على الويب فقط)
   distanceEffect: {
-    // Lowpass filter - لتقليل الترددات العالية (يعطي إحساس البُعد)
-    lowpassFrequency: 2800, // Hz - ترددات أقل = صوت أبعد
-    lowpassQ: 0.7,          // Q factor - حدة الفلتر
+    lowpassFrequency: 2200, // Hz - أقل من قبل لإحساس بُعد أكبر
+    lowpassQ: 0.8,
   },
 };
 
@@ -63,9 +63,9 @@ let webClapAudio: HTMLAudioElement | null = null;
 let webClapSource: MediaElementAudioSourceNode | null = null;
 
 /**
- * Hook for playing Sheeloha effect - 5 أصوات قادمة من بعيد
- * - 5 أصوات بتأخيرات مختلفة
- * - تأثير البُعد (lowpass filter فقط - بدون صدى)
+ * Hook for playing Sheeloha effect - محاكاة صوت الصفوف
+ * - 5 أصوات بتأخيرات مختلفة + درجات مختلفة + سرعات مختلفة
+ * - تأثير البُعد (lowpass filter - على الويب فقط)
  * - تصفيق متكرر حسب عجلة الإيقاع
  * - 4 تصفيقات عند نهاية الصوت
  */
@@ -176,10 +176,15 @@ export function useSheelohaPlayer() {
   }, [cleanupPlayers]);
 
   /**
-   * Apply distance effect (lowpass filter only - no reverb)
-   * يعطي إحساس أن الصوت قادم من بعيد
+   * Apply distance effect with detune and playback rate (Web only)
+   * يعطي إحساس أن الصوت قادم من بعيد مع اختلاف طبيعي في درجة الصوت
    */
-  const applyDistanceEffect = useCallback((audioElement: HTMLAudioElement): boolean => {
+  const applyDistanceEffectWithDetune = useCallback((
+    audioElement: HTMLAudioElement,
+    detune: number,
+    playbackRate: number,
+    volume: number
+  ): boolean => {
     try {
       // Initialize Web Audio Context if needed
       if (!webAudioContext) {
@@ -192,17 +197,62 @@ export function useSheelohaPlayer() {
       const source = context.createMediaElementSource(audioElement);
       webAudioSourcesRef.current.push(source);
       
-      // Create lowpass filter for distance effect (no reverb)
+      // Create lowpass filter for distance effect
       const lowpass = context.createBiquadFilter();
       lowpass.type = "lowpass";
       lowpass.frequency.value = SHEELOHA_CONFIG.distanceEffect.lowpassFrequency;
       lowpass.Q.value = SHEELOHA_CONFIG.distanceEffect.lowpassQ;
       
-      // Connect: source -> lowpass -> destination
+      // Create gain node for volume control
+      const gainNode = context.createGain();
+      gainNode.gain.value = volume;
+      
+      // Connect: source -> lowpass -> gain -> destination
+      source.connect(lowpass);
+      lowpass.connect(gainNode);
+      gainNode.connect(context.destination);
+      
+      // Set playback rate and detune on the audio element
+      audioElement.playbackRate = playbackRate;
+      // detune is not available on HTMLAudioElement, we use playbackRate variation instead
+      // But we can use a more precise approach: adjust playbackRate to simulate detune
+      // 100 cents = 1 semitone, detune of ±15 cents is very subtle
+      // Formula: playbackRate = baseRate * 2^(detune/1200)
+      const detuneMultiplier = Math.pow(2, detune / 1200);
+      audioElement.playbackRate = playbackRate * detuneMultiplier;
+      
+      // Set volume to 1 on element (controlled by gain node)
+      audioElement.volume = 1;
+      
+      console.log(`[useSheelohaPlayer] Distance effect applied (detune: ${detune}cents, rate: ${(playbackRate * detuneMultiplier).toFixed(4)}, vol: ${volume})`);
+      return true;
+    } catch (e) {
+      console.warn("[useSheelohaPlayer] Failed to apply distance effect:", e);
+      return false;
+    }
+  }, []);
+
+  /**
+   * Apply simple distance effect (for claps)
+   */
+  const applyDistanceEffect = useCallback((audioElement: HTMLAudioElement): boolean => {
+    try {
+      if (!webAudioContext) {
+        webAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      }
+      
+      const context = webAudioContext;
+      const source = context.createMediaElementSource(audioElement);
+      webAudioSourcesRef.current.push(source);
+      
+      const lowpass = context.createBiquadFilter();
+      lowpass.type = "lowpass";
+      lowpass.frequency.value = SHEELOHA_CONFIG.distanceEffect.lowpassFrequency;
+      lowpass.Q.value = SHEELOHA_CONFIG.distanceEffect.lowpassQ;
+      
       source.connect(lowpass);
       lowpass.connect(context.destination);
       
-      console.log("[useSheelohaPlayer] Distance effect applied (lowpass only, no reverb)");
       return true;
     } catch (e) {
       console.warn("[useSheelohaPlayer] Failed to apply distance effect:", e);
@@ -288,7 +338,6 @@ export function useSheelohaPlayer() {
       intervalsRef.current.push(interval);
       
       // إيقاف التصفيق قبل نهاية الصوت بمقدار تصفيقة واحدة + هامش
-      // لإلغاء التكرار الأخير قبل نهاية الصوت
       const stopTime = Math.max(0, durationMs - delayMs - 100);
       const timeout = setTimeout(() => {
         clearInterval(interval);
@@ -305,7 +354,6 @@ export function useSheelohaPlayer() {
         const playClap = () => {
           try {
             if (repeatingClapPlayerRef.current && !isReleasedRef.current) {
-              // Only play if not already playing (prevent overlap)
               if (isClapPlayingRef.current) {
                 console.log("[useSheelohaPlayer] Skipping clap - previous still playing");
                 return;
@@ -337,7 +385,6 @@ export function useSheelohaPlayer() {
         intervalsRef.current.push(interval);
         
         // إيقاف التصفيق قبل نهاية الصوت بمقدار تصفيقة واحدة + هامش
-        // لإلغاء التكرار الأخير قبل نهاية الصوت
         const stopTime = Math.max(0, durationMs - delayMs - 100);
         const timeout = setTimeout(() => {
           clearInterval(interval);
@@ -392,11 +439,11 @@ export function useSheelohaPlayer() {
   }, [applyDistanceEffect]);
 
   /**
-   * Play on Web - 5 أصوات قادمة من بعيد
-   * تأثير البُعد عبر lowpass filter فقط (بدون صدى)
+   * Play on Web - محاكاة صوت الصفوف
+   * 5 أصوات بتأخيرات + درجات + سرعات مختلفة + lowpass filter
    */
   const playOnWeb = useCallback(async (audioUri: string, clappingDelay: ClappingDelay) => {
-    console.log("[useSheelohaPlayer] Playing on web (5 voices from distance):", audioUri);
+    console.log("[useSheelohaPlayer] Playing on web (صوت الصفوف):", audioUri);
     setState({ isPlaying: true, isProcessing: true });
     
     try {
@@ -405,9 +452,6 @@ export function useSheelohaPlayer() {
       
       for (let i = 0; i < SHEELOHA_CONFIG.voiceCopies; i++) {
         const audio = new Audio(audioUri);
-        const settings = SHEELOHA_CONFIG.voiceSettings[i];
-        audio.volume = settings.volume;
-        audio.playbackRate = SHEELOHA_CONFIG.playbackRate; // تسريع 1.10x
         audio.crossOrigin = "anonymous";
         audioElements.push(audio);
         webAudioRef.current.push(audio);
@@ -420,26 +464,30 @@ export function useSheelohaPlayer() {
         audioElements[0].load();
       });
       
-      // المدة الفعلية بعد التسريع (التسريع يقصّر المدة)
       const originalDurationMs = audioElements[0].duration * 1000;
-      const durationMs = originalDurationMs / SHEELOHA_CONFIG.playbackRate;
-      // كل الأصوات تبدأ معاً (delay = 0) فلا حاجة لإضافة maxDelay
-      const totalDuration = durationMs;
+      // المدة الفعلية تعتمد على أبطأ نسخة
+      const slowestRate = Math.min(...SHEELOHA_CONFIG.voiceSettings.map(s => {
+        const detuneMultiplier = Math.pow(2, s.detune / 1200);
+        return s.playbackRate * detuneMultiplier;
+      }));
+      const durationMs = originalDurationMs / slowestRate;
+      const maxDelay = Math.max(...SHEELOHA_CONFIG.voiceSettings.map(s => s.delay));
+      const totalDuration = durationMs + maxDelay;
       
       console.log(`[useSheelohaPlayer] Voice duration: ${durationMs}ms, total: ${totalDuration}ms`);
       
       setState({ isPlaying: true, isProcessing: false });
       
-      // Apply distance effect and play each voice with its delay
+      // Apply distance effect with detune and play each voice with its delay
       audioElements.forEach((audio, index) => {
         const settings = SHEELOHA_CONFIG.voiceSettings[index];
         
-        // Apply distance effect (lowpass only - no reverb)
-        applyDistanceEffect(audio);
+        // Apply distance effect with detune and custom playback rate
+        applyDistanceEffectWithDetune(audio, settings.detune, settings.playbackRate, settings.volume);
         
         const timeout = setTimeout(() => {
           audio.play().catch(console.warn);
-          console.log(`[useSheelohaPlayer] Voice ${index + 1} started (delay: ${settings.delay}ms, volume: ${settings.volume})`);
+          console.log(`[useSheelohaPlayer] Voice ${index + 1} started (delay: ${settings.delay}ms, vol: ${settings.volume}, detune: ${settings.detune}cents, rate: ${settings.playbackRate})`);
         }, settings.delay);
         timeoutsRef.current.push(timeout);
       });
@@ -461,14 +509,17 @@ export function useSheelohaPlayer() {
       console.error("[useSheelohaPlayer] Web playback error:", error);
       setState({ isPlaying: false, isProcessing: false });
     }
-  }, [startRepeatingClap, playEndClaps, applyDistanceEffect]);
+  }, [startRepeatingClap, playEndClaps, applyDistanceEffectWithDetune]);
 
   /**
-   * Play on Native - 5 أصوات قادمة من بعيد
-   * Native لا يدعم Web Audio API للتأثيرات
+   * Play on Native - محاكاة صوت الصفوف
+   * Native لا يدعم Web Audio API، لذا نستخدم:
+   * - تأخيرات مختلفة (micro-delay) لمحاكاة عدم التزامن
+   * - مستويات صوت مختلفة قليلاً
+   * ملاحظة: detune و playbackRate غير متاحين في expo-audio
    */
   const playOnNative = useCallback(async (audioUri: string, clappingDelay: ClappingDelay) => {
-    console.log("[useSheelohaPlayer] ========== Playing on native (5 voices from distance) ==========");
+    console.log("[useSheelohaPlayer] ========== Playing on native (صوت الصفوف) ==========");
     console.log("[useSheelohaPlayer] URI:", audioUri.substring(0, 100));
     setState({ isPlaying: true, isProcessing: true });
     isReleasedRef.current = false;
@@ -494,7 +545,7 @@ export function useSheelohaPlayer() {
         const player = createAudioPlayer(audioUri);
         const settings = SHEELOHA_CONFIG.voiceSettings[i];
         player.volume = settings.volume;
-        // ملاحظة: playbackRate للقراءة فقط على Native، التسريع يعمل على الويب فقط
+        // ملاحظة: detune و playbackRate غير متاحين على Native
         players.push(player);
         playersRef.current.push(player);
         console.log(`[useSheelohaPlayer] Player ${i + 1} created (volume: ${settings.volume}, delay: ${settings.delay}ms)`);
@@ -504,7 +555,7 @@ export function useSheelohaPlayer() {
       console.log("[useSheelohaPlayer] Waiting for audio to load...");
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // 4. الحصول على المدة (المدة الفعلية بعد التسريع)
+      // 4. الحصول على المدة
       let originalDurationMs = (players[0].duration || 0) * 1000;
       if (originalDurationMs <= 0) {
         console.warn("[useSheelohaPlayer] Could not get duration, using 10 seconds fallback");
@@ -512,15 +563,14 @@ export function useSheelohaPlayer() {
       }
       // على Native لا يوجد تسريع، المدة هي الأصلية
       const durationMs = originalDurationMs;
-      
-      // كل الأصوات تبدأ معاً (delay = 0) فلا حاجة لإضافة maxDelay
-      const totalDuration = durationMs;
+      const maxDelay = Math.max(...SHEELOHA_CONFIG.voiceSettings.map(s => s.delay));
+      const totalDuration = durationMs + maxDelay;
       
       console.log(`[useSheelohaPlayer] Voice duration: ${durationMs}ms, total: ${totalDuration}ms`);
       
       setState({ isPlaying: true, isProcessing: false });
       
-      // 5. تشغيل الأصوات الخمسة بتأخيرات مختلفة
+      // 5. تشغيل الأصوات الخمسة بتأخيرات مختلفة (محاكاة عدم تزامن الجمهور)
       players.forEach((player, index) => {
         const settings = SHEELOHA_CONFIG.voiceSettings[index];
         const timeout = setTimeout(() => {
@@ -578,7 +628,6 @@ export function useSheelohaPlayer() {
     isClapPlayingRef.current = false;
     
     // إضافة Cache Buster لإجبار تحميل الصوت من جديد
-    // هذا يحل مشكلة تشغيل الصوت الأصلي عند تسجيل الشاشة
     const cacheBuster = `${audioUri.includes("?") ? "&" : "?"}t=${Date.now()}`;
     const audioUriWithCacheBuster = `${audioUri}${cacheBuster}`;
     console.log("[useSheelohaPlayer] Audio URI with cache buster:", audioUriWithCacheBuster);
