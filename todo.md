@@ -1965,3 +1965,12 @@
 ## إصلاح مشكلة زر الدعوة العامة لا يعمل
 - [x] فحص كود handleSendPublicInvite وتحديد سبب عدم عمل الزر
 - [x] إصلاح المشكلة: استبدال Alert.prompt (يعمل فقط على iOS) بـ Modal مخصص يعمل على جميع المنصات
+
+## ضمان توافق جميع الميزات مع Android و iOS
+- [x] فحص شامل لاستخدام Alert.prompt (iOS فقط) واستبداله بـ Modal - تم الإصلاح
+- [x] فحص استخدام Web Audio API والتأكد من بدائل native - محمي بـ Platform.OS check
+- [x] فحص استخدام HTMLAudioElement والتأكد من عدم استخدامه على native - محمي بـ Platform.OS check
+- [x] فحص MediaRecorder والتأكد من بدائل native - يستخدم expo-audio على native
+- [x] التأكد من أن جميع الأصوات تعمل على Android و iOS - تم تحسين notification bell
+- [x] التأكد من أن جميع الـ Modals تعمل على Android و iOS
+- [x] التأكد من أن Socket.io يعمل على جميع المنصات - محمي بـ typeof window check

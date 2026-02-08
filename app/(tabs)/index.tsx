@@ -200,11 +200,16 @@ function PublicInviteCard({
 
 // الحصول على عنوان الخادم
 function getServerUrl(): string {
-  if (Platform.OS === "web") {
+  if (Platform.OS === "web" && typeof window !== "undefined") {
     const protocol = window.location.protocol === "https:" ? "https:" : "http:";
     const host = window.location.hostname;
-    return `${protocol}//${host}:3000`;
+    // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
+    const apiHost = host.replace(/^8081-/, "3000-");
+    return `${protocol}//${apiHost}`;
   }
+  // Android/iOS: استخدام API_URL من البيئة أو localhost
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (apiUrl) return apiUrl;
   return "http://127.0.0.1:3000";
 }
 
