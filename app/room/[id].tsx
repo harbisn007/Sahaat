@@ -977,7 +977,7 @@ export default function RoomScreen() {
   }, [joinRequests, isRoomCreator]);
   
   // نظام الطابور الموحد: دمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
-  // عرض 2 طلبات فقط لمدة 4 ثواني ثم التالية
+  // عرض 2 طلبات فقط لمدة 10 ثواني ثم التالية
   const allRequests = useMemo(() => {
     // دمج الطلبات من النوعين مع تحديد النوع
     const viewerReqs = (joinRequests || []).map((req: any) => ({ ...req, requestType: 'viewer' }));
@@ -1018,7 +1018,7 @@ export default function RoomScreen() {
     }
   }, [allRequests, isRoomCreator]);
   
-  // مؤقت 4 ثواني لحذف الطلبات المعروضة وعرض التالية
+  // مؤقت 10 ثواني لحذف الطلبات المعروضة وعرض التالية
   useEffect(() => {
     if (displayedRequests.length === 0) return;
     
@@ -1053,7 +1053,7 @@ export default function RoomScreen() {
       // الحالة تم تحديثها فوراً في handleRequestJoinAsPlayer
       // Immediately refetch to show request to creator
       refetch();
-      // Auto-expire after 4 seconds
+      // Auto-expire after 10 seconds
       setTimeout(() => {
         setHasPendingRequest(false);
         // Also expire in database
@@ -1153,9 +1153,7 @@ export default function RoomScreen() {
         {
           text: 'إرسال',
           onPress: async (text: string | undefined) => {
-            const limitedText = text?.substring(0, 12) || 'وين الشعار؟';
-            // تخزين رسالة الدعوة لاستخدامها لاحقاً
-            localStorage.setItem(`publicInviteMessage_${roomId}`, limitedText);
+            const limitedText = text?.substring(0, 12) || 'وين الشعّار؟';
             
             setIsSendingPublicInvite(true);
             try {
@@ -1165,6 +1163,7 @@ export default function RoomScreen() {
                 creatorName: username || '',
                 creatorAvatar: avatar || 'male',
                 roomName: roomData?.name || 'ساحة المحاورة',
+                message: limitedText,
               });
             } finally {
               setIsSendingPublicInvite(false);
@@ -1859,7 +1858,7 @@ export default function RoomScreen() {
         </Pressable>
       </Modal>
 
-      {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 4 ثواني */}
+      {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 10 ثواني */}
       {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
         <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
           {displayedRequests.map((request: any) => (
@@ -2404,7 +2403,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               {hasPendingRequest && (
                 <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, textAlign: 'center' }}>
-                  سيتم حذف الطلب تلقائياً بعد 4 ثواني
+                  سيتم حذف الطلب تلقائياً بعد 10 ثواني
                 </Text>
               )}
             </View>

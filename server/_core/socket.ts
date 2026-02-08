@@ -145,6 +145,15 @@ export interface ServerToClientEvents {
     userId: string;
     username: string;
   }) => void;
+  
+  // حدث إشعار المنشئ بطلب انضمام جديد
+  creatorJoinRequest: (data: {
+    roomId: number;
+    creatorId: string;
+    requestType: string; // "player" | "viewer" | "invite"
+    requesterId: string;
+    requesterName: string;
+  }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -261,6 +270,19 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
         controller,
         changedBy: socket.id,
       });
+    });
+
+    // الانضمام لقناة المنشئ (لاستلام إشعارات طلبات الانضمام)
+    socket.on("joinCreatorChannel", (userId: string) => {
+      socket.join(`creator:${userId}`);
+      socket.data.userId = userId;
+      console.log(`[Socket.io] Client ${socket.id} joined creator channel for user ${userId}`);
+    });
+
+    // مغادرة قناة المنشئ
+    socket.on("leaveCreatorChannel", (userId: string) => {
+      socket.leave(`creator:${userId}`);
+      console.log(`[Socket.io] Client ${socket.id} left creator channel for user ${userId}`);
     });
 
     // قطع الاتصال
@@ -594,4 +616,26 @@ export function emitPlayAudioMessage(
   });
   
   console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets`);
+}
+
+
+/**
+ * بث إشعار طلب انضمام جديد للمنشئ عبر قناته الخاصة
+ */
+export function emitCreatorJoinRequest(
+  roomId: number,
+  creatorId: string,
+  requestType: string,
+  requesterId: string,
+  requesterName: string
+): void {
+  if (!io) return;
+  io.to(`creator:${creatorId}`).emit("creatorJoinRequest", {
+    roomId,
+    creatorId,
+    requestType,
+    requesterId,
+    requesterName,
+  });
+  console.log(`[Socket.io] Creator join request notification sent to creator:${creatorId} (type: ${requestType}, requester: ${requesterName})`);
 }

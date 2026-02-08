@@ -901,6 +901,7 @@ export async function createPublicInvitation(data: {
   creatorName: string;
   creatorAvatar: string;
   roomName: string;
+  message?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

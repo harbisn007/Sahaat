@@ -1,0 +1,1 @@
+ALTER TABLE `public_invitations` ADD `message` varchar(50) DEFAULT 'وين الشعّار؟';

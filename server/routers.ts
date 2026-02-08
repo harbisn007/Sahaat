@@ -25,6 +25,7 @@ import {
   emitSufoofSoundUpdated,
   emitPlaySufoofSheeloha,
   emitPlayAudioMessage,
+  emitCreatorJoinRequest,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -163,6 +164,17 @@ export const appRouter = router({
 
         // التحقق من منح النجمة الذهبية (إذا تجاوز عدد المشاهدين 20)
         await db.checkAndAwardGoldStar(input.roomId);
+
+        // إرسال إشعار للمنشئ عبر قناته الخاصة (دخول مستمع)
+        if (room) {
+          emitCreatorJoinRequest(
+            input.roomId,
+            room.creatorId,
+            "viewer",
+            input.userId,
+            input.username
+          );
+        }
 
         return { participantId };
       }),
@@ -656,7 +668,7 @@ export const appRouter = router({
         try {
           const requestId = await db.createJoinRequest(input);
           
-          // بث طلب الانضمام الجديد للمنشئ
+          // بث طلب الانضمام الجديد للمنشئ (داخل الساحة)
           emitJoinRequestCreated(
             input.roomId,
             requestId,
@@ -664,6 +676,18 @@ export const appRouter = router({
             input.username,
             input.avatar
           );
+          
+          // إرسال إشعار للمنشئ عبر قناته الخاصة (خارج الساحة)
+          const room = await db.getRoomById(input.roomId);
+          if (room) {
+            emitCreatorJoinRequest(
+              input.roomId,
+              room.creatorId,
+              "player",
+              input.userId,
+              input.username
+            );
+          }
           
           return { success: true, requestId };
         } catch (error: any) {
@@ -814,6 +838,7 @@ export const appRouter = router({
           creatorName: z.string(),
           creatorAvatar: z.string(),
           roomName: z.string(),
+          message: z.string().max(12).optional(),
         })
       )
       .mutation(async ({ input }) => {
@@ -824,7 +849,10 @@ export const appRouter = router({
         }
 
         // Create invitation
-        const invitationId = await db.createPublicInvitation(input);
+        const invitationId = await db.createPublicInvitation({
+          ...input,
+          message: input.message || 'وين الشعّار؟',
+        });
         
         // Update last invite time
         await db.updateLastPublicInviteTime(input.roomId);

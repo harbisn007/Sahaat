@@ -92,6 +92,13 @@
       "when": 1769966100351,
       "tag": "0012_pretty_omega_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1770580105882,
+      "tag": "0013_flat_steel_serpent",
+      "breakpoints": true
     }
   ]
 }

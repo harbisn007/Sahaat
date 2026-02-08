@@ -25,6 +25,7 @@ interface PublicInvitation {
   creatorName: string;
   creatorAvatar: string;
   roomName: string;
+  message?: string | null;
   status: string;
   displayedAt: Date | null;
   createdAt: Date;
@@ -188,7 +189,9 @@ function PublicInviteCard({
           }}
           onPress={onJoin}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>العب معي</Text>
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }} numberOfLines={1}>
+            {invite.message || 'وين الشعّار؟'}
+          </Text>
         </TouchableOpacity>
       )}
     </View>
@@ -209,6 +212,7 @@ export default function HomeScreen() {
   const { username, userId, avatar, accountType, isLoading: userLoading, logout, clearAllData } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const isConnected = useSocketConnection();
+  const { playBell } = useNotificationBell();
   const socketRef = useRef<Socket | null>(null);
   const creatorSocketRef = useRef<Socket | null>(null);
   const playedJoinRequestsRef = useRef<Set<string>>(new Set());
@@ -333,12 +337,11 @@ export default function HomeScreen() {
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation();
   const markDisplayedMutation = trpc.publicInvitations.markDisplayed.useMutation();
   const expireInviteMutation = trpc.publicInvitations.expire.useMutation();
-  const { playBell } = useNotificationBell();
   
   const hasActiveRoom = !!activeRoom;
   const creatorRoomsRef = useRef<Set<number>>(new Set());
 
-  // الانضمام لقناة الدعوات العامة
+  // الانضمام لقناة الدعوات العامة وقناة المنشئ
   useEffect(() => {
     const serverUrl = getServerUrl();
     const socket = io(serverUrl, {
@@ -350,6 +353,11 @@ export default function HomeScreen() {
     socket.on("connect", () => {
       console.log("[Socket] Connected to public invites channel");
       socket.emit("joinPublicInvites");
+      // الانضمام لقناة المنشئ لاستقبال إشعارات طلبات الانضمام
+      if (userId) {
+        socket.emit("joinCreatorChannel", userId);
+        console.log("[Socket] Joined creator channel for:", userId);
+      }
     });
     
     // الاستماع للدعوات الجديدة
@@ -363,12 +371,27 @@ export default function HomeScreen() {
       refetch();
     });
 
+    // الاستماع لإشعارات طلبات الانضمام للمنشئ
+    // الجرس يعمل فقط عندما المنشئ في صفحة الساحات (هذه الصفحة)
+    // لا يعمل عندما يكون داخل ساحته (لأنه يرى الطلبات مباشرة)
+    socket.on("creatorJoinRequest", (data: { roomId: number; creatorId: string; requestType: string; requesterId: string; requesterName: string }) => {
+      console.log("[Socket] Join request for creator:", data);
+      // تشغيل صوت الجرس - المنشئ في صفحة الساحات (خارج ساحته)
+      if (data.creatorId === userId) {
+        playBell();
+        console.log("[Socket] Playing notification bell for creator");
+      }
+    });
+
     
     return () => {
       socket.emit("leavePublicInvites");
+      if (userId) {
+        socket.emit("leaveCreatorChannel", userId);
+      }
       socket.disconnect();
     };
-  }, []);
+  }, [userId]);
 
   // Heartbeat لتسجيل نشاط المستخدم كل 30 ثانية
   useEffect(() => {
