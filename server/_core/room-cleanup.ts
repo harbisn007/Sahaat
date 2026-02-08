@@ -145,7 +145,7 @@ function getDeletionTimerStart(room: typeof rooms.$inferSelect): Date {
 /**
  * حذف الساحة وجميع بياناتها
  */
-async function deleteRoomCompletely(roomId: number): Promise<void> {
+export async function deleteRoomCompletely(roomId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
 

@@ -1,5 +1,7 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
+import { getUserActiveRoom } from "../db";
+import { deleteRoomCompletely } from "./room-cleanup";
 
 // نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
 const activeUsers = new Map<string, number>(); // userId -> lastActivityTimestamp
@@ -292,6 +294,7 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
     socket.on("joinUserChannel", (userId: string) => {
       socket.join(`user:${userId}`);
+      if (!socket.data.userId) socket.data.userId = userId;
       console.log(`[Socket.io] Client ${socket.id} joined user channel for ${userId}`);
     });
 
@@ -302,10 +305,33 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     });
 
     // قطع الاتصال
-    socket.on("disconnect", (reason) => {
+    socket.on("disconnect", async (reason) => {
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
       // بث عدد المتواجدين عند قطع الاتصال
       broadcastOnlineCount();
+      
+      // حذف ساحة المنشئ فوراً إذا لم يكن لديه نجمة ذهبية
+      const userId = socket.data.userId;
+      if (userId) {
+        try {
+          const activeRoom = await getUserActiveRoom(userId);
+          if (activeRoom && activeRoom.creatorId === userId) {
+            // التحقق من أن المنشئ ليس لديه نجمة ذهبية نشطة
+            const hasGoldStar = activeRoom.hasGoldStar === "true" && 
+              activeRoom.goldStarExpiresAt && 
+              new Date(activeRoom.goldStarExpiresAt) > new Date();
+            
+            if (!hasGoldStar) {
+              console.log(`[Socket.io] Creator ${userId} disconnected without gold star, deleting room ${activeRoom.id}`);
+              await deleteRoomCompletely(activeRoom.id);
+            } else {
+              console.log(`[Socket.io] Creator ${userId} disconnected but has gold star, room ${activeRoom.id} preserved`);
+            }
+          }
+        } catch (error) {
+          console.error(`[Socket.io] Error handling creator disconnect for ${userId}:`, error);
+        }
+      }
     });
   });
 
