@@ -130,39 +130,55 @@ describe("Socket disconnect handler - no immediate room deletion", () => {
   });
 });
 
-describe("Room cleanup with grace period", () => {
-  it("should have 15-minute disconnect timeout", async () => {
+describe("Room cleanup - 15 min without player join", () => {
+  it("should delete rooms after 15 minutes without a new player joining", async () => {
     const fs = await import("fs");
     const cleanupContent = fs.readFileSync(
       "/home/ubuntu/sahaat-muhawara/server/_core/room-cleanup.ts",
       "utf-8"
     );
     
-    // Verify 15-minute timeout constant
-    expect(cleanupContent).toContain("CREATOR_DISCONNECT_TIMEOUT_MINUTES = 15");
+    // Verify 15-minute no-player timeout constant
+    expect(cleanupContent).toContain("NO_PLAYER_JOIN_TIMEOUT_MINUTES = 15");
     
-    // Verify disconnect tracking map exists
-    expect(cleanupContent).toContain("creatorDisconnectedAt");
+    // Verify it uses lastPlayerJoinAt to track last player join
+    expect(cleanupContent).toContain("lastPlayerJoinAt");
     
     // Verify grace period logic - checking elapsed time
-    expect(cleanupContent).toContain("elapsedMinutes >= CREATOR_DISCONNECT_TIMEOUT_MINUTES");
+    expect(cleanupContent).toContain("elapsedMinutes >= NO_PLAYER_JOIN_TIMEOUT_MINUTES");
     
-    // Verify reconnection cancels timer
-    expect(cleanupContent).toContain("cancelling deletion timer");
-    
-    // Verify it checks multiple socket channels
-    expect(cleanupContent).toContain("creator:");
-    expect(cleanupContent).toContain("user:");
-    expect(cleanupContent).toContain("room:");
+    // Verify it falls back to createdAt if no player joined
+    expect(cleanupContent).toContain("createdAt");
     
     // Verify check interval is 30 seconds
     expect(cleanupContent).toContain("CHECK_INTERVAL_MS = 30 * 1000");
+    
+    // Verify gold star and extension protection
+    expect(cleanupContent).toContain("hasActiveExtension");
+    expect(cleanupContent).toContain("hasActiveGoldStar");
   });
 
   it("should export deleteRoomCompletely and startRoomCleanupService", async () => {
     const cleanupModule = await import("../server/_core/room-cleanup");
     expect(typeof cleanupModule.deleteRoomCompletely).toBe("function");
     expect(typeof cleanupModule.startRoomCleanupService).toBe("function");
+  });
+});
+
+describe("Room creation deletes old room", () => {
+  it("should delete existing room before creating new one", async () => {
+    const fs = await import("fs");
+    const routerContent = fs.readFileSync(
+      "/home/ubuntu/sahaat-muhawara/server/routers.ts",
+      "utf-8"
+    );
+    
+    // Verify it checks for existing room before creating
+    expect(routerContent).toContain("getUserActiveRoom(input.creatorId)");
+    
+    // Verify it deletes old room
+    expect(routerContent).toContain("Deleting old room");
+    expect(routerContent).toContain("deleteRoom(existingRoom.id)");
   });
 });
 

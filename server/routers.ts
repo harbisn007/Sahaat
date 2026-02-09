@@ -76,6 +76,15 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // حذف أي ساحة قديمة لنفس المنشئ قبل إنشاء ساحة جديدة
+        // هذا يمنع وجود ساحات يتيمة عند حذف التطبيق وإعادة تثبيته
+        const existingRoom = await db.getUserActiveRoom(input.creatorId);
+        if (existingRoom) {
+          console.log(`[Rooms] Deleting old room ${existingRoom.id} for creator ${input.creatorId} before creating new one`);
+          emitRoomDeleted(existingRoom.id, existingRoom.name);
+          await db.deleteRoom(existingRoom.id);
+        }
+
         const roomId = await db.createRoom({
           name: input.name,
           creatorId: input.creatorId,
