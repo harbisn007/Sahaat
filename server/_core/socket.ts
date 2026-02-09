@@ -592,14 +592,15 @@ export function emitPlaySufoofSheeloha(
   username: string
 ): void {
   if (!io) return;
-  io.to(`room:${roomId}`).emit("playSufoofSheeloha", {
+  // استبعاد الضاغط من البث - هو يشغل محلياً بالفعل
+  io.to(`room:${roomId}`).except(`user:${userId}`).emit("playSufoofSheeloha", {
     roomId,
     audioUrl,
     clappingDelay,
     userId,
     username,
   });
-  console.log(`[Socket.io] Play sufoof sheeloha in room ${roomId}: ${audioUrl}`);
+  console.log(`[Socket.io] Play sufoof sheeloha in room ${roomId} (excluding sender ${userId}): ${audioUrl}`);
 }
 
 
@@ -630,7 +631,8 @@ export function emitPlayAudioMessage(
   console.log(`[Socket.io] Audio URL: ${audioUrl}`);
   console.log(`[Socket.io] User: ${username} (${userId})`);
   
-  io.to(roomName).emit("playAudioMessage", {
+  // استبعاد المرسل من البث - هو يشغل محلياً بالفعل
+  io.to(roomName).except(`user:${userId}`).emit("playAudioMessage", {
     roomId,
     messageId,
     audioUrl,
@@ -639,7 +641,7 @@ export function emitPlayAudioMessage(
     username,
   });
   
-  console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets`);
+  console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets (excluding sender ${userId})`);
 }
 
 

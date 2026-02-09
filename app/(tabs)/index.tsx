@@ -380,11 +380,8 @@ export default function HomeScreen() {
       console.log("[Socket] Join request response received:", data);
       if (data.userId === userId) {
         if (data.accepted) {
-          Alert.alert(
-            "تم القبول!",
-            "تم قبولك كشاعر. سيتم توجيهك للساحة.",
-            [{ text: "دخول الساحة", onPress: () => router.push(`/room/${data.roomId}`) }]
-          );
+          // انتقال مباشر للساحة كشاعر بدون انتظار
+          router.push(`/room/${data.roomId}`);
         } else {
           Alert.alert("تم الرفض", "لم يتم قبول طلبك للانضمام كشاعر.");
         }
@@ -614,10 +611,7 @@ export default function HomeScreen() {
             {/* عداد المتواجدين الآن - تحت العنوان مباشرة */}
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
               <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>
-                المتواجدين الآن{' '}
-              </Text>
-              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>
-                {onlineCount}
+                ({onlineCount}) المتواجدون الآن
               </Text>
             </View>
           </View>

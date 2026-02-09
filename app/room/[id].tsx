@@ -406,8 +406,22 @@ export default function RoomScreen() {
     userRoleRef.current = userRole;
   }, [roomData?.creatorId, userId, userRole]);
   
+  // إيقاف جميع الأصوات عند الخروج من الساحة (لا ينتظر عودة المستخدم)
+  useEffect(() => {
+    return () => {
+      stop();
+      stopSheeloha();
+      stopTarouk();
+    };
+  }, []);
+
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // إيقاف جميع الأصوات عند الخروج
+      stop();
+      stopSheeloha();
+      stopTarouk();
+      
       // المنشئ لا يُحذف عند مغادرة الصفحة
       if (isRoomCreatorRef.current) return;
       
