@@ -88,6 +88,14 @@ interface ServerToClientEvents {
     userId: string;
     username: string;
   }) => void;
+  // حدث إشعار المنشئ بطلب انضمام جديد
+  creatorJoinRequest: (data: {
+    roomId: number;
+    creatorId: string;
+    requestType: string;
+    requesterId: string;
+    requesterName: string;
+  }) => void;
 }
 
 interface ClientToServerEvents {
@@ -97,6 +105,8 @@ interface ClientToServerEvents {
   setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
   joinUserChannel: (userId: string) => void;
   leaveUserChannel: (userId: string) => void;
+  joinCreatorChannel: (userId: string) => void;
+  leaveCreatorChannel: (userId: string) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -136,7 +146,7 @@ function notifyConnectionChange(connected: boolean) {
   globalConnectionListeners.forEach(listener => listener(connected));
 }
 
-function getSocket(): Promise<SocketType> {
+export function getSocket(): Promise<SocketType> {
   // إذا كان متصلاً، أرجعه مباشرة
   if (socketInstance?.connected) {
     console.log("[Socket.io] Already connected, returning existing socket");

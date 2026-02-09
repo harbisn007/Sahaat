@@ -1,37 +1,25 @@
 import { useEffect, useRef, useCallback } from "react";
-import { Platform, AppState, AppStateStatus } from "react-native";
+import { AppState, AppStateStatus } from "react-native";
 import { usePathname } from "expo-router";
-import { io, Socket } from "socket.io-client";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { useUser } from "@/lib/user-context";
 import { useNotificationBell } from "@/hooks/use-notification-bell";
-
-function getServerUrl(): string {
-  const baseUrl = getApiBaseUrl();
-  if (baseUrl) return baseUrl;
-  if (Platform.OS === "web" && typeof window !== "undefined") {
-    const protocol = window.location.protocol === "https:" ? "https:" : "http:";
-    const host = window.location.hostname;
-    const apiHost = host.replace(/^8081-/, "3000-");
-    return `${protocol}//${apiHost}`;
-  }
-  return "http://127.0.0.1:3000";
-}
+import { getSocket } from "@/hooks/use-socket";
 
 /**
  * مكون عالمي يستمع لإشعارات طلبات الانضمام للمنشئ
  * يعمل في جميع الصفحات ويشغل صوت الجرس فقط عندما يكون المنشئ خارج ساحته
  * يُوضع في _layout.tsx ليبقى نشطاً دائماً
  * 
+ * يستخدم نفس الـ singleton socket من use-socket.ts لضمان الاتصال الصحيح
  * لا يستخدم أي نظام إشعارات - فقط صوت محلي
  */
 export function GlobalCreatorNotifier() {
   const { userId } = useUser();
   const pathname = usePathname();
   const { playBell } = useNotificationBell();
-  const socketRef = useRef<Socket | null>(null);
   const pathnameRef = useRef(pathname);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  const joinedChannelRef = useRef<string | null>(null);
 
   // تحديث المسار الحالي في ref لاستخدامه في callback
   useEffect(() => {
@@ -60,51 +48,77 @@ export function GlobalCreatorNotifier() {
   useEffect(() => {
     if (!userId) return;
 
-    const serverUrl = getServerUrl();
-    const socket = io(serverUrl, {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-    });
-    socketRef.current = socket;
+    let cleanedUp = false;
 
-    socket.on("connect", () => {
-      console.log("[GlobalNotifier] Connected, joining creator channel for:", userId);
-      socket.emit("joinCreatorChannel", userId);
-    });
+    const setup = async () => {
+      try {
+        const socket = await getSocket();
+        if (cleanedUp) return;
 
-    socket.on("creatorJoinRequest", (data: {
-      roomId: number;
-      creatorId: string;
-      requestType: string;
-      requesterId: string;
-      requesterName: string;
-    }) => {
-      console.log("[GlobalNotifier] Received creatorJoinRequest:", data);
-      
-      // تأكد أن الإشعار للمنشئ الحالي
-      if (data.creatorId !== userId) return;
+        console.log("[GlobalNotifier] Using shared socket, joining creator channel for:", userId);
+        
+        // الانضمام لقناة المنشئ
+        socket.emit("joinCreatorChannel", userId);
+        joinedChannelRef.current = userId;
 
-      // لا تشغل الجرس إذا كان المنشئ داخل ساحته
-      if (isCreatorInOwnRoom(data.roomId)) {
-        console.log("[GlobalNotifier] Creator is in own room, skipping bell");
-        return;
+        // إعادة الانضمام عند إعادة الاتصال
+        const handleReconnect = () => {
+          if (!cleanedUp && joinedChannelRef.current) {
+            console.log("[GlobalNotifier] Reconnected, rejoining creator channel for:", joinedChannelRef.current);
+            socket.emit("joinCreatorChannel", joinedChannelRef.current);
+          }
+        };
+        socket.on("connect", handleReconnect);
+
+        // الاستماع لطلبات الانضمام
+        const handleCreatorJoinRequest = (data: {
+          roomId: number;
+          creatorId: string;
+          requestType: string;
+          requesterId: string;
+          requesterName: string;
+        }) => {
+          console.log("[GlobalNotifier] Received creatorJoinRequest:", JSON.stringify(data));
+          
+          // تأكد أن الإشعار للمنشئ الحالي
+          if (data.creatorId !== userId) return;
+
+          // لا تشغل الجرس إذا كان المنشئ داخل ساحته
+          if (isCreatorInOwnRoom(data.roomId)) {
+            console.log("[GlobalNotifier] Creator is in own room, skipping bell");
+            return;
+          }
+
+          console.log("[GlobalNotifier] Creator is NOT in own room, playing bell!");
+          playBell();
+        };
+
+        // استخدام on مباشرة - الـ socket يدعم أي حدث
+        (socket as any).on("creatorJoinRequest", handleCreatorJoinRequest);
+
+        // حفظ cleanup handlers
+        return () => {
+          socket.off("connect", handleReconnect);
+          (socket as any).off("creatorJoinRequest", handleCreatorJoinRequest);
+          if (joinedChannelRef.current) {
+            socket.emit("leaveCreatorChannel", joinedChannelRef.current);
+            joinedChannelRef.current = null;
+          }
+        };
+      } catch (error) {
+        console.error("[GlobalNotifier] Failed to setup:", error);
+        return undefined;
       }
+    };
 
-      console.log("[GlobalNotifier] Creator is NOT in own room, playing bell");
-
-      // تشغيل صوت الجرس المحلي فقط - بدون أي إشعارات
-      playBell();
+    let cleanupFn: (() => void) | undefined;
+    setup().then((fn) => {
+      cleanupFn = fn;
     });
 
     return () => {
-      if (socket) {
-        socket.emit("leaveCreatorChannel", userId);
-        socket.disconnect();
-      }
-      socketRef.current = null;
+      cleanedUp = true;
+      if (cleanupFn) cleanupFn();
     };
   }, [userId, playBell, isCreatorInOwnRoom]);
 

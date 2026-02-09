@@ -2116,3 +2116,14 @@
 - [x] إضافة pitch shift على الخادم (ffmpeg rubberband) قبل التسريع - -2 semitones
 - [x] التأكد من أن الصوت يبدو بشرياً طبيعياً لكن مختلف عن الأصلي
 - [x] اختبار النتيجة
+
+## [BUG] خطأ قاعدة البيانات: Failed query عند البحث عن ساحة المنشئ
+- [ ] تحليل الخطأ: select from rooms where creatorId=? and isActive=? limit 1
+- [ ] إصلاح الاستعلام أو مشكلة الاتصال بقاعدة البيانات
+
+## [BUG] صوت الجرس لا يعمل على Android - محاولة ثانية
+- [x] مراجعة كاملة لـ use-notification-bell.ts: إعادة كتابة بنمط sheeloha الذي يعمل
+- [x] مراجعة كاملة لـ global-creator-notifier.tsx: تغيير لاستخدام singleton socket بدلاً من socket منفصل (127.0.0.1 لا يعمل على الجوال)
+- [x] مراجعة socket events: إضافة creatorJoinRequest و joinCreatorChannel لـ use-socket.ts types
+- [x] مراجعة شرط isCreatorInOwnRoom: يعمل بشكل صحيح
+- [x] إصلاح المشكلة: تصدير getSocket + استخدامه في GlobalCreatorNotifier
