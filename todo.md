@@ -2056,3 +2056,9 @@
   - [x] تصدير deleteRoomCompletely من room-cleanup.ts
   - [x] تسجيل userId في socket.data عند joinUserChannel أيضاً
   - [x] التحقق من النجمة الذهبية قبل الحذف
+
+## حذف المستخدم غير المنشئ عند مغادرة صفحة الساحة
+- [x] فحص cleanup الحالي في room/[id].tsx عند مغادرة الصفحة
+- [x] إضافة استدعاء API لحذف المشارك (غير المنشئ) عند مغادرة الصفحة (beforeRemove event)
+- [x] المنشئ لا يُحذف عند مغادرة الصفحة (isRoomCreatorRef check)
+- [x] التأكد من أن الحذف يعمل عند الرجوع بأزرار الجوال أو أي طريقة أخرى (beforeRemove يعترض كل طرق المغادرة)

@@ -1,6 +1,6 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
 import { useAudioPlayer } from "expo-audio";
-import { useLocalSearchParams, router } from "expo-router";
+import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
 
 // Room background image
@@ -394,6 +394,39 @@ export default function RoomScreen() {
 
   const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
   const leaveRoomMutation = trpc.rooms.leaveRoom.useMutation();
+
+  // حذف المستخدم غير المنشئ تلقائياً عند مغادرة صفحة الساحة (بأي طريقة)
+  const navigation = useNavigation();
+  const isRoomCreatorRef = useRef(false);
+  const userRoleRef = useRef<string | null>(null);
+  
+  // تحديث refs لاستخدامها في cleanup
+  useEffect(() => {
+    isRoomCreatorRef.current = roomData?.creatorId === userId;
+    userRoleRef.current = userRole;
+  }, [roomData?.creatorId, userId, userRole]);
+  
+  useEffect(() => {
+    const unsubscribe = navigation.addListener("beforeRemove", (e) => {
+      // المنشئ لا يُحذف عند مغادرة الصفحة
+      if (isRoomCreatorRef.current) return;
+      
+      // المستخدم غير المنشئ: حذفه من الساحة فوراً
+      if (userId && roomId > 0) {
+        console.log("[RoomScreen] Non-creator leaving page, removing from room:", { userId, roomId, role: userRoleRef.current });
+        // استدعاء API لحذف المشارك (fire and forget)
+        leaveRoomMutation.mutate({ 
+          roomId, 
+          userId, 
+          role: userRoleRef.current || undefined 
+        });
+        // مسح joinedAt من AsyncStorage
+        const storageKey = `joinedAt_${roomId}_${userId}`;
+        AsyncStorage.removeItem(storageKey).catch(() => {});
+      }
+    });
+    return unsubscribe;
+  }, [navigation, userId, roomId]);
   const deleteRoomMutation = trpc.rooms.deleteRoom.useMutation();
   const createReactionMutation = trpc.reactions.create.useMutation();
   const createAudioMutation = trpc.audio.create.useMutation();
