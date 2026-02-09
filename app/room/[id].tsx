@@ -2562,8 +2562,8 @@ export default function RoomScreen() {
                 </Text>
               </View>
 
-              {/* زر طاروق - يظهر فقط للمتحكم الحالي (لا يظهر للمشاهدين أو اللاعبين غير المتحكمين) */}
-              {isCurrentUserController && !isViewer && (
+              {/* زر طاروق - يظهر لكل اللاعبين المقبولين */}
+              {isPlayer && (
                 <View style={{ width: buttonWidth, alignItems: 'center' }}>
                   <RecordingButton
                     buttonId="tarouk"
