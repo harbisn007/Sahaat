@@ -32,7 +32,7 @@ const env = {
   appSlug: "sahaat-muhawara",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "https://s3.manus.im/user-uploads/2026-01-24/1737758969-icon.png",
+  logoUrl: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/hErPaGNJjDHdYsjm.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,

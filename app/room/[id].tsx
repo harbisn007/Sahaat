@@ -832,21 +832,38 @@ export default function RoomScreen() {
 
   // Track played audio messages to avoid duplicate playback
   const [playedAudioIds, setPlayedAudioIds] = useState<Set<string>>(new Set());
+  // Track whether initial old messages have been marked as played (to skip them)
+  const initialOldMarkedRef = useRef(false);
 
   // Auto-play audio messages for other users (not the sender)
+  // Only play messages sent AFTER the user joined the room
   useEffect(() => {
-    if (!audioMessages || audioMessages.length === 0) return;
+    if (!audioMessages || audioMessages.length === 0 || !isJoinedAtLoaded) return;
+    
+    const joinTime = joinedAt.getTime();
+    
+    // On first load, mark ALL existing messages as "played" so they don't auto-play
+    if (!initialOldMarkedRef.current) {
+      initialOldMarkedRef.current = true;
+      const allExistingIds = new Set<string>();
+      audioMessages.forEach(msg => allExistingIds.add(msg.id));
+      setPlayedAudioIds(allExistingIds);
+      console.log("[RoomScreen] Marked all existing messages as played on entry:", allExistingIds.size);
+      return;
+    }
     
     // Get the latest audio message
     const latestAudio = audioMessages[0];
     
-    // Check if this is a new message that hasn't been played yet
+    // Check if this is a NEW message (sent after joining) that hasn't been played yet
+    const messageTime = latestAudio ? new Date(latestAudio.createdAt).getTime() : 0;
     if (
       latestAudio &&
       !playedAudioIds.has(latestAudio.id) &&
-      latestAudio.userId !== userId // Only play if not the sender
+      latestAudio.userId !== userId && // Only play if not the sender
+      messageTime >= joinTime // Only play messages sent AFTER user joined
     ) {
-      console.log("[RoomScreen] Auto-playing audio message from:", {
+      console.log("[RoomScreen] Auto-playing NEW audio message from:", {
         id: latestAudio.id,
         username: latestAudio.username,
         messageType: latestAudio.messageType,
@@ -860,7 +877,7 @@ export default function RoomScreen() {
       // Play the audio
       play(latestAudio.audioUrl);
     }
-  }, [audioMessages, playedAudioIds, userId, play]);
+  }, [audioMessages, playedAudioIds, userId, play, isJoinedAtLoaded, joinedAt]);
 
   // Listen for khalooha commands and stop sheeloha for all users
   const [lastProcessedKhaloohaId, setLastProcessedKhaloohaId] = useState<number | null>(null);
