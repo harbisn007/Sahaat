@@ -50,7 +50,7 @@ function SaduBanner() {
   }, []);
 
   return (
-    <View style={{ width: '103%', height: 60, marginVertical: 4, alignSelf: 'center' }}>
+    <View style={{ width: '103%', height: 60, marginVertical: 2, alignSelf: 'center' }}>
       <Image
         source={banners[currentBannerIndex]}
         style={{ width: '100%', height: 60, borderRadius: 8 }}
@@ -586,8 +586,8 @@ export default function HomeScreen() {
   }
 
   const screenWidth = Dimensions.get('window').width;
-  const leftColumnWidth = screenWidth * 0.33; // ⅓ للدعوات
-  const rightColumnWidth = screenWidth * 0.67; // ⅔ لـ TOP 10
+  const leftColumnWidth = screenWidth * 0.37; // عمود الدعوات (أعرض بـ 4 أرقام)
+  const rightColumnWidth = screenWidth * 0.63; // عمود TOP 10
 
   return (
     <ScreenContainer>
@@ -598,8 +598,8 @@ export default function HomeScreen() {
         resizeMode="cover"
       >
       {/* Header */}
-      <View className="px-6 pt-4 pb-3 border-b border-border" style={{ backgroundColor: 'rgba(250, 248, 245, 0.9)' }}>
-        <View className="flex-row items-center mb-2">
+      <View className="px-6 pt-4 pb-2 border-b border-border" style={{ backgroundColor: 'rgba(250, 248, 245, 0.9)' }}>
+        <View className="flex-row items-center">
           {/* زر تسجيل الخروج */}
           <TouchableOpacity
             onPress={handleLogout}
@@ -608,10 +608,21 @@ export default function HomeScreen() {
             <MaterialIcons name="logout" size={24} color="#D4A574" />
           </TouchableOpacity>
           
-          <Text className="text-2xl font-bold text-foreground text-center flex-1">ساحات المحاورة</Text>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <Text className="text-2xl font-bold text-foreground text-center">ساحات المحاورة</Text>
+            {/* عداد المتواجدين الآن - تحت العنوان مباشرة */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>
+                المتواجدين الآن{' '}
+              </Text>
+              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>
+                {onlineCount}
+              </Text>
+            </View>
+          </View>
           
-          {/* زر العودة إلى ساحتك + عداد الطلبات */}
-          {hasActiveRoom && activeRoom && (
+          {/* زر العودة إلى ساحتك أو إنشاء ساحة */}
+          {hasActiveRoom && activeRoom ? (
             <View style={{ alignItems: 'flex-end' }}>
               <TouchableOpacity
                 onPress={() => router.push(`/room/${activeRoom.id}`)}
@@ -636,6 +647,20 @@ export default function HomeScreen() {
                 </View>
               )}
             </View>
+          ) : (
+            <TouchableOpacity
+              onPress={() => setShowCreateModal(true)}
+              style={{
+                backgroundColor: '#D4A574',
+                borderRadius: 6,
+                paddingHorizontal: 8,
+                paddingVertical: 4,
+                borderWidth: 1,
+                borderColor: '#E6E6FA',
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '600', fontSize: 10 }}>إنشاء ساحة</Text>
+            </TouchableOpacity>
           )}
 
         </View>
@@ -645,35 +670,12 @@ export default function HomeScreen() {
       {/* بنر الإعلان - تبديل الصور كل 30 ثانية */}
       <SaduBanner />
 
-      {/* Create Room Button */}
-      <View className="px-6 py-4">
-        {hasActiveRoom && activeRoom ? (
-          <View>
-            {/* عداد تنازلي للساحة الممدة - يظهر للمنشئ فقط (ساعات التمديد المتبقية) */}
-            {activeRoom.extensionExpiresAt && (
-              <CountdownTimer expiresAt={new Date(activeRoom.extensionExpiresAt)} />
-            )}
-          </View>
-        ) : (
-          <TouchableOpacity
-            className="rounded-xl py-3 items-center"
-            style={{ backgroundColor: '#D4A574' }}
-            onPress={() => setShowCreateModal(true)}
-          >
-            <Text className="text-background font-semibold text-base">➥ إنشاء ساحة جديدة</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* عداد المتواجدين الآن */}
-      <View style={{ alignItems: 'center', paddingVertical: 8 }}>
-        <Text style={{ color: '#22C55E', fontSize: 12, fontWeight: 'bold' }}>
-          المتواجدين الآن
-        </Text>
-        <Text style={{ color: '#22C55E', fontSize: 20, fontWeight: 'bold' }}>
-          {onlineCount}
-        </Text>
-      </View>
+      {/* عداد تنازلي للساحة الممدة - يظهر فقط إذا كان للمنشئ ساحة ممدة */}
+      {hasActiveRoom && activeRoom && activeRoom.extensionExpiresAt && (
+        <View style={{ paddingVertical: 4 }}>
+          <CountdownTimer expiresAt={new Date(activeRoom.extensionExpiresAt)} />
+        </View>
+      )}
 
       {/* Main Content - Two Columns */}
       <View className="flex-1 flex-row px-2">
@@ -731,13 +733,13 @@ export default function HomeScreen() {
         {/* العمود الأيمن - TOP 10 (⅔) */}
         <View style={{ flex: 1, paddingHorizontal: 4 }}>
           {/* عنوان TOP 10 */}
-          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+          <View style={{ alignItems: 'center', marginBottom: 6 }}>
             <Text style={{ 
               fontWeight: 'bold', 
-              fontSize: 23, 
-              color: '#1F2937', // أسود داكن
+              fontSize: 20, 
+              color: '#1F2937',
               textDecorationLine: 'underline',
-              textShadowColor: '#FFD700', // ذهبي
+              textShadowColor: '#FFD700',
               textShadowOffset: { width: 2, height: 2 },
               textShadowRadius: 4,
             }}>
