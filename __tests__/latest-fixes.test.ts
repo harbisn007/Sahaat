@@ -61,17 +61,17 @@ describe("صوت الجرس", () => {
     expect(fs.existsSync(bellPath)).toBe(true);
   });
 
-  it("يجب أن يستخدم hook الجرس createAudioPlayer على native", () => {
+  it("يجب أن يستخدم hook الجرس الجديد createAudioPlayer على native", () => {
     const bellHook = fs.readFileSync(
-      path.join(__dirname, "../hooks/use-notification-bell.ts"),
+      path.join(__dirname, "../hooks/use-creator-bell.ts"),
       "utf-8"
     );
     expect(bellHook).toContain("createAudioPlayer");
   });
 
-  it("يجب أن يدعم hook الجرس الويب أيضاً", () => {
+  it("يجب أن يدعم hook الجرس الجديد الويب أيضاً", () => {
     const bellHook = fs.readFileSync(
-      path.join(__dirname, "../hooks/use-notification-bell.ts"),
+      path.join(__dirname, "../hooks/use-creator-bell.ts"),
       "utf-8"
     );
     expect(bellHook).toContain("Platform.OS");

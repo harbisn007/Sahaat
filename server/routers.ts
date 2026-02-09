@@ -151,6 +151,22 @@ export const appRouter = router({
           );
         }
 
+        // حذف تلقائي بعد 15 ثانية من الإنشاء (تحويل لمشاهد)
+        setTimeout(async () => {
+          try {
+            const participant = await db.getParticipantById(participantId);
+            if (participant && participant.status === "pending") {
+              console.log(`[AutoExpire] Auto-expiring player request ${participantId} after 15s`);
+              // تحويل اللاعب المعلق إلى مشاهد (نفس منطق الرفض)
+              await db.updateParticipantRole(participantId, "viewer");
+              await db.updateParticipantStatus(participantId, "accepted");
+              emitRoomUpdated(input.roomId);
+            }
+          } catch (e) {
+            console.warn(`[AutoExpire] Error expiring player request ${participantId}:`, e);
+          }
+        }, 15000);
+
         return { participantId };
       }),
 
@@ -731,6 +747,21 @@ export const appRouter = router({
             );
           }
           
+          // حذف تلقائي بعد 15 ثانية من الإنشاء
+          setTimeout(async () => {
+            try {
+              const requests = await db.getPendingJoinRequests(input.roomId);
+              const req = requests.find((r: any) => r.id === requestId);
+              if (req) {
+                console.log(`[AutoExpire] Auto-expiring join request ${requestId} after 15s`);
+                await db.expireJoinRequest(requestId);
+                emitRoomUpdated(input.roomId);
+              }
+            } catch (e) {
+              console.warn(`[AutoExpire] Error expiring join request ${requestId}:`, e);
+            }
+          }, 15000);
+
           return { success: true, requestId };
         } catch (error: any) {
           throw new Error(error.message || "فشل إرسال الطلب");

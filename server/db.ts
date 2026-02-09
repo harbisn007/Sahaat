@@ -476,8 +476,8 @@ export async function getUserActiveRoom(creatorId: string) {
 
   if (!userRooms[0]) return null;
 
-  // جلب عدد طلبات الانضمام المنتظرة
-  const pendingRequests = await db
+  // جلب عدد طلبات الانضمام المنتظرة (مشاهدين)
+  const pendingViewerRequests = await db
     .select()
     .from(joinRequests)
     .where(
@@ -487,9 +487,21 @@ export async function getUserActiveRoom(creatorId: string) {
       )
     );
 
+  // جلب عدد طلبات اللعب المعلقة
+  const pendingPlayerRequests = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        eq(roomParticipants.roomId, userRooms[0].id),
+        eq(roomParticipants.role, "player"),
+        eq(roomParticipants.status, "pending")
+      )
+    );
+
   return {
     ...userRooms[0],
-    pendingRequestsCount: pendingRequests.length,
+    pendingRequestsCount: pendingViewerRequests.length + pendingPlayerRequests.length,
   };
 }
 

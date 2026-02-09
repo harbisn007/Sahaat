@@ -166,8 +166,9 @@ function PublicInviteCard({
             backgroundColor: '#9CA3AF', 
             borderRadius: 6, 
             paddingVertical: 6,
-            paddingHorizontal: 10,
+            paddingHorizontal: 16,
             alignItems: 'center',
+            alignSelf: 'center',
           }}
         >
           <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>دعوتك</Text>
@@ -178,12 +179,13 @@ function PublicInviteCard({
             backgroundColor: '#EF4444', 
             borderRadius: 6, 
             paddingVertical: 6,
-            paddingHorizontal: 10,
+            paddingHorizontal: 16,
             alignItems: 'center',
+            alignSelf: 'center',
           }}
           onPress={onJoin}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }} numberOfLines={1}>
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 11 }}>
             {invite.message || 'مطلوب شاعر'}
           </Text>
         </TouchableOpacity>
@@ -370,8 +372,7 @@ export default function HomeScreen() {
       refetch();
     });
 
-    // ملاحظة: صوت الجرس لطلبات الانضمام يتم التعامل معه عالمياً في GlobalCreatorNotifier
-    // لا حاجة لتكراره هنا
+
 
     
     // الاستماع لردود طلبات الانضمام (للدعوات العامة - المستخدم في صفحة الساحات)

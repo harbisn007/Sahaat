@@ -40,11 +40,11 @@ describe("Join Request Timeout", () => {
   });
 });
 
-describe("Notification Bell Hook", () => {
+describe("Creator Bell Hook", () => {
   it("should reference the correct sound file", async () => {
     const fs = await import("fs");
     const bellHookContent = fs.readFileSync(
-      "/home/ubuntu/sahaat-muhawara/hooks/use-notification-bell.ts",
+      "/home/ubuntu/sahaat-muhawara/hooks/use-creator-bell.ts",
       "utf-8"
     );
     
@@ -81,7 +81,7 @@ describe("Creator Channel in Socket Server", () => {
 });
 
 describe("No expo-notifications in GlobalCreatorNotifier", () => {
-  it("should NOT import expo-notifications", async () => {
+  it("should NOT import expo-notifications and should be a stub", async () => {
     const fs = await import("fs");
     const notifierContent = fs.readFileSync(
       "/home/ubuntu/sahaat-muhawara/components/global-creator-notifier.tsx",
@@ -97,14 +97,13 @@ describe("No expo-notifications in GlobalCreatorNotifier", () => {
     // Verify no setNotificationHandler
     expect(notifierContent).not.toContain("setNotificationHandler");
     
-    // Verify no requestPermissionsAsync for notifications
-    expect(notifierContent).not.toContain("requestPermissionsAsync");
-    
-    // Verify playBell is still used
-    expect(notifierContent).toContain("playBell()");
-    
-    // Verify path-based room check exists (using window.location.pathname)
-    expect(notifierContent).toContain("pathname");
+    // Verify the bell logic is now in use-creator-bell.ts
+    const bellContent = fs.readFileSync(
+      "/home/ubuntu/sahaat-muhawara/hooks/use-creator-bell.ts",
+      "utf-8"
+    );
+    expect(bellContent).toContain("pendingRequestsCount");
+    expect(bellContent).toContain("playBell");
   });
 });
 
