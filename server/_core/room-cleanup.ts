@@ -4,6 +4,11 @@
  * النجمة: تظهر لمدة 24 ساعة
  * التمديد: يستمر لمدة 5 أيام (حتى لو فقدت النجمة)
  * 
+ * قواعد الحذف:
+ * - إذا أغلق/حذف المنشئ التطبيق (فقد الاتصال) ولم يكن لديه نجمة ذهبية → تُحذف فوراً
+ * - إذا كان لديه نجمة ذهبية أو تمديد نشط → تبقى الساحة
+ * - إذا لم يكن هناك أي مشارك ولا تمديد → تُحذف بعد 15 دقيقة
+ * 
  * ترتيب حساب الـ 15 دقيقة للحذف التلقائي:
  * 1. وقت انتهاء التمديد (extensionLostAt)
  * 2. وقت خروج آخر لاعب (lastPlayerLeftAt)
@@ -13,7 +18,7 @@
 import { getDb, removeGoldStar, removeExtension } from "../db";
 import { rooms, roomParticipants, audioMessages, reactions, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations } from "../../drizzle/schema";
 import { eq, and, lt } from "drizzle-orm";
-import { broadcastRoomDeleted } from "./socket";
+import { broadcastRoomDeleted, getIO } from "./socket";
 
 // الفترة الزمنية بالدقائق قبل حذف الساحة الفارغة
 const EMPTY_ROOM_TIMEOUT_MINUTES = 15;
@@ -29,24 +34,24 @@ export function removeRoomTracking(roomId: number) {
 }
 
 /**
- * التحقق من وجود أي مشارك نشط في الساحة (بما فيهم المنشئ)
- * الساحة لا تُحذف طالما المنشئ موجود فيها
+ * التحقق من أن المنشئ متصل فعلاً عبر Socket
+ * يبحث في جميع الـ sockets عن واحد يحمل userId المنشئ
  */
-async function hasActiveParticipant(roomId: number): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return false;
+async function isCreatorConnected(creatorId: string): Promise<boolean> {
+  const io = getIO();
+  if (!io) return false;
 
-  const participants = await db
-    .select()
-    .from(roomParticipants)
-    .where(
-      and(
-        eq(roomParticipants.roomId, roomId),
-        eq(roomParticipants.status, "accepted")
-      )
-    );
+  // البحث في قناة المنشئ الشخصية
+  const creatorRoom = `creator:${creatorId}`;
+  const sockets = await io.in(creatorRoom).fetchSockets();
+  
+  if (sockets.length > 0) return true;
 
-  return participants.length > 0;
+  // البحث أيضاً في قناة المستخدم الشخصية
+  const userRoom = `user:${creatorId}`;
+  const userSockets = await io.in(userRoom).fetchSockets();
+  
+  return userSockets.length > 0;
 }
 
 /**
@@ -59,6 +64,15 @@ function hasActiveExtension(room: typeof rooms.$inferSelect): boolean {
   
   const now = new Date();
   return new Date(room.extensionExpiresAt) > now;
+}
+
+/**
+ * التحقق مما إذا كانت الساحة لديها نجمة ذهبية نشطة
+ */
+function hasActiveGoldStar(room: typeof rooms.$inferSelect): boolean {
+  if (room.hasGoldStar !== "true") return false;
+  if (!room.goldStarExpiresAt) return false;
+  return new Date(room.goldStarExpiresAt) > new Date();
 }
 
 /**
@@ -99,22 +113,17 @@ async function cleanupExpiredExtensions(): Promise<void> {
 
   const now = new Date();
 
-  // جلب الساحات التي انتهت صلاحية تمديدها (5 أيام)
-  // ملاحظة مهمة: يجب التحقق من أن extensionExpiresAt موجود قبل مقارنته
   const expiredExtensions = await db
     .select()
     .from(rooms)
     .where(
       and(
-        // التحقق من أن التمديد موجود
         // @ts-ignore - Drizzle doesn't support isNotNull directly in some versions
         rooms.extensionExpiresAt,
-        // والتحقق من أنه انتهى
         lt(rooms.extensionExpiresAt, now)
       )
     );
 
-  // إزالة التمديد وتسجيل وقت الفقدان
   for (const room of expiredExtensions) {
     if (room.extensionExpiresAt && new Date(room.extensionExpiresAt) <= now) {
       console.log(`[RoomCleanup] Extension expired for room ${room.id} (5d), 15-minute deletion timer starts`);
@@ -149,7 +158,7 @@ export async function deleteRoomCompletely(roomId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
 
-  console.log(`[RoomCleanup] Deleting empty room ${roomId}`);
+  console.log(`[RoomCleanup] Deleting room ${roomId}`);
 
   try {
     // حذف جميع البيانات المرتبطة بالترتيب
@@ -173,9 +182,17 @@ export async function deleteRoomCompletely(roomId: number): Promise<void> {
 }
 
 /**
- * فحص وحذف الساحات الفارغة
+ * فحص وحذف الساحات
+ * 
+ * المنطق:
+ * 1. تنظيف النجوم والتمديدات المنتهية
+ * 2. لكل ساحة نشطة:
+ *    - إذا لديها تمديد نشط → لا تُحذف
+ *    - إذا لديها نجمة ذهبية نشطة → لا تُحذف
+ *    - إذا المنشئ متصل عبر Socket → لا تُحذف
+ *    - إذا المنشئ غير متصل ولا نجمة ولا تمديد → تُحذف فوراً
  */
-async function checkAndCleanupEmptyRooms(): Promise<void> {
+async function checkAndCleanupRooms(): Promise<void> {
   const db = await getDb();
   if (!db) return;
 
@@ -192,40 +209,30 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
       .from(rooms)
       .where(eq(rooms.isActive, "true"));
 
-    const now = new Date();
-    const timeoutMs = EMPTY_ROOM_TIMEOUT_MINUTES * 60 * 1000;
-
     for (const room of activeRooms) {
       const roomId = room.id;
 
       // الساحات ذات التمديد النشط لا تُحذف
       if (hasActiveExtension(room)) {
-        console.log(`[RoomCleanup] Room ${roomId} has active extension, skipping`);
         continue;
       }
 
-      // التحقق من وجود لاعب
-      const hasParticipant = await hasActiveParticipant(roomId);
-
-      if (hasParticipant) {
-        // يوجد مشارك نشط (منشئ أو لاعب) - لا حذف
-        console.log(`[RoomCleanup] Room ${roomId} has active participant, skipping`);
+      // الساحات ذات النجمة الذهبية النشطة لا تُحذف
+      if (hasActiveGoldStar(room)) {
         continue;
       }
 
-      // لا يوجد لاعب ولا تمديد نشط - التحقق من المدة
-      const timerStart = getDeletionTimerStart(room);
-      const elapsedMs = now.getTime() - timerStart.getTime();
-      const elapsedMinutes = Math.floor(elapsedMs / 60000);
-      const remainingMinutes = EMPTY_ROOM_TIMEOUT_MINUTES - elapsedMinutes;
-      
-      console.log(`[RoomCleanup] Room ${roomId}: created=${room.createdAt}, timerStart=${timerStart.toISOString()}, elapsed=${elapsedMinutes}min, remaining=${remainingMinutes}min`);
+      // التحقق من أن المنشئ متصل فعلاً عبر Socket
+      const creatorOnline = await isCreatorConnected(room.creatorId);
 
-      if (elapsedMs >= timeoutMs) {
-        // مرت 15 دقيقة - حذف الساحة
-        console.log(`[RoomCleanup] Room ${roomId} timeout (15 min from ${timerStart.toISOString()})`);
-        await deleteRoomCompletely(roomId);
+      if (creatorOnline) {
+        // المنشئ متصل - الساحة آمنة
+        continue;
       }
+
+      // المنشئ غير متصل ولا نجمة ولا تمديد → حذف فوري
+      console.log(`[RoomCleanup] Creator ${room.creatorId} is disconnected, no gold star, no extension. Deleting room ${roomId}`);
+      await deleteRoomCompletely(roomId);
     }
   } catch (error) {
     console.error("[RoomCleanup] Error during cleanup check:", error);
@@ -236,15 +243,15 @@ async function checkAndCleanupEmptyRooms(): Promise<void> {
  * بدء نظام التنظيف التلقائي
  */
 export function startRoomCleanupService(): void {
-  console.log(`[RoomCleanup] Starting cleanup service (timeout: ${EMPTY_ROOM_TIMEOUT_MINUTES} minutes, extension: 5 days, star: 24 hours)`);
+  console.log(`[RoomCleanup] Starting cleanup service (check every ${CHECK_INTERVAL_MS / 1000}s, extension: 5 days, star: 24 hours)`);
 
-  // تشغيل الفحص الأول بعد دقيقة
+  // تشغيل الفحص الأول بعد 30 ثانية
   setTimeout(() => {
-    checkAndCleanupEmptyRooms();
-  }, CHECK_INTERVAL_MS);
+    checkAndCleanupRooms();
+  }, 30 * 1000);
 
   // تشغيل الفحص الدوري كل دقيقة
   setInterval(() => {
-    checkAndCleanupEmptyRooms();
+    checkAndCleanupRooms();
   }, CHECK_INTERVAL_MS);
 }
