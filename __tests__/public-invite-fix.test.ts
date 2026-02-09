@@ -25,8 +25,8 @@ describe("Public Invite Button Fix", () => {
     expect(roomScreenContent).toMatch(/import\s*{[^}]*TextInput[^}]*}\s*from\s*["']react-native["']/);
   });
 
-  it("should have a TextInput with maxLength 12", () => {
-    expect(roomScreenContent).toContain("maxLength={12}");
+  it("should have a TextInput with maxLength 18", () => {
+    expect(roomScreenContent).toContain("maxLength={18}");
   });
 
   it("should have cancel and send buttons in the modal", () => {
@@ -36,6 +36,6 @@ describe("Public Invite Button Fix", () => {
 
   it("should have publicInviteText state with default value", () => {
     expect(roomScreenContent).toContain("publicInviteText");
-    expect(roomScreenContent).toContain("وين الشعّار؟");
+    expect(roomScreenContent).toContain("مطلوب شاعر");
   });
 });

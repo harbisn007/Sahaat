@@ -2068,3 +2068,15 @@
 - [x] إعادة كتابة room-cleanup.ts ليتحقق من اتصال المنشئ عبر Socket (isCreatorConnected)
 - [x] الحذف الفوري إذا المنشئ غير متصل ولا نجمة ولا تمديد
 - [x] التحقق من TypeScript وإعادة تشغيل الخادم
+
+## إزالة نظام الإشعارات (expo-notifications) والإبقاء على صوت الجرس المحلي فقط
+- [x] إزالة كل كود expo-notifications من GlobalCreatorNotifier
+- [x] إزالة أي import لـ expo-notifications من جميع الملفات
+- [x] التأكد من أن صوت الجرس المحلي يعمل عند المنشئ خارج ساحته فقط
+- [x] إزالة أي toast/notification UI غير مطلوب
+
+## إصلاح نظام حذف الساحات - grace period 15 دقيقة
+- [x] إزالة الحذف الفوري من disconnect handler في socket.ts (تم)
+- [x] إضافة نظام تتبع وقت انقطاع المنشئ (disconnectedAt map)
+- [x] الحذف بعد 15 دقيقة فقط من انقطاع المنشئ
+- [x] إعادة ضبط المؤقت إذا عاد المنشئ قبل 15 دقيقة

@@ -80,6 +80,92 @@ describe("Creator Channel in Socket Server", () => {
   });
 });
 
+describe("No expo-notifications in GlobalCreatorNotifier", () => {
+  it("should NOT import expo-notifications", async () => {
+    const fs = await import("fs");
+    const notifierContent = fs.readFileSync(
+      "/home/ubuntu/sahaat-muhawara/components/global-creator-notifier.tsx",
+      "utf-8"
+    );
+    
+    // Verify expo-notifications is NOT imported
+    expect(notifierContent).not.toContain("expo-notifications");
+    
+    // Verify no Notifications.scheduleNotificationAsync
+    expect(notifierContent).not.toContain("scheduleNotificationAsync");
+    
+    // Verify no setNotificationHandler
+    expect(notifierContent).not.toContain("setNotificationHandler");
+    
+    // Verify no requestPermissionsAsync for notifications
+    expect(notifierContent).not.toContain("requestPermissionsAsync");
+    
+    // Verify playBell is still used
+    expect(notifierContent).toContain("playBell()");
+    
+    // Verify isCreatorInOwnRoom check exists
+    expect(notifierContent).toContain("isCreatorInOwnRoom");
+  });
+});
+
+describe("Socket disconnect handler - no immediate room deletion", () => {
+  it("should NOT delete rooms immediately on disconnect", async () => {
+    const fs = await import("fs");
+    const socketContent = fs.readFileSync(
+      "/home/ubuntu/sahaat-muhawara/server/_core/socket.ts",
+      "utf-8"
+    );
+    
+    // Verify disconnect handler does NOT call deleteRoomCompletely
+    // The disconnect handler should only broadcast online count
+    const disconnectMatch = socketContent.match(/socket\.on\("disconnect"[\s\S]*?\}\);/);
+    expect(disconnectMatch).toBeTruthy();
+    
+    const disconnectHandler = disconnectMatch![0];
+    expect(disconnectHandler).not.toContain("deleteRoomCompletely");
+    expect(disconnectHandler).not.toContain("getUserActiveRoom");
+    
+    // Verify it mentions room-cleanup.ts handles deletion
+    expect(disconnectHandler).toContain("room-cleanup.ts");
+  });
+});
+
+describe("Room cleanup with grace period", () => {
+  it("should have 15-minute disconnect timeout", async () => {
+    const fs = await import("fs");
+    const cleanupContent = fs.readFileSync(
+      "/home/ubuntu/sahaat-muhawara/server/_core/room-cleanup.ts",
+      "utf-8"
+    );
+    
+    // Verify 15-minute timeout constant
+    expect(cleanupContent).toContain("CREATOR_DISCONNECT_TIMEOUT_MINUTES = 15");
+    
+    // Verify disconnect tracking map exists
+    expect(cleanupContent).toContain("creatorDisconnectedAt");
+    
+    // Verify grace period logic - checking elapsed time
+    expect(cleanupContent).toContain("elapsedMinutes >= CREATOR_DISCONNECT_TIMEOUT_MINUTES");
+    
+    // Verify reconnection cancels timer
+    expect(cleanupContent).toContain("cancelling deletion timer");
+    
+    // Verify it checks multiple socket channels
+    expect(cleanupContent).toContain("creator:");
+    expect(cleanupContent).toContain("user:");
+    expect(cleanupContent).toContain("room:");
+    
+    // Verify check interval is 30 seconds
+    expect(cleanupContent).toContain("CHECK_INTERVAL_MS = 30 * 1000");
+  });
+
+  it("should export deleteRoomCompletely and startRoomCleanupService", async () => {
+    const cleanupModule = await import("../server/_core/room-cleanup");
+    expect(typeof cleanupModule.deleteRoomCompletely).toBe("function");
+    expect(typeof cleanupModule.startRoomCleanupService).toBe("function");
+  });
+});
+
 describe("Public Invite Message in Router", () => {
   it("should accept message field in create mutation", async () => {
     const fs = await import("fs");
@@ -89,10 +175,10 @@ describe("Public Invite Message in Router", () => {
     );
     
     // Verify message field in input schema
-    expect(routerContent).toContain("message: z.string().max(12).optional()");
+    expect(routerContent).toContain("message: z.string().max(18).optional()");
     
     // Verify default message is used when not provided
-    expect(routerContent).toContain("وين الشعّار؟");
+    expect(routerContent).toContain("مطلوب شاعر");
   });
 });
 
@@ -115,27 +201,18 @@ describe("Creator Notification in Router", () => {
   });
 });
 
-describe("Client Socket Creator Channel", () => {
-  it("should join and leave creator channel in index.tsx", async () => {
+describe("No expo-notifications in app.config.ts", () => {
+  it("should not have POST_NOTIFICATIONS permission", async () => {
     const fs = await import("fs");
-    const indexContent = fs.readFileSync(
-      "/home/ubuntu/sahaat-muhawara/app/(tabs)/index.tsx",
+    const configContent = fs.readFileSync(
+      "/home/ubuntu/sahaat-muhawara/app.config.ts",
       "utf-8"
     );
     
-    // Verify joining creator channel
-    expect(indexContent).toContain('socket.emit("joinCreatorChannel", userId)');
+    // Verify POST_NOTIFICATIONS is removed
+    expect(configContent).not.toContain("POST_NOTIFICATIONS");
     
-    // Verify leaving creator channel on cleanup
-    expect(indexContent).toContain('socket.emit("leaveCreatorChannel", userId)');
-    
-    // Verify listening for creatorJoinRequest events
-    expect(indexContent).toContain('socket.on("creatorJoinRequest"');
-    
-    // Verify playBell is called
-    expect(indexContent).toContain("playBell()");
-    
-    // Verify message field in PublicInvitation interface
-    expect(indexContent).toContain("message?: string | null");
+    // Verify RECORD_AUDIO is still there
+    expect(configContent).toContain("RECORD_AUDIO");
   });
 });

@@ -87,7 +87,7 @@ describe("Cross-Platform Compatibility (Android + iOS)", () => {
   describe("Notification Bell works on all platforms", () => {
     it("should use expo-audio for notification bell", () => {
       const content = fs.readFileSync("/home/ubuntu/sahaat-muhawara/hooks/use-notification-bell.ts", "utf-8");
-      expect(content).toContain("useAudioPlayer");
+      expect(content).toContain("createAudioPlayer");
       expect(content).toContain("player.play()");
     });
 
@@ -96,9 +96,10 @@ describe("Cross-Platform Compatibility (Android + iOS)", () => {
       expect(content).toContain("playsInSilentMode: true");
     });
 
-    it("should seekTo(0) before playing to allow replaying", () => {
+    it("should reset audio position before playing to allow replaying", () => {
       const content = fs.readFileSync("/home/ubuntu/sahaat-muhawara/hooks/use-notification-bell.ts", "utf-8");
-      expect(content).toContain("seekTo(0)");
+      // Web uses currentTime = 0, native creates new player each time
+      expect(content).toContain("currentTime = 0");
     });
   });
 

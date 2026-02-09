@@ -5,18 +5,6 @@ import { io, Socket } from "socket.io-client";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { useUser } from "@/lib/user-context";
 import { useNotificationBell } from "@/hooks/use-notification-bell";
-import * as Notifications from "expo-notifications";
-
-// Configure notifications handler for foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
 
 function getServerUrl(): string {
   const baseUrl = getApiBaseUrl();
@@ -34,6 +22,8 @@ function getServerUrl(): string {
  * مكون عالمي يستمع لإشعارات طلبات الانضمام للمنشئ
  * يعمل في جميع الصفحات ويشغل صوت الجرس فقط عندما يكون المنشئ خارج ساحته
  * يُوضع في _layout.tsx ليبقى نشطاً دائماً
+ * 
+ * لا يستخدم أي نظام إشعارات - فقط صوت محلي
  */
 export function GlobalCreatorNotifier() {
   const { userId } = useUser();
@@ -54,13 +44,6 @@ export function GlobalCreatorNotifier() {
       appStateRef.current = nextState;
     });
     return () => subscription.remove();
-  }, []);
-
-  // طلب أذونات الإشعارات على Native
-  useEffect(() => {
-    if (Platform.OS !== "web") {
-      Notifications.requestPermissionsAsync().catch(() => {});
-    }
   }, []);
 
   // التحقق مما إذا كان المنشئ داخل ساحته
@@ -112,21 +95,8 @@ export function GlobalCreatorNotifier() {
 
       console.log("[GlobalNotifier] Creator is NOT in own room, playing bell");
 
-      // تشغيل صوت الجرس (foreground)
+      // تشغيل صوت الجرس المحلي فقط - بدون أي إشعارات
       playBell();
-
-      // إرسال إشعار محلي (يعمل في الخلفية أيضاً على Native)
-      if (Platform.OS !== "web") {
-        const requestTypeText = data.requestType === "player" ? "شاعر" : "مستمع";
-        Notifications.scheduleNotificationAsync({
-          content: {
-            title: "طلب انضمام جديد",
-            body: `${data.requesterName} يريد الانضمام كـ${requestTypeText} لساحتك`,
-            sound: "default",
-          },
-          trigger: null, // فوري
-        }).catch((e) => console.warn("[GlobalNotifier] Notification error:", e));
-      }
     });
 
     return () => {

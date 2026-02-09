@@ -309,29 +309,8 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
       // بث عدد المتواجدين عند قطع الاتصال
       broadcastOnlineCount();
-      
-      // حذف ساحة المنشئ فوراً إذا لم يكن لديه نجمة ذهبية
-      const userId = socket.data.userId;
-      if (userId) {
-        try {
-          const activeRoom = await getUserActiveRoom(userId);
-          if (activeRoom && activeRoom.creatorId === userId) {
-            // التحقق من أن المنشئ ليس لديه نجمة ذهبية نشطة
-            const hasGoldStar = activeRoom.hasGoldStar === "true" && 
-              activeRoom.goldStarExpiresAt && 
-              new Date(activeRoom.goldStarExpiresAt) > new Date();
-            
-            if (!hasGoldStar) {
-              console.log(`[Socket.io] Creator ${userId} disconnected without gold star, deleting room ${activeRoom.id}`);
-              await deleteRoomCompletely(activeRoom.id);
-            } else {
-              console.log(`[Socket.io] Creator ${userId} disconnected but has gold star, room ${activeRoom.id} preserved`);
-            }
-          }
-        } catch (error) {
-          console.error(`[Socket.io] Error handling creator disconnect for ${userId}:`, error);
-        }
-      }
+      // حذف الساحة يتم عبر نظام الفحص الدوري في room-cleanup.ts
+      // الذي يتحقق من جميع قنوات Socket قبل الحذف
     });
   });
 
