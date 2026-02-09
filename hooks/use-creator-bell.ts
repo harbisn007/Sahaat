@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from "react";
-import { Platform } from "react-native";
+import { Platform, AppState, type AppStateStatus } from "react-native";
 import { trpc } from "@/lib/trpc";
 import { useUser } from "@/lib/user-context";
 
@@ -10,6 +10,8 @@ import { useUser } from "@/lib/user-context";
  * - يراقب pendingRequestsCount من getUserActiveRoom (polling كل 3 ثواني)
  * - عندما يتغير العداد ويكون أكبر من 0 → يشغل صوت الجرس
  * - يعمل في أي مكان بالتطبيق (داخل/خارج الساحة)
+ * - لا يشغل الصوت إذا كان التطبيق في الخلفية (يتجاهل التغييرات)
+ * - عند العودة من الخلفية يُحدّث العداد بدون تشغيل صوت
  */
 export function useCreatorBell() {
   const { userId } = useUser();
@@ -17,6 +19,29 @@ export function useCreatorBell() {
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
   const nativePlayerRef = useRef<any>(null);
   const hasInteractedRef = useRef(false);
+  // تتبع حالة التطبيق (foreground/background)
+  const appStateRef = useRef<AppStateStatus>(AppState.currentState);
+  // علامة لتجاهل أول تحديث بعد العودة من الخلفية
+  const justResumedRef = useRef(false);
+
+  // مراقبة حالة التطبيق (foreground/background)
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      const wasBackground = appStateRef.current !== "active";
+      const isNowActive = nextAppState === "active";
+      
+      if (wasBackground && isNowActive) {
+        // العودة من الخلفية - تجاهل أي تغييرات في العداد حتى يتم التحديث
+        console.log("[CreatorBell] App resumed from background - will skip next count change");
+        justResumedRef.current = true;
+      }
+      
+      appStateRef.current = nextAppState;
+    };
+
+    const subscription = AppState.addEventListener("change", handleAppStateChange);
+    return () => subscription.remove();
+  }, []);
 
   // جلب بيانات الساحة النشطة مع polling
   const { data: activeRoom } = trpc.rooms.getUserActiveRoom.useQuery(
@@ -142,9 +167,24 @@ export function useCreatorBell() {
     const currentCount = activeRoom?.pendingRequestsCount || 0;
     const prevCount = prevCountRef.current;
 
-    console.log(`[CreatorBell] Count check: prev=${prevCount}, current=${currentCount}`);
+    console.log(`[CreatorBell] Count check: prev=${prevCount}, current=${currentCount}, appState=${appStateRef.current}`);
 
-    // شغّل الجرس إذا تغير العداد وأصبح أكبر من 0
+    // إذا كان التطبيق في الخلفية - تحديث العداد فقط بدون صوت
+    if (appStateRef.current !== "active") {
+      console.log("[CreatorBell] App in background - updating count silently");
+      prevCountRef.current = currentCount;
+      return;
+    }
+
+    // إذا عاد التطبيق للتو من الخلفية - تحديث العداد بدون صوت (مرة واحدة)
+    if (justResumedRef.current) {
+      console.log("[CreatorBell] Just resumed from background - updating count silently");
+      justResumedRef.current = false;
+      prevCountRef.current = currentCount;
+      return;
+    }
+
+    // شغّل الجرس إذا تغير العداد وأصبح أكبر من 0 (والتطبيق في المقدمة)
     if (currentCount > 0 && currentCount !== prevCount) {
       console.log(`[CreatorBell] Count changed ${prevCount} -> ${currentCount}, playing bell!`);
       playBell();
