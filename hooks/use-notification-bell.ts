@@ -1,39 +1,20 @@
 import { useCallback, useRef, useEffect } from "react";
-import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { Platform } from "react-native";
-
-const BELL_SOUND = require("@/assets/sounds/notif3.mp3");
 
 /**
  * Hook لتشغيل صوت الجرس عند طلب انضمام جديد
- * يستخدم نفس نمط use-audio-player.ts الذي يعمل بنجاح
- * - على الويب: HTMLAudioElement
- * - على Native: createAudioPlayer من expo-audio
+ * 
+ * على Native: يستخدم expo-audio createAudioPlayer مع URI من Asset
+ * على Web: يستخدم HTMLAudioElement
+ * 
+ * ملاحظة: يتم import expo-audio ديناميكياً لتجنب مشاكل الويب
  */
 export function useNotificationBell() {
-  const nativePlayerRef = useRef<AudioPlayer | null>(null);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioModeSetRef = useRef(false);
+  const audioInitializedRef = useRef(false);
 
-  // تهيئة وضع الصوت على Native مرة واحدة
+  // تهيئة Web Audio مسبقاً
   useEffect(() => {
-    const initAudioMode = async () => {
-      if (Platform.OS !== "web" && !audioModeSetRef.current) {
-        try {
-          await AudioModule.setAudioModeAsync({
-            playsInSilentMode: true,
-            allowsRecording: false,
-          });
-          audioModeSetRef.current = true;
-          console.log("[NotificationBell] Audio mode set for native");
-        } catch (e) {
-          console.warn("[NotificationBell] Failed to set audio mode:", e);
-        }
-      }
-    };
-    initAudioMode();
-
-    // تهيئة Web Audio
     if (Platform.OS === "web") {
       try {
         const audio = new Audio("/sounds/notif3.mp3");
@@ -47,19 +28,9 @@ export function useNotificationBell() {
     }
 
     return () => {
-      // تنظيف
       if (Platform.OS === "web" && webAudioRef.current) {
         webAudioRef.current.pause();
         webAudioRef.current = null;
-      }
-      if (nativePlayerRef.current) {
-        try {
-          nativePlayerRef.current.pause();
-          nativePlayerRef.current.release();
-        } catch (e) {
-          // تجاهل
-        }
-        nativePlayerRef.current = null;
       }
     };
   }, []);
@@ -76,7 +47,6 @@ export function useNotificationBell() {
           await webAudioRef.current.play();
           console.log("[NotificationBell] Web bell played");
         } else {
-          // إنشاء audio جديد إذا لم يكن موجوداً
           const audio = new Audio("/sounds/notif3.mp3");
           audio.volume = 1.0;
           webAudioRef.current = audio;
@@ -85,59 +55,49 @@ export function useNotificationBell() {
         }
       } else {
         // ========== NATIVE (Android/iOS) ==========
-        // تنظيف player سابق
-        if (nativePlayerRef.current) {
-          try {
-            nativePlayerRef.current.pause();
-            nativePlayerRef.current.release();
-          } catch (e) {
-            // تجاهل
-          }
-          nativePlayerRef.current = null;
-        }
+        // Import expo-audio ديناميكياً
+        const { createAudioPlayer, AudioModule } = require("expo-audio");
 
-        // ضبط audio mode إذا لم يتم بعد
-        if (!audioModeSetRef.current) {
+        // ضبط audio mode مرة واحدة
+        if (!audioInitializedRef.current) {
           try {
             await AudioModule.setAudioModeAsync({
               playsInSilentMode: true,
               allowsRecording: false,
             });
-            audioModeSetRef.current = true;
+            audioInitializedRef.current = true;
+            console.log("[NotificationBell] Audio mode set");
           } catch (e) {
             console.warn("[NotificationBell] Audio mode error:", e);
           }
         }
 
-        // إنشاء player جديد وتشغيله
-        console.log("[NotificationBell] Creating native player...");
-        const player = createAudioPlayer(BELL_SOUND);
-        nativePlayerRef.current = player;
-
-        // الاستماع لانتهاء التشغيل لتنظيف الموارد
-        player.addListener("playbackStatusUpdate", (status) => {
-          if (status.isLoaded && !status.playing && status.currentTime > 0) {
-            if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
-              console.log("[NotificationBell] Native bell finished");
-              try {
-                player.release();
-              } catch (e) {
-                // تجاهل
-              }
-              if (nativePlayerRef.current === player) {
-                nativePlayerRef.current = null;
-              }
+        // استخدام require() كمصدر - هذا يعطي رقم asset module
+        const bellSource = require("@/assets/sounds/notif3.mp3");
+        
+        console.log("[NotificationBell] Creating native player with source:", typeof bellSource, bellSource);
+        
+        // إنشاء player جديد في كل مرة
+        const player = createAudioPlayer(bellSource);
+        
+        // الاستماع لانتهاء التشغيل باستخدام didJustFinish
+        player.addListener("playbackStatusUpdate", (status: any) => {
+          if (status.didJustFinish) {
+            console.log("[NotificationBell] Native bell finished, releasing player");
+            try {
+              player.release();
+            } catch (e) {
+              // تجاهل
             }
           }
         });
 
-        // انتظار قصير للتحميل ثم التشغيل
-        await new Promise(resolve => setTimeout(resolve, 300));
+        // انتظار قصير للتحميل
+        await new Promise(resolve => setTimeout(resolve, 200));
         
-        if (nativePlayerRef.current === player) {
-          player.play();
-          console.log("[NotificationBell] Native bell play command sent");
-        }
+        // تشغيل الصوت
+        player.play();
+        console.log("[NotificationBell] Native bell play() called");
       }
     } catch (error) {
       console.error("[NotificationBell] Error playing bell:", error);

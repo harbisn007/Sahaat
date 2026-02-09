@@ -93,13 +93,15 @@ describe("عداد الطلبات تحت زر العودة لساحتك", () => 
   });
 });
 
-describe("الأفتارات الجديدة", () => {
-  it("يجب أن توجد 4 أفتارات جديدة لرجال بشماغ وعقال", () => {
+describe("الأفتارات", () => {
+  it("يجب أن توجد جميع الأفتارات المستخدمة", () => {
     const avatarsDir = path.join(__dirname, "../assets/images");
+    expect(fs.existsSync(path.join(avatarsDir, "avatar-male.png"))).toBe(true);
     expect(fs.existsSync(path.join(avatarsDir, "avatar-male-2.png"))).toBe(true);
     expect(fs.existsSync(path.join(avatarsDir, "avatar-male-3.png"))).toBe(true);
     expect(fs.existsSync(path.join(avatarsDir, "avatar-male-4.png"))).toBe(true);
-    expect(fs.existsSync(path.join(avatarsDir, "avatar-male-5.png"))).toBe(true);
+    expect(fs.existsSync(path.join(avatarsDir, "avatar-female.png"))).toBe(true);
+    expect(fs.existsSync(path.join(avatarsDir, "avatar-neutral.png"))).toBe(true);
   });
 });
 
