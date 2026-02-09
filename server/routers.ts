@@ -680,6 +680,16 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         await db.clearRecordingStatus(input.roomId, input.userId);
+        
+        // بث إيقاف التسجيل لجميع المشاركين عبر Socket.io
+        emitRecordingStatusChanged(
+          input.roomId,
+          input.userId,
+          "", // username غير مطلوب عند الإيقاف
+          false,
+          "" // recordingType غير مطلوب عند الإيقاف
+        );
+        
         return { success: true };
       }),
   }),

@@ -503,13 +503,21 @@ export default function RoomScreen() {
       // تم إلغاء onSufoofSoundUpdated - الصوت الأصلي يُستخدم دائماً
       // استقبال شيلوها - تشغيل الصوت الأصلي مع التصفيق
       onPlaySufoofSheeloha: (data) => {
-        console.log("[RoomScreen] Play sufoof sheeloha via Socket.io:", data);
+        console.log("[RoomScreen] ===== RECEIVED playSufoofSheeloha =====");
+        console.log("[RoomScreen] Data:", JSON.stringify(data));
+        console.log("[RoomScreen] Current userId:", userId);
+        console.log("[RoomScreen] Sender userId:", data.userId);
+        console.log("[RoomScreen] Is same user:", data.userId === userId);
         
         // تخطي التشغيل إذا كان المستخدم هو الضاغط (شغّل محلياً بالفعل)
         if (data.userId === userId) {
           console.log("[RoomScreen] Skipping sheeloha playback - already played locally by presser");
           return;
         }
+        
+        console.log("[RoomScreen] Playing sheeloha for OTHER user!");
+        console.log("[RoomScreen] audioUrl:", data.audioUrl);
+        console.log("[RoomScreen] clappingDelay:", data.clappingDelay);
         
         // إيقاف أي شيلوها تعمل حالياً
         stopSheeloha();
@@ -781,54 +789,9 @@ export default function RoomScreen() {
     // No local auto-play here to prevent double-play conflicts
   }, [filteredAudioMessages, playedMessageIds, isJoinedAtLoaded, joinedAt]);
 
-  // Listen for sheeloha broadcasts and auto-play for ALL users
-  const [playedBroadcastIds, setPlayedBroadcastIds] = useState<Set<number>>(new Set());
-  
-  // Auto-play sheeloha broadcasts from OTHER users only
-  // The person who pressed the button already played it locally
-  useEffect(() => {
-    if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return;
-
-    // Get the latest broadcast
-    const latestBroadcast = sheelohaBroadcasts[0]; // Already sorted by desc(createdAt)
-
-    // Check if it's a new broadcast that hasn't been played yet
-    // AND it's not from the current user (they already played it locally)
-    if (
-      latestBroadcast &&
-      !playedBroadcastIds.has(latestBroadcast.id) &&
-      latestBroadcast.userId !== userId // Skip if it's from current user
-    ) {
-      console.log("[RoomScreen] Auto-playing sheeloha broadcast from other user:", {
-        id: latestBroadcast.id,
-        audioUrl: latestBroadcast.audioUrl,
-        username: latestBroadcast.username,
-        broadcastUserId: latestBroadcast.userId,
-        currentUserId: userId
-      });
-      
-      // Mark as played and clear old IDs (keep only the latest 5)
-      setPlayedBroadcastIds(prev => {
-        const newSet = new Set(prev).add(latestBroadcast.id);
-        if (newSet.size > 5) {
-          const arr = Array.from(newSet);
-          return new Set(arr.slice(-5));
-        }
-        return newSet;
-      });
-      
-      // Play sheeloha effect (5 overlapping copies with distance effect)
-      // استخدام سرعة التصفيق المرسلة من المتحكم - إذا لم تُرسل لا يكون هناك تصفيق
-      const broadcastClappingDelay = (latestBroadcast as any).clappingDelay;
-      console.log("[RoomScreen] Using clappingDelay from broadcast:", broadcastClappingDelay);
-      // إذا كانت السرعة 0 أو غير موجودة، لا يتم تشغيل التصفيق
-      playSheeloha(latestBroadcast.audioUrl, broadcastClappingDelay || 0);
-    } else if (latestBroadcast && latestBroadcast.userId === userId && !playedBroadcastIds.has(latestBroadcast.id)) {
-      // Mark own broadcast as played without playing (already played locally)
-      console.log("[RoomScreen] Skipping own sheeloha broadcast (already played locally)");
-      setPlayedBroadcastIds(prev => new Set(prev).add(latestBroadcast.id));
-    }
-  }, [sheelohaBroadcasts, playedBroadcastIds, playSheeloha, userId]);
+  // تم إزالة نظام auto-play sheelohaBroadcasts
+  // التشغيل يتم فقط عبر Socket.io (onPlaySufoofSheeloha) لمنع التكرار والتداخل
+  // الضاغط يشغل محلياً فوراً، والآخرون يستقبلون عبر Socket.io
 
   // Track played audio messages to avoid duplicate playback
   const [playedAudioIds, setPlayedAudioIds] = useState<Set<string>>(new Set());

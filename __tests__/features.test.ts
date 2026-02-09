@@ -103,8 +103,8 @@ describe("No expo-notifications in GlobalCreatorNotifier", () => {
     // Verify playBell is still used
     expect(notifierContent).toContain("playBell()");
     
-    // Verify isCreatorInOwnRoom check exists
-    expect(notifierContent).toContain("isCreatorInOwnRoom");
+    // Verify path-based room check exists (using window.location.pathname)
+    expect(notifierContent).toContain("pathname");
   });
 });
 

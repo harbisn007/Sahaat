@@ -452,6 +452,8 @@ export function useSheelohaPlayer() {
       
       for (let i = 0; i < SHEELOHA_CONFIG.voiceCopies; i++) {
         const audio = new Audio(audioUri);
+        // لا نستخدم crossOrigin لتجنب مشاكل CORS مع S3
+        // Web Audio API ستعمل بدونه إذا كان الخادم يسمح بـ CORS
         audio.crossOrigin = "anonymous";
         audioElements.push(audio);
         webAudioRef.current.push(audio);
@@ -459,8 +461,20 @@ export function useSheelohaPlayer() {
       
       // Wait for first audio to load to get duration
       await new Promise<void>((resolve, reject) => {
-        audioElements[0].addEventListener("loadedmetadata", () => resolve());
-        audioElements[0].addEventListener("error", () => reject(new Error("Failed to load audio")));
+        const onLoaded = () => {
+          console.log("[useSheelohaPlayer] Audio metadata loaded, duration:", audioElements[0].duration);
+          resolve();
+        };
+        const onError = (e: any) => {
+          console.error("[useSheelohaPlayer] Audio load error:", e);
+          // Fallback: حاول بدون crossOrigin
+          console.log("[useSheelohaPlayer] Retrying without crossOrigin...");
+          audioElements.forEach(a => a.removeAttribute("crossorigin"));
+          audioElements[0].addEventListener("loadedmetadata", () => resolve());
+          audioElements[0].load();
+        };
+        audioElements[0].addEventListener("loadedmetadata", onLoaded);
+        audioElements[0].addEventListener("error", onError);
         audioElements[0].load();
       });
       
@@ -483,11 +497,25 @@ export function useSheelohaPlayer() {
         const settings = SHEELOHA_CONFIG.voiceSettings[index];
         
         // Apply distance effect with detune and custom playback rate
-        applyDistanceEffectWithDetune(audio, settings.detune, settings.playbackRate, settings.volume);
+        const effectApplied = applyDistanceEffectWithDetune(audio, settings.detune, settings.playbackRate, settings.volume);
+        
+        if (!effectApplied) {
+          // Fallback: إذا فشل Web Audio API (مثلاً بسبب CORS)، استخدم الطريقة البسيطة
+          console.log(`[useSheelohaPlayer] Fallback: using simple volume/rate for voice ${index + 1}`);
+          audio.volume = settings.volume;
+          try {
+            const detuneMultiplier = Math.pow(2, settings.detune / 1200);
+            audio.playbackRate = settings.playbackRate * detuneMultiplier;
+          } catch (e) {
+            audio.playbackRate = settings.playbackRate;
+          }
+        }
         
         const timeout = setTimeout(() => {
-          audio.play().catch(console.warn);
-          console.log(`[useSheelohaPlayer] Voice ${index + 1} started (delay: ${settings.delay}ms, vol: ${settings.volume}, detune: ${settings.detune}cents, rate: ${settings.playbackRate})`);
+          audio.play().catch((e) => {
+            console.warn(`[useSheelohaPlayer] Voice ${index + 1} play failed:`, e);
+          });
+          console.log(`[useSheelohaPlayer] Voice ${index + 1} started (delay: ${settings.delay}ms, vol: ${settings.volume}, detune: ${settings.detune}cents, rate: ${settings.playbackRate}, effect: ${effectApplied})`);
         }, settings.delay);
         timeoutsRef.current.push(timeout);
       });
