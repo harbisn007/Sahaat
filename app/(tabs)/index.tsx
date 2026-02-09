@@ -558,12 +558,15 @@ export default function HomeScreen() {
         avatar: avatar || "male",
       });
       
-      // إظهار رسالة للمستخدم أن طلبه قيد الانتظار - لا يدخل كمستمع
-      Alert.alert(
-        "تم إرسال الطلب",
-        "طلبك قيد الانتظار. سيتم إشعارك عند قبول المنشئ لطلبك."
-      );
-      // البقاء في صفحة الساحات - لا ننتقل للساحة
+      // إضافة المستخدم كمشاهد ونقله للساحة فوراً (مثل زر "دخول")
+      await joinAsViewerMutation.mutateAsync({
+        roomId: invite.roomId,
+        userId,
+        username,
+        avatar: avatar || "male",
+      });
+      
+      router.push(`/room/${invite.roomId}`);
     } catch (error: any) {
       Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام");
     }
