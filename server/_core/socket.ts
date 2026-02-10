@@ -146,6 +146,7 @@ export interface ServerToClientEvents {
     messageType: string; // "tarouk" | "comment"
     userId: string;
     username: string;
+    sheelohaUrl?: string; // رابط ملف الشيلوها المدمج (للطاروق فقط)
   }) => void;
   
   // حدث إشعار المنشئ بطلب انضمام جديد
@@ -613,7 +614,8 @@ export function emitPlayAudioMessage(
   audioUrl: string,
   messageType: string,
   userId: string,
-  username: string
+  username: string,
+  sheelohaUrl?: string
 ): void {
   if (!io) {
     console.error("[Socket.io] ERROR: io is null, cannot emit playAudioMessage");
@@ -629,6 +631,7 @@ export function emitPlayAudioMessage(
   console.log(`[Socket.io] Sockets in room: ${socketsInRoom}`);
   console.log(`[Socket.io] Message type: ${messageType}`);
   console.log(`[Socket.io] Audio URL: ${audioUrl}`);
+  console.log(`[Socket.io] Sheeloha URL: ${sheelohaUrl || 'none'}`);
   console.log(`[Socket.io] User: ${username} (${userId})`);
   
   // استبعاد المرسل من البث - هو يشغل محلياً بالفعل
@@ -639,6 +642,7 @@ export function emitPlayAudioMessage(
     messageType,
     userId,
     username,
+    sheelohaUrl, // رابط ملف الشيلوها المدمج (للطاروق فقط)
   });
   
   console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets (excluding sender ${userId})`);

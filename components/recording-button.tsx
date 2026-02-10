@@ -21,6 +21,7 @@ interface RecordingButtonProps {
   minHeight?: number;
   buttonId?: string;
   width?: number;
+  borderRadius?: number;
 }
 
 export function RecordingButton({
@@ -37,6 +38,7 @@ export function RecordingButton({
   minHeight = 48,
   buttonId = "default",
   width,
+  borderRadius: customBorderRadius,
 }: RecordingButtonProps) {
   const colors = useColors();
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -307,7 +309,7 @@ export function RecordingButton({
           style={{
             backgroundColor: isActive ? colors.error : backgroundColor || colors.primary,
             opacity: isTouchActive ? 0.7 : ((isPreparing && !isTouchActive) ? 0.6 : 1),
-            borderRadius: 8,
+            borderRadius: customBorderRadius ?? 8,
             paddingVertical: 8,
             paddingHorizontal: 4,
             alignItems: "center",
@@ -402,7 +404,7 @@ export function RecordingButton({
       onTouchEnd={handleTouchEnd}
       style={{
         backgroundColor: backgroundColor || colors.primary,
-        borderRadius: 8,
+        borderRadius: customBorderRadius ?? 8,
         paddingVertical: 8,
         paddingHorizontal: 4,
         alignItems: "center",

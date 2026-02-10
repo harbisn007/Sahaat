@@ -385,7 +385,8 @@ export const appRouter = router({
           userId: z.string(),
           username: z.string(),
           messageType: z.enum(["comment", "tarouk"]),
-          audioUrl: z.string(), // Accept local URIs for now
+          audioUrl: z.string(),
+          sheelohaUrl: z.string().optional(), // رابط ملف الشيلوها المدمج (للطاروق فقط)
           duration: z.number(),
         })
       )
@@ -412,10 +413,9 @@ export const appRouter = router({
           input.audioUrl,
           input.messageType,
           input.userId,
-          input.username
+          input.username,
+          input.sheelohaUrl // تمرير رابط الشيلوها المدمج
         );
-        
-        // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً في شيلوها
         
         return { messageId };
       }),
@@ -440,14 +440,16 @@ export const appRouter = router({
     .mutation(async ({ input }) => {
       const { storagePut } = await import("./storage");
       const { speedUpAudio } = await import("./audio-processor");
+      const { generateSheeloha } = await import("./sheeloha-generator");
       
       // Convert base64 to buffer
       let buffer: Buffer = Buffer.from(input.base64Data, "base64");
       
       // تسريع الصوت إذا كان مطلوباً (للطاروق)
+      let processedBuffer = buffer;
       if (input.speedUp) {
         console.log("[uploadAudio] Speeding up audio by 1.15x");
-        buffer = await speedUpAudio(buffer, 1.15);
+        processedBuffer = await speedUpAudio(buffer, 1.15);
       }
       
       // Generate unique file key
@@ -455,10 +457,26 @@ export const appRouter = router({
       const randomSuffix = Math.random().toString(36).substring(7);
       const fileKey = `audio/${timestamp}-${randomSuffix}-${input.fileName}`;
       
-      // Upload to S3
-      const { url } = await storagePut(fileKey, buffer, "audio/mp4");
+      // Upload processed audio to S3
+      const { url } = await storagePut(fileKey, processedBuffer, "audio/mp4");
       
-      return { url };
+      // إنشاء ملف الشيلوها المدمج للطاروق فقط
+      let sheelohaUrl: string | undefined;
+      if (input.speedUp) {
+        try {
+          console.log("[uploadAudio] Generating sheeloha file...");
+          const sheelohaBuffer = await generateSheeloha(processedBuffer);
+          const sheelohaKey = `audio/${timestamp}-${randomSuffix}-sheeloha-${input.fileName}`;
+          const sheelohaResult = await storagePut(sheelohaKey, sheelohaBuffer, "audio/mp4");
+          sheelohaUrl = sheelohaResult.url;
+          console.log("[uploadAudio] Sheeloha file generated and uploaded:", sheelohaUrl);
+        } catch (error) {
+          console.error("[uploadAudio] Failed to generate sheeloha:", error);
+          // لا نفشل العملية كلها إذا فشل إنشاء الشيلوها
+        }
+      }
+      
+      return { url, sheelohaUrl };
     }),
 
   // Reactions router

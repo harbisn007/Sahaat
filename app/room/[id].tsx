@@ -16,6 +16,7 @@ import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
+import { useAutoSheeloha } from "@/hooks/use-auto-sheeloha";
 import { useSocket } from "@/hooks/use-socket";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
@@ -24,7 +25,8 @@ import { ReactionMessage } from "@/components/reaction-message";
 import { ReactionsPicker } from "@/components/reactions-picker";
 import { RecordingIndicator } from "@/components/recording-indicator";
 import { EditProfileModal } from "@/components/edit-profile-modal";
-import { SpeedWheel } from "@/components/speed-wheel";
+// SpeedWheel removed - شيلوها أصبحت تلقائية
+// import { SpeedWheel } from "@/components/speed-wheel";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
@@ -411,6 +413,7 @@ export default function RoomScreen() {
     return () => {
       stop();
       stopSheeloha();
+      stopAutoSheeloha();
       stopTarouk();
     };
   }, []);
@@ -420,6 +423,7 @@ export default function RoomScreen() {
       // إيقاف جميع الأصوات عند الخروج
       stop();
       stopSheeloha();
+      stopAutoSheeloha();
       stopTarouk();
       
       // المنشئ لا يُحذف عند مغادرة الصفحة
@@ -503,44 +507,22 @@ export default function RoomScreen() {
   // Tarouk player
   const { stopTarouk } = useTaroukPlayer();
 
-  // إعداد onStopAndPlayNewSheeloha بعد تعريف stopSheeloha و playSheeloha
+  // Auto Sheeloha - تشغيل تلقائي بعد الطاروق (ملف مدمج من الخادم)
+  const { 
+    isPlaying: isAutoSheelohaPlaying, 
+    playSheeloha: playAutoSheeloha, 
+    stopSheeloha: stopAutoSheeloha 
+  } = useAutoSheeloha();
+
+  // إعداد Socket callbacks للشيلوها التلقائية والرسائل الصوتية
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
     
     setCallbacks({
-      onStopAndPlayNewSheeloha: (data) => {
-        console.log("[RoomScreen] Stop and play new sheeloha via Socket.io:", data);
-        // إيقاف الصوت القديم وتشغيل الجديد
-        stopSheeloha();
-        playSheeloha(data.audioUrl, data.clappingDelay);
-      },
-      // تم إلغاء onSufoofSoundUpdated - الصوت الأصلي يُستخدم دائماً
-      // استقبال شيلوها - تشغيل الصوت الأصلي مع التصفيق
-      onPlaySufoofSheeloha: (data) => {
-        console.log("[RoomScreen] ===== RECEIVED playSufoofSheeloha =====");
-        console.log("[RoomScreen] Data:", JSON.stringify(data));
-        console.log("[RoomScreen] Current userId:", userId);
-        console.log("[RoomScreen] Sender userId:", data.userId);
-        console.log("[RoomScreen] Is same user:", data.userId === userId);
-        
-        // تخطي التشغيل إذا كان المستخدم هو الضاغط (شغّل محلياً بالفعل)
-        if (data.userId === userId) {
-          console.log("[RoomScreen] Skipping sheeloha playback - already played locally by presser");
-          return;
-        }
-        
-        console.log("[RoomScreen] Playing sheeloha for OTHER user!");
-        console.log("[RoomScreen] audioUrl:", data.audioUrl);
-        console.log("[RoomScreen] clappingDelay:", data.clappingDelay);
-        
-        // إيقاف أي شيلوها تعمل حالياً
-        stopSheeloha();
-        // تشغيل الصوت الأصلي مع التصفيق
-        playSheeloha(data.audioUrl, data.clappingDelay);
-      },
       // استقبال أمر تشغيل رسالة صوتية عند الجميع (من الخادم)
       onPlayAudioMessage: (data) => {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
+        console.log("[RoomScreen] Has sheelohaUrl:", !!data.sheelohaUrl);
         
         // تخطي التشغيل إذا كان المستخدم هو المسجّل (شغّل محلياً بالفعل)
         if (data.userId === userId) {
@@ -548,11 +530,19 @@ export default function RoomScreen() {
           return;
         }
         
-        // تشغيل الصوت عند الآخرين فقط
-        play(data.audioUrl);
+        // تشغيل الصوت عند الآخرين
+        // إذا كان طاروق (يحتوي sheelohaUrl) → تشغيل الطاروق ثم الشيلوها تلقائياً
+        if (data.sheelohaUrl) {
+          play(data.audioUrl, () => {
+            console.log("[RoomScreen] Tarouk ended, starting auto sheeloha");
+            playAutoSheeloha(data.sheelohaUrl!);
+          });
+        } else {
+          play(data.audioUrl);
+        }
       },
     });
-  }, [roomId, setCallbacks, stopSheeloha, playSheeloha, play, userId]);
+  }, [roomId, setCallbacks, play, userId, playAutoSheeloha]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
@@ -877,14 +867,15 @@ export default function RoomScreen() {
       // Mark as processed
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
       
-      // Stop sheeloha for this user
+      // Stop sheeloha for this user (both old and auto)
       stopSheeloha();
+      stopAutoSheeloha();
       console.log("[RoomScreen] Sheeloha stopped by khalooha command from:", latestKhaloohaCommand.username);
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       // Mark own command as processed without stopping (already stopped locally)
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
     }
-  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, stopSheeloha, userId]);
+  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, stopSheeloha, stopAutoSheeloha, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1538,16 +1529,28 @@ export default function RoomScreen() {
           });
         }
         
-        // Upload to S3 (مع تسريع 1.15 للطاروق)
-        const { url } = await uploadAudioMutation.mutateAsync({
+        // Upload to S3 (مع تسريع 1.15 للطاروق + إنشاء شيلوها مدمجة)
+        const isTarouk = currentRecordingType === "tarouk";
+        const uploadResult = await uploadAudioMutation.mutateAsync({
           base64Data,
           fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
-          speedUp: currentRecordingType === "tarouk", // تسريع الطاروق فقط
+          speedUp: isTarouk, // تسريع الطاروق فقط
         });
+        const { url } = uploadResult;
+        const sheelohaUrl = uploadResult.sheelohaUrl;
         
         // ===== تشغيل محلي فوري للمسجّل =====
         console.log("[RoomScreen] Playing recorded audio LOCALLY for the recorder:", url);
-        play(url);
+        if (isTarouk && sheelohaUrl) {
+          // طاروق: تشغيل الطاروق ثم الشيلوها تلقائياً بعد انتهائه
+          console.log("[RoomScreen] Tarouk with auto sheeloha:", sheelohaUrl);
+          play(url, () => {
+            console.log("[RoomScreen] Local tarouk ended, starting auto sheeloha");
+            playAutoSheeloha(sheelohaUrl);
+          });
+        } else {
+          play(url);
+        }
         
         // Save to database with S3 URL (with actual duration from recording)
         // الخادم سيبث للآخرين عبر Socket.io (وسيتخطى المسجّل لأنه شغّل محلياً)
@@ -1557,6 +1560,7 @@ export default function RoomScreen() {
           username,
           messageType: currentRecordingType,
           audioUrl: url,
+          sheelohaUrl: sheelohaUrl, // تمرير رابط الشيلوها للخادم
           duration: recording.duration || 0, // Use actual recording duration
         });
         
@@ -2316,184 +2320,151 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Bottom Controls - Compact fixed bar */}
-      {/* Players see all controls, Viewers see only reactions */}
+      {/* Bottom Controls - تصميم جديد: صفين */}
       <View 
         className="bg-surface px-4 border-t border-border"
         style={{
-          paddingTop: 8,
-          paddingBottom: Platform.OS === "web" ? 8 : Math.max(insets.bottom + 4, 16),
+          paddingTop: 10,
+          paddingBottom: Platform.OS === "web" ? 10 : Math.max(insets.bottom + 4, 16),
         }}
       >
-        <View className="flex-row items-start gap-2 justify-center">
-          {/* Left: Sheeloha & Khalloha (Players only) */}
+        {/* الصف الأول: زر طاروق دائري كبير في المنتصف (للاعبين فقط) */}
+        {isPlayer && (
+          <View style={{ alignItems: 'center', marginBottom: 10 }}>
+            <RecordingButton
+              buttonId="tarouk"
+              isRecording={isRecording && recordingType === "tarouk"}
+              isPreparing={isPreparing && recordingType === "tarouk"}
+              pressAndHold={true}
+              onPressIn={() => handleStartRecording("tarouk")}
+              onPressOut={() => handleStopRecording()}
+              onCancelRecording={handleCancelRecording}
+              backgroundColor="#5D4037"
+              recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
+              iconComponent={
+                <MaterialCommunityIcons name="microphone-variant" size={32} color="#EF4444" />
+              }
+              label=""
+              showLabel={false}
+              minHeight={70}
+              width={70}
+              borderRadius={35}
+            />
+            <Text 
+              style={{ 
+                color: colors.muted,
+                fontSize: 10,
+                fontWeight: '900',
+                textAlign: 'center',
+                marginTop: 4,
+              }}
+            >
+              طاروق
+            </Text>
+          </View>
+        )}
+
+        {/* الصف الثاني: خلوها | تعليق/موال (دائري بمايكروفون ذهبي) | تفاعلات */}
+        <View className="flex-row items-start justify-center" style={{ gap: 16 }}>
+          {/* خلوها - للاعبين فقط */}
           {isPlayer && (
-            <View className="flex-row gap-2 flex-1">
-              {/* Clapping Delay Wheel - يظهر فقط للمتحكم المختار (لا يظهر للمشاهدين) */}
-              {isCurrentUserController && !isViewer && (
-                <SpeedWheel
-                  value={clappingDelay}
-                  onChange={(newDelay) => {
-                    // تسجيل وقت التغيير المحلي (لمنع التحديث المزدوج من الخادم)
-                    lastLocalClappingChangeRef.current = Date.now();
-                    setClappingDelay(newDelay);
-                    // إرسال للخادم عبر API للتحديث الفوري
-                    setClappingDelayMutation.mutate({ roomId, delay: newDelay });
-                  }}
-                  width={wheelWidth}
-                />
-              )}
-
-              {/* Sheeloha Button */}
-              <View style={{ width: buttonWidth, alignItems: 'center' }}>
-                <TouchableOpacity
-                  className="rounded items-center justify-center"
-                  style={{
-                    backgroundColor: "#5D4037",
-                    opacity: (!lastTaroukUri || isSheelohaProcessing) ? 0.5 : 1,
-                    width: buttonWidth,
-                    paddingVertical: 4,
-                    paddingHorizontal: 4,
-                    minHeight: 48,
-                    borderRadius: 8,
-                  }}
-                  onPress={async () => {
-                    // ===== حدث جديد لزر شيلوها =====
-                    console.log("[RoomScreen] Sheeloha button pressed - NEW EVENT");
-                    // تم إلغاء sufoofSound - الصوت الأصلي يُستخدم دائماً
-                    console.log("[RoomScreen] lastTaroukUri:", lastTaroukUri);
-                    
-                    // استخدام الصوت الأصلي دائماً (آخر طاروق)
-                    const audioToPlay = lastTaroukUri;
-                    if (!audioToPlay) {
-                      Alert.alert("تنبيه", "لا يوجد صوت صفوف متاح. سجل طاروق أولاً.");
-                      return;
-                    }
-                    
-                    if (!username) {
-                      Alert.alert("خطأ", "يجب تسجيل الدخول");
-                      return;
-                    }
-                    
-                    try {
-                      // إيقاف أي صوت يعمل حالياً
-                      console.log("[RoomScreen] Stopping any playing audio...");
-                      stopTarouk();
-                      stop(); // إيقاف الرسائل الصوتية
-                      stopSheeloha(); // إيقاف أي شيلوها سابقة
-                      
-                      // ===== تشغيل محلي فوري للضاغط =====
-                      console.log("[RoomScreen] Playing sheeloha LOCALLY for the presser:", {
-                        audioUrl: audioToPlay,
-                        clappingDelay,
-                      });
-                      playSheeloha(audioToPlay, clappingDelay);
-                      
-                      // بث شيلوها للخادم - الخادم سيبث للآخرين (الصوت الأصلي)
-                      console.log("[RoomScreen] Sending playSufoof to server:", {
-                        audioUrl: audioToPlay,
-                        clappingDelay,
-                      });
-                      
-                      await playSufoofMutation.mutateAsync({
-                        roomId,
-                        userId,
-                        username,
-                        audioUrl: audioToPlay,
-                        clappingDelay,
-                      });
-                      
-                      console.log("[RoomScreen] Sheeloha sent to server successfully");
-                    } catch (error) {
-                      console.error("[RoomScreen] Failed to play sheeloha:", error);
-                      Alert.alert("خطأ", "فشل تشغيل شيلوها");
-                    }
-                  }}
-                  disabled={isSheelohaProcessing}
-                >
-                  <View style={{ flexDirection: 'row', gap: 2 }}>
-                    <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
-                    <MaterialCommunityIcons name="hand-clap" size={iconSize} color="#FFD700" />
-                  </View>
-                </TouchableOpacity>
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: fontSize,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  شيلوها
-                </Text>
-              </View>
-
-              {/* Khalloha Button */}
-              <View style={{ width: buttonWidth, alignItems: 'center' }}>
-                <TouchableOpacity
-                  className="rounded items-center justify-center"
-                  style={{
-                    backgroundColor: "#5D4037",
-                    opacity: isSheelohaPlaying ? 1 : 0.5,
-                    width: buttonWidth,
-                    paddingVertical: 4,
-                    paddingHorizontal: 4,
-                    minHeight: 48,
-                    borderRadius: 8,
-                  }}
-                  onPress={async () => {
-                    // Stop sheeloha locally first (only sheeloha, not other sounds)
-                    stopSheeloha();
-                    
-                    // Reset the global sheeloha disabled state immediately
-                    // This allows the button to be re-enabled right away
-                    setSheelohaDisabledUntil(0);
-                    
-                    // Broadcast stop command to all users
-                    try {
-                      console.log("[RoomScreen] Broadcasting khalooha command to all users");
-                      await createKhaloohaCommandMutation.mutateAsync({
-                        roomId,
-                        userId,
-                        username: username || "",
-                      });
-                      console.log("[RoomScreen] Khalooha command sent successfully");
-                    } catch (error) {
-                      console.error("[RoomScreen] Failed to broadcast khalooha:", error);
-                    }
-                  }}
-                >
-                  <MaterialIcons name="pan-tool" size={iconSize + 4} color="#FFD700" />
-                </TouchableOpacity>
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: fontSize,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  خلوها
-                </Text>
-              </View>
+            <View style={{ alignItems: 'center' }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#5D4037",
+                  opacity: isAutoSheelohaPlaying ? 1 : 0.5,
+                  width: buttonWidth,
+                  minHeight: 48,
+                  borderRadius: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                onPress={async () => {
+                  // إيقاف الشيلوها التلقائية والقديمة محلياً
+                  stopAutoSheeloha();
+                  stopSheeloha();
+                  setSheelohaDisabledUntil(0);
+                  
+                  // بث أمر إيقاف للجميع
+                  try {
+                    console.log("[RoomScreen] Broadcasting khalooha command to all users");
+                    await createKhaloohaCommandMutation.mutateAsync({
+                      roomId,
+                      userId,
+                      username: username || "",
+                    });
+                    console.log("[RoomScreen] Khalooha command sent successfully");
+                  } catch (error) {
+                    console.error("[RoomScreen] Failed to broadcast khalooha:", error);
+                  }
+                }}
+              >
+                <MaterialIcons name="pan-tool" size={iconSize + 4} color="#FFD700" />
+              </TouchableOpacity>
+              <Text 
+                style={{ 
+                  color: colors.muted,
+                  fontSize: fontSize,
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                خلوها
+              </Text>
             </View>
           )}
 
-          {/* Center: Reactions Button (for all users) */}
-          <View style={{ width: 35, alignItems: 'center' }}>
+          {/* تعليق/موال - دائري بنفس حجم الطاروق بمايكروفون ذهبي (للاعبين فقط) */}
+          {isPlayer && (
+            <View style={{ alignItems: 'center' }}>
+              <RecordingButton
+                buttonId="comment"
+                isRecording={isRecording && recordingType === "comment"}
+                isPreparing={isPreparing && recordingType === "comment"}
+                pressAndHold={true}
+                onPressIn={() => handleStartRecording("comment")}
+                onPressOut={() => handleStopRecording()}
+                onCancelRecording={handleCancelRecording}
+                recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
+                iconComponent={
+                  <MaterialIcons name="mic" size={32} color="#FFD700" />
+                }
+                label=""
+                showLabel={false}
+                backgroundColor="#5D4037"
+                minHeight={70}
+                width={70}
+                borderRadius={35}
+              />
+              <Text 
+                style={{ 
+                  color: colors.muted,
+                  fontSize: isSmallScreen ? 6 : 8,
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                تعليق/موال
+              </Text>
+            </View>
+          )}
+
+          {/* تفاعلات - للجميع */}
+          <View style={{ alignItems: 'center' }}>
             <TouchableOpacity
-              className="rounded items-center justify-center"
               style={{
                 backgroundColor: "#5D4037",
-                width: 35,
+                width: 40,
                 minHeight: 48,
                 borderRadius: 8,
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
-                  <MaterialIcons name="emoji-emotions" size={22} color="#FFD700" />
+              <MaterialIcons name="emoji-emotions" size={22} color="#FFD700" />
             </TouchableOpacity>
           </View>
 
@@ -2520,81 +2491,6 @@ export default function RoomScreen() {
                 <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, textAlign: 'center' }}>
                   سيتم حذف الطلب تلقائياً بعد 10 ثواني
                 </Text>
-              )}
-            </View>
-          )}
-
-          {/* Right: Comment & Tarouk (Players only) */}
-          {isPlayer && (
-            <View className="flex-row gap-2">
-              <View style={{ width: buttonWidth, alignItems: 'center' }}>
-                <RecordingButton
-                  buttonId="comment"
-                  isRecording={isRecording && recordingType === "comment"}
-                  isPreparing={isPreparing && recordingType === "comment"}
-                  pressAndHold={true}
-                  onPressIn={() => handleStartRecording("comment")}
-                  onPressOut={() => handleStopRecording()}
-                  onCancelRecording={handleCancelRecording}
-                  recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
-                  iconComponent={
-                    <View style={{ flexDirection: 'row', gap: 2 }}>
-                      <MaterialIcons name="music-note" size={smallIconSize} color="#FFD700" />
-                      <MaterialIcons name="chat" size={smallIconSize} color="#FFD700" />
-                    </View>
-                  }
-                  label=""
-                  showLabel={false}
-                  backgroundColor="#5D4037"
-                  minHeight={48}
-                  width={buttonWidth}
-                />
-                <Text 
-                  style={{ 
-                    color: colors.muted,
-                    fontSize: isSmallScreen ? 5 : 7,
-                    fontWeight: '900',
-                    textAlign: 'center',
-                    marginTop: 4,
-                  }}
-                >
-                  تعليق/موال
-                </Text>
-              </View>
-
-              {/* زر طاروق - يظهر لكل اللاعبين المقبولين */}
-              {isPlayer && (
-                <View style={{ width: buttonWidth, alignItems: 'center' }}>
-                  <RecordingButton
-                    buttonId="tarouk"
-                    isRecording={isRecording && recordingType === "tarouk"}
-                    isPreparing={isPreparing && recordingType === "tarouk"}
-                    pressAndHold={true}
-                    onPressIn={() => handleStartRecording("tarouk")}
-                    onPressOut={() => handleStopRecording()}
-                    onCancelRecording={handleCancelRecording}
-                    backgroundColor="#5D4037"
-                    recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
-                    iconComponent={
-                      <MaterialCommunityIcons name="microphone-variant" size={iconSize} color="#EF4444" />
-                    }
-                    label=""
-                    showLabel={false}
-                    minHeight={48}
-                    width={buttonWidth}
-                  />
-                  <Text 
-                    style={{ 
-                      color: colors.muted,
-                      fontSize: fontSize,
-                      fontWeight: '900',
-                      textAlign: 'center',
-                      marginTop: 4,
-                    }}
-                  >
-                    طاروق
-                  </Text>
-                </View>
               )}
             </View>
           )}

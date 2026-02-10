@@ -9,12 +9,14 @@ import { Platform } from "react-native";
  * 1. استخدام createAudioPlayer بدلاً من useAudioPlayer لتجنب مشاكل lifecycle
  * 2. إنشاء player جديد لكل صوت بدلاً من replace
  * 3. تنظيف الـ player القديم قبل إنشاء جديد
+ * 4. دعم onEnded callback لتشغيل الشيلوها بعد الطاروق
  */
 export function useAudioPlayerHook() {
   const [currentUri, setCurrentUri] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const playerRef = useRef<AudioPlayer | null>(null);
   const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  const onEndedRef = useRef<(() => void) | null>(null);
 
   // تنظيف الـ player الحالي
   const cleanup = useCallback(() => {
@@ -41,11 +43,12 @@ export function useAudioPlayerHook() {
     }
   }, []);
 
-  const play = useCallback(async (uri: string) => {
+  const play = useCallback(async (uri: string, onEnded?: () => void) => {
     try {
       console.log("[useAudioPlayerHook] ========== PLAY REQUESTED ==========");
       console.log("[useAudioPlayerHook] URI:", uri.substring(0, 100));
       console.log("[useAudioPlayerHook] Platform:", Platform.OS);
+      console.log("[useAudioPlayerHook] Has onEnded callback:", !!onEnded);
       
       // إذا كان نفس الـ URI يعمل حالياً، تجاهل الطلب
       if (currentUri === uri && isPlaying) {
@@ -56,9 +59,13 @@ export function useAudioPlayerHook() {
       // تنظيف أي تشغيل سابق
       console.log("[useAudioPlayerHook] Cleaning up previous player...");
       cleanup();
+      onEndedRef.current = null;
 
       setCurrentUri(uri);
       setIsPlaying(true);
+      
+      // حفظ onEnded callback
+      onEndedRef.current = onEnded || null;
 
       if (Platform.OS === "web") {
         // ========== WEB: استخدام HTML5 Audio ==========
@@ -72,12 +79,20 @@ export function useAudioPlayerHook() {
           console.log("[useAudioPlayerHook] Web audio ended");
           setCurrentUri(null);
           setIsPlaying(false);
+          // استدعاء onEnded callback
+          const cb = onEndedRef.current;
+          onEndedRef.current = null;
+          if (cb) {
+            console.log("[useAudioPlayerHook] Calling onEnded callback");
+            cb();
+          }
         };
         
         audio.onerror = (e) => {
           console.error("[useAudioPlayerHook] Web audio error:", e);
           setCurrentUri(null);
           setIsPlaying(false);
+          onEndedRef.current = null;
         };
         
         await audio.play();
@@ -119,6 +134,13 @@ export function useAudioPlayerHook() {
               console.log("[useAudioPlayerHook] Playback finished");
               setCurrentUri(null);
               setIsPlaying(false);
+              // استدعاء onEnded callback
+              const cb = onEndedRef.current;
+              onEndedRef.current = null;
+              if (cb) {
+                console.log("[useAudioPlayerHook] Calling onEnded callback");
+                cb();
+              }
             }
           }
         });
@@ -144,6 +166,7 @@ export function useAudioPlayerHook() {
       console.error("[useAudioPlayerHook] Error:", error);
       setCurrentUri(null);
       setIsPlaying(false);
+      onEndedRef.current = null;
     }
   }, [currentUri, isPlaying, cleanup]);
 
@@ -153,6 +176,7 @@ export function useAudioPlayerHook() {
       cleanup();
       setCurrentUri(null);
       setIsPlaying(false);
+      onEndedRef.current = null; // إلغاء أي callback معلق
     } catch (error) {
       console.error("[useAudioPlayerHook] Failed to stop audio:", error);
     }
