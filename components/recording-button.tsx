@@ -253,7 +253,7 @@ export function RecordingButton({
     const isActive = showDeleteUI || showPreparingUI;
     
     return (
-      <Animated.View style={{ transform: [{ scale: showDeleteUI ? pulseAnim : 1 }], width: '100%' }}>
+      <Animated.View style={{ transform: [{ scale: showDeleteUI ? pulseAnim : 1 }], alignSelf: 'center' }}>
         {/* Delete Icon - appears above the button when recording */}
         {showDeleteUI && (
           <Animated.View 

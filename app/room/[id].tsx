@@ -2330,7 +2330,7 @@ export default function RoomScreen() {
       >
         {/* الصف الأول: زر طاروق دائري كبير في المنتصف (للاعبين فقط) */}
         {isPlayer && (
-          <View style={{ alignItems: 'center', marginBottom: 10 }}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 12, width: '100%' }}>
             <RecordingButton
               buttonId="tarouk"
               isRecording={isRecording && recordingType === "tarouk"}
@@ -2342,18 +2342,18 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <MaterialCommunityIcons name="microphone-variant" size={32} color="#EF4444" />
+                <MaterialCommunityIcons name="microphone-variant" size={36} color="#EF4444" />
               }
               label=""
               showLabel={false}
-              minHeight={70}
-              width={70}
-              borderRadius={35}
+              minHeight={80}
+              width={80}
+              borderRadius={40}
             />
             <Text 
               style={{ 
                 color: colors.muted,
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: '900',
                 textAlign: 'center',
                 marginTop: 4,
@@ -2364,8 +2364,8 @@ export default function RoomScreen() {
           </View>
         )}
 
-        {/* الصف الثاني: خلوها | تعليق/موال (دائري بمايكروفون ذهبي) | تفاعلات */}
-        <View className="flex-row items-start justify-center" style={{ gap: 16 }}>
+        {/* الصف الثاني: خلوها | تعليق/موال (بمايكروفون ذهبي) | تفاعلات */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 20, width: '100%' }}>
           {/* خلوها - للاعبين فقط */}
           {isPlayer && (
             <View style={{ alignItems: 'center' }}>
@@ -2373,9 +2373,9 @@ export default function RoomScreen() {
                 style={{
                   backgroundColor: "#5D4037",
                   opacity: isAutoSheelohaPlaying ? 1 : 0.5,
-                  width: buttonWidth,
-                  minHeight: 48,
-                  borderRadius: 8,
+                  width: 56,
+                  height: 56,
+                  borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
@@ -2399,12 +2399,12 @@ export default function RoomScreen() {
                   }
                 }}
               >
-                <MaterialIcons name="pan-tool" size={iconSize + 4} color="#FFD700" />
+                <MaterialIcons name="pan-tool" size={26} color="#FFD700" />
               </TouchableOpacity>
               <Text 
                 style={{ 
                   color: colors.muted,
-                  fontSize: fontSize,
+                  fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
                   marginTop: 4,
@@ -2415,7 +2415,7 @@ export default function RoomScreen() {
             </View>
           )}
 
-          {/* تعليق/موال - دائري بنفس حجم الطاروق بمايكروفون ذهبي (للاعبين فقط) */}
+          {/* تعليق/موال - بمايكروفون ذهبي في المنتصف (للاعبين فقط) */}
           {isPlayer && (
             <View style={{ alignItems: 'center' }}>
               <RecordingButton
@@ -2428,19 +2428,19 @@ export default function RoomScreen() {
                 onCancelRecording={handleCancelRecording}
                 recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
                 iconComponent={
-                  <MaterialIcons name="mic" size={32} color="#FFD700" />
+                  <MaterialIcons name="mic" size={30} color="#FFD700" />
                 }
                 label=""
                 showLabel={false}
                 backgroundColor="#5D4037"
-                minHeight={70}
-                width={70}
-                borderRadius={35}
+                minHeight={64}
+                width={64}
+                borderRadius={32}
               />
               <Text 
                 style={{ 
                   color: colors.muted,
-                  fontSize: isSmallScreen ? 6 : 8,
+                  fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
                   marginTop: 4,
@@ -2456,16 +2456,27 @@ export default function RoomScreen() {
             <TouchableOpacity
               style={{
                 backgroundColor: "#5D4037",
-                width: 40,
-                minHeight: 48,
-                borderRadius: 8,
+                width: 56,
+                height: 56,
+                borderRadius: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
-              <MaterialIcons name="emoji-emotions" size={22} color="#FFD700" />
+              <MaterialIcons name="emoji-emotions" size={26} color="#FFD700" />
             </TouchableOpacity>
+            <Text 
+              style={{ 
+                color: colors.muted,
+                fontSize: 9,
+                fontWeight: '900',
+                textAlign: 'center',
+                marginTop: 4,
+              }}
+            >
+              تفاعلات
+            </Text>
           </View>
 
           {/* Viewer: Request to Join as Player */}
