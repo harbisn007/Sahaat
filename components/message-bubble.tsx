@@ -186,7 +186,7 @@ export function MessageBubble({
   // #10: أيقونة مايكروفون للتعليق ورمز وجه يتحدث بدلاً من "تعليق"
   const getTypeLabel = () => {
     if (messageType === "tarouk") return "طاروق";
-    if (messageType === "comment") return "🗣️";
+    if (messageType === "comment") return "تعليق";
     return "";
   };
 

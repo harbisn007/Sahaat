@@ -2370,7 +2370,7 @@ export default function RoomScreen() {
                   marginTop: 4,
                 }}
               >
-                تعليق
+                تعليق / موال
               </Text>
             </View>
           )}
