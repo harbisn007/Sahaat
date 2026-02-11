@@ -87,7 +87,8 @@ interface ServerToClientEvents {
     messageType: string;
     userId: string;
     username: string;
-    sheelohaUrl?: string; // رابط ملف الشيلوها المدمج (للطاروق فقط)
+    sheelohaUrl?: string;
+    isSheeloha?: boolean; // هل هذا بث شيلوها للجميع
   }) => void;
   // حدث إشعار المنشئ بطلب انضمام جديد
   creatorJoinRequest: (data: {
@@ -319,6 +320,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       userId: string;
       username: string;
       sheelohaUrl?: string;
+      isSheeloha?: boolean;
     }) => void;
   }>({});
 

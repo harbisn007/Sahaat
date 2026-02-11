@@ -522,24 +522,21 @@ export default function RoomScreen() {
       // استقبال أمر تشغيل رسالة صوتية عند الجميع (من الخادم)
       onPlayAudioMessage: (data) => {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
-        console.log("[RoomScreen] Has sheelohaUrl:", !!data.sheelohaUrl);
+        const isSender = data.userId === userId;
         
-        // تخطي التشغيل إذا كان المستخدم هو المسجّل (شغّل محلياً بالفعل)
-        if (data.userId === userId) {
-          console.log("[RoomScreen] Skipping audio playback - already played locally by recorder");
+        if (data.isSheeloha) {
+          console.log("[RoomScreen] Playing sheeloha broadcast for all");
+          playAutoSheeloha(data.audioUrl);
           return;
         }
         
-        // تشغيل الصوت عند الآخرين
-        // إذا كان طاروق (يحتوي sheelohaUrl) → تشغيل الطاروق ثم الشيلوها تلقائياً
-        if (data.sheelohaUrl) {
-          play(data.audioUrl, () => {
-            console.log("[RoomScreen] Tarouk ended, starting auto sheeloha");
-            playAutoSheeloha(data.sheelohaUrl!);
-          });
-        } else {
-          play(data.audioUrl);
+        if (isSender) {
+          console.log("[RoomScreen] Skipping playback - already played locally");
+          return;
         }
+        
+        console.log("[RoomScreen] Playing comment for listener");
+        play(data.audioUrl);
       },
     });
   }, [roomId, setCallbacks, play, userId, playAutoSheeloha]);
@@ -1553,15 +1550,15 @@ export default function RoomScreen() {
         }
         
         // Save to database with S3 URL (with actual duration from recording)
-        // الخادم سيبث للآخرين عبر Socket.io (وسيتخطى المسجّل لأنه شغّل محلياً)
+        // الخادم سيبث للجميع (including sender for sheeloha)
         await createAudioMutation.mutateAsync({
           roomId,
           userId,
           username,
           messageType: currentRecordingType,
           audioUrl: url,
-          sheelohaUrl: sheelohaUrl, // تمرير رابط الشيلوها للخادم
-          duration: recording.duration || 0, // Use actual recording duration
+          sheelohaUrl: sheelohaUrl,
+          duration: recording.duration || 0,
         });
         
         // Refresh audio messages فوراً
@@ -1777,8 +1774,8 @@ export default function RoomScreen() {
         
         {/* Center: Room info */}
         <View className="flex-1">
-          <Text className="text-xl font-bold text-center" style={{ color: '#000000' }}>{roomData.name}</Text>
-          <Text className="text-sm text-center" style={{ color: '#000000', opacity: 0.8 }}>
+          <Text className="text-xl font-bold text-center" style={{ color: colors.foreground }}>{roomData.name}</Text>
+          <Text className="text-sm text-center" style={{ color: colors.foreground, opacity: 0.8 }}>
             {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
           </Text>
         </View>
@@ -1809,7 +1806,7 @@ export default function RoomScreen() {
             className="items-center justify-center"
             onPress={handleShareInvite}
           >
-            <MaterialIcons name="share" size={24} color="#000000" />
+            <MaterialIcons name="share" size={24} color={colors.foreground} />
             <Text className="text-xs font-bold text-foreground">دعوة</Text>
           </TouchableOpacity>
         </View>
@@ -1867,7 +1864,7 @@ export default function RoomScreen() {
             width: '100%',
           }}>
              <Text style={{
-              color: '#000000',
+              color: colors.foreground,
               fontSize: 17,
               fontWeight: 'bold',
               marginBottom: 12,
@@ -1876,7 +1873,7 @@ export default function RoomScreen() {
               للحصول على افضل تجربة استخدام:
             </Text>
             <Text style={{
-              color: '#000000',
+              color: colors.foreground,
               fontSize: 16,
               lineHeight: 28,
               textAlign: 'left',
@@ -1924,7 +1921,7 @@ export default function RoomScreen() {
             <Text style={{ fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 8, color: '#000' }}>
               دعوة عامة
             </Text>
-            <Text style={{ fontSize: 13, textAlign: 'center', marginBottom: 16, color: '#666' }}>
+            <Text style={{ fontSize: 13, textAlign: 'center', marginBottom: 16, color: colors.muted }}>
               أضف رسالة للدعوة (18 حرف كحد أقصى)
             </Text>
             <TextInput
@@ -1958,7 +1955,7 @@ export default function RoomScreen() {
                 }}
                 onPress={() => setShowPublicInviteModal(false)}
               >
-                <Text style={{ color: '#666', fontWeight: '600', fontSize: 15 }}>إلغاء</Text>
+                <Text style={{ color: colors.muted, fontWeight: '600', fontSize: 15 }}>إلغاء</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{
@@ -2029,7 +2026,7 @@ export default function RoomScreen() {
           ))}
           {/* عداد الطلبات المنتظرة */}
           {queuedRequests.length > 0 && (
-            <Text style={{ color: '#666', fontSize: 12, textAlign: 'center', marginTop: 4 }}>
+            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 4 }}>
               + {queuedRequests.length} طلبات في الانتظار
             </Text>
           )}
@@ -2082,7 +2079,7 @@ export default function RoomScreen() {
                     </View>
                   )}
                 </TouchableOpacity>
-                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
+                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player1.username}
                 </Text>
               </View>
@@ -2113,7 +2110,7 @@ export default function RoomScreen() {
                   source={getAvatarSource(roomData?.creatorAvatar)}
                   style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: isCreatorRecording ? '#DC2626' : colors.primary }}
                 />
-                <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
+                <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {roomData?.creatorName}
                 </Text>
               </View>
@@ -2157,7 +2154,7 @@ export default function RoomScreen() {
                     </View>
                   )}
                 </TouchableOpacity>
-                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: '#000000' }}>
+                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player2.username}
                 </Text>
               </View>
@@ -2225,7 +2222,7 @@ export default function RoomScreen() {
           className="bg-surface px-4 py-2 border-t border-border"
           style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
         >
-          <Text style={{ color: '#000000', fontWeight: 'bold', fontSize: 12 }}>
+          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 12 }}>
             بداية الطاروق عند:
           </Text>
           <TouchableOpacity

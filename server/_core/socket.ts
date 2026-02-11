@@ -146,7 +146,8 @@ export interface ServerToClientEvents {
     messageType: string; // "tarouk" | "comment"
     userId: string;
     username: string;
-    sheelohaUrl?: string; // رابط ملف الشيلوها المدمج (للطاروق فقط)
+    sheelohaUrl?: string;
+    isSheeloha?: boolean; // هل هذا بث شيلوها للجميع
   }) => void;
   
   // حدث إشعار المنشئ بطلب انضمام جديد
@@ -615,7 +616,8 @@ export function emitPlayAudioMessage(
   messageType: string,
   userId: string,
   username: string,
-  sheelohaUrl?: string
+  sheelohaUrl?: string,
+  isSheeloha?: boolean
 ): void {
   if (!io) {
     console.error("[Socket.io] ERROR: io is null, cannot emit playAudioMessage");
@@ -642,7 +644,8 @@ export function emitPlayAudioMessage(
     messageType,
     userId,
     username,
-    sheelohaUrl, // رابط ملف الشيلوها المدمج (للطاروق فقط)
+    sheelohaUrl,
+    isSheeloha,
   });
   
   console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets (excluding sender ${userId})`);
