@@ -6,8 +6,6 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
-import { initializeSocketIO } from "./socket";
-import { startRoomCleanupService } from "./room-cleanup";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -31,9 +29,6 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 async function startServer() {
   const app = express();
   const server = createServer(app);
-
-  // تهيئة Socket.io
-  initializeSocketIO(server);
 
   // Enable CORS for all routes - reflect the request origin to support credentials
   app.use((req, res, next) => {
@@ -82,10 +77,6 @@ async function startServer() {
 
   server.listen(port, () => {
     console.log(`[api] server listening on port ${port}`);
-    console.log(`[Socket.io] WebSocket server ready on port ${port}`);
-    
-    // بدء نظام تنظيف الساحات الفارغة
-    startRoomCleanupService();
   });
 }
 

@@ -1,20 +1,14 @@
 /** @type {const} */
 const themeColors = {
-  primary: { light: '#D4A574', dark: '#D4A574' }, // Sandy beige - لون الرمال
-  background: { light: '#FAF8F5', dark: '#2A1F1A' }, // Very light warm beige / Deep warm brown
-  surface: { light: '#F5EFE7', dark: '#3A2F28' }, // Light warm surface / Warm dark surface
-  foreground: { light: '#2A1F1A', dark: '#F5EFE7' }, // Dark brown text / Light text
-  muted: { light: '#8B7355', dark: '#A89680' }, // Muted brown / Light muted
-  border: { light: '#D4A574', dark: '#5D4037' }, // Sandy beige / Dark brown
-  success: { light: '#6B8E23', dark: '#9ACD32' }, // Olive green
-  warning: { light: '#DAA520', dark: '#FFD700' }, // Goldenrod / Gold
-  error: { light: '#8B4513', dark: '#CD853F' }, // Saddle brown / Peru
+  primary: { light: '#0a7ea4', dark: '#0a7ea4' },
+  background: { light: '#ffffff', dark: '#151718' },
+  surface: { light: '#f5f5f5', dark: '#1e2022' },
+  foreground: { light: '#11181C', dark: '#ECEDEE' },
+  muted: { light: '#687076', dark: '#9BA1A6' },
+  border: { light: '#E5E7EB', dark: '#334155' },
+  success: { light: '#22C55E', dark: '#4ADE80' },
+  warning: { light: '#F59E0B', dark: '#FBBF24' },
+  error: { light: '#EF4444', dark: '#F87171' },
 };
 
 module.exports = { themeColors };
-
-// Color palette inspired by Saudi Arabian poetry debate culture:
-// - Sandy beige (#D4A574): Desert sands, warmth of gatherings
-// - Deep brown (#4A3728, #5D4037): Traditional tents, earth tones
-// - Gold (#FFD700): Excellence, prestige of poetry
-// - Warm neutrals: Welcoming atmosphere of cultural events
