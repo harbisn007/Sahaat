@@ -8,6 +8,97 @@
       "when": 1763372440610,
       "tag": "0000_elite_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1768930813148,
+      "tag": "0001_white_chameleon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1769208883302,
+      "tag": "0002_good_bloodstorm",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1769421934104,
+      "tag": "0003_optimal_next_avengers",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1769445124973,
+      "tag": "0004_black_mac_gargan",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1769464384989,
+      "tag": "0005_dear_shen",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1769502760956,
+      "tag": "0006_flimsy_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1769631901343,
+      "tag": "0007_productive_queen_noir",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1769728326329,
+      "tag": "0008_chemical_riptide",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1769731228762,
+      "tag": "0009_outgoing_epoch",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1769732713811,
+      "tag": "0010_early_greymalkin",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1769734073494,
+      "tag": "0011_nosy_rocket_racer",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1769966100351,
+      "tag": "0012_pretty_omega_sentinel",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1770580105882,
+      "tag": "0013_flat_steel_serpent",
+      "breakpoints": true
     }
   ]
 }

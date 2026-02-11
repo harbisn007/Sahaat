@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, name, creator_id, created_at FROM rooms ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute SELECT id, name, creator_id, created_at FROM rooms ORDER BY id;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'creator_id' in 'field list'"
+  ]
+}
