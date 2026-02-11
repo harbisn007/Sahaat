@@ -524,15 +524,9 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
         const isSender = data.userId === userId;
         
-        // المرسل يشغل الطاروق محلياً بالفعل، لكن يحتاج الشيلوها من الخادم
+        // المرسل: كل شيء يشتغل محلياً (الطاروق + الشيلوها عبر onEnded callback)
         if (isSender) {
-          // المرسل: الشيلوها فقط تأتي من الخادم (الطاروق شُغّل محلياً)
-          if (data.isSheeloha && data.audioUrl) {
-            console.log("[RoomScreen] Sender receiving sheeloha broadcast from server");
-            playAutoSheeloha(data.audioUrl);
-          } else {
-            console.log("[RoomScreen] Sender skipping - tarouk/comment already played locally");
-          }
+          console.log("[RoomScreen] Sender skipping server broadcast - everything plays locally");
           return;
         }
         
@@ -1519,7 +1513,20 @@ export default function RoomScreen() {
     }
     
     try {
-      const recording = await stopRecording();
+      let recording = await stopRecording();
+      
+      // #2: إذا فشل التسجيل (null)، إعادة محاولة بعد تأخير قصير
+      if (!recording) {
+        console.log("[RoomScreen] First stopRecording returned null, retrying after delay...");
+        await new Promise(r => setTimeout(r, 500));
+        recording = await stopRecording();
+      }
+      
+      if (!recording) {
+        console.error("[RoomScreen] Recording is null after retry - showing error");
+        Alert.alert("خطأ", "فشل حفظ الصوت. حاول مرة أخرى.");
+        return;
+      }
       
       if (recording && username) {
         let base64Data: string;
@@ -1560,11 +1567,15 @@ export default function RoomScreen() {
         
         // ===== تشغيل محلي فوري للمسجّل =====
         console.log("[RoomScreen] Playing recorded audio LOCALLY for the recorder:", url);
-        // الطاروق: يشغل محلياً فقط، الشيلوها ستأتي من الخادم للجميع (بما فيهم المرسل)
-        if (isTarouk) {
-          play(url); // طاروق فقط - الشيلوها ستبث من الخادم
+        if (isTarouk && sheelohaUrl) {
+          // الطاروق: يشغل محلياً، وبعد انتهائه يشغل الشيلوها محلياً
+          console.log("[RoomScreen] Playing tarouk locally, sheeloha will play after it ends");
+          play(url, () => {
+            console.log("[RoomScreen] Tarouk ended, now playing sheeloha locally:", sheelohaUrl);
+            playAutoSheeloha(sheelohaUrl);
+          });
         } else {
-          play(url); // تعليق
+          play(url); // تعليق أو طاروق بدون شيلوها
         }
         
         // Save to database with S3 URL (with actual duration from recording)
@@ -2359,7 +2370,7 @@ export default function RoomScreen() {
                   marginTop: 4,
                 }}
               >
-                🗣️
+                تعليق
               </Text>
             </View>
           )}

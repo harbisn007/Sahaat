@@ -1,7 +1,7 @@
-import { View, Text, TouchableOpacity } from "react-native";
+import { View, Text, TouchableOpacity, Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
-import { useState, useEffect, useRef } from "react";
-import { useAudioPlayer } from "expo-audio";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { MaterialIcons } from "@expo/vector-icons";
 
 interface MessageBubbleProps {
@@ -53,42 +53,112 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const colors = useColors();
   const [localPlaying, setLocalPlaying] = useState(false);
-  const playerRef = useRef<any>(null);
+  const playerRef = useRef<AudioPlayer | null>(null);
+  const webAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // تنظيف عند unmount
   useEffect(() => {
     return () => {
-      if (playerRef.current) {
-        try { playerRef.current.pause(); } catch {}
+      if (Platform.OS === "web") {
+        if (webAudioRef.current) {
+          try { webAudioRef.current.pause(); webAudioRef.current.src = ""; } catch {}
+          webAudioRef.current = null;
+        }
+      } else {
+        if (playerRef.current) {
+          try { playerRef.current.pause(); playerRef.current.release(); } catch {}
+          playerRef.current = null;
+        }
       }
     };
   }, []);
 
-  // #7 و #9: تشغيل/إيقاف محلي بدون بث للآخرين
-  const handleLocalPlay = async () => {
+  // تنظيف player الحالي
+  const cleanupPlayer = useCallback(() => {
+    if (Platform.OS === "web") {
+      if (webAudioRef.current) {
+        try { webAudioRef.current.pause(); webAudioRef.current.src = ""; } catch {}
+        webAudioRef.current = null;
+      }
+    } else {
+      if (playerRef.current) {
+        try { playerRef.current.pause(); playerRef.current.release(); } catch {}
+        playerRef.current = null;
+      }
+    }
+  }, []);
+
+  // #7 و #9: تشغيل/إيقاف محلي بدون بث للآخرين - يستخدم expo-audio
+  const handleLocalPlay = useCallback(async () => {
     if (!audioUrl) return;
     
-    if (localPlaying && playerRef.current) {
-      try {
-        playerRef.current.pause();
-        setLocalPlaying(false);
-      } catch {}
+    if (localPlaying) {
+      cleanupPlayer();
+      setLocalPlaying(false);
       return;
     }
 
     try {
-      // إنشاء Audio جديد للتشغيل المحلي
-      const audio = new Audio(audioUrl);
-      playerRef.current = audio;
-      audio.onended = () => setLocalPlaying(false);
-      audio.onerror = () => setLocalPlaying(false);
-      await audio.play();
-      setLocalPlaying(true);
+      // تنظيف أي تشغيل سابق
+      cleanupPlayer();
+
+      if (Platform.OS === "web") {
+        // Web: استخدام HTML5 Audio
+        const audio = new Audio(audioUrl);
+        audio.volume = 1.0;
+        webAudioRef.current = audio;
+        audio.onended = () => {
+          setLocalPlaying(false);
+          webAudioRef.current = null;
+        };
+        audio.onerror = () => {
+          setLocalPlaying(false);
+          webAudioRef.current = null;
+        };
+        await audio.play();
+        setLocalPlaying(true);
+      } else {
+        // Native: استخدام expo-audio createAudioPlayer
+        try {
+          await AudioModule.setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: false,
+          });
+        } catch (e) {
+          console.warn("[MessageBubble] Failed to set audio mode:", e);
+        }
+
+        const player = createAudioPlayer(audioUrl);
+        playerRef.current = player;
+        player.volume = 1.0;
+
+        let hasEnded = false;
+        player.addListener("playbackStatusUpdate", (status) => {
+          if (hasEnded) return;
+          if (status.isLoaded && !status.playing && status.currentTime > 0) {
+            if (status.duration > 0 && status.currentTime >= status.duration - 0.1) {
+              hasEnded = true;
+              setLocalPlaying(false);
+              // تنظيف بعد الانتهاء
+              try { player.release(); } catch {}
+              playerRef.current = null;
+            }
+          }
+        });
+
+        // انتظار التحميل
+        await new Promise(r => setTimeout(r, 300));
+        
+        if (playerRef.current) {
+          player.play();
+          setLocalPlaying(true);
+        }
+      }
     } catch (err) {
-      console.error("Local play error:", err);
+      console.error("[MessageBubble] Local play error:", err);
       setLocalPlaying(false);
     }
-  };
+  }, [audioUrl, localPlaying, cleanupPlayer]);
 
   if (type === "reaction") {
     const emoji = reactionEmoji || (reactionType ? REACTION_EMOJIS[reactionType] : "❓");
