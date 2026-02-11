@@ -1,6 +1,8 @@
 import { View, Text, TouchableOpacity } from "react-native";
 import { useColors } from "@/hooks/use-colors";
-import { AudioMessage } from "./audio-message";
+import { useState, useEffect, useRef } from "react";
+import { useAudioPlayer } from "expo-audio";
+import { MaterialIcons } from "@expo/vector-icons";
 
 interface MessageBubbleProps {
   type: "audio" | "reaction";
@@ -11,6 +13,7 @@ interface MessageBubbleProps {
   duration?: number;
   isPlaying?: boolean;
   onPlay?: () => void;
+  audioUrl?: string;
   // For reactions
   reactionType?: string;
   reactionEmoji?: string;
@@ -18,25 +21,21 @@ interface MessageBubbleProps {
 
 // تحديث الأيقونات لتتوافق مع الـ 15 أيقونة في ReactionsPicker
 const REACTION_EMOJIS: Record<string, string> = {
-  // الصف الأول - التفاعل الإيجابي
   clap: "👏",
   fire: "🔥",
   heart: "❤️",
   thumbsup: "👍",
   star: "⭐",
-  // الصف الثاني - المشاعر
   laugh: "😂",
   wow: "😮",
   thinking: "🤔",
   sad: "😢",
   angry: "😡",
-  // الصف الثالث - الموافقة وعدم الموافقة
   check: "✅",
   cross: "❌",
   thumbsdown: "👎",
   strong: "💪",
   celebrate: "🎉",
-  // للتوافق مع القديم
   love: "❤️",
 };
 
@@ -48,10 +47,48 @@ export function MessageBubble({
   duration,
   isPlaying,
   onPlay,
+  audioUrl,
   reactionType,
   reactionEmoji,
 }: MessageBubbleProps) {
   const colors = useColors();
+  const [localPlaying, setLocalPlaying] = useState(false);
+  const playerRef = useRef<any>(null);
+
+  // تنظيف عند unmount
+  useEffect(() => {
+    return () => {
+      if (playerRef.current) {
+        try { playerRef.current.pause(); } catch {}
+      }
+    };
+  }, []);
+
+  // #7 و #9: تشغيل/إيقاف محلي بدون بث للآخرين
+  const handleLocalPlay = async () => {
+    if (!audioUrl) return;
+    
+    if (localPlaying && playerRef.current) {
+      try {
+        playerRef.current.pause();
+        setLocalPlaying(false);
+      } catch {}
+      return;
+    }
+
+    try {
+      // إنشاء Audio جديد للتشغيل المحلي
+      const audio = new Audio(audioUrl);
+      playerRef.current = audio;
+      audio.onended = () => setLocalPlaying(false);
+      audio.onerror = () => setLocalPlaying(false);
+      await audio.play();
+      setLocalPlaying(true);
+    } catch (err) {
+      console.error("Local play error:", err);
+      setLocalPlaying(false);
+    }
+  };
 
   if (type === "reaction") {
     const emoji = reactionEmoji || (reactionType ? REACTION_EMOJIS[reactionType] : "❓");
@@ -69,11 +106,18 @@ export function MessageBubble({
     );
   }
 
-  // Audio message bubble - simplified and compact
+  // Audio message bubble
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  // #10: أيقونة مايكروفون للتعليق ورمز وجه يتحدث بدلاً من "تعليق"
+  const getTypeLabel = () => {
+    if (messageType === "tarouk") return "طاروق";
+    if (messageType === "comment") return "🗣️";
+    return "";
   };
 
   return (
@@ -83,6 +127,21 @@ export function MessageBubble({
         style={{ backgroundColor: colors.surface }}
       >
         <View className="flex-row items-center gap-1.5">
+          {/* زر تشغيل/إيقاف محلي - #7 و #9 */}
+          {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
+            <TouchableOpacity
+              onPress={handleLocalPlay}
+              style={{ padding: 2 }}
+              activeOpacity={0.6}
+            >
+              <MaterialIcons 
+                name={localPlaying ? "pause-circle-filled" : "play-circle-filled"} 
+                size={20} 
+                color={messageType === "tarouk" ? colors.success : colors.primary} 
+              />
+            </TouchableOpacity>
+          )}
+          
           {/* Duration */}
           <Text className="text-[10px] text-muted font-mono">
             {formatDuration(duration || 0)}
@@ -98,9 +157,14 @@ export function MessageBubble({
               }}
             >
               <Text className="text-[9px] text-background font-bold">
-                {messageType === "tarouk" ? "طاروق" : "تعليق"}
+                {getTypeLabel()}
               </Text>
             </View>
+          )}
+          
+          {/* #10: أيقونة مايكروفون صغير للتعليق */}
+          {messageType === "comment" && (
+            <MaterialIcons name="mic" size={12} color={colors.primary} />
           )}
           
           {/* Username */}

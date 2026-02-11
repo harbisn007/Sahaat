@@ -524,18 +524,33 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
         const isSender = data.userId === userId;
         
+        // المرسل يشغل الطاروق محلياً بالفعل، لكن يحتاج الشيلوها من الخادم
+        if (isSender) {
+          // المرسل: الشيلوها فقط تأتي من الخادم (الطاروق شُغّل محلياً)
+          if (data.isSheeloha && data.audioUrl) {
+            console.log("[RoomScreen] Sender receiving sheeloha broadcast from server");
+            playAutoSheeloha(data.audioUrl);
+          } else {
+            console.log("[RoomScreen] Sender skipping - tarouk/comment already played locally");
+          }
+          return;
+        }
+        
+        // الآخرون: تشغيل كل شيء
         if (data.isSheeloha) {
-          console.log("[RoomScreen] Playing sheeloha broadcast for all");
+          console.log("[RoomScreen] Playing sheeloha broadcast for listener");
           playAutoSheeloha(data.audioUrl);
           return;
         }
         
-        if (isSender) {
-          console.log("[RoomScreen] Skipping playback - already played locally");
+        // طاروق: تشغيل الطاروق فقط - الشيلوها ستأتي من الخادم بشكل منفصل بعد مدة الطاروق
+        if (data.messageType === "tarouk") {
+          console.log("[RoomScreen] Playing tarouk for listener (sheeloha will come separately from server)");
+          play(data.audioUrl);
           return;
         }
         
-        console.log("[RoomScreen] Playing comment for listener");
+        console.log("[RoomScreen] Playing audio for listener:", data.messageType);
         play(data.audioUrl);
       },
     });
@@ -760,8 +775,8 @@ export default function RoomScreen() {
   // تم إلغاء تحديث sufoofSound - الصوت الأصلي (lastTaroukUri) يُستخدم مباشرة
 
   // Track messages (old messages marked as played for UI tracking only)
-  // Audio playback is handled ONLY via Socket.io from the server (no local auto-play)
-  // This prevents double-play issue where Socket.io and local auto-play conflict
+  // Audio playback is handled via Socket.io from the server
+  // #6: الصوت يشتغل تلقائياً ولا ينتظر وجود المستخدم في الساحة
   useEffect(() => {
     if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
 
@@ -1018,8 +1033,12 @@ export default function RoomScreen() {
     // دمج الطلبات من النوعين مع تحديد النوع
     const viewerReqs = (joinRequests || []).map((req: any) => ({ ...req, requestType: 'viewer' }));
     const playerReqs = (pendingRequests || []).map((req: any) => ({ ...req, requestType: 'player' }));
-    // ترتيب حسب وقت الإنشاء (الأقدم أولاً)
-    return [...viewerReqs, ...playerReqs].sort((a, b) => {
+    // ترتيب حسب وقت الإنشاء (الأقدم أولاً) مع إزالة التكرار
+    const combined = [...viewerReqs, ...playerReqs];
+    const unique = combined.filter((req, idx) => 
+      combined.findIndex(r => r.requesterId === req.requesterId && r.requestType === req.requestType) === idx
+    );
+    return unique.sort((a, b) => {
       const timeA = new Date(a.createdAt || 0).getTime();
       const timeB = new Date(b.createdAt || 0).getTime();
       return timeA - timeB;
@@ -1033,10 +1052,10 @@ export default function RoomScreen() {
       return;
     }
     
-    // إضافة الطلبات الجديدة للطابور
+    // إضافة الطلبات الجديدة للطابور (مع منع التكرار بناء على userId + requestType)
     const newRequests = allRequests.filter((req: any) => 
-      !displayedRequests.some(d => d.id === req.id && d.requestType === req.requestType) && 
-      !queuedRequests.some(q => q.id === req.id && q.requestType === req.requestType)
+      !displayedRequests.some(d => (d.id === req.id || d.requesterId === req.requesterId) && d.requestType === req.requestType) && 
+      !queuedRequests.some(q => (q.id === req.id || q.requesterId === req.requesterId) && q.requestType === req.requestType)
     );
     
     if (newRequests.length > 0) {
@@ -1212,7 +1231,7 @@ export default function RoomScreen() {
         webBaseUrl = window.location.origin;
       } else {
         // For native, use the Metro URL pattern
-        webBaseUrl = 'https://8081-i62hcvssbos7emhnhp2hy-b9a8b0e5.sg1.manus.computer';
+        webBaseUrl = 'https://8081-i3qpyldk49w6968nmbwks-e7348139.sg1.manus.computer';
       }
       
       // Create a web URL that will redirect to the invite page
@@ -1404,22 +1423,25 @@ export default function RoomScreen() {
       
       console.log("[RoomScreen] startRecording returned:", success);
       if (!success) {
-        console.error("[RoomScreen] Recording failed");
-        // مسح حالة التسجيل من الخادم
-        if (userId) {
-          try {
-            await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
-            // Socket.io يحدث تلقائياً
-          } catch (err) {
-            console.error("[RoomScreen] Failed to clear recording status:", err);
+        console.log("[RoomScreen] First attempt failed, retrying...");
+        // #4: إعادة محاولة تلقائية بعد تأخير بسيط
+        await new Promise(r => setTimeout(r, 300));
+        const retrySuccess = await startRecording();
+        if (!retrySuccess) {
+          console.error("[RoomScreen] Recording failed after retry");
+          if (userId) {
+            try {
+              await clearRecordingStatusMutation.mutateAsync({ roomId, userId });
+            } catch (err) {
+              console.error("[RoomScreen] Failed to clear recording status:", err);
+            }
           }
+          if (!recordingCancelledRef.current) {
+            Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
+            setRecordingType(null);
+          }
+          return;
         }
-        // لا تعرض رسالة خطأ إذا تم الإلغاء من قبل المستخدم
-        if (!recordingCancelledRef.current) {
-          Alert.alert("خطأ", "فشل بدء التسجيل. تأكد من أذونات المايكروفون.");
-          setRecordingType(null);
-        }
-        return;
       }
     } catch (error) {
       console.error("[RoomScreen] Recording error:", error);
@@ -1538,15 +1560,11 @@ export default function RoomScreen() {
         
         // ===== تشغيل محلي فوري للمسجّل =====
         console.log("[RoomScreen] Playing recorded audio LOCALLY for the recorder:", url);
-        if (isTarouk && sheelohaUrl) {
-          // طاروق: تشغيل الطاروق ثم الشيلوها تلقائياً بعد انتهائه
-          console.log("[RoomScreen] Tarouk with auto sheeloha:", sheelohaUrl);
-          play(url, () => {
-            console.log("[RoomScreen] Local tarouk ended, starting auto sheeloha");
-            playAutoSheeloha(sheelohaUrl);
-          });
+        // الطاروق: يشغل محلياً فقط، الشيلوها ستأتي من الخادم للجميع (بما فيهم المرسل)
+        if (isTarouk) {
+          play(url); // طاروق فقط - الشيلوها ستبث من الخادم
         } else {
-          play(url);
+          play(url); // تعليق
         }
         
         // Save to database with S3 URL (with actual duration from recording)
@@ -1607,11 +1625,12 @@ export default function RoomScreen() {
       
       console.log("[RoomScreen] Reaction sent successfully:", result);
       
-      // إزالة الرسالة المحلية بعد وصول رد الخادم
-      setLocalMessages(prev => prev.filter(m => m.id !== localId));
-      
-      // Refetch reactions فوراً
+      // إزالة الرسالة المحلية بعد تأخير بسيط لمنع الوميض
       await refetchReactions();
+      // انتظار قليل حتى يظهر من الخادم قبل إزالة المحلي
+      setTimeout(() => {
+        setLocalMessages(prev => prev.filter(m => m.id !== localId));
+      }, 500);
       console.log("[RoomScreen] Reactions refetched");
     } catch (error: any) {
       console.error("[RoomScreen] Failed to send reaction:", error);
@@ -2048,15 +2067,13 @@ export default function RoomScreen() {
             const player1 = roomData?.participants?.find(
               (p) => p.role === "player" && p.status === "accepted"
             );
-            // فصل الحالة المحلية عن الخادم لمنع الوميض
             const isCurrentUserPlayer1 = userId === player1?.userId;
             const isPlayer1RecordingFromServer = player1 && activeRecordings?.some(
               (r) => r.userId === player1.userId
             );
-            // المستخدم الحالي يرى المحلي فقط، الآخرون يرون الخادم فقط
-            const isPlayer1Recording = isCurrentUserPlayer1 ? localRecordingActive : isPlayer1RecordingFromServer;
+            const isPlayer1Recording = isCurrentUserPlayer1 ? (localRecordingActive || isPlayer1RecordingFromServer) : isPlayer1RecordingFromServer;
             const player1RecordingType = isCurrentUserPlayer1
-              ? localRecordingType
+              ? (localRecordingType || (activeRecordings?.find((r) => r.userId === player1?.userId)?.recordingType as "comment" | "tarouk" | undefined))
               : (activeRecordings?.find((r) => r.userId === player1?.userId)?.recordingType as "comment" | "tarouk" | undefined);
             return player1 ? (
               <View className="items-center" style={{ width: 60, position: 'relative' }}>
@@ -2090,15 +2107,13 @@ export default function RoomScreen() {
 
           {/* Creator (Center) */}
           {(() => {
-            // فصل الحالة المحلية عن الخادم لمنع الوميض
             const isCurrentUserCreator = userId === roomData?.creatorId;
             const isCreatorRecordingFromServer = activeRecordings?.some(
               (r) => r.userId === roomData?.creatorId
             );
-            // المستخدم الحالي يرى المحلي فقط، الآخرون يرون الخادم فقط
-            const isCreatorRecording = isCurrentUserCreator ? localRecordingActive : isCreatorRecordingFromServer;
+            const isCreatorRecording = isCurrentUserCreator ? (localRecordingActive || isCreatorRecordingFromServer) : isCreatorRecordingFromServer;
             const creatorRecordingType = isCurrentUserCreator 
-              ? localRecordingType 
+              ? (localRecordingType || (activeRecordings?.find((r) => r.userId === roomData?.creatorId)?.recordingType as "comment" | "tarouk" | undefined))
               : (activeRecordings?.find((r) => r.userId === roomData?.creatorId)?.recordingType as "comment" | "tarouk" | undefined);
             return (
               <View className="items-center" style={{ width: 80, position: 'relative' }}>
@@ -2128,10 +2143,9 @@ export default function RoomScreen() {
             const isPlayer2RecordingFromServer = player2 && activeRecordings?.some(
               (r) => r.userId === player2.userId
             );
-            // المستخدم الحالي يرى المحلي فقط، الآخرون يرون الخادم فقط
-            const isPlayer2Recording = isCurrentUserPlayer2 ? localRecordingActive : isPlayer2RecordingFromServer;
+            const isPlayer2Recording = isCurrentUserPlayer2 ? (localRecordingActive || isPlayer2RecordingFromServer) : isPlayer2RecordingFromServer;
             const player2RecordingType = isCurrentUserPlayer2
-              ? localRecordingType
+              ? (localRecordingType || (activeRecordings?.find((r) => r.userId === player2?.userId)?.recordingType as "comment" | "tarouk" | undefined))
               : (activeRecordings?.find((r) => r.userId === player2?.userId)?.recordingType as "comment" | "tarouk" | undefined);
             return player2 ? (
               <View className="items-center" style={{ width: 60, position: 'relative' }}>
@@ -2193,6 +2207,7 @@ export default function RoomScreen() {
                     duration={item.duration}
                     isPlaying={currentUri === item.audioUrl && isPlaying}
                     onPlay={() => handlePlayAudio(item.audioUrl || "")}
+                    audioUrl={item.audioUrl}
                   />
                 );
               } else {
@@ -2216,106 +2231,7 @@ export default function RoomScreen() {
         )}
       </View>
 
-      {/* واجهة بداية الطاروق - فقط للمنشئ (لا تظهر للمشاهدين) */}
-      {isCreator && !isViewer && (
-        <View 
-          className="bg-surface px-4 py-2 border-t border-border"
-          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-        >
-          <Text style={{ color: colors.foreground, fontWeight: 'bold', fontSize: 12 }}>
-            بداية الطاروق عند:
-          </Text>
-          <TouchableOpacity
-            onPress={() => {
-              const newController = taroukController === "creator" ? null : "creator";
-              setTaroukController(newController);
-              socketSetTaroukController(newController);
-              // إرسال للخادم عبر API للتحديث الفوري
-              setTaroukControllerMutation.mutate({ roomId, controller: newController });
-              if (newController) {
-                setClappingDelay(0.80);
-                setClappingDelayMutation.mutate({ roomId, delay: 0.80 });
-              }
-            }}
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 12,
-              backgroundColor: taroukController === "creator" ? '#DC2626' : '#E5E7EB',
-            }}
-          >
-            <Text style={{ 
-              color: taroukController === "creator" ? '#FFFFFF' : '#000000', 
-              fontWeight: '600',
-              fontSize: 11,
-            }}>
-              عندي
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              if (player1) {
-                const newController = taroukController === "player1" ? null : "player1";
-                setTaroukController(newController);
-                socketSetTaroukController(newController);
-                // إرسال للخادم عبر API للتحديث الفوري
-                setTaroukControllerMutation.mutate({ roomId, controller: newController });
-                if (newController) {
-                  setClappingDelay(0.80);
-                  setClappingDelayMutation.mutate({ roomId, delay: 0.80 });
-                }
-              }
-            }}
-            disabled={!player1}
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 12,
-              backgroundColor: taroukController === "player1" ? '#DC2626' : '#E5E7EB',
-              opacity: player1 ? 1 : 0.4,
-            }}
-          >
-            <Text style={{ 
-              color: taroukController === "player1" ? '#FFFFFF' : '#000000', 
-              fontWeight: '600',
-              fontSize: 11,
-            }}>
-              {player1?.username || 'شاعر 1'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => {
-              if (player2) {
-                const newController = taroukController === "player2" ? null : "player2";
-                setTaroukController(newController);
-                socketSetTaroukController(newController);
-                // إرسال للخادم عبر API للتحديث الفوري
-                setTaroukControllerMutation.mutate({ roomId, controller: newController });
-                if (newController) {
-                  setClappingDelay(0.80);
-                  setClappingDelayMutation.mutate({ roomId, delay: 0.80 });
-                }
-              }
-            }}
-            disabled={!player2}
-            style={{
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 12,
-              backgroundColor: taroukController === "player2" ? '#DC2626' : '#E5E7EB',
-              opacity: player2 ? 1 : 0.4,
-            }}
-          >
-            <Text style={{ 
-              color: taroukController === "player2" ? '#FFFFFF' : '#000000', 
-              fontWeight: '600',
-              fontSize: 11,
-            }}>
-              {player2?.username || 'شاعر 2'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
       {/* Bottom Controls - تصميم جديد: صفين */}
       <View 
@@ -2443,7 +2359,7 @@ export default function RoomScreen() {
                   marginTop: 4,
                 }}
               >
-                تعليق/موال
+                🗣️
               </Text>
             </View>
           )}

@@ -636,19 +636,33 @@ export function emitPlayAudioMessage(
   console.log(`[Socket.io] Sheeloha URL: ${sheelohaUrl || 'none'}`);
   console.log(`[Socket.io] User: ${username} (${userId})`);
   
-  // استبعاد المرسل من البث - هو يشغل محلياً بالفعل
-  io.to(roomName).except(`user:${userId}`).emit("playAudioMessage", {
-    roomId,
-    messageId,
-    audioUrl,
-    messageType,
-    userId,
-    username,
-    sheelohaUrl,
-    isSheeloha,
-  });
-  
-  console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets (excluding sender ${userId})`);
+  if (isSheeloha) {
+    // الشيلوها: بث للجميع بما فيهم المرسل
+    io.to(roomName).emit("playAudioMessage", {
+      roomId,
+      messageId,
+      audioUrl,
+      messageType,
+      userId,
+      username,
+      sheelohaUrl,
+      isSheeloha: true,
+    });
+    console.log(`[Socket.io] Sheeloha broadcast to ALL ${socketsInRoom} sockets (including sender)`);
+  } else {
+    // الطاروق/التعليق: استبعاد المرسل (يشغل محلياً)
+    io.to(roomName).except(`user:${userId}`).emit("playAudioMessage", {
+      roomId,
+      messageId,
+      audioUrl,
+      messageType,
+      userId,
+      username,
+      sheelohaUrl,
+      isSheeloha: false,
+    });
+    console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets (excluding sender ${userId})`);
+  }
 }
 
 

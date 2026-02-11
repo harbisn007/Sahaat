@@ -406,7 +406,7 @@ export const appRouter = router({
           now
         );
         
-        // بث أمر تشغيل الصوت عند الجميع (لتشغيل الصوت تلقائياً)
+        // بث أمر تشغيل الطاروق/التعليق عند الجميع (ما عدا المرسل - يشغل محلياً)
         emitPlayAudioMessage(
           input.roomId,
           messageId,
@@ -414,8 +414,26 @@ export const appRouter = router({
           input.messageType,
           input.userId,
           input.username,
-          input.sheelohaUrl // تمرير رابط الشيلوها المدمج
+          input.sheelohaUrl
         );
+        
+        // إذا كان طاروق مع شيلوها: بث الشيلوها للجميع (بما فيهم المرسل) بعد مدة الطاروق
+        if (input.messageType === "tarouk" && input.sheelohaUrl) {
+          const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 1500, 3000);
+          console.log(`[audio.create] Will broadcast sheeloha to ALL (including sender) after ${taroukDurationMs}ms`);
+          setTimeout(() => {
+            emitPlayAudioMessage(
+              input.roomId,
+              messageId,
+              input.sheelohaUrl!,
+              "tarouk",
+              input.userId,
+              input.username,
+              undefined,
+              true // isSheeloha = true
+            );
+          }, taroukDurationMs);
+        }
         
         return { messageId };
       }),
