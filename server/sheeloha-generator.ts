@@ -4,7 +4,7 @@
  * يأخذ الصوت الأصلي (بدون تسريع) وينشئ ملف شيلوها واحد يحتوي:
  * 1. تسريع الصوت بنسبة 1.08x
  * 2. تأثير الصفوف: 3 نسخ من الصوت بدرجات مختلفة (محاكاة جمهور)
- * 3. تصفيق إيقاعي متكرر
+ * 3. تصفيق إيقاعي متكرر (بناءً على تحليل الإيقاع الحقيقي للصوت)
  * 4. تصفيق ختامي بعد انتهاء الغناء
  * 
  * ملاحظة: يستخدم asetrate+atempo بدلاً من rubberband للتوافق مع جميع بيئات ffmpeg
@@ -32,9 +32,6 @@ try {
 // مسارات ملفات التصفيق
 const SINGLE_CLAP_PATH = path.join(currentDir, "sounds", "single-clap-short.mp3");
 const END_CLAPS_PATH = path.join(currentDir, "sounds", "sheeloha-claps.mp3");
-
-// مدة التصفيقة الواحدة (ثواني)
-const SINGLE_CLAP_DURATION = 0.34;
 
 // تسريع الشيلوها (الصفوف تردد أسرع من الأصلي)
 const SHEELOHA_SPEED_FACTOR = 1.08;
@@ -69,25 +66,145 @@ async function getAudioDuration(audioPath: string): Promise<number> {
 }
 
 /**
- * تحليل إيقاع الصوت لتحديد الفاصل بين التصفيقات
+ * تحليل الإيقاع الحقيقي للصوت باستخدام كشف النبضات (onset/beat detection)
+ * 
+ * الطريقة:
+ * 1. استخراج مستويات الطاقة الصوتية (RMS) لكل إطار صغير (50ms)
+ * 2. كشف القمم (peaks) التي تمثل نبضات الإيقاع
+ * 3. حساب متوسط الفاصل بين النبضات = فاصل التصفيق
+ * 
+ * إذا فشل التحليل أو كان الصوت بدون إيقاع واضح، يُستخدم فاصل افتراضي
  */
 async function analyzeRhythm(audioPath: string): Promise<number> {
   try {
-    const durationCmd = `ffprobe -i "${audioPath}" -show_entries format=duration -v quiet -of csv="p=0"`;
-    const { stdout: durOut } = await execAsync(durationCmd);
-    const duration = parseFloat(durOut.trim());
+    const duration = await getAudioDuration(audioPath);
+    if (duration <= 0) return 0.75;
+
+    // استخراج مستويات الطاقة (RMS) لكل إطار 50ms باستخدام ffmpeg astats
+    // نحوّل الصوت إلى mono ونقسمه إلى إطارات صغيرة ونقيس الطاقة
+    const frameSize = 0.05; // 50ms per frame
+    const rmsCmd = `ffmpeg -i "${audioPath}" -af "asplit[a][b];[a]aresample=8000,astats=metadata=1:reset=${Math.round(1/frameSize)},ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-[out0];[b]anullsink" -f null - 2>/dev/null`;
     
-    if (duration > 0) {
-      // فاصل تصفيق بين 0.45 و 0.90 ثانية حسب مدة الصوت
-      const estimatedInterval = Math.max(0.45, Math.min(0.90, duration / Math.max(1, Math.round(duration / 0.65))));
-      console.log(`[SheelohaGenerator] Duration: ${duration.toFixed(2)}s, clap interval: ${estimatedInterval.toFixed(2)}s`);
-      return estimatedInterval;
+    let rmsOutput = "";
+    try {
+      const { stdout } = await execAsync(rmsCmd, { maxBuffer: 50 * 1024 * 1024 });
+      rmsOutput = stdout;
+    } catch (e: any) {
+      // ffmpeg قد يخرج بكود خطأ لكن الـ stdout يحتوي البيانات
+      if (e.stdout) rmsOutput = e.stdout;
     }
-    return 0.65;
+
+    // تحليل مستويات RMS
+    const rmsLines = rmsOutput.split("\n").filter(l => l.includes("lavfi.astats.Overall.RMS_level"));
+    const rmsValues: number[] = [];
+    
+    for (const line of rmsLines) {
+      const match = line.match(/=(-?[\d.]+)/);
+      if (match) {
+        const val = parseFloat(match[1]);
+        if (!isNaN(val) && val > -100) { // تجاهل الصمت الكامل
+          rmsValues.push(val);
+        }
+      }
+    }
+
+    console.log(`[SheelohaGenerator] RMS analysis: ${rmsValues.length} frames extracted`);
+
+    if (rmsValues.length < 4) {
+      // بيانات غير كافية - استخدام طريقة بديلة
+      return estimateIntervalFromDuration(duration);
+    }
+
+    // كشف النبضات: البحث عن القمم في مستويات الطاقة
+    // نبضة = إطار أعلى من المتوسط + أعلى من الإطارين المجاورين
+    const avgRms = rmsValues.reduce((a, b) => a + b, 0) / rmsValues.length;
+    const threshold = avgRms + 3; // 3dB فوق المتوسط
+    
+    const beatTimes: number[] = [];
+    let lastBeatFrame = -10; // منع اكتشاف نبضتين متقاربتين جداً
+    
+    for (let i = 1; i < rmsValues.length - 1; i++) {
+      const current = rmsValues[i];
+      const prev = rmsValues[i - 1];
+      const next = rmsValues[i + 1];
+      
+      // شرط النبضة: أعلى من العتبة + أعلى من الجيران + فاصل كافٍ عن النبضة السابقة
+      if (current > threshold && current >= prev && current >= next && (i - lastBeatFrame) >= 4) {
+        beatTimes.push(i * frameSize);
+        lastBeatFrame = i;
+      }
+    }
+
+    console.log(`[SheelohaGenerator] Detected ${beatTimes.length} beats in ${duration.toFixed(2)}s`);
+
+    if (beatTimes.length >= 3) {
+      // حساب الفواصل بين النبضات
+      const intervals: number[] = [];
+      for (let i = 1; i < beatTimes.length; i++) {
+        intervals.push(beatTimes[i] - beatTimes[i - 1]);
+      }
+      
+      // ترتيب الفواصل وأخذ الوسيط (median) لتجنب القيم الشاذة
+      intervals.sort((a, b) => a - b);
+      const medianInterval = intervals[Math.floor(intervals.length / 2)];
+      
+      // التأكد أن الفاصل في نطاق معقول للتصفيق (0.4 - 1.2 ثانية)
+      // إذا كان أقصر من 0.4 ثانية، نضاعفه (ربما اكتشفنا نصف النبضات)
+      // إذا كان أطول من 1.2 ثانية، ننصّفه
+      let clapInterval = medianInterval;
+      while (clapInterval < 0.4) clapInterval *= 2;
+      while (clapInterval > 1.2) clapInterval /= 2;
+      
+      console.log(`[SheelohaGenerator] Beat analysis: median interval=${medianInterval.toFixed(3)}s, clap interval=${clapInterval.toFixed(3)}s`);
+      return clapInterval;
+    }
+
+    // لم نكتشف نبضات كافية - نجرب BPM estimation بطريقة أبسط
+    return await estimateBPMSimple(audioPath, duration);
+    
   } catch (error) {
     console.error("[SheelohaGenerator] Rhythm analysis failed:", error);
-    return 0.65;
+    return 0.75; // فاصل افتراضي آمن
   }
+}
+
+/**
+ * تقدير BPM بطريقة بسيطة: تحليل الطاقة بنوافذ أكبر
+ */
+async function estimateBPMSimple(audioPath: string, duration: number): Promise<number> {
+  try {
+    // استخراج الطاقة بنوافذ 100ms
+    const volCmd = `ffmpeg -i "${audioPath}" -af "volumedetect" -f null - 2>&1`;
+    const { stdout: volOut } = await execAsync(volCmd, { maxBuffer: 10 * 1024 * 1024 });
+    
+    // استخراج mean_volume
+    const meanMatch = volOut.match(/mean_volume:\s*(-?[\d.]+)/);
+    if (meanMatch) {
+      const meanVol = parseFloat(meanMatch[1]);
+      // أصوات أعلى (أقرب لـ 0dB) عادة أسرع إيقاعاً
+      // أصوات أهدأ (أبعد عن 0dB) عادة أبطأ
+      if (meanVol > -15) {
+        return 0.55; // إيقاع سريع نسبياً
+      } else if (meanVol > -25) {
+        return 0.70; // إيقاع متوسط
+      } else {
+        return 0.85; // إيقاع بطيء
+      }
+    }
+  } catch {}
+  
+  return estimateIntervalFromDuration(duration);
+}
+
+/**
+ * تقدير فاصل التصفيق من المدة فقط (الخطة الأخيرة)
+ */
+function estimateIntervalFromDuration(duration: number): number {
+  // فاصل أطول = تصفيق أبطأ وأكثر طبيعية
+  if (duration <= 3) return 0.70;
+  if (duration <= 6) return 0.75;
+  if (duration <= 10) return 0.80;
+  return 0.85;
 }
 
 /**
@@ -116,7 +233,7 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
     const speedCmd = `ffmpeg -y -i "${inputPath}" -filter:a "atempo=${SHEELOHA_SPEED_FACTOR}" -vn "${speedPath}"`;
     await execAsync(speedCmd, { maxBuffer: 50 * 1024 * 1024 });
     
-    // 1. تحليل الإيقاع
+    // 1. تحليل الإيقاع الحقيقي للصوت المسرّع
     const clapInterval = await analyzeRhythm(speedPath);
     
     // 2. الحصول على مدة الصوت المسرّع
@@ -160,7 +277,6 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
         }
       } else {
         // تغيير pitch باستخدام asetrate + aresample (متوافق مع كل ffmpeg)
-        // asetrate يغير pitch والسرعة معاً، ثم atempo يعيد السرعة
         const newRate = Math.round(sampleRate * v.pitchFactor);
         const tempoCorrection = (1 / v.pitchFactor).toFixed(6);
         
@@ -178,15 +294,38 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
     }
 
     // === التصفيق الإيقاعي المتكرر ===
+    // نستخدم asplit لتقسيم إدخال التصفيقة الواحدة إلى عدة نسخ، ثم adelay لكل نسخة
     const numClaps = Math.floor(audioDuration / clapInterval);
-    const effectiveClaps = Math.min(numClaps, 15);
-
-    if (effectiveClaps > 0) {
-      const clapCycleSamples = Math.round(clapInterval * sampleRate);
-      
+    const effectiveClaps = Math.max(1, Math.min(numClaps, 15));
+    
+    if (effectiveClaps > 1) {
+      // تقسيم إدخال التصفيقة إلى N نسخة
+      const splitLabels = Array.from({ length: effectiveClaps }, (_, i) => `csrc${i}`);
       filters.push(
-        `[1:a]apad=whole_dur=${clapInterval},atrim=0:${clapInterval},aloop=loop=${effectiveClaps - 1}:size=${clapCycleSamples},atrim=0:${audioDuration},volume=${CLAP_VOLUME}[allclaps]`
+        `[1:a]asplit=${effectiveClaps}${splitLabels.map(l => `[${l}]`).join("")}`
       );
+      
+      // إضافة تأخير لكل تصفيقة بناءً على الإيقاع
+      const clapOutputs: string[] = [];
+      for (let c = 0; c < effectiveClaps; c++) {
+        const clapTimeMs = Math.round(c * clapInterval * 1000);
+        const clapLabel = `clap${c}`;
+        
+        if (clapTimeMs === 0) {
+          filters.push(`[csrc${c}]volume=${CLAP_VOLUME}[${clapLabel}]`);
+        } else {
+          filters.push(`[csrc${c}]volume=${CLAP_VOLUME},adelay=${clapTimeMs}|${clapTimeMs}[${clapLabel}]`);
+        }
+        clapOutputs.push(`[${clapLabel}]`);
+      }
+      
+      // دمج كل التصفيقات في مسار واحد
+      filters.push(
+        `${clapOutputs.join("")}amix=inputs=${clapOutputs.length}:duration=longest:normalize=0[allclaps]`
+      );
+    } else {
+      // تصفيقة واحدة فقط
+      filters.push(`[1:a]volume=${CLAP_VOLUME}[allclaps]`);
     }
 
     // === التصفيق الختامي ===
@@ -219,7 +358,7 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       `"${outputPath}"`,
     ].join(" ");
 
-    console.log(`[SheelohaGenerator] Generating sheeloha with ${VOICE_COPIES.length} voices, ${effectiveClaps} claps (interval=${clapInterval.toFixed(2)}s), end claps at ${audioDuration.toFixed(2)}s`);
+    console.log(`[SheelohaGenerator] Generating sheeloha with ${VOICE_COPIES.length} voices, ${effectiveClaps} claps (interval=${clapInterval.toFixed(3)}s), end claps at ${audioDuration.toFixed(2)}s`);
     
     await execAsync(command, { maxBuffer: 50 * 1024 * 1024 });
 

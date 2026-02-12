@@ -425,7 +425,8 @@ export const appRouter = router({
         
         // إذا كان طاروق مع شيلوها: بث الشيلوها للجميع (بما فيهم المرسل) بعد مدة الطاروق
         if (input.messageType === "tarouk" && input.sheelohaUrl) {
-          const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 1500, 3000);
+          // تأخير بسيط فقط (300ms) بعد مدة الطاروق لضمان انتهاء التشغيل
+          const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 300, 2000);
           const sheelohaUrlToPlay = input.sheelohaUrl;
           
           console.log(`[audio.create] ========== SHEELOHA SCHEDULED ==========`);
