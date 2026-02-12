@@ -48,17 +48,17 @@ const SHEELOHA_SPEED_FACTOR = 1.08;
  * pitchFactor < 1 = صوت أخفض (أغلظ)
  */
 const VOICE_COPIES = [
-  { delay: 0, volume: 0.70, pitchFactor: 1.0   },  // صوت 1 - الأصلي (الأعلى)
-  { delay: 0, volume: 0.55, pitchFactor: 1.0   },  // صوت 2 - أصلي
-  { delay: 0, volume: 0.55, pitchFactor: 1.0   },  // صوت 3 - أصلي
-  { delay: 0, volume: 0.55, pitchFactor: 1.0   },  // صوت 4 - أصلي
-  { delay: 0, volume: 0.45, pitchFactor: 1.06  },  // صوت 5 - أعلى قليلاً (أحد)
-  { delay: 0, volume: 0.40, pitchFactor: 0.94  },  // صوت 6 - أخفض قليلاً (أغلظ)
-  { delay: 0, volume: 0.35, pitchFactor: 1.04  },  // صوت 7 - أعلى بقليل
+  { delay: 0,    volume: 0.70, pitchFactor: 1.0   },  // صوت 1 - الأصلي (الأعلى)
+  { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 2 - أصلي
+  { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 3 - أصلي
+  { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 4 - أصلي
+  { delay: 0.02, volume: 0.45, pitchFactor: 1.06  },  // صوت 5 - أعلى قليلاً + تأخير 20ms
+  { delay: 0.02, volume: 0.40, pitchFactor: 0.94  },  // صوت 6 - أخفض قليلاً + تأخير 20ms
+  { delay: 0.02, volume: 0.35, pitchFactor: 1.04  },  // صوت 7 - أعلى بقليل + تأخير 20ms
 ];
 
-const CLAP_VOLUME = 0.50;
-const END_CLAP_VOLUME = 0.50;
+const CLAP_VOLUME = 0.30;
+const END_CLAP_VOLUME = 0.30;
 
 /**
  * الحصول على مدة ملف صوتي بالثواني
@@ -272,18 +272,20 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
 
     for (let i = 0; i < VOICE_COPIES.length; i++) {
       const v = VOICE_COPIES[i];
+      const delayMs = Math.round(v.delay * 1000);
+      const delayFilter = delayMs > 0 ? `,adelay=${delayMs}|${delayMs}` : "";
       
       if (v.pitchFactor === 1.0) {
         // الصوت الأصلي - بدون تغيير pitch
         filters.push(
-          `[vsrc${i}]volume=${v.volume}[voice${i}]`
+          `[vsrc${i}]volume=${v.volume}${delayFilter}[voice${i}]`
         );
       } else {
         // تغيير pitch باستخدام asetrate + aresample (متوافق مع كل ffmpeg)
         const newRate = Math.round(sampleRate * v.pitchFactor);
         const tempoCorrection = (1 / v.pitchFactor).toFixed(6);
         filters.push(
-          `[vsrc${i}]asetrate=${newRate},atempo=${tempoCorrection},aresample=${sampleRate},volume=${v.volume}[voice${i}]`
+          `[vsrc${i}]asetrate=${newRate},atempo=${tempoCorrection},aresample=${sampleRate},volume=${v.volume}${delayFilter}[voice${i}]`
         );
       }
       voiceOutputs.push(`[voice${i}]`);
@@ -330,30 +332,29 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       `[2:a]adelay=${endClapDelayMs}|${endClapDelayMs},volume=${END_CLAP_VOLUME}[endclap]`
     );
 
-    // === الدمج النهائي ===
-    const allInputs = [...voiceOutputs];
-    if (effectiveClaps > 0) {
-      allInputs.push("[allclaps]");
-    }
-    allInputs.push("[endclap]");
-    
-    const totalInputs = allInputs.length;
-    // normalize=0 يمنع التطبيع التلقائي الذي يسبب تشويه
+    // === الخطوة 1: دمج الأصوات السبعة معاً ===
     filters.push(
-      `${allInputs.join("")}amix=inputs=${totalInputs}:duration=longest:normalize=0[mixed]`
+      `${voiceOutputs.join("")}amix=inputs=${voiceOutputs.length}:duration=longest:normalize=0[voices_raw]`
     );
 
-    // === تأثير الكورال المسرحي (يُطبّق على المخرج النهائي بعد دمج كل شيء) ===
-    // 1. chorus: يضيف طبقات صوتية متراكبة بتأخيرات وترددات مختلفة لإحساس الكورال
-    // 2. aecho: صدى خفيف يحاكي قاعة مسرحية كبيرة
-    // 3. bass boost: تعزيز الترددات المنخفضة لعمق مسرحي
-    // 4. acompressor + alimiter: منع التشويه والحفاظ على وضوح الصوت
-    // كورال: 3 طبقات بتأخيرات مختلفة وعمق معتدل
-    // صدى مسرحي: انعكاسات خفيفة تحاكي قاعة كبيرة
-    // تعزيز الباس لعمق مسرحي
-    // ضغط خفيف لتوحيد المستويات + محدد لمنع التشويه
+    // === الخطوة 2: تأثير الكورال المسرحي (على الأصوات فقط - بدون التصفيق) ===
+    // chorus: طبقات كورال لإحساس الجمهور
+    // aecho: صدى مسرحي خفيف
+    // bass: عمق مسرحي
+    // acompressor + alimiter: منع التشويه
     filters.push(
-      `[mixed]chorus=in_gain=0.7:out_gain=0.75:delays=25|35|45:decays=0.35|0.28|0.22:speeds=0.35|0.45|0.55:depths=2.5|3.0|2.0,aecho=in_gain=0.85:out_gain=0.45:delays=60|120:decays=0.25|0.15,bass=gain=3:frequency=120,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[out]`
+      `[voices_raw]chorus=in_gain=0.7:out_gain=0.75:delays=25|35|45:decays=0.35|0.28|0.22:speeds=0.35|0.45|0.55:depths=2.5|3.0|2.0,aecho=in_gain=0.85:out_gain=0.45:delays=60|120:decays=0.25|0.15,bass=gain=3:frequency=120,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[voices_fx]`
+    );
+
+    // === الخطوة 3: دمج الأصوات المعالجة + التصفيق النظيف ===
+    const finalInputs = ["[voices_fx]"];
+    if (effectiveClaps > 0) {
+      finalInputs.push("[allclaps]");
+    }
+    finalInputs.push("[endclap]");
+    
+    filters.push(
+      `${finalInputs.join("")}amix=inputs=${finalInputs.length}:duration=longest:normalize=0[out]`
     );
 
     const filterComplex = filters.join(";");
