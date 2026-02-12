@@ -6,7 +6,7 @@
  * 2. تأثير الصفوف: 7 نسخ من الصوت بدرجات مختلفة (محاكاة جمهور)
  * 3. تصفيق إيقاعي متكرر (بناءً على تحليل الإيقاع الحقيقي للصوت)
  * 4. تصفيق ختامي بعد انتهاء الغناء
- * 5. تأثير كورال مسرحي (chorus + hall echo + bass boost) كخطوة نهائية
+ * 5. تأثير صوت بعيد/مكتوم (lowpass + highpass + aecho خفيف)
  * 
  * ملاحظة: يستخدم asetrate+atempo بدلاً من rubberband للتوافق مع جميع بيئات ffmpeg
  */
@@ -20,71 +20,90 @@ import { fileURLToPath } from "url";
 
 const execAsync = promisify(exec);
 
-// حساب __dirname بطريقة تعمل في ESM و CJS
-let currentDir: string;
-try {
-  // ESM (production build)
-  currentDir = path.dirname(fileURLToPath(import.meta.url));
-} catch {
-  // CJS (tsx dev mode) - __dirname متاح
-  currentDir = __dirname;
+// فحص توفر ffmpeg (كسول - يتم عند أول استخدام)
+let ffmpegChecked = false;
+let ffmpegAvailable = false;
+
+async function ensureFfmpeg(): Promise<boolean> {
+  if (ffmpegChecked) return ffmpegAvailable;
+  ffmpegChecked = true;
+  try {
+    const { stdout } = await execAsync("ffmpeg -version");
+    ffmpegAvailable = true;
+    console.log(`[SheelohaGenerator] ffmpeg is available: ${stdout.split('\n')[0]}`);
+  } catch (e) {
+    ffmpegAvailable = false;
+    console.error("[SheelohaGenerator] WARNING: ffmpeg is NOT available!");
+  }
+  return ffmpegAvailable;
 }
 
-// مسارات ملفات التصفيق
-// في التطوير: currentDir = server/ → server/sounds/
-// في الإنتاج: currentDir = dist/ → نبحث في server/sounds/ (بجوار dist/)
+// حساب __dirname بطريقة تعمل في ESM و CJS
+function getCurrentDir(): string {
+  try {
+    return path.dirname(fileURLToPath(import.meta.url));
+  } catch {
+    // @ts-ignore - __dirname متاح في CJS
+    return typeof __dirname !== 'undefined' ? __dirname : process.cwd();
+  }
+}
+
+// مسارات ملفات التصفيق (كسولة - تُحسب عند أول استخدام)
+let _singleClapPath: string | null = null;
+let _endClapsPath: string | null = null;
+
 function resolveSoundPath(filename: string): string {
-  // المسار الأول: بجوار الملف الحالي (dev mode: server/sounds/)
+  const currentDir = getCurrentDir();
+  
+  // المسار 1: بجوار الملف الحالي (dev: server/sounds/)
   const localPath = path.join(currentDir, "sounds", filename);
   if (fs.existsSync(localPath)) return localPath;
   
-  // المسار الثاني: مجلد server/sounds/ بجوار dist/ (production)
+  // المسار 2: server/sounds/ بجوار dist/ (production)
   const prodPath = path.join(currentDir, "..", "server", "sounds", filename);
   if (fs.existsSync(prodPath)) return prodPath;
   
-  // المسار الثالث: مسار مطلق من جذر المشروع
+  // المسار 3: من جذر المشروع
   const rootPath = path.join(process.cwd(), "server", "sounds", filename);
   if (fs.existsSync(rootPath)) return rootPath;
   
   console.error(`[SheelohaGenerator] Sound file not found: ${filename}`);
-  console.error(`[SheelohaGenerator] Searched paths:`);
-  console.error(`  1. ${localPath}`);
-  console.error(`  2. ${prodPath}`);
-  console.error(`  3. ${rootPath}`);
-  console.error(`[SheelohaGenerator] currentDir: ${currentDir}`);
-  console.error(`[SheelohaGenerator] cwd: ${process.cwd()}`);
-  
-  // إرجاع المسار الأول كافتراضي (سيفشل لاحقاً مع رسالة واضحة)
+  console.error(`[SheelohaGenerator] Searched: ${localPath}, ${prodPath}, ${rootPath}`);
   return localPath;
 }
 
-const SINGLE_CLAP_PATH = resolveSoundPath("single-clap-short.mp3");
-const END_CLAPS_PATH = resolveSoundPath("sheeloha-claps.mp3");
+function getSingleClapPath(): string {
+  if (!_singleClapPath) {
+    _singleClapPath = resolveSoundPath("single-clap-short.mp3");
+    console.log(`[SheelohaGenerator] Single clap: ${_singleClapPath}`);
+  }
+  return _singleClapPath;
+}
 
-console.log(`[SheelohaGenerator] Sound paths resolved:`);
-console.log(`  Single clap: ${SINGLE_CLAP_PATH}`);
-console.log(`  End claps: ${END_CLAPS_PATH}`);
+function getEndClapsPath(): string {
+  if (!_endClapsPath) {
+    _endClapsPath = resolveSoundPath("sheeloha-claps.mp3");
+    console.log(`[SheelohaGenerator] End claps: ${_endClapsPath}`);
+  }
+  return _endClapsPath;
+}
 
-// تسريع الشيلوها (الصفوف تردد أسرع من الأصلي)
+// تسريع الشيلوها
 const SHEELOHA_SPEED_FACTOR = 1.08;
 
 /**
- * إعدادات تأثير الصفوف (7 نسخ - محاكاة جمهور أكبر)
+ * إعدادات تأثير الصفوف (7 نسخ)
  * 
- * نستخدم asetrate لتغيير pitch بدون rubberband:
- * - asetrate=44100*factor يغير pitch
- * - atempo=1/factor يعيد السرعة الأصلية
- * 
- * pitchFactor > 1 = صوت أعلى (أحد)
- * pitchFactor < 1 = صوت أخفض (أغلظ)
+ * 4 أصوات بالـ pitch الأصلي + 3 بتنويعات pitch
+ * 3 أصوات متأخرة قليلاً (20-30ms) لإحساس طبيعي
  */
 const VOICE_COPIES = [
-  { delay: 0,    volume: 0.70, pitchFactor: 1.0   },  // صوت 1 - الأصلي (الأعلى)
+  { delay: 0,    volume: 0.70, pitchFactor: 1.0   },  // صوت 1 - الأعلى
   { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 2 - أصلي
   { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 3 - أصلي
   { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 4 - أصلي
-  { delay: 0.02, volume: 0.45, pitchFactor: 1.06  },  // صوت 5 - أعلى قليلاً + تأخير 20ms
-  { delay: 0.02, volume: 0.40, pitchFactor: 0.94  },  // صوت 6 - أخفض قليلاً + تأخير 20ms
+  { delay: 0.02, volume: 0.45, pitchFactor: 1.06  },  // صوت 5 - أعلى + تأخير 20ms
+  { delay: 0.02, volume: 0.40, pitchFactor: 0.94  },  // صوت 6 - أخفض + تأخير 20ms
   { delay: 0.03, volume: 0.35, pitchFactor: 1.04  },  // صوت 7 - أعلى بقليل + تأخير 30ms
 ];
 
@@ -102,144 +121,144 @@ async function getAudioDuration(audioPath: string): Promise<number> {
 }
 
 /**
- * تحليل الإيقاع الحقيقي للصوت باستخدام كشف النبضات (onset/beat detection)
+ * تحليل الإيقاع الحقيقي للصوت
  * 
- * الطريقة:
- * 1. استخراج مستويات الطاقة الصوتية (RMS) لكل إطار صغير (50ms)
- * 2. حساب التغير في الطاقة (energy delta) لكشف الارتفاعات المفاجئة
- * 3. كشف القمم بعتبة تكيفية (adaptive threshold)
- * 4. استخدام autocorrelation لإيجاد الفاصل الأكثر تكراراً
- * 
- * مصممة للعمل مع الأصوات الغنائية والمحاورة (بدون فترات صمت واضحة)
+ * الطريقة: استخراج مستوى الصوت (RMS) لكل فريم صغير (50ms)
+ * ثم كشف النبضات (beats) عبر ارتفاعات الطاقة المفاجئة
+ * وحساب الفاصل الزمني بين النبضات
  */
 async function analyzeRhythm(audioPath: string): Promise<number> {
   try {
     const duration = await getAudioDuration(audioPath);
     if (duration <= 0) return 0.75;
 
-    // استخراج مستويات الطاقة (RMS) لكل إطار 50ms
+    // استخراج RMS لكل 50ms frame
+    // astats يعطينا RMS level لكل frame
     const frameSize = 0.05; // 50ms per frame
-    const rmsCmd = `ffmpeg -i "${audioPath}" -af "asplit[a][b];[a]aresample=8000,astats=metadata=1:reset=${Math.round(1/frameSize)},ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-[out0];[b]anullsink" -f null - 2>/dev/null`;
+    const rmsCmd = `ffmpeg -i "${audioPath}" -af "asetnsamples=n=2205,astats=metadata=1:reset=1" -f null - 2>&1`;
     
     let rmsOutput = "";
     try {
-      const { stdout } = await execAsync(rmsCmd, { maxBuffer: 50 * 1024 * 1024 });
-      rmsOutput = stdout;
+      const result = await execAsync(rmsCmd, { maxBuffer: 50 * 1024 * 1024 });
+      rmsOutput = result.stderr || result.stdout || "";
     } catch (e: any) {
-      if (e.stdout) rmsOutput = e.stdout;
+      rmsOutput = e.stderr || e.stdout || "";
     }
 
-    // تحليل مستويات RMS
-    const rmsLines = rmsOutput.split("\n").filter(l => l.includes("lavfi.astats.Overall.RMS_level"));
+    // استخراج قيم RMS من المخرجات
+    // astats يخرج: [Parsed_astats_1 @ ...] RMS level dB: -XX.XX
+    const rmsRegex = /RMS level dB:\s*(-?[\d.]+)/g;
     const rmsValues: number[] = [];
-    
-    for (const line of rmsLines) {
-      const match = line.match(/=(-?[\d.]+)/);
-      if (match) {
-        const val = parseFloat(match[1]);
-        if (!isNaN(val) && val > -100) {
-          rmsValues.push(val);
+    let match;
+    while ((match = rmsRegex.exec(rmsOutput)) !== null) {
+      const val = parseFloat(match[1]);
+      if (!isNaN(val) && val > -100) {
+        rmsValues.push(val);
+      }
+    }
+
+    console.log(`[SheelohaGenerator] RMS analysis: ${rmsValues.length} frames from ${duration.toFixed(2)}s audio`);
+
+    if (rmsValues.length >= 10) {
+      // تحويل dB إلى طاقة خطية
+      const energies = rmsValues.map(db => Math.pow(10, db / 20));
+      
+      // حساب المتوسط المتحرك (3 frames)
+      const smoothed: number[] = [];
+      for (let i = 0; i < energies.length; i++) {
+        const start = Math.max(0, i - 1);
+        const end = Math.min(energies.length, i + 2);
+        const slice = energies.slice(start, end);
+        smoothed.push(slice.reduce((a, b) => a + b, 0) / slice.length);
+      }
+      
+      // كشف النبضات: نقاط ترتفع فيها الطاقة بشكل ملحوظ عن الإطار السابق
+      const avgEnergy = smoothed.reduce((a, b) => a + b, 0) / smoothed.length;
+      const threshold = avgEnergy * 0.3; // عتبة تكيفية: 30% من المتوسط
+      
+      const beats: number[] = [];
+      let lastBeatFrame = -10; // منع النبضات المتقاربة جداً
+      
+      for (let i = 1; i < smoothed.length; i++) {
+        const delta = smoothed[i] - smoothed[i - 1];
+        if (delta > threshold && (i - lastBeatFrame) > 3) { // 3 frames = 150ms minimum
+          beats.push(i * frameSize);
+          lastBeatFrame = i;
+        }
+      }
+      
+      console.log(`[SheelohaGenerator] Detected ${beats.length} beats`);
+      
+      if (beats.length >= 3) {
+        // حساب الفواصل بين النبضات
+        const intervals: number[] = [];
+        for (let i = 1; i < beats.length; i++) {
+          const gap = beats[i] - beats[i - 1];
+          if (gap > 0.15 && gap < 5.0) {
+            intervals.push(gap);
+          }
+        }
+        
+        if (intervals.length >= 2) {
+          intervals.sort((a, b) => a - b);
+          const medianInterval = intervals[Math.floor(intervals.length / 2)];
+          
+          // تعديل ليكون ضمن النطاق
+          let clapInterval = medianInterval;
+          while (clapInterval < 0.4) clapInterval *= 2;
+          while (clapInterval > 2.0) clapInterval /= 2;
+          
+          console.log(`[SheelohaGenerator] Beat analysis: ${intervals.length} intervals, median=${medianInterval.toFixed(3)}s, clap=${clapInterval.toFixed(3)}s`);
+          return clapInterval;
         }
       }
     }
 
-    console.log(`[SheelohaGenerator] RMS analysis: ${rmsValues.length} frames extracted`);
-
-    if (rmsValues.length < 10) {
-      return estimateIntervalFromDuration(duration);
-    }
-
-    // === الطريقة 1: كشف النبضات بالتغير في الطاقة (energy delta) ===
-    // بدلاً من البحث عن قمم مطلقة، نبحث عن ارتفاعات مفاجئة في الطاقة
-    // هذا يعمل أفضل مع الأصوات الغنائية المستمرة
-    const deltas: number[] = [0]; // الإطار الأول delta = 0
-    for (let i = 1; i < rmsValues.length; i++) {
-      // التغير الإيجابي فقط (ارتفاع الطاقة = بداية نبضة)
-      deltas.push(Math.max(0, rmsValues[i] - rmsValues[i - 1]));
-    }
-
-    // عتبة تكيفية: متوسط التغيرات الإيجابية + انحراف معياري
-    const posDeltas = deltas.filter(d => d > 0);
-    if (posDeltas.length < 3) {
-      console.log(`[SheelohaGenerator] Not enough energy changes, using duration-based estimate`);
-      return estimateIntervalFromDuration(duration);
-    }
+    // === الطريقة 2: silencedetect ===
+    console.log(`[SheelohaGenerator] Beat detection insufficient, trying silencedetect...`);
     
-    const avgDelta = posDeltas.reduce((a, b) => a + b, 0) / posDeltas.length;
-    const stdDelta = Math.sqrt(posDeltas.reduce((sum, d) => sum + (d - avgDelta) ** 2, 0) / posDeltas.length);
-    // عتبة منخفضة: المتوسط + 0.5 انحراف معياري (أكثر حساسية للأصوات الغنائية)
-    const deltaThreshold = avgDelta + 0.5 * stdDelta;
-    
-    const onsetTimes: number[] = [];
-    let lastOnsetFrame = -6;
-    
-    for (let i = 1; i < deltas.length; i++) {
-      if (deltas[i] > deltaThreshold && (i - lastOnsetFrame) >= 4) {
-        onsetTimes.push(i * frameSize);
-        lastOnsetFrame = i;
-      }
+    const silenceCmd = `ffmpeg -i "${audioPath}" -af "silencedetect=noise=-28dB:d=0.06" -f null - 2>&1`;
+    let silenceOutput = "";
+    try {
+      const result = await execAsync(silenceCmd, { maxBuffer: 50 * 1024 * 1024 });
+      silenceOutput = result.stderr || result.stdout || "";
+    } catch (e: any) {
+      silenceOutput = e.stderr || e.stdout || "";
     }
 
-    console.log(`[SheelohaGenerator] Energy-delta onsets: ${onsetTimes.length} in ${duration.toFixed(2)}s (threshold=${deltaThreshold.toFixed(2)})`);
+    const silenceEndRegex = /silence_end:\s*([\d.]+)/g;
+    const onsetTimes: number[] = [0];
+    while ((match = silenceEndRegex.exec(silenceOutput)) !== null) {
+      onsetTimes.push(parseFloat(match[1]));
+    }
+
+    console.log(`[SheelohaGenerator] Silence-detect: ${onsetTimes.length} onsets`);
 
     if (onsetTimes.length >= 4) {
       const intervals: number[] = [];
       for (let i = 1; i < onsetTimes.length; i++) {
-        intervals.push(onsetTimes[i] - onsetTimes[i - 1]);
+        const gap = onsetTimes[i] - onsetTimes[i - 1];
+        if (gap > 0.15 && gap < 5.0) {
+          intervals.push(gap);
+        }
       }
       
-      intervals.sort((a, b) => a - b);
-      const medianInterval = intervals[Math.floor(intervals.length / 2)];
-      
-      let clapInterval = medianInterval;
-      while (clapInterval < 0.4) clapInterval *= 2;
-      while (clapInterval > 2.0) clapInterval /= 2;
-      
-      console.log(`[SheelohaGenerator] Energy-delta result: median=${medianInterval.toFixed(3)}s, clap=${clapInterval.toFixed(3)}s`);
-      return clapInterval;
+      if (intervals.length >= 3) {
+        intervals.sort((a, b) => a - b);
+        const medianInterval = intervals[Math.floor(intervals.length / 2)];
+        
+        let clapInterval = medianInterval;
+        while (clapInterval < 0.4) clapInterval *= 2;
+        while (clapInterval > 2.0) clapInterval /= 2;
+        
+        console.log(`[SheelohaGenerator] Silence-detect result: median=${medianInterval.toFixed(3)}s, clap=${clapInterval.toFixed(3)}s`);
+        return clapInterval;
+      }
     }
 
-    // === الطريقة 2: Autocorrelation على منحنى الطاقة ===
-    // البحث عن الفاصل الزمني الأكثر تكراراً في نمط الطاقة
-    console.log(`[SheelohaGenerator] Trying autocorrelation method...`);
-    
-    // تطبيع القيم إلى [0,1]
-    const minRms = Math.min(...rmsValues);
-    const maxRms = Math.max(...rmsValues);
-    const range = maxRms - minRms;
-    const normalized = range > 0 
-      ? rmsValues.map(v => (v - minRms) / range)
-      : rmsValues.map(() => 0.5);
-    
-    // autocorrelation لفواصل من 0.3s إلى 2.5s
-    const minLag = Math.round(0.3 / frameSize);  // 6 frames
-    const maxLag = Math.min(Math.round(2.5 / frameSize), Math.floor(normalized.length / 2)); // max 50 frames
-    
-    let bestLag = minLag;
-    let bestCorr = -Infinity;
-    
-    for (let lag = minLag; lag <= maxLag; lag++) {
-      let corr = 0;
-      let count = 0;
-      for (let i = 0; i < normalized.length - lag; i++) {
-        corr += normalized[i] * normalized[i + lag];
-        count++;
-      }
-      corr /= count;
-      
-      if (corr > bestCorr) {
-        bestCorr = corr;
-        bestLag = lag;
-      }
-    }
-    
-    const autoInterval = bestLag * frameSize;
-    let clapInterval = autoInterval;
-    while (clapInterval < 0.4) clapInterval *= 2;
-    while (clapInterval > 2.0) clapInterval /= 2;
-    
-    console.log(`[SheelohaGenerator] Autocorrelation result: bestLag=${bestLag} (${autoInterval.toFixed(3)}s), corr=${bestCorr.toFixed(3)}, clap=${clapInterval.toFixed(3)}s`);
-    return clapInterval;
+    // === الطريقة 3: تقدير من المدة ===
+    console.log(`[SheelohaGenerator] All methods failed, using duration estimate`);
+    return estimateIntervalFromDuration(duration);
     
   } catch (error) {
     console.error("[SheelohaGenerator] Rhythm analysis failed:", error);
@@ -251,19 +270,33 @@ async function analyzeRhythm(audioPath: string): Promise<number> {
  * تقدير فاصل التصفيق من المدة فقط (الخطة الأخيرة)
  */
 function estimateIntervalFromDuration(duration: number): number {
-  if (duration <= 3) return 0.70;
-  if (duration <= 6) return 0.75;
-  if (duration <= 10) return 0.80;
-  return 0.85;
+  if (duration <= 3) return 0.60;
+  if (duration <= 5) return 0.70;
+  if (duration <= 8) return 0.80;
+  return 0.90;
 }
 
 /**
  * إنشاء ملف الشيلوها المدمج
- * 
- * @param originalAudioBuffer - الصوت الأصلي (بدون أي تسريع)
- * @returns Buffer - ملف الشيلوها المدمج
  */
 export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buffer> {
+  // فحص ffmpeg (كسول)
+  const hasFfmpeg = await ensureFfmpeg();
+  if (!hasFfmpeg) {
+    throw new Error("ffmpeg is not available on this server");
+  }
+  
+  // حل مسارات التصفيق
+  const SINGLE_CLAP_PATH = getSingleClapPath();
+  const END_CLAPS_PATH = getEndClapsPath();
+  
+  if (!fs.existsSync(SINGLE_CLAP_PATH)) {
+    throw new Error(`Single clap file not found: ${SINGLE_CLAP_PATH}`);
+  }
+  if (!fs.existsSync(END_CLAPS_PATH)) {
+    throw new Error(`End claps file not found: ${END_CLAPS_PATH}`);
+  }
+  
   const tempDir = os.tmpdir();
   const ts = Date.now();
   const rnd = Math.random().toString(36).substring(7);
@@ -277,20 +310,22 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
   try {
     // حفظ الصوت الأصلي
     await fs.promises.writeFile(inputPath, originalAudioBuffer);
+    console.log(`[SheelohaGenerator] Input saved: ${originalAudioBuffer.length} bytes`);
     
     // === الخطوة 0: تسريع الصوت ===
     console.log(`[SheelohaGenerator] Step 0: Speed up by ${SHEELOHA_SPEED_FACTOR}x`);
     const speedCmd = `ffmpeg -y -i "${inputPath}" -filter:a "atempo=${SHEELOHA_SPEED_FACTOR}" -vn "${speedPath}"`;
     await execAsync(speedCmd, { maxBuffer: 50 * 1024 * 1024 });
     
-    // 1. تحليل الإيقاع الحقيقي للصوت المسرّع
+    // 1. تحليل الإيقاع
     const clapInterval = await analyzeRhythm(speedPath);
+    console.log(`[SheelohaGenerator] Final clap interval: ${clapInterval.toFixed(3)}s`);
     
-    // 2. الحصول على مدة الصوت المسرّع
+    // 2. مدة الصوت المسرّع
     const audioDuration = await getAudioDuration(speedPath);
-    console.log(`[SheelohaGenerator] Audio duration (after speed): ${audioDuration}s`);
+    console.log(`[SheelohaGenerator] Audio duration (after speed): ${audioDuration.toFixed(2)}s`);
     
-    // 3. الحصول على sample rate الأصلي
+    // 3. sample rate
     let sampleRate = 44100;
     try {
       const srCmd = `ffprobe -i "${speedPath}" -show_entries stream=sample_rate -v quiet -of csv="p=0"`;
@@ -301,16 +336,15 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
     
     // 4. بناء أمر ffmpeg
     const inputs = [
-      `-i "${speedPath}"`,          // [0] الصوت المسرّع
-      `-i "${SINGLE_CLAP_PATH}"`,   // [1] التصفيقة الواحدة
-      `-i "${END_CLAPS_PATH}"`,     // [2] التصفيق الختامي
+      `-i "${speedPath}"`,
+      `-i "${SINGLE_CLAP_PATH}"`,
+      `-i "${END_CLAPS_PATH}"`,
     ];
 
     const filters: string[] = [];
     const voiceOutputs: string[] = [];
 
-    // === تأثير الصفوف: 7 نسخ من الصوت ===
-    // تقسيم [0:a] إلى 7 نسخ باستخدام asplit
+    // === تأثير الصفوف: 7 نسخ ===
     const voiceSrcLabels = VOICE_COPIES.map((_, i) => `vsrc${i}`);
     filters.push(
       `[0:a]asplit=${VOICE_COPIES.length}${voiceSrcLabels.map(l => `[${l}]`).join("")}`
@@ -322,12 +356,10 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       const delayFilter = delayMs > 0 ? `,adelay=${delayMs}|${delayMs}` : "";
       
       if (v.pitchFactor === 1.0) {
-        // الصوت الأصلي - بدون تغيير pitch
         filters.push(
           `[vsrc${i}]volume=${v.volume}${delayFilter}[voice${i}]`
         );
       } else {
-        // تغيير pitch باستخدام asetrate + aresample (متوافق مع كل ffmpeg)
         const newRate = Math.round(sampleRate * v.pitchFactor);
         const tempoCorrection = (1 / v.pitchFactor).toFixed(6);
         filters.push(
@@ -337,19 +369,16 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       voiceOutputs.push(`[voice${i}]`);
     }
 
-    // === التصفيق الإيقاعي المتكرر ===
-    // نستخدم asplit لتقسيم إدخال التصفيقة الواحدة إلى عدة نسخ، ثم adelay لكل نسخة
+    // === التصفيق الإيقاعي ===
     const numClaps = Math.floor(audioDuration / clapInterval);
     const effectiveClaps = Math.max(1, Math.min(numClaps, 15));
     
     if (effectiveClaps > 1) {
-      // تقسيم إدخال التصفيقة إلى N نسخة
       const splitLabels = Array.from({ length: effectiveClaps }, (_, i) => `csrc${i}`);
       filters.push(
         `[1:a]asplit=${effectiveClaps}${splitLabels.map(l => `[${l}]`).join("")}`
       );
       
-      // إضافة تأخير لكل تصفيقة بناءً على الإيقاع
       const clapOutputs: string[] = [];
       for (let c = 0; c < effectiveClaps; c++) {
         const clapTimeMs = Math.round(c * clapInterval * 1000);
@@ -363,12 +392,10 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
         clapOutputs.push(`[${clapLabel}]`);
       }
       
-      // دمج كل التصفيقات في مسار واحد
       filters.push(
         `${clapOutputs.join("")}amix=inputs=${clapOutputs.length}:duration=longest:normalize=0[allclaps]`
       );
     } else {
-      // تصفيقة واحدة فقط
       filters.push(`[1:a]volume=${CLAP_VOLUME}[allclaps]`);
     }
 
@@ -378,23 +405,21 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       `[2:a]adelay=${endClapDelayMs}|${endClapDelayMs},volume=${END_CLAP_VOLUME}[endclap]`
     );
 
-    // === الخطوة 1: دمج الأصوات السبعة معاً ===
+    // === دمج الأصوات السبعة ===
     filters.push(
       `${voiceOutputs.join("")}amix=inputs=${voiceOutputs.length}:duration=longest:normalize=0[voices_raw]`
     );
 
-    // === الخطوة 2: تأثير الكورال المسرحي (على الأصوات فقط - بدون التصفيق) ===
-    // chorus: طبقات كورال لإحساس الجمهور
-    // aecho: صدى مسرحي خفيف
-    // bass: عمق مسرحي
+    // === تأثير صوت بعيد/مكتوم + صدى خفيف (على الأصوات فقط) ===
+    // lowpass=3500: قطع الترددات العالية (صوت بعيد يفقد الحدة)
+    // highpass=150: إزالة الترددات المنخفضة جداً
+    // aecho: صدى خفيف جداً لإحساس المسافة (40ms و 80ms)
     // acompressor + alimiter: منع التشويه
-    // chorus: speeds منخفضة جداً (0.05-0.1) و depths صغيرة (0.3-0.5) لمنع التموج/vibrato
-    // الهدف: سماكة صوتية بدون تموج مسموع
     filters.push(
-      `[voices_raw]chorus=in_gain=0.75:out_gain=0.8:delays=20|30|40:decays=0.3|0.25|0.2:speeds=0.05|0.07|0.1:depths=0.3|0.4|0.5,aecho=in_gain=0.85:out_gain=0.4:delays=50|100:decays=0.2|0.12,bass=gain=2:frequency=110,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[voices_fx]`
+      `[voices_raw]highpass=f=150,lowpass=f=3500,aecho=in_gain=0.9:out_gain=0.25:delays=40|80:decays=0.12|0.06,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[voices_fx]`
     );
 
-    // === الخطوة 3: دمج الأصوات المعالجة + التصفيق النظيف ===
+    // === دمج الأصوات المعالجة + التصفيق النظيف ===
     const finalInputs = ["[voices_fx]"];
     if (effectiveClaps > 0) {
       finalInputs.push("[allclaps]");
@@ -416,22 +441,22 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       `"${outputPath}"`,
     ].join(" ");
 
-    console.log(`[SheelohaGenerator] Generating sheeloha with ${VOICE_COPIES.length} voices, ${effectiveClaps} claps (interval=${clapInterval.toFixed(3)}s), end claps at ${audioDuration.toFixed(2)}s, chorus+hall effect applied`);
+    console.log(`[SheelohaGenerator] Generating: ${VOICE_COPIES.length} voices, ${effectiveClaps} claps (interval=${clapInterval.toFixed(3)}s), end claps at ${audioDuration.toFixed(2)}s`);
     
     await execAsync(command, { maxBuffer: 50 * 1024 * 1024 });
 
     const outputBuffer = await fs.promises.readFile(outputPath);
-    console.log(`[SheelohaGenerator] Sheeloha generated: ${outputBuffer.length} bytes`);
+    console.log(`[SheelohaGenerator] SUCCESS: ${outputBuffer.length} bytes`);
     
     return outputBuffer;
   } catch (error) {
-    console.error("[SheelohaGenerator] Failed to generate sheeloha:", error);
+    console.error("[SheelohaGenerator] MAIN FAILED:", error);
     
     // خطة بديلة مبسطة
     try {
       return await generateSheelohaSimple(inputPath, outputPath, originalAudioBuffer);
     } catch (fallbackError) {
-      console.error("[SheelohaGenerator] Fallback also failed:", fallbackError);
+      console.error("[SheelohaGenerator] FALLBACK ALSO FAILED:", fallbackError);
       throw new Error("Failed to generate sheeloha: both main and fallback methods failed");
     }
   } finally {
@@ -442,7 +467,7 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
 }
 
 /**
- * خطة بديلة مبسطة: الصوت مسرّع + تصفيق ختامي فقط (بدون صفوف)
+ * خطة بديلة مبسطة: الصوت مسرّع + تصفيق ختامي فقط
  */
 async function generateSheelohaSimple(
   inputPath: string,
@@ -451,12 +476,14 @@ async function generateSheelohaSimple(
 ): Promise<Buffer> {
   console.log("[SheelohaGenerator] Using simplified fallback");
   
+  const END_CLAPS = getEndClapsPath();
+  
   await fs.promises.writeFile(inputPath, originalBuffer);
   const duration = await getAudioDuration(inputPath);
   const endDelayMs = Math.round(duration * 1000);
   
   const command = [
-    `ffmpeg -y -i "${inputPath}" -i "${END_CLAPS_PATH}"`,
+    `ffmpeg -y -i "${inputPath}" -i "${END_CLAPS}"`,
     `-filter_complex "[0:a]atempo=${SHEELOHA_SPEED_FACTOR},volume=0.80[voice];[1:a]adelay=${endDelayMs}|${endDelayMs},volume=${END_CLAP_VOLUME}[endclap];[voice][endclap]amix=inputs=2:duration=longest:normalize=0[out]"`,
     `-map "[out]" -c:a aac -b:a 128k "${outputPath}"`,
   ].join(" ");

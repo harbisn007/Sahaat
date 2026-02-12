@@ -2312,3 +2312,9 @@
 - [x] إصلاح الصوت المتموج (تخفيف chorus speeds 0.05-0.1 و depths 0.3-0.5)
 - [x] إصلاح مسارات ملفات التصفيق لتعمل في production (dist/ → server/sounds/)
 - [x] الطاروق كان أسرع في المثبت لأن generateSheeloha كانت تفشل بصمت (مسارات الأصوات)
+
+## إصلاح عاجل: الشيلوها لا تعمل على الأندرويد + التصفيق ثابت + صوت مكتوم
+- [x] فحص logs الخادم: السبب top-level await غير متوافق مع esbuild CJS
+- [x] إصلاح: إزالة top-level await واستبداله بفحص كسول (lazy) داخل الدوال
+- [x] تحسين تحليل الإيقاع: RMS beat detection + silencedetect + duration fallback
+- [x] تأثير صوت بعيد/مكتوم: lowpass=3500Hz + highpass=150Hz + aecho خفيف (40ms+80ms)

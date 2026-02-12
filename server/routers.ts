@@ -502,7 +502,11 @@ export const appRouter = router({
           sheelohaUrl = sheelohaResult.url;
           console.log("[uploadAudio] Sheeloha file generated and uploaded:", sheelohaUrl);
         } catch (error) {
-          console.error("[uploadAudio] Failed to generate sheeloha:", error);
+          const errMsg = error instanceof Error ? error.message : String(error);
+          console.error("[uploadAudio] ========== SHEELOHA GENERATION FAILED ==========");
+          console.error(`[uploadAudio] Error: ${errMsg}`);
+          console.error(`[uploadAudio] Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
+          console.error(`[uploadAudio] This means the sheeloha will NOT play for anyone!`);
           // لا نفشل العملية كلها إذا فشل إنشاء الشيلوها
         }
       }
