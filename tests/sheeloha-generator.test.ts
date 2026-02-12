@@ -24,9 +24,9 @@ describe("Sheeloha Generator", () => {
     // الشيلوها يجب أن تكون أكبر من الطاروق الأصلي (بسبب 5 نسخ + تصفيق)
     expect(outputBuffer.length).toBeGreaterThan(inputBuffer.length);
 
-    // نسبة الحجم يجب أن تكون أكبر من 1.3 (7 نسخ + تصفيق + تأثير كورال)
+    // نسبة الحجم يجب أن تكون أكبر من 1.5 (5 نسخ + تصفيق)
     const sizeRatio = outputBuffer.length / inputBuffer.length;
-    expect(sizeRatio).toBeGreaterThan(1.3);
+    expect(sizeRatio).toBeGreaterThan(1.5);
 
     // حفظ الملف للفحص
     fs.writeFileSync(testOutputPath, outputBuffer);
@@ -58,8 +58,7 @@ describe("Sheeloha Generator", () => {
       .toString()
       .trim();
 
-    // المخرج قد يكون mono (1) أو stereo (2) حسب المدخلات
-    expect(parseInt(channels)).toBeGreaterThanOrEqual(1);
+    expect(parseInt(channels)).toBe(2);
   });
 
   it("should have different audio characteristics than input", async () => {

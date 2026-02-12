@@ -30,7 +30,6 @@ import { EditProfileModal } from "@/components/edit-profile-modal";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
-import * as FileSystem from "expo-file-system/legacy";
 
 export default function RoomScreen() {
   const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
@@ -1542,8 +1541,9 @@ export default function RoomScreen() {
           });
         } else {
           // Native: Read file as base64
-          base64Data = await FileSystem.readAsStringAsync(recording.uri, {
-            encoding: FileSystem.EncodingType.Base64,
+          const FileSystemModule = await import("expo-file-system/legacy");
+          base64Data = await FileSystemModule.readAsStringAsync(recording.uri, {
+            encoding: FileSystemModule.EncodingType.Base64,
           });
         }
         
@@ -1561,6 +1561,14 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Tarouk URL:", url);
         console.log("[RoomScreen] Sheeloha URL:", sheelohaUrl || "NONE - SHEELOHA NOT GENERATED");
         console.log("[RoomScreen] Is Tarouk:", isTarouk);
+        
+        // === DEBUG ALERT (مؤقت للتشخيص) ===
+        if (isTarouk) {
+          Alert.alert(
+            "تشخيص الشيلوها",
+            `الطاروق: ${url ? 'نعم' : 'لا'}\nالشيلوها: ${sheelohaUrl ? 'نعم ✅' : 'لا ❌ - لم يتم إنشاؤها'}\n\nSheeloha URL: ${sheelohaUrl ? sheelohaUrl.substring(0, 60) + '...' : 'undefined'}`
+          );
+        }
         
         // ===== تشغيل محلي فوري للمسجّل =====
         // الطاروق: يشغل محلياً فقط - الشيلوها تأتي من الخادم للجميع

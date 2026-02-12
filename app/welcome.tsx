@@ -7,9 +7,7 @@ import { useUser } from "@/lib/user-context";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
-import { isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-config";
-// auth-service loaded dynamically to avoid expo-crypto native module crash on Android
-const lazyAuthService = () => import("@/lib/auth-service");
+import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 // Import avatar system
@@ -177,8 +175,7 @@ export default function WelcomeScreen() {
 
     setIsGoogleLoading(true);
     try {
-      const authService = await lazyAuthService();
-      const result = await authService.signInWithGoogle();
+      const result = await signInWithGoogle();
       
       if (result.success) {
         // إذا كان مستخدم جديد، نحتاج اسم وصورة
@@ -236,8 +233,7 @@ export default function WelcomeScreen() {
 
     setIsAppleLoading(true);
     try {
-      const authService = await lazyAuthService();
-      const result = await authService.signInWithApple();
+      const result = await signInWithApple();
       
       if (result.success) {
         if (name.trim() && selectedAvatar) {

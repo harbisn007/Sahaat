@@ -425,8 +425,7 @@ export const appRouter = router({
         
         // إذا كان طاروق مع شيلوها: بث الشيلوها للجميع (بما فيهم المرسل) بعد مدة الطاروق
         if (input.messageType === "tarouk" && input.sheelohaUrl) {
-          // تأخير بسيط فقط (300ms) بعد مدة الطاروق لضمان انتهاء التشغيل
-          const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 300, 2000);
+          const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 1500, 3000);
           const sheelohaUrlToPlay = input.sheelohaUrl;
           
           console.log(`[audio.create] ========== SHEELOHA SCHEDULED ==========`);
@@ -479,34 +478,35 @@ export const appRouter = router({
       const { generateSheeloha } = await import("./sheeloha-generator");
       
       // Convert base64 to buffer
-      const buffer: Buffer = Buffer.from(input.base64Data, "base64");
+      let buffer: Buffer = Buffer.from(input.base64Data, "base64");
+      
+      // تسريع الصوت إذا كان مطلوباً (للطاروق)
+      let processedBuffer = buffer;
+      if (input.speedUp) {
+        console.log("[uploadAudio] Speeding up audio by 1.15x");
+        processedBuffer = await speedUpAudio(buffer, 1.15);
+      }
       
       // Generate unique file key
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(7);
       const fileKey = `audio/${timestamp}-${randomSuffix}-${input.fileName}`;
       
-      // رفع الصوت الأصلي (بدون تسريع) كطاروق - المستمعون يسمعون الصوت الأصلي
-      const { url } = await storagePut(fileKey, buffer, "audio/mp4");
-      console.log("[uploadAudio] Original audio uploaded as tarouk (no speed up)");
+      // Upload processed audio to S3
+      const { url } = await storagePut(fileKey, processedBuffer, "audio/mp4");
       
       // إنشاء ملف الشيلوها المدمج للطاروق فقط
-      // generateSheeloha تسرّع الصوت داخلياً + تضيف صفوف + تصفيق إيقاعي + تصفيق ختامي
       let sheelohaUrl: string | undefined;
       if (input.speedUp) {
         try {
-          console.log("[uploadAudio] Generating sheeloha from ORIGINAL audio (sheeloha handles speed internally)...");
-          const sheelohaBuffer = await generateSheeloha(buffer);
+          console.log("[uploadAudio] Generating sheeloha file...");
+          const sheelohaBuffer = await generateSheeloha(processedBuffer);
           const sheelohaKey = `audio/${timestamp}-${randomSuffix}-sheeloha-${input.fileName}`;
           const sheelohaResult = await storagePut(sheelohaKey, sheelohaBuffer, "audio/mp4");
           sheelohaUrl = sheelohaResult.url;
           console.log("[uploadAudio] Sheeloha file generated and uploaded:", sheelohaUrl);
         } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          console.error("[uploadAudio] ========== SHEELOHA GENERATION FAILED ==========");
-          console.error(`[uploadAudio] Error: ${errMsg}`);
-          console.error(`[uploadAudio] Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
-          console.error(`[uploadAudio] This means the sheeloha will NOT play for anyone!`);
+          console.error("[uploadAudio] Failed to generate sheeloha:", error);
           // لا نفشل العملية كلها إذا فشل إنشاء الشيلوها
         }
       }
