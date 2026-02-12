@@ -6,6 +6,7 @@
  * 2. تأثير الصفوف: 7 نسخ من الصوت بدرجات مختلفة (محاكاة جمهور)
  * 3. تصفيق إيقاعي متكرر (بناءً على تحليل الإيقاع الحقيقي للصوت)
  * 4. تصفيق ختامي بعد انتهاء الغناء
+ * 5. تأثير كورال مسرحي (chorus + hall echo + bass boost) كخطوة نهائية
  * 
  * ملاحظة: يستخدم asetrate+atempo بدلاً من rubberband للتوافق مع جميع بيئات ffmpeg
  */
@@ -339,7 +340,20 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
     const totalInputs = allInputs.length;
     // normalize=0 يمنع التطبيع التلقائي الذي يسبب تشويه
     filters.push(
-      `${allInputs.join("")}amix=inputs=${totalInputs}:duration=longest:normalize=0[out]`
+      `${allInputs.join("")}amix=inputs=${totalInputs}:duration=longest:normalize=0[mixed]`
+    );
+
+    // === تأثير الكورال المسرحي (يُطبّق على المخرج النهائي بعد دمج كل شيء) ===
+    // 1. chorus: يضيف طبقات صوتية متراكبة بتأخيرات وترددات مختلفة لإحساس الكورال
+    // 2. aecho: صدى خفيف يحاكي قاعة مسرحية كبيرة
+    // 3. bass boost: تعزيز الترددات المنخفضة لعمق مسرحي
+    // 4. acompressor + alimiter: منع التشويه والحفاظ على وضوح الصوت
+    // كورال: 3 طبقات بتأخيرات مختلفة وعمق معتدل
+    // صدى مسرحي: انعكاسات خفيفة تحاكي قاعة كبيرة
+    // تعزيز الباس لعمق مسرحي
+    // ضغط خفيف لتوحيد المستويات + محدد لمنع التشويه
+    filters.push(
+      `[mixed]chorus=in_gain=0.7:out_gain=0.75:delays=25|35|45:decays=0.35|0.28|0.22:speeds=0.35|0.45|0.55:depths=2.5|3.0|2.0,aecho=in_gain=0.85:out_gain=0.45:delays=60|120:decays=0.25|0.15,bass=gain=3:frequency=120,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[out]`
     );
 
     const filterComplex = filters.join(";");
@@ -353,7 +367,7 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
       `"${outputPath}"`,
     ].join(" ");
 
-    console.log(`[SheelohaGenerator] Generating sheeloha with ${VOICE_COPIES.length} voices, ${effectiveClaps} claps (interval=${clapInterval.toFixed(3)}s), end claps at ${audioDuration.toFixed(2)}s`);
+    console.log(`[SheelohaGenerator] Generating sheeloha with ${VOICE_COPIES.length} voices, ${effectiveClaps} claps (interval=${clapInterval.toFixed(3)}s), end claps at ${audioDuration.toFixed(2)}s, chorus+hall effect applied`);
     
     await execAsync(command, { maxBuffer: 50 * 1024 * 1024 });
 
