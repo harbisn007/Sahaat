@@ -2259,3 +2259,9 @@
 ### ب. Expo Go:
 - [x] الطاروق يشتغل بصوت معدّل - السبب: uploadAudio كان يرفع processedBuffer (مسرّع) بدلاً من الأصلي
 - [x] الشيلوها مكتومة - السبب: generateSheeloha كانت تستقبل ملف مسرّع مسبقاً (تسريع مزدوج)
+
+## إصلاح مشاكل الصوت (12 فبراير 2026 - الدفعة 6)
+### أ. Android المثبت:
+- [x] __dirname is not defined - استبدال بـ import.meta.url + fileURLToPath مع fallback لـ __dirname
+### ب. Expo Go:
+- [x] صوت الشيلوها مشوه - إعادة كتابة كاملة: 3 أصوات بدل 5، asetrate بدل rubberband، إزالة aecho
