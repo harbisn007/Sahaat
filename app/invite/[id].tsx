@@ -9,7 +9,9 @@ import { MaterialIcons } from "@expo/vector-icons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
-import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
+import { isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-config";
+// auth-service loaded dynamically to avoid expo-crypto native module crash on Android
+const lazyAuthService = () => import("@/lib/auth-service");
 import { Platform } from "react-native";
 
 const welcomeBackground = require("@/assets/images/welcome-background.png");
@@ -179,7 +181,8 @@ export default function InviteScreen() {
 
     setIsGoogleLoading(true);
     try {
-      const result = await signInWithGoogle();
+      const authService = await lazyAuthService();
+      const result = await authService.signInWithGoogle();
       
       if (result.success) {
         const name = editName.trim() || result.name || "مستخدم Google";
@@ -211,7 +214,8 @@ export default function InviteScreen() {
 
     setIsAppleLoading(true);
     try {
-      const result = await signInWithApple();
+      const authService = await lazyAuthService();
+      const result = await authService.signInWithApple();
       
       if (result.success) {
         const name = editName.trim() || "مستخدم Apple";

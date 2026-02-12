@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
-import { useAudioPlayer } from "expo-audio";
+import { AudioModule, RecordingPresets } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
 
@@ -473,7 +473,6 @@ export default function RoomScreen() {
         }
         
         // Step 2: Initialize audio mode
-        const { AudioModule } = await import("expo-audio");
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
@@ -481,7 +480,6 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Audio mode initialized");
         
         // Step 3: Create and release a test recorder to warm up the system
-        const { RecordingPresets } = await import("expo-audio");
         const testRecorder = new AudioModule.AudioRecorder(RecordingPresets.HIGH_QUALITY);
         await testRecorder.prepareToRecordAsync();
         await testRecorder.release();
@@ -524,26 +522,20 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
         const isSender = data.userId === userId;
         
-        // المرسل: كل شيء يشتغل محلياً (الطاروق + الشيلوها عبر onEnded callback)
-        if (isSender) {
-          console.log("[RoomScreen] Sender skipping server broadcast - everything plays locally");
-          return;
-        }
-        
-        // الآخرون: تشغيل كل شيء
+        // الشيلوها: تشغيل عند الجميع بما فيهم المرسل (تأتي من الخادم فقط)
         if (data.isSheeloha) {
-          console.log("[RoomScreen] Playing sheeloha broadcast for listener");
+          console.log("[RoomScreen] Playing sheeloha from server for EVERYONE (including sender)");
           playAutoSheeloha(data.audioUrl);
           return;
         }
         
-        // طاروق: تشغيل الطاروق فقط - الشيلوها ستأتي من الخادم بشكل منفصل بعد مدة الطاروق
-        if (data.messageType === "tarouk") {
-          console.log("[RoomScreen] Playing tarouk for listener (sheeloha will come separately from server)");
-          play(data.audioUrl);
+        // المرسل: يتجاهل الطاروق/التعليق (يشغلهم محلياً)
+        if (isSender) {
+          console.log("[RoomScreen] Sender skipping tarouk/comment broadcast - plays locally");
           return;
         }
         
+        // الآخرون: تشغيل الطاروق/التعليق
         console.log("[RoomScreen] Playing audio for listener:", data.messageType);
         play(data.audioUrl);
       },
@@ -1565,18 +1557,16 @@ export default function RoomScreen() {
         const { url } = uploadResult;
         const sheelohaUrl = uploadResult.sheelohaUrl;
         
+        console.log("[RoomScreen] ========== UPLOAD RESULT ==========");
+        console.log("[RoomScreen] Tarouk URL:", url);
+        console.log("[RoomScreen] Sheeloha URL:", sheelohaUrl || "NONE - SHEELOHA NOT GENERATED");
+        console.log("[RoomScreen] Is Tarouk:", isTarouk);
+        
         // ===== تشغيل محلي فوري للمسجّل =====
+        // الطاروق: يشغل محلياً فقط - الشيلوها تأتي من الخادم للجميع
+        // التعليق: يشغل محلياً فقط
         console.log("[RoomScreen] Playing recorded audio LOCALLY for the recorder:", url);
-        if (isTarouk && sheelohaUrl) {
-          // الطاروق: يشغل محلياً، وبعد انتهائه يشغل الشيلوها محلياً
-          console.log("[RoomScreen] Playing tarouk locally, sheeloha will play after it ends");
-          play(url, () => {
-            console.log("[RoomScreen] Tarouk ended, now playing sheeloha locally:", sheelohaUrl);
-            playAutoSheeloha(sheelohaUrl);
-          });
-        } else {
-          play(url); // تعليق أو طاروق بدون شيلوها
-        }
+        play(url);
         
         // Save to database with S3 URL (with actual duration from recording)
         // الخادم سيبث للجميع (including sender for sheeloha)
@@ -1594,8 +1584,11 @@ export default function RoomScreen() {
         await refetchAudioMessages();
       }
     } catch (error) {
-      console.error("Failed to save audio message:", error);
-      Alert.alert("خطأ", "فشل حفظ الرسالة الصوتية");
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errStack = error instanceof Error ? error.stack : '';
+      console.error("Failed to save audio message:", errMsg);
+      console.error("Error stack:", errStack);
+      Alert.alert("خطأ", `فشل حفظ الرسالة الصوتية:\n${errMsg}`);
     }
   };
 

@@ -2232,3 +2232,22 @@
 ## تعديلات التسمية (11 فبراير 2026 - الدفعة 3)
 - [x] إزالة إيموجي 🗣️ من فقاعة رسالة التعليق واستبداله بنص "تعليق"
 - [x] تغيير النص تحت زر التعليق إلى "تعليق / موال"
+
+## إصلاح الشيلوها - عبر الخادم فقط (12 فبراير 2026)
+- [x] الشيلوها تشتغل عبر الخادم للجميع بما فيهم المرسل - لا تشغيل محلي أبداً
+- [x] المرسل يشغل الطاروق محلياً فقط بدون onEnded callback للشيلوها
+- [x] الخادم يبث الشيلوها للجميع بعد انتهاء مدة الطاروق
+- [x] لا تغيير في تشغيل الطاروق نفسه
+
+## إصلاح generateSheeloha يرجع الطاروق نفسه (12 فبراير 2026)
+- [x] generateSheeloha يفشل ويرجع processedAudioBuffer (الطاروق نفسه) - تم إصلاحه ليرمي خطأ بدلاً
+- [x] إصلاح fallback لعدم إرجاع الطاروق الأصلي أبداً
+- [x] إضافة logs لمعرفة سبب فشل ffmpeg
+- [x] إذا فشل كلياً لا يُرسل sheelohaUrl (undefined)
+
+## إصلاح خطأ module 1523 / expo-crypto (12 فبراير 2026)
+- [x] expo-auth-session يعتمد على expo-crypto الذي يحتاج native module
+- [x] نقل isGoogleAuthConfigured/isAppleAuthConfigured إلى auth-config.ts منفصل
+- [x] جعل استيراد auth-service.ts ديناميكياً (lazy) في welcome.tsx و invite/[id].tsx
+- [x] إزالة expo-crypto من user-context.tsx (سابقاً)
+- [x] إزالة expo-crypto من auth-service.ts (سابقاً)

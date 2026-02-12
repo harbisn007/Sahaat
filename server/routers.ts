@@ -391,6 +391,12 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        console.log(`[audio.create] ========== NEW AUDIO MESSAGE ==========`);
+        console.log(`[audio.create] Type: ${input.messageType}`);
+        console.log(`[audio.create] Audio URL: ${input.audioUrl}`);
+        console.log(`[audio.create] Sheeloha URL: ${input.sheelohaUrl || 'NONE - NO SHEELOHA'}`);
+        console.log(`[audio.create] Duration: ${input.duration}s`);
+        
         const messageId = await db.addAudioMessage(input);
         const now = new Date();
         
@@ -420,12 +426,21 @@ export const appRouter = router({
         // إذا كان طاروق مع شيلوها: بث الشيلوها للجميع (بما فيهم المرسل) بعد مدة الطاروق
         if (input.messageType === "tarouk" && input.sheelohaUrl) {
           const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 1500, 3000);
-          console.log(`[audio.create] Will broadcast sheeloha to ALL (including sender) after ${taroukDurationMs}ms`);
+          const sheelohaUrlToPlay = input.sheelohaUrl;
+          
+          console.log(`[audio.create] ========== SHEELOHA SCHEDULED ==========`);
+          console.log(`[audio.create] Tarouk audioUrl: ${input.audioUrl}`);
+          console.log(`[audio.create] Sheeloha URL:    ${sheelohaUrlToPlay}`);
+          console.log(`[audio.create] URLs are same?   ${input.audioUrl === sheelohaUrlToPlay}`);
+          console.log(`[audio.create] Will broadcast sheeloha after ${taroukDurationMs}ms`);
+          
           setTimeout(() => {
+            console.log(`[audio.create] ========== BROADCASTING SHEELOHA NOW ==========`);
+            console.log(`[audio.create] Sheeloha URL being sent: ${sheelohaUrlToPlay}`);
             emitPlayAudioMessage(
               input.roomId,
               messageId,
-              input.sheelohaUrl!,
+              sheelohaUrlToPlay,
               "tarouk",
               input.userId,
               input.username,
@@ -433,6 +448,8 @@ export const appRouter = router({
               true // isSheeloha = true
             );
           }, taroukDurationMs);
+        } else if (input.messageType === "tarouk" && !input.sheelohaUrl) {
+          console.log(`[audio.create] WARNING: Tarouk WITHOUT sheelohaUrl - sheeloha will NOT play!`);
         }
         
         return { messageId };
@@ -494,6 +511,10 @@ export const appRouter = router({
         }
       }
       
+      console.log(`[uploadAudio] ========== UPLOAD COMPLETE ==========`);
+      console.log(`[uploadAudio] Tarouk URL:   ${url}`);
+      console.log(`[uploadAudio] Sheeloha URL: ${sheelohaUrl || 'UNDEFINED - NOT GENERATED'}`);
+      console.log(`[uploadAudio] URLs same?    ${url === sheelohaUrl}`);
       return { url, sheelohaUrl };
     }),
 

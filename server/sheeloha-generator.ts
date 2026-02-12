@@ -275,7 +275,8 @@ export async function generateSheeloha(processedAudioBuffer: Buffer): Promise<Bu
       return await generateSheelohaSimple(inputPath, outputPath, processedAudioBuffer);
     } catch (fallbackError) {
       console.error("[SheelohaGenerator] Fallback also failed:", fallbackError);
-      return processedAudioBuffer;
+      // لا نرجع الطاروق الأصلي أبداً - نرمي خطأ
+      throw new Error("Failed to generate sheeloha: both main and fallback methods failed");
     }
   } finally {
     // تنظيف الملفات المؤقتة

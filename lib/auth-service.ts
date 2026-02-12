@@ -13,7 +13,7 @@
 
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
-import * as Crypto from 'expo-crypto';
+// Removed expo-crypto to avoid native module errors on Expo Go
 import { Platform } from 'react-native';
 
 // إكمال جلسة المصادقة عند العودة من المتصفح
@@ -169,10 +169,8 @@ export async function signInWithApple(): Promise<AuthResult> {
 
   try {
     const redirectUri = getRedirectUri();
-    const state = await Crypto.digestStringAsync(
-      Crypto.CryptoDigestAlgorithm.SHA256,
-      Math.random().toString()
-    );
+    // Simple random state string (no expo-crypto needed)
+    const state = Array.from({ length: 32 }, () => Math.random().toString(36).charAt(2)).join('');
 
     const request = new AuthSession.AuthRequest({
       clientId: serviceId,

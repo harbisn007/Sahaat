@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { v4 as uuidv4 } from "uuid";
+
 
 // Avatar types: 'male' | 'female' | custom URI
 export type AvatarType = 'male' | 'female' | string;
@@ -130,7 +130,12 @@ export function UserProvider({ children }: { children: ReactNode }) {
       // Generate new UUID for guest
       let newUserId: string;
       try {
-        newUserId = uuidv4();
+        // توليد UUID بسيط بدون مكتبات خارجية
+        newUserId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
         console.log("[UserContext] Generated UUID:", newUserId);
       } catch (uuidError) {
         console.error("[UserContext] UUID generation failed, using fallback:", uuidError);
