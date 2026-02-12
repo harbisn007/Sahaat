@@ -54,7 +54,7 @@ const VOICE_COPIES = [
   { delay: 0,    volume: 0.55, pitchFactor: 1.0   },  // صوت 4 - أصلي
   { delay: 0.02, volume: 0.45, pitchFactor: 1.06  },  // صوت 5 - أعلى قليلاً + تأخير 20ms
   { delay: 0.02, volume: 0.40, pitchFactor: 0.94  },  // صوت 6 - أخفض قليلاً + تأخير 20ms
-  { delay: 0.02, volume: 0.35, pitchFactor: 1.04  },  // صوت 7 - أعلى بقليل + تأخير 20ms
+  { delay: 0.03, volume: 0.35, pitchFactor: 1.04  },  // صوت 7 - أعلى بقليل + تأخير 30ms
 ];
 
 const CLAP_VOLUME = 0.30;
@@ -75,18 +75,18 @@ async function getAudioDuration(audioPath: string): Promise<number> {
  * 
  * الطريقة:
  * 1. استخراج مستويات الطاقة الصوتية (RMS) لكل إطار صغير (50ms)
- * 2. كشف القمم (peaks) التي تمثل نبضات الإيقاع
- * 3. حساب متوسط الفاصل بين النبضات = فاصل التصفيق
+ * 2. حساب التغير في الطاقة (energy delta) لكشف الارتفاعات المفاجئة
+ * 3. كشف القمم بعتبة تكيفية (adaptive threshold)
+ * 4. استخدام autocorrelation لإيجاد الفاصل الأكثر تكراراً
  * 
- * إذا فشل التحليل أو كان الصوت بدون إيقاع واضح، يُستخدم فاصل افتراضي
+ * مصممة للعمل مع الأصوات الغنائية والمحاورة (بدون فترات صمت واضحة)
  */
 async function analyzeRhythm(audioPath: string): Promise<number> {
   try {
     const duration = await getAudioDuration(audioPath);
     if (duration <= 0) return 0.75;
 
-    // استخراج مستويات الطاقة (RMS) لكل إطار 50ms باستخدام ffmpeg astats
-    // نحوّل الصوت إلى mono ونقسمه إلى إطارات صغيرة ونقيس الطاقة
+    // استخراج مستويات الطاقة (RMS) لكل إطار 50ms
     const frameSize = 0.05; // 50ms per frame
     const rmsCmd = `ffmpeg -i "${audioPath}" -af "asplit[a][b];[a]aresample=8000,astats=metadata=1:reset=${Math.round(1/frameSize)},ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-[out0];[b]anullsink" -f null - 2>/dev/null`;
     
@@ -95,7 +95,6 @@ async function analyzeRhythm(audioPath: string): Promise<number> {
       const { stdout } = await execAsync(rmsCmd, { maxBuffer: 50 * 1024 * 1024 });
       rmsOutput = stdout;
     } catch (e: any) {
-      // ffmpeg قد يخرج بكود خطأ لكن الـ stdout يحتوي البيانات
       if (e.stdout) rmsOutput = e.stdout;
     }
 
@@ -107,7 +106,7 @@ async function analyzeRhythm(audioPath: string): Promise<number> {
       const match = line.match(/=(-?[\d.]+)/);
       if (match) {
         const val = parseFloat(match[1]);
-        if (!isNaN(val) && val > -100) { // تجاهل الصمت الكامل
+        if (!isNaN(val) && val > -100) {
           rmsValues.push(val);
         }
       }
@@ -115,96 +114,112 @@ async function analyzeRhythm(audioPath: string): Promise<number> {
 
     console.log(`[SheelohaGenerator] RMS analysis: ${rmsValues.length} frames extracted`);
 
-    if (rmsValues.length < 4) {
-      // بيانات غير كافية - استخدام طريقة بديلة
+    if (rmsValues.length < 10) {
       return estimateIntervalFromDuration(duration);
     }
 
-    // كشف النبضات: البحث عن القمم في مستويات الطاقة
-    // نبضة = إطار أعلى من المتوسط + أعلى من الإطارين المجاورين
-    const avgRms = rmsValues.reduce((a, b) => a + b, 0) / rmsValues.length;
-    const threshold = avgRms + 3; // 3dB فوق المتوسط
+    // === الطريقة 1: كشف النبضات بالتغير في الطاقة (energy delta) ===
+    // بدلاً من البحث عن قمم مطلقة، نبحث عن ارتفاعات مفاجئة في الطاقة
+    // هذا يعمل أفضل مع الأصوات الغنائية المستمرة
+    const deltas: number[] = [0]; // الإطار الأول delta = 0
+    for (let i = 1; i < rmsValues.length; i++) {
+      // التغير الإيجابي فقط (ارتفاع الطاقة = بداية نبضة)
+      deltas.push(Math.max(0, rmsValues[i] - rmsValues[i - 1]));
+    }
+
+    // عتبة تكيفية: متوسط التغيرات الإيجابية + انحراف معياري
+    const posDeltas = deltas.filter(d => d > 0);
+    if (posDeltas.length < 3) {
+      console.log(`[SheelohaGenerator] Not enough energy changes, using duration-based estimate`);
+      return estimateIntervalFromDuration(duration);
+    }
     
-    const beatTimes: number[] = [];
-    let lastBeatFrame = -10; // منع اكتشاف نبضتين متقاربتين جداً
+    const avgDelta = posDeltas.reduce((a, b) => a + b, 0) / posDeltas.length;
+    const stdDelta = Math.sqrt(posDeltas.reduce((sum, d) => sum + (d - avgDelta) ** 2, 0) / posDeltas.length);
+    // عتبة منخفضة: المتوسط + 0.5 انحراف معياري (أكثر حساسية للأصوات الغنائية)
+    const deltaThreshold = avgDelta + 0.5 * stdDelta;
     
-    for (let i = 1; i < rmsValues.length - 1; i++) {
-      const current = rmsValues[i];
-      const prev = rmsValues[i - 1];
-      const next = rmsValues[i + 1];
-      
-      // شرط النبضة: أعلى من العتبة + أعلى من الجيران + فاصل كافٍ عن النبضة السابقة
-      if (current > threshold && current >= prev && current >= next && (i - lastBeatFrame) >= 4) {
-        beatTimes.push(i * frameSize);
-        lastBeatFrame = i;
+    const onsetTimes: number[] = [];
+    let lastOnsetFrame = -6;
+    
+    for (let i = 1; i < deltas.length; i++) {
+      if (deltas[i] > deltaThreshold && (i - lastOnsetFrame) >= 4) {
+        onsetTimes.push(i * frameSize);
+        lastOnsetFrame = i;
       }
     }
 
-    console.log(`[SheelohaGenerator] Detected ${beatTimes.length} beats in ${duration.toFixed(2)}s`);
+    console.log(`[SheelohaGenerator] Energy-delta onsets: ${onsetTimes.length} in ${duration.toFixed(2)}s (threshold=${deltaThreshold.toFixed(2)})`);
 
-    if (beatTimes.length >= 3) {
-      // حساب الفواصل بين النبضات
+    if (onsetTimes.length >= 4) {
       const intervals: number[] = [];
-      for (let i = 1; i < beatTimes.length; i++) {
-        intervals.push(beatTimes[i] - beatTimes[i - 1]);
+      for (let i = 1; i < onsetTimes.length; i++) {
+        intervals.push(onsetTimes[i] - onsetTimes[i - 1]);
       }
       
-      // ترتيب الفواصل وأخذ الوسيط (median) لتجنب القيم الشاذة
       intervals.sort((a, b) => a - b);
       const medianInterval = intervals[Math.floor(intervals.length / 2)];
       
-      // التأكد أن الفاصل في نطاق معقول للتصفيق (0.4 - 2.0 ثانية)
-      // نطاق واسع ليتناسب مع الأصوات البطيئة والسريعة
       let clapInterval = medianInterval;
       while (clapInterval < 0.4) clapInterval *= 2;
       while (clapInterval > 2.0) clapInterval /= 2;
       
-      console.log(`[SheelohaGenerator] Beat analysis: median interval=${medianInterval.toFixed(3)}s, clap interval=${clapInterval.toFixed(3)}s`);
+      console.log(`[SheelohaGenerator] Energy-delta result: median=${medianInterval.toFixed(3)}s, clap=${clapInterval.toFixed(3)}s`);
       return clapInterval;
     }
 
-    // لم نكتشف نبضات كافية - نجرب BPM estimation بطريقة أبسط
-    return await estimateBPMSimple(audioPath, duration);
+    // === الطريقة 2: Autocorrelation على منحنى الطاقة ===
+    // البحث عن الفاصل الزمني الأكثر تكراراً في نمط الطاقة
+    console.log(`[SheelohaGenerator] Trying autocorrelation method...`);
+    
+    // تطبيع القيم إلى [0,1]
+    const minRms = Math.min(...rmsValues);
+    const maxRms = Math.max(...rmsValues);
+    const range = maxRms - minRms;
+    const normalized = range > 0 
+      ? rmsValues.map(v => (v - minRms) / range)
+      : rmsValues.map(() => 0.5);
+    
+    // autocorrelation لفواصل من 0.3s إلى 2.5s
+    const minLag = Math.round(0.3 / frameSize);  // 6 frames
+    const maxLag = Math.min(Math.round(2.5 / frameSize), Math.floor(normalized.length / 2)); // max 50 frames
+    
+    let bestLag = minLag;
+    let bestCorr = -Infinity;
+    
+    for (let lag = minLag; lag <= maxLag; lag++) {
+      let corr = 0;
+      let count = 0;
+      for (let i = 0; i < normalized.length - lag; i++) {
+        corr += normalized[i] * normalized[i + lag];
+        count++;
+      }
+      corr /= count;
+      
+      if (corr > bestCorr) {
+        bestCorr = corr;
+        bestLag = lag;
+      }
+    }
+    
+    const autoInterval = bestLag * frameSize;
+    let clapInterval = autoInterval;
+    while (clapInterval < 0.4) clapInterval *= 2;
+    while (clapInterval > 2.0) clapInterval /= 2;
+    
+    console.log(`[SheelohaGenerator] Autocorrelation result: bestLag=${bestLag} (${autoInterval.toFixed(3)}s), corr=${bestCorr.toFixed(3)}, clap=${clapInterval.toFixed(3)}s`);
+    return clapInterval;
     
   } catch (error) {
     console.error("[SheelohaGenerator] Rhythm analysis failed:", error);
-    return 0.75; // فاصل افتراضي آمن
+    return 0.75;
   }
-}
-
-/**
- * تقدير BPM بطريقة بسيطة: تحليل الطاقة بنوافذ أكبر
- */
-async function estimateBPMSimple(audioPath: string, duration: number): Promise<number> {
-  try {
-    // استخراج الطاقة بنوافذ 100ms
-    const volCmd = `ffmpeg -i "${audioPath}" -af "volumedetect" -f null - 2>&1`;
-    const { stdout: volOut } = await execAsync(volCmd, { maxBuffer: 10 * 1024 * 1024 });
-    
-    // استخراج mean_volume
-    const meanMatch = volOut.match(/mean_volume:\s*(-?[\d.]+)/);
-    if (meanMatch) {
-      const meanVol = parseFloat(meanMatch[1]);
-      // أصوات أعلى (أقرب لـ 0dB) عادة أسرع إيقاعاً
-      // أصوات أهدأ (أبعد عن 0dB) عادة أبطأ
-      if (meanVol > -15) {
-        return 0.55; // إيقاع سريع نسبياً
-      } else if (meanVol > -25) {
-        return 0.70; // إيقاع متوسط
-      } else {
-        return 0.85; // إيقاع بطيء
-      }
-    }
-  } catch {}
-  
-  return estimateIntervalFromDuration(duration);
 }
 
 /**
  * تقدير فاصل التصفيق من المدة فقط (الخطة الأخيرة)
  */
 function estimateIntervalFromDuration(duration: number): number {
-  // فاصل أطول = تصفيق أبطأ وأكثر طبيعية
   if (duration <= 3) return 0.70;
   if (duration <= 6) return 0.75;
   if (duration <= 10) return 0.80;
