@@ -31,8 +31,39 @@ try {
 }
 
 // مسارات ملفات التصفيق
-const SINGLE_CLAP_PATH = path.join(currentDir, "sounds", "single-clap-short.mp3");
-const END_CLAPS_PATH = path.join(currentDir, "sounds", "sheeloha-claps.mp3");
+// في التطوير: currentDir = server/ → server/sounds/
+// في الإنتاج: currentDir = dist/ → نبحث في server/sounds/ (بجوار dist/)
+function resolveSoundPath(filename: string): string {
+  // المسار الأول: بجوار الملف الحالي (dev mode: server/sounds/)
+  const localPath = path.join(currentDir, "sounds", filename);
+  if (fs.existsSync(localPath)) return localPath;
+  
+  // المسار الثاني: مجلد server/sounds/ بجوار dist/ (production)
+  const prodPath = path.join(currentDir, "..", "server", "sounds", filename);
+  if (fs.existsSync(prodPath)) return prodPath;
+  
+  // المسار الثالث: مسار مطلق من جذر المشروع
+  const rootPath = path.join(process.cwd(), "server", "sounds", filename);
+  if (fs.existsSync(rootPath)) return rootPath;
+  
+  console.error(`[SheelohaGenerator] Sound file not found: ${filename}`);
+  console.error(`[SheelohaGenerator] Searched paths:`);
+  console.error(`  1. ${localPath}`);
+  console.error(`  2. ${prodPath}`);
+  console.error(`  3. ${rootPath}`);
+  console.error(`[SheelohaGenerator] currentDir: ${currentDir}`);
+  console.error(`[SheelohaGenerator] cwd: ${process.cwd()}`);
+  
+  // إرجاع المسار الأول كافتراضي (سيفشل لاحقاً مع رسالة واضحة)
+  return localPath;
+}
+
+const SINGLE_CLAP_PATH = resolveSoundPath("single-clap-short.mp3");
+const END_CLAPS_PATH = resolveSoundPath("sheeloha-claps.mp3");
+
+console.log(`[SheelohaGenerator] Sound paths resolved:`);
+console.log(`  Single clap: ${SINGLE_CLAP_PATH}`);
+console.log(`  End claps: ${END_CLAPS_PATH}`);
 
 // تسريع الشيلوها (الصفوف تردد أسرع من الأصلي)
 const SHEELOHA_SPEED_FACTOR = 1.08;
@@ -357,8 +388,10 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
     // aecho: صدى مسرحي خفيف
     // bass: عمق مسرحي
     // acompressor + alimiter: منع التشويه
+    // chorus: speeds منخفضة جداً (0.05-0.1) و depths صغيرة (0.3-0.5) لمنع التموج/vibrato
+    // الهدف: سماكة صوتية بدون تموج مسموع
     filters.push(
-      `[voices_raw]chorus=in_gain=0.7:out_gain=0.75:delays=25|35|45:decays=0.35|0.28|0.22:speeds=0.35|0.45|0.55:depths=2.5|3.0|2.0,aecho=in_gain=0.85:out_gain=0.45:delays=60|120:decays=0.25|0.15,bass=gain=3:frequency=120,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[voices_fx]`
+      `[voices_raw]chorus=in_gain=0.75:out_gain=0.8:delays=20|30|40:decays=0.3|0.25|0.2:speeds=0.05|0.07|0.1:depths=0.3|0.4|0.5,aecho=in_gain=0.85:out_gain=0.4:delays=50|100:decays=0.2|0.12,bass=gain=2:frequency=110,acompressor=threshold=-18dB:ratio=3:attack=20:release=250,alimiter=limit=0.95:level=0[voices_fx]`
     );
 
     // === الخطوة 3: دمج الأصوات المعالجة + التصفيق النظيف ===

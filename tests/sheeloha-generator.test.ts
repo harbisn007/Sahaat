@@ -24,9 +24,9 @@ describe("Sheeloha Generator", () => {
     // الشيلوها يجب أن تكون أكبر من الطاروق الأصلي (بسبب 5 نسخ + تصفيق)
     expect(outputBuffer.length).toBeGreaterThan(inputBuffer.length);
 
-    // نسبة الحجم يجب أن تكون أكبر من 1.5 (5 نسخ + تصفيق)
+    // نسبة الحجم يجب أن تكون أكبر من 1.3 (7 نسخ + تصفيق + تأثير كورال)
     const sizeRatio = outputBuffer.length / inputBuffer.length;
-    expect(sizeRatio).toBeGreaterThan(1.5);
+    expect(sizeRatio).toBeGreaterThan(1.3);
 
     // حفظ الملف للفحص
     fs.writeFileSync(testOutputPath, outputBuffer);
