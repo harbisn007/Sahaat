@@ -2251,3 +2251,11 @@
 - [x] جعل استيراد auth-service.ts ديناميكياً (lazy) في welcome.tsx و invite/[id].tsx
 - [x] إزالة expo-crypto من user-context.tsx (سابقاً)
 - [x] إزالة expo-crypto من auth-service.ts (سابقاً)
+
+## إصلاح مشاكل الصوت (12 فبراير 2026 - الدفعة 5)
+### أ. Android المثبت:
+- [x] فشل حفظ الرسالة الصوتية - إصلاح dynamic import لـ expo-file-system
+- [x] الشيلوها لا تشتغل - إصلاح expo-crypto/module 1523
+### ب. Expo Go:
+- [x] الطاروق يشتغل بصوت معدّل - السبب: uploadAudio كان يرفع processedBuffer (مسرّع) بدلاً من الأصلي
+- [x] الشيلوها مكتومة - السبب: generateSheeloha كانت تستقبل ملف مسرّع مسبقاً (تسريع مزدوج)

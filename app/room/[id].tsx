@@ -30,6 +30,7 @@ import { EditProfileModal } from "@/components/edit-profile-modal";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
+import * as FileSystem from "expo-file-system/legacy";
 
 export default function RoomScreen() {
   const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
@@ -1541,9 +1542,8 @@ export default function RoomScreen() {
           });
         } else {
           // Native: Read file as base64
-          const FileSystemModule = await import("expo-file-system/legacy");
-          base64Data = await FileSystemModule.readAsStringAsync(recording.uri, {
-            encoding: FileSystemModule.EncodingType.Base64,
+          base64Data = await FileSystem.readAsStringAsync(recording.uri, {
+            encoding: FileSystem.EncodingType.Base64,
           });
         }
         
