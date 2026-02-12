@@ -3,7 +3,7 @@
  * 
  * يأخذ الصوت الأصلي (بدون تسريع) وينشئ ملف شيلوها واحد يحتوي:
  * 1. تسريع الصوت بنسبة 1.08x
- * 2. تأثير الصفوف: 3 نسخ من الصوت بدرجات مختلفة (محاكاة جمهور)
+ * 2. تأثير الصفوف: 7 نسخ من الصوت بدرجات مختلفة (محاكاة جمهور)
  * 3. تصفيق إيقاعي متكرر (بناءً على تحليل الإيقاع الحقيقي للصوت)
  * 4. تصفيق ختامي بعد انتهاء الغناء
  * 
@@ -37,7 +37,7 @@ const END_CLAPS_PATH = path.join(currentDir, "sounds", "sheeloha-claps.mp3");
 const SHEELOHA_SPEED_FACTOR = 1.08;
 
 /**
- * إعدادات تأثير الصفوف (3 نسخ فقط - أوضح وأنظف)
+ * إعدادات تأثير الصفوف (7 نسخ - محاكاة جمهور أكبر)
  * 
  * نستخدم asetrate لتغيير pitch بدون rubberband:
  * - asetrate=44100*factor يغير pitch
@@ -47,9 +47,13 @@ const SHEELOHA_SPEED_FACTOR = 1.08;
  * pitchFactor < 1 = صوت أخفض (أغلظ)
  */
 const VOICE_COPIES = [
-  { delay: 0,    volume: 0.85, pitchFactor: 1.0   },  // صوت 1 - الأصلي (أعلى صوت)
-  { delay: 0.06, volume: 0.55, pitchFactor: 1.06  },  // صوت 2 - أعلى قليلاً (أحد)
-  { delay: 0.10, volume: 0.50, pitchFactor: 0.94  },  // صوت 3 - أخفض قليلاً (أغلظ)
+  { delay: 0, volume: 0.70, pitchFactor: 1.0   },  // صوت 1 - الأصلي (الأعلى)
+  { delay: 0, volume: 0.55, pitchFactor: 1.0   },  // صوت 2 - أصلي
+  { delay: 0, volume: 0.55, pitchFactor: 1.0   },  // صوت 3 - أصلي
+  { delay: 0, volume: 0.55, pitchFactor: 1.0   },  // صوت 4 - أصلي
+  { delay: 0, volume: 0.45, pitchFactor: 1.06  },  // صوت 5 - أعلى قليلاً (أحد)
+  { delay: 0, volume: 0.40, pitchFactor: 0.94  },  // صوت 6 - أخفض قليلاً (أغلظ)
+  { delay: 0, volume: 0.35, pitchFactor: 1.04  },  // صوت 7 - أعلى بقليل
 ];
 
 const CLAP_VOLUME = 0.50;
@@ -148,12 +152,11 @@ async function analyzeRhythm(audioPath: string): Promise<number> {
       intervals.sort((a, b) => a - b);
       const medianInterval = intervals[Math.floor(intervals.length / 2)];
       
-      // التأكد أن الفاصل في نطاق معقول للتصفيق (0.4 - 1.2 ثانية)
-      // إذا كان أقصر من 0.4 ثانية، نضاعفه (ربما اكتشفنا نصف النبضات)
-      // إذا كان أطول من 1.2 ثانية، ننصّفه
+      // التأكد أن الفاصل في نطاق معقول للتصفيق (0.4 - 2.0 ثانية)
+      // نطاق واسع ليتناسب مع الأصوات البطيئة والسريعة
       let clapInterval = medianInterval;
       while (clapInterval < 0.4) clapInterval *= 2;
-      while (clapInterval > 1.2) clapInterval /= 2;
+      while (clapInterval > 2.0) clapInterval /= 2;
       
       console.log(`[SheelohaGenerator] Beat analysis: median interval=${medianInterval.toFixed(3)}s, clap interval=${clapInterval.toFixed(3)}s`);
       return clapInterval;
@@ -259,36 +262,28 @@ export async function generateSheeloha(originalAudioBuffer: Buffer): Promise<Buf
     const filters: string[] = [];
     const voiceOutputs: string[] = [];
 
-    // === تأثير الصفوف: 3 نسخ من الصوت ===
+    // === تأثير الصفوف: 7 نسخ من الصوت ===
+    // تقسيم [0:a] إلى 7 نسخ باستخدام asplit
+    const voiceSrcLabels = VOICE_COPIES.map((_, i) => `vsrc${i}`);
+    filters.push(
+      `[0:a]asplit=${VOICE_COPIES.length}${voiceSrcLabels.map(l => `[${l}]`).join("")}`
+    );
+
     for (let i = 0; i < VOICE_COPIES.length; i++) {
       const v = VOICE_COPIES[i];
-      const delayMs = Math.round(v.delay * 1000);
       
       if (v.pitchFactor === 1.0) {
         // الصوت الأصلي - بدون تغيير pitch
-        if (delayMs > 0) {
-          filters.push(
-            `[0:a]volume=${v.volume},adelay=${delayMs}|${delayMs}[voice${i}]`
-          );
-        } else {
-          filters.push(
-            `[0:a]volume=${v.volume}[voice${i}]`
-          );
-        }
+        filters.push(
+          `[vsrc${i}]volume=${v.volume}[voice${i}]`
+        );
       } else {
         // تغيير pitch باستخدام asetrate + aresample (متوافق مع كل ffmpeg)
         const newRate = Math.round(sampleRate * v.pitchFactor);
         const tempoCorrection = (1 / v.pitchFactor).toFixed(6);
-        
-        if (delayMs > 0) {
-          filters.push(
-            `[0:a]asetrate=${newRate},atempo=${tempoCorrection},aresample=${sampleRate},volume=${v.volume},adelay=${delayMs}|${delayMs}[voice${i}]`
-          );
-        } else {
-          filters.push(
-            `[0:a]asetrate=${newRate},atempo=${tempoCorrection},aresample=${sampleRate},volume=${v.volume}[voice${i}]`
-          );
-        }
+        filters.push(
+          `[vsrc${i}]asetrate=${newRate},atempo=${tempoCorrection},aresample=${sampleRate},volume=${v.volume}[voice${i}]`
+        );
       }
       voiceOutputs.push(`[voice${i}]`);
     }
