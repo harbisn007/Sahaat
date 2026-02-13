@@ -15,7 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
-// شيلوها hooks removed - الشيلوها ستُعاد بمنطق جديد
+import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
 import { useSocket } from "@/hooks/use-socket";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
@@ -481,8 +481,11 @@ export default function RoomScreen() {
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
   // Tarouk player
   const { stopTarouk } = useTaroukPlayer();
+  
+  // مشغّل الشيلوها
+  const sheelohaPlayer = useSheelohaPlayer();
 
-  // إعداد Socket callbacks للشيلوها التلقائية والرسائل الصوتية
+  // إعداد Socket callbacks للرسائل الصوتية والشيلوها
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
     
@@ -502,8 +505,19 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Playing audio for listener:", data.messageType);
         play(data.audioUrl);
       },
+      
+      // استقبال أمر تشغيل الشيلوها بعد الطاروق
+      onPlaySheeloha: (data) => {
+        console.log("[RoomScreen] Play sheeloha via Socket.io:", data);
+        sheelohaPlayer.play({
+          taroukUrl: data.taroukUrl,
+          taroukDuration: data.taroukDuration,
+          clapUrl: data.clapUrl,
+          finalClapUrl: data.finalClapUrl,
+        });
+      },
     });
-  }, [roomId, setCallbacks, play, userId]);
+  }, [roomId, setCallbacks, play, userId, sheelohaPlayer]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
@@ -718,6 +732,9 @@ export default function RoomScreen() {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
       
       console.log("[RoomScreen] Khalooha command from:", latestKhaloohaCommand.username);
+      // إيقاف الشيلوها عند استقبال خلوها
+      sheelohaPlayer.stop();
+      stop(); // إيقاف أي صوت آخر
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
     }
@@ -2135,6 +2152,10 @@ export default function RoomScreen() {
                   justifyContent: 'center',
                 }}
                 onPress={async () => {
+                  // إيقاف الشيلوها محلياً فوراً
+                  sheelohaPlayer.stop();
+                  stop();
+                  
                   // بث أمر إيقاف للجميع
                   try {
                     console.log("[RoomScreen] Broadcasting khalooha command to all users");

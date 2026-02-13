@@ -66,6 +66,16 @@ interface ServerToClientEvents {
     userId: string;
     username: string;
   }) => void;
+  // حدث تشغيل الشيلوها بعد الطاروق
+  playSheeloha: (data: {
+    roomId: number;
+    taroukUrl: string;
+    taroukDuration: number;
+    clapUrl: string;
+    finalClapUrl: string;
+    userId: string;
+    username: string;
+  }) => void;
   // حدث إشعار المنشئ بطلب انضمام جديد
   creatorJoinRequest: (data: {
     roomId: number;
@@ -278,6 +288,14 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       userId: string;
       username: string;
     }) => void;
+    onPlaySheeloha?: (data: {
+      taroukUrl: string;
+      taroukDuration: number;
+      clapUrl: string;
+      finalClapUrl: string;
+      userId: string;
+      username: string;
+    }) => void;
   }>({});
 
   // الاتصال والانضمام للساحة
@@ -404,6 +422,14 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
+        // حدث تشغيل الشيلوها بعد الطاروق
+        socket.on("playSheeloha", (data) => {
+          if (data.roomId === roomId) {
+            console.log("[Socket.io] Received playSheeloha for room", roomId);
+            callbacksRef.current.onPlaySheeloha?.(data);
+          }
+        });
+
         // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
         socket.on("playAudioMessage", (data) => {
           console.log("[Socket.io] ========== RECEIVED playAudioMessage ==========");
@@ -463,6 +489,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("taroukControllerChanged");
         socketRef.current.off("sufoofSoundUpdated");
         socketRef.current.off("playAudioMessage");
+        socketRef.current.off("playSheeloha");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         

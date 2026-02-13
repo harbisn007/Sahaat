@@ -123,6 +123,17 @@ export interface ServerToClientEvents {
     username: string;
   }) => void;
   
+  // حدث تشغيل الشيلوها عند الجميع بعد الطاروق
+  playSheeloha: (data: {
+    roomId: number;
+    taroukUrl: string; // رابط صوت الطاروق الأصلي
+    taroukDuration: number; // مدة الطاروق بالثواني
+    clapUrl: string; // رابط صوت التصفيق الإيقاعي
+    finalClapUrl: string; // رابط صوت التصفيق الختامي
+    userId: string;
+    username: string;
+  }) => void;
+  
   // حدث إشعار المنشئ بطلب انضمام جديد
   creatorJoinRequest: (data: {
     roomId: number;
@@ -550,6 +561,32 @@ export function emitPlayAudioMessage(
   });
 }
 
+
+/**
+ * بث أمر تشغيل الشيلوها لجميع المتصلين في الساحة
+ * يُبث بعد انتهاء مدة الطاروق الأصلي
+ */
+export function emitPlaySheeloha(
+  roomId: number,
+  taroukUrl: string,
+  taroukDuration: number,
+  clapUrl: string,
+  finalClapUrl: string,
+  userId: string,
+  username: string
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("playSheeloha", {
+    roomId,
+    taroukUrl,
+    taroukDuration,
+    clapUrl,
+    finalClapUrl,
+    userId,
+    username,
+  });
+  console.log(`[Socket.io] playSheeloha broadcast to room ${roomId}`);
+}
 
 /**
  * بث إشعار طلب انضمام جديد للمنشئ عبر قناته الخاصة

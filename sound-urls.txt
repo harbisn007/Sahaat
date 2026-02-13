@@ -1,0 +1,2 @@
+single-clap-short.mp3: https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/single-clap-short.mp3
+sheeloha-claps.mp3: https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/sheeloha-claps.mp3
