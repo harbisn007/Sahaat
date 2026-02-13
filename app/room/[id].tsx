@@ -657,8 +657,6 @@ export default function RoomScreen() {
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [filteredAudioMessages, filteredReactions, localMessages]);
 
-  // Track played message IDs to avoid replaying
-  const [playedMessageIds, setPlayedMessageIds] = useState<Set<number>>(new Set());
   // Reactions picker state
   const [isReactionsPickerOpen, setIsReactionsPickerOpen] = useState(false);
 
@@ -695,89 +693,8 @@ export default function RoomScreen() {
 
   // تم إلغاء تحديث sufoofSound - الصوت الأصلي (lastTaroukUri) يُستخدم مباشرة
 
-  // Track messages (old messages marked as played for UI tracking only)
-  // Audio playback is handled via Socket.io from the server
-  // #6: الصوت يشتغل تلقائياً ولا ينتظر وجود المستخدم في الساحة
-  useEffect(() => {
-    if (!filteredAudioMessages || filteredAudioMessages.length === 0 || !isJoinedAtLoaded) return;
-
-    const joinTime = joinedAt.getTime();
-    
-    // Mark ALL old messages as played (before user joined) - for UI tracking only
-    const oldMessageIds: number[] = [];
-    filteredAudioMessages.forEach(msg => {
-      const messageTime = new Date(msg.createdAt).getTime();
-      if (messageTime < joinTime && !playedMessageIds.has(msg.id)) {
-        oldMessageIds.push(msg.id);
-      }
-    });
-    
-    // Mark old messages as played (UI tracking only - no audio playback)
-    if (oldMessageIds.length > 0) {
-      console.log("[RoomScreen] Marking old messages as played (UI only):", oldMessageIds);
-      setPlayedMessageIds(prev => {
-        const newSet = new Set(prev);
-        oldMessageIds.forEach(id => newSet.add(id));
-        return newSet;
-      });
-    }
-    
-    // NOTE: Audio playback is handled via Socket.io onPlayAudioMessage callback
-    // No local auto-play here to prevent double-play conflicts
-  }, [filteredAudioMessages, playedMessageIds, isJoinedAtLoaded, joinedAt]);
-
-  // تم إزالة نظام auto-play sheelohaBroadcasts
-  // التشغيل يتم فقط عبر Socket.io (onPlaySufoofSheeloha) لمنع التكرار والتداخل
-  // الضاغط يشغل محلياً فوراً، والآخرون يستقبلون عبر Socket.io
-
-  // Track played audio messages to avoid duplicate playback
-  const [playedAudioIds, setPlayedAudioIds] = useState<Set<string>>(new Set());
-  // Track whether initial old messages have been marked as played (to skip them)
-  const initialOldMarkedRef = useRef(false);
-
-  // Auto-play audio messages for other users (not the sender)
-  // Only play messages sent AFTER the user joined the room
-  useEffect(() => {
-    if (!audioMessages || audioMessages.length === 0 || !isJoinedAtLoaded) return;
-    
-    const joinTime = joinedAt.getTime();
-    
-    // On first load, mark ALL existing messages as "played" so they don't auto-play
-    if (!initialOldMarkedRef.current) {
-      initialOldMarkedRef.current = true;
-      const allExistingIds = new Set<string>();
-      audioMessages.forEach(msg => allExistingIds.add(msg.id));
-      setPlayedAudioIds(allExistingIds);
-      console.log("[RoomScreen] Marked all existing messages as played on entry:", allExistingIds.size);
-      return;
-    }
-    
-    // Get the latest audio message
-    const latestAudio = audioMessages[0];
-    
-    // Check if this is a NEW message (sent after joining) that hasn't been played yet
-    const messageTime = latestAudio ? new Date(latestAudio.createdAt).getTime() : 0;
-    if (
-      latestAudio &&
-      !playedAudioIds.has(latestAudio.id) &&
-      latestAudio.userId !== userId && // Only play if not the sender
-      messageTime >= joinTime // Only play messages sent AFTER user joined
-    ) {
-      console.log("[RoomScreen] Auto-playing NEW audio message from:", {
-        id: latestAudio.id,
-        username: latestAudio.username,
-        messageType: latestAudio.messageType,
-        senderUserId: latestAudio.userId,
-        currentUserId: userId
-      });
-      
-      // Mark as played
-      setPlayedAudioIds(prev => new Set(prev).add(latestAudio.id));
-      
-      // Play the audio
-      play(latestAudio.audioUrl);
-    }
-  }, [audioMessages, playedAudioIds, userId, play, isJoinedAtLoaded, joinedAt]);
+  // تشغيل الصوت يتم فقط عبر Socket.io (onPlayAudioMessage) - فوري بدون انتظار
+  // لا يوجد auto-play من polling لمنع التكرار والتأخير
 
   // Listen for khalooha commands and stop sheeloha for all users
   const [lastProcessedKhaloohaId, setLastProcessedKhaloohaId] = useState<number | null>(null);
