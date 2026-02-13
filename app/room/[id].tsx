@@ -1556,17 +1556,19 @@ export default function RoomScreen() {
         });
         const { url } = uploadResult;
         const sheelohaUrl = uploadResult.sheelohaUrl;
+        const sheelohaError = (uploadResult as any).sheelohaError;
         
         console.log("[RoomScreen] ========== UPLOAD RESULT ==========");
         console.log("[RoomScreen] Tarouk URL:", url);
         console.log("[RoomScreen] Sheeloha URL:", sheelohaUrl || "NONE - SHEELOHA NOT GENERATED");
+        console.log("[RoomScreen] Sheeloha Error:", sheelohaError || "none");
         console.log("[RoomScreen] Is Tarouk:", isTarouk);
         
         // === DEBUG ALERT (مؤقت للتشخيص) ===
-        if (isTarouk) {
+        if (isTarouk && !sheelohaUrl) {
           Alert.alert(
             "تشخيص الشيلوها",
-            `الطاروق: ${url ? 'نعم' : 'لا'}\nالشيلوها: ${sheelohaUrl ? 'نعم ✅' : 'لا ❌ - لم يتم إنشاؤها'}\n\nSheeloha URL: ${sheelohaUrl ? sheelohaUrl.substring(0, 60) + '...' : 'undefined'}`
+            `الطاروق: ${url ? 'نعم ✅' : 'لا ❌'}\nالشيلوها: لم يتم إنشاؤها ❌\n${sheelohaError ? 'الخطأ: ' + sheelohaError : 'لا توجد تفاصيل'}`
           );
         }
         

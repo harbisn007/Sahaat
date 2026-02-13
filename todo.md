@@ -2244,3 +2244,9 @@
 - [ ] إصلاح fallback لعدم إرجاع الطاروق الأصلي أبداً
 - [ ] إضافة logs لمعرفة سبب فشل ffmpeg
 - [ ] إذا فشل كلياً لا يُرسل sheelohaUrl (undefined)
+
+## إصلاح مشكلة Sheeloha URL undefined على Android APK
+- [x] تحديث EXPO_PUBLIC_API_BASE_URL للإشارة إلى الخادم الصحيح
+- [x] إضافة رسالة خطأ واضحة في uploadAudio عند فشل الشيلوها
+- [x] نسخ ملفات الصوت (sounds/) إلى dist/ أثناء البناء
+- [x] إضافة تسجيل أخطاء مفصّل مرئي للكلاينت

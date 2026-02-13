@@ -503,11 +503,13 @@ export const appRouter = router({
           console.log("[uploadAudio] Sheeloha file generated and uploaded:", sheelohaUrl);
         } catch (error) {
           const errMsg = error instanceof Error ? error.message : String(error);
+          const errStack = error instanceof Error ? error.stack : 'N/A';
           console.error("[uploadAudio] ========== SHEELOHA GENERATION FAILED ==========");
           console.error(`[uploadAudio] Error: ${errMsg}`);
-          console.error(`[uploadAudio] Stack: ${error instanceof Error ? error.stack : 'N/A'}`);
+          console.error(`[uploadAudio] Stack: ${errStack}`);
           console.error(`[uploadAudio] This means the sheeloha will NOT play for anyone!`);
-          // لا نفشل العملية كلها إذا فشل إنشاء الشيلوها
+          // لا نفشل العملية كلها لكن نرسل تفاصيل الخطأ للكلاينت
+          return { url, sheelohaUrl: undefined, sheelohaError: errMsg };
         }
       }
       
