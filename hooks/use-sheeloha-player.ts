@@ -10,7 +10,6 @@
  */
 
 import { useRef, useCallback } from "react";
-import { Platform } from "react-native";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 
 interface SheelohaData {
@@ -59,26 +58,16 @@ export function useSheelohaPlayer() {
       if (!isPlayingRef.current) return null;
       
       // ضبط audio mode للتشغيل في الوضع الصامت
-      if (Platform.OS !== "web") {
-        try {
-          await AudioModule.setAudioModeAsync({
-            playsInSilentMode: true,
-            allowsRecording: false,
-          });
-        } catch (e) {
-          // ignore - may already be set
-        }
+      try {
+        await AudioModule.setAudioModeAsync({
+          playsInSilentMode: true,
+          allowsRecording: false,
+        });
+      } catch (e) {
+        // ignore - may already be set or not supported on web
       }
       
-      if (Platform.OS === "web") {
-        // على الويب نستخدم HTML5 Audio
-        const audio = new Audio(url);
-        audio.volume = volume;
-        audio.play().catch(() => {});
-        return null;
-      }
-      
-      // على Native نستخدم createAudioPlayer (نفس الطريقة المجربة والعاملة)
+      // استخدام createAudioPlayer على كل المنصات (نفس الطريقة المجربة والعاملة)
       const player = createAudioPlayer(url);
       player.volume = volume;
       playersRef.current.push(player);

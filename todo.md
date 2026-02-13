@@ -2293,3 +2293,6 @@
 ## [BUG] شيلوها لا تعمل على Android - Cannot convert URL to Kotlin
 - [x] إصلاح use-sheeloha-player.ts: استخدام createAudioPlayer بدلاً من new AudioPlayer
 - [x] التأكد من أن الأصوات تُحمّل وتُشغّل بشكل صحيح على Android
+
+## [BUG] شيلوها لا تعمل - Platform.OS يرجع web على Android
+- [x] إزالة فرع new Audio(url) واستخدام createAudioPlayer فقط على كل المنصات
