@@ -11,7 +11,6 @@ export const CONFIG = {
     audioMessages: 2000,   // الرسائل الصوتية
     reactions: 2000,       // التفاعلات
     activeRecordings: 500, // حالة التسجيل (يحتاج سرعة عالية)
-    sheeloha: 1000,        // شيلوها
     khalooha: 1000,        // خلوها
     joinRequests: 2000,    // طلبات الانضمام
   },
@@ -22,7 +21,6 @@ export const CONFIG = {
     audioMessages: 10000,
     reactions: 10000,
     activeRecordings: 5000,
-    sheeloha: 10000,
     khalooha: 10000,
     joinRequests: 10000,
   },
@@ -39,10 +37,7 @@ export const CONFIG = {
     maxDuration: 60, // بالثواني
   },
   
-  // إعدادات شيلوها
-  sheeloha: {
-    duration: 4000, // مدة تشغيل شيلوها بالمللي ثانية
-  },
+
 };
 
 /**

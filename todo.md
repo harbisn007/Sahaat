@@ -2256,3 +2256,19 @@
 - [x] إعادة كتابة sheeloha-generator لاستخدام ffmpeg-static بدلاً من ffmpeg النظام
 - [x] اختبار على الخادم - 114 اختبار ناجح
 - [ ] التأكد من عمل الشيلوها على Android APK (يحتاج نشر واختبار من المستخدم)
+
+## تنظيف: إزالة كل معالجة الشيلوها من الخادم
+- [x] حذف sheeloha-generator.ts بالكامل
+- [x] إزالة ffmpeg-static و ffprobe-static من dependencies
+- [x] إزالة كود إنشاء الشيلوها من uploadAudio في routers.ts
+- [x] إزالة sheelohaUrl من audio.create mutation
+- [x] إزالة بث الشيلوها المزدوج (setTimeout) من audio.create
+- [x] إزالة debug endpoint الخاص بالشيلوها
+- [x] تنظيف الكلاينت من كود تشغيل الشيلوها المزدوج
+- [x] الاحتفاظ بملفات: single-clap-short.mp3 و sheeloha-claps.mp3
+- [x] إزالة sheeloha router بالكامل (broadcast/list/playSufoof)
+- [x] إزالة socketSheelohaBroadcast و sheelohaBroadcasts و isSheelohaActiveGlobally من الكلاينت
+- [x] إزالة createSheelohaBroadcastMutation و playSufoofMutation
+- [x] إزالة hooks: use-sheeloha-player.ts و use-auto-sheeloha.ts
+- [x] إزالة اختبارات: auto-sheeloha.test.ts
+- [x] الاحتفاظ بخلوها كما هي

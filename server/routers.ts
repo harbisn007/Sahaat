@@ -14,16 +14,13 @@ import {
   emitAudioMessageCreated,
   emitReactionCreated,
   emitRecordingStatusChanged,
-  emitSheelohaBroadcast,
   emitKhaloohaCommand,
-  emitStopAndPlayNewSheeloha,
   emitPublicInviteCreated,
   emitPublicInviteExpired,
   getOnlineUsersCount,
   getActiveUsersCount,
   recordUserActivity,
   emitSufoofSoundUpdated,
-  emitPlaySufoofSheeloha,
   emitPlayAudioMessage,
   emitCreatorJoinRequest,
 } from "./_core/socket";
@@ -386,16 +383,11 @@ export const appRouter = router({
           username: z.string(),
           messageType: z.enum(["comment", "tarouk"]),
           audioUrl: z.string(),
-          sheelohaUrl: z.string().optional(), // رابط ملف الشيلوها المدمج (للطاروق فقط)
           duration: z.number(),
         })
       )
       .mutation(async ({ input }) => {
-        console.log(`[audio.create] ========== NEW AUDIO MESSAGE ==========`);
-        console.log(`[audio.create] Type: ${input.messageType}`);
-        console.log(`[audio.create] Audio URL: ${input.audioUrl}`);
-        console.log(`[audio.create] Sheeloha URL: ${input.sheelohaUrl || 'NONE - NO SHEELOHA'}`);
-        console.log(`[audio.create] Duration: ${input.duration}s`);
+        console.log(`[audio.create] Type: ${input.messageType}, Duration: ${input.duration}s`);
         
         const messageId = await db.addAudioMessage(input);
         const now = new Date();
@@ -419,39 +411,8 @@ export const appRouter = router({
           input.audioUrl,
           input.messageType,
           input.userId,
-          input.username,
-          input.sheelohaUrl
+          input.username
         );
-        
-        // إذا كان طاروق مع شيلوها: بث الشيلوها للجميع (بما فيهم المرسل) بعد مدة الطاروق
-        if (input.messageType === "tarouk" && input.sheelohaUrl) {
-          // تأخير بسيط فقط (300ms) بعد مدة الطاروق لضمان انتهاء التشغيل
-          const taroukDurationMs = Math.max((input.duration || 3) * 1000 + 300, 2000);
-          const sheelohaUrlToPlay = input.sheelohaUrl;
-          
-          console.log(`[audio.create] ========== SHEELOHA SCHEDULED ==========`);
-          console.log(`[audio.create] Tarouk audioUrl: ${input.audioUrl}`);
-          console.log(`[audio.create] Sheeloha URL:    ${sheelohaUrlToPlay}`);
-          console.log(`[audio.create] URLs are same?   ${input.audioUrl === sheelohaUrlToPlay}`);
-          console.log(`[audio.create] Will broadcast sheeloha after ${taroukDurationMs}ms`);
-          
-          setTimeout(() => {
-            console.log(`[audio.create] ========== BROADCASTING SHEELOHA NOW ==========`);
-            console.log(`[audio.create] Sheeloha URL being sent: ${sheelohaUrlToPlay}`);
-            emitPlayAudioMessage(
-              input.roomId,
-              messageId,
-              sheelohaUrlToPlay,
-              "tarouk",
-              input.userId,
-              input.username,
-              undefined,
-              true // isSheeloha = true
-            );
-          }, taroukDurationMs);
-        } else if (input.messageType === "tarouk" && !input.sheelohaUrl) {
-          console.log(`[audio.create] WARNING: Tarouk WITHOUT sheelohaUrl - sheeloha will NOT play!`);
-        }
         
         return { messageId };
       }),
@@ -475,8 +436,6 @@ export const appRouter = router({
     )
     .mutation(async ({ input }) => {
       const { storagePut } = await import("./storage");
-      const { speedUpAudio } = await import("./audio-processor");
-      const { generateSheeloha } = await import("./sheeloha-generator");
       
       // Convert base64 to buffer
       const buffer: Buffer = Buffer.from(input.base64Data, "base64");
@@ -486,38 +445,11 @@ export const appRouter = router({
       const randomSuffix = Math.random().toString(36).substring(7);
       const fileKey = `audio/${timestamp}-${randomSuffix}-${input.fileName}`;
       
-      // رفع الصوت الأصلي (بدون تسريع) كطاروق - المستمعون يسمعون الصوت الأصلي
+      // رفع الصوت على S3
       const { url } = await storagePut(fileKey, buffer, "audio/mp4");
-      console.log("[uploadAudio] Original audio uploaded as tarouk (no speed up)");
+      console.log("[uploadAudio] Audio uploaded:", url);
       
-      // إنشاء ملف الشيلوها المدمج للطاروق فقط
-      // generateSheeloha تسرّع الصوت داخلياً + تضيف صفوف + تصفيق إيقاعي + تصفيق ختامي
-      let sheelohaUrl: string | undefined;
-      if (input.speedUp) {
-        try {
-          console.log("[uploadAudio] Generating sheeloha from ORIGINAL audio (sheeloha handles speed internally)...");
-          const sheelohaBuffer = await generateSheeloha(buffer);
-          const sheelohaKey = `audio/${timestamp}-${randomSuffix}-sheeloha-${input.fileName}`;
-          const sheelohaResult = await storagePut(sheelohaKey, sheelohaBuffer, "audio/mp4");
-          sheelohaUrl = sheelohaResult.url;
-          console.log("[uploadAudio] Sheeloha file generated and uploaded:", sheelohaUrl);
-        } catch (error) {
-          const errMsg = error instanceof Error ? error.message : String(error);
-          const errStack = error instanceof Error ? error.stack : 'N/A';
-          console.error("[uploadAudio] ========== SHEELOHA GENERATION FAILED ==========");
-          console.error(`[uploadAudio] Error: ${errMsg}`);
-          console.error(`[uploadAudio] Stack: ${errStack}`);
-          console.error(`[uploadAudio] This means the sheeloha will NOT play for anyone!`);
-          // لا نفشل العملية كلها لكن نرسل تفاصيل الخطأ للكلاينت
-          return { url, sheelohaUrl: undefined, sheelohaError: errMsg };
-        }
-      }
-      
-      console.log(`[uploadAudio] ========== UPLOAD COMPLETE ==========`);
-      console.log(`[uploadAudio] Tarouk URL:   ${url}`);
-      console.log(`[uploadAudio] Sheeloha URL: ${sheelohaUrl || 'UNDEFINED - NOT GENERATED'}`);
-      console.log(`[uploadAudio] URLs same?    ${url === sheelohaUrl}`);
-      return { url, sheelohaUrl };
+      return { url };
     }),
 
   // Reactions router
@@ -591,80 +523,7 @@ export const appRouter = router({
       }),
   }),
 
-  // Sheeloha broadcasts router
-  sheeloha: router({
-    // Create a sheeloha broadcast (when someone presses "شيلوها" button)
-    broadcast: publicProcedure
-      .input(
-        z.object({
-          roomId: z.number(),
-          userId: z.string(),
-          username: z.string(),
-          audioUrl: z.string(),
-          clappingDelay: z.number().min(0).max(1.5).default(0.5), // سرعة التصفيق من المتحكم
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          console.log("[API] Creating sheeloha broadcast:", input);
-          const broadcastId = await db.createSheelohaBroadcast(input);
-          console.log("[API] Sheeloha broadcast created with ID:", broadcastId);
-          
-          // بث إيقاف الصوت القديم وتشغيل الجديد لجميع المشاركين
-          emitStopAndPlayNewSheeloha(
-            input.roomId,
-            input.userId,
-            input.audioUrl,
-            input.clappingDelay
-          );
-          
-          return { broadcastId };
-        } catch (error) {
-          console.error("[API] Failed to create sheeloha broadcast:", error);
-          throw new Error("فشل بث شيلوها");
-        }
-      }),
-
-    // Get recent sheeloha broadcasts for a room
-    list: publicProcedure
-      .input(z.object({ roomId: z.number() }))
-      .query(async ({ input }) => {
-        return db.getRecentSheelohaBroadcasts(input.roomId, 10);
-      }),
-
-    // شيلوها الجديدة - تشغيل صوت الصفوف مع التصفيق عند الجميع
-    playSufoof: publicProcedure
-      .input(
-        z.object({
-          roomId: z.number(),
-          userId: z.string(),
-          username: z.string(),
-          audioUrl: z.string(), // رابط الصوت الأصلي
-          clappingDelay: z.number().min(0).max(1.5).default(0.5), // سرعة التصفيق
-        })
-      )
-      .mutation(async ({ input }) => {
-        try {
-          console.log("[API] Playing sufoof sheeloha:", input);
-          
-          // بث شيلوها لجميع المشاركين (الصوت الأصلي)
-          emitPlaySufoofSheeloha(
-            input.roomId,
-            input.audioUrl,
-            input.clappingDelay,
-            input.userId,
-            input.username
-          );
-          
-          return { success: true };
-        } catch (error) {
-          console.error("[API] Failed to play sufoof sheeloha:", error);
-          throw new Error("فشل تشغيل شيلوها");
-        }
-      }),
-  }),
-
-  // Khalooha commands router (stop sheeloha for all users)
+  // Khalooha commands router
   khalooha: router({
     // Create a khalooha command (when someone presses "خلوها" button)
     stop: publicProcedure

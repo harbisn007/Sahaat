@@ -36,14 +36,6 @@ interface ServerToClientEvents {
     isRecording: boolean; 
     recordingType: string;
   }) => void;
-  sheelohaBroadcast: (data: { 
-    roomId: number; 
-    userId: string; 
-    username: string;
-    audioUrl: string;
-    clappingDelay: number;
-    createdAt: string;
-  }) => void;
   khaloohaCommand: (data: { 
     roomId: number; 
     userId: string; 
@@ -56,12 +48,6 @@ interface ServerToClientEvents {
     controller: "creator" | "player1" | "player2" | null;
     changedBy: string;
   }) => void;
-  stopAndPlayNewSheeloha: (data: { 
-    roomId: number; 
-    userId: string;
-    audioUrl: string;
-    clappingDelay: number;
-  }) => void;
   // حدث تحديث صوت الصفوف (Choir Effect)
   sufoofSoundUpdated: (data: {
     roomId: number;
@@ -71,14 +57,6 @@ interface ServerToClientEvents {
     username: string;
     createdAt: string;
   }) => void;
-  // حدث شيلوها - تشغيل الصوت الأصلي مع التصفيق
-  playSufoofSheeloha: (data: {
-    roomId: number;
-    audioUrl: string;
-    clappingDelay: number;
-    userId: string;
-    username: string;
-  }) => void;
   // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
   playAudioMessage: (data: {
     roomId: number;
@@ -87,8 +65,6 @@ interface ServerToClientEvents {
     messageType: string;
     userId: string;
     username: string;
-    sheelohaUrl?: string;
-    isSheeloha?: boolean; // هل هذا بث شيلوها للجميع
   }) => void;
   // حدث إشعار المنشئ بطلب انضمام جديد
   creatorJoinRequest: (data: {
@@ -279,13 +255,6 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       isRecording: boolean; 
       recordingType: string;
     }) => void;
-    onSheelohaBroadcast?: (data: { 
-      userId: string; 
-      username: string;
-      audioUrl: string;
-      clappingDelay: number;
-      createdAt: string;
-    }) => void;
     onKhaloohaCommand?: (data: { 
       userId: string; 
       username: string;
@@ -295,11 +264,6 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       controller: "creator" | "player1" | "player2" | null;
       changedBy: string;
     }) => void;
-    onStopAndPlayNewSheeloha?: (data: { 
-      userId: string;
-      audioUrl: string;
-      clappingDelay: number;
-    }) => void;
     onSufoofSoundUpdated?: (data: {
       audioUrl: string;
       choirAudioUrl: string;
@@ -307,20 +271,12 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       username: string;
       createdAt: string;
     }) => void;
-    onPlaySufoofSheeloha?: (data: {
-      audioUrl: string;
-      clappingDelay: number;
-      userId: string;
-      username: string;
-    }) => void;
     onPlayAudioMessage?: (data: {
       messageId: number;
       audioUrl: string;
       messageType: string;
       userId: string;
       username: string;
-      sheelohaUrl?: string;
-      isSheeloha?: boolean;
     }) => void;
   }>({});
 
@@ -428,12 +384,6 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
-        socket.on("sheelohaBroadcast", (data) => {
-          if (data.roomId === roomId) {
-            callbacksRef.current.onSheelohaBroadcast?.(data);
-          }
-        });
-
         socket.on("khaloohaCommand", (data) => {
           if (data.roomId === roomId) {
             callbacksRef.current.onKhaloohaCommand?.(data);
@@ -447,24 +397,10 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
-        socket.on("stopAndPlayNewSheeloha", (data) => {
-          if (data.roomId === roomId) {
-            callbacksRef.current.onStopAndPlayNewSheeloha?.(data);
-          }
-        });
-
         // حدث تحديث صوت الصفوف (Choir Effect)
         socket.on("sufoofSoundUpdated", (data) => {
           if (data.roomId === roomId) {
             callbacksRef.current.onSufoofSoundUpdated?.(data);
-          }
-        });
-
-        // حدث شيلوها الجديد - تشغيل صوت الصفوف مع التصفيق
-        socket.on("playSufoofSheeloha", (data) => {
-          if (data.roomId === roomId) {
-            console.log("[Socket.io] Received playSufoofSheeloha:", data);
-            callbacksRef.current.onPlaySufoofSheeloha?.(data);
           }
         });
 
@@ -523,12 +459,9 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("audioMessageCreated");
         socketRef.current.off("reactionCreated");
         socketRef.current.off("recordingStatusChanged");
-        socketRef.current.off("sheelohaBroadcast");
         socketRef.current.off("khaloohaCommand");
         socketRef.current.off("taroukControllerChanged");
-        socketRef.current.off("stopAndPlayNewSheeloha");
         socketRef.current.off("sufoofSoundUpdated");
-        socketRef.current.off("playSufoofSheeloha");
         socketRef.current.off("playAudioMessage");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");

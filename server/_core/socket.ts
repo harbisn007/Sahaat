@@ -85,15 +85,7 @@ export interface ServerToClientEvents {
     recordingType: string;
   }) => void;
   
-  // أحداث شيلوها وخلوها
-  sheelohaBroadcast: (data: { 
-    roomId: number; 
-    userId: string; 
-    username: string;
-    audioUrl: string;
-    clappingDelay: number; // سرعة التصفيق من المتحكم
-    createdAt: string;
-  }) => void;
+  // حدث خلوها
   khaloohaCommand: (data: { 
     roomId: number; 
     userId: string; 
@@ -111,14 +103,6 @@ export interface ServerToClientEvents {
     changedBy: string;
   }) => void;
   
-  // حدث إيقاف الصوت القديم وتشغيل الجديد
-  stopAndPlayNewSheeloha: (data: { 
-    roomId: number; 
-    userId: string;
-    audioUrl: string;
-    clappingDelay: number;
-  }) => void;
-  
   // حدث تحديث صوت الصفوف (Choir Effect)
   sufoofSoundUpdated: (data: {
     roomId: number;
@@ -129,15 +113,6 @@ export interface ServerToClientEvents {
     createdAt: string;
   }) => void;
   
-  // حدث شيلوها - تشغيل الصوت الأصلي مع التصفيق
-  playSufoofSheeloha: (data: {
-    roomId: number;
-    audioUrl: string; // رابط الصوت الأصلي
-    clappingDelay: number; // سرعة التصفيق من العجلة
-    userId: string;
-    username: string;
-  }) => void;
-  
   // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
   playAudioMessage: (data: {
     roomId: number;
@@ -146,8 +121,6 @@ export interface ServerToClientEvents {
     messageType: string; // "tarouk" | "comment"
     userId: string;
     username: string;
-    sheelohaUrl?: string;
-    isSheeloha?: boolean; // هل هذا بث شيلوها للجميع
   }) => void;
   
   // حدث إشعار المنشئ بطلب انضمام جديد
@@ -448,27 +421,6 @@ export function emitRecordingStatusChanged(
   });
 }
 
-/**
- * بث شيلوها
- */
-export function emitSheelohaBroadcast(
-  roomId: number, 
-  userId: string, 
-  username: string,
-  audioUrl: string,
-  clappingDelay: number,
-  createdAt: Date
-): void {
-  if (!io) return;
-  io.to(`room:${roomId}`).emit("sheelohaBroadcast", { 
-    roomId, 
-    userId, 
-    username,
-    audioUrl,
-    clappingDelay,
-    createdAt: createdAt.toISOString(),
-  });
-}
 
 /**
  * بث خلوها
@@ -488,25 +440,6 @@ export function emitKhaloohaCommand(
   });
 }
 
-
-/**
- * بث إيقاف الصوت القديم وتشغيل الجديد
- */
-export function emitStopAndPlayNewSheeloha(
-  roomId: number,
-  userId: string,
-  audioUrl: string,
-  clappingDelay: number
-): void {
-  if (!io) return;
-  io.to(`room:${roomId}`).emit("stopAndPlayNewSheeloha", {
-    roomId,
-    userId,
-    audioUrl,
-    clappingDelay,
-  });
-  console.log(`[Socket.io] Stop and play new sheeloha in room ${roomId}`);
-}
 
 /**
  * بث حذف الساحة لجميع المتصلين (للتنظيف التلقائي)
@@ -583,28 +516,6 @@ export function emitSufoofSoundUpdated(
 }
 
 
-/**
- * بث شيلوها - تشغيل الصوت الأصلي مع التصفيق عند الجميع
- */
-export function emitPlaySufoofSheeloha(
-  roomId: number,
-  audioUrl: string,
-  clappingDelay: number,
-  userId: string,
-  username: string
-): void {
-  if (!io) return;
-  // استبعاد الضاغط من البث - هو يشغل محلياً بالفعل
-  io.to(`room:${roomId}`).except(`user:${userId}`).emit("playSufoofSheeloha", {
-    roomId,
-    audioUrl,
-    clappingDelay,
-    userId,
-    username,
-  });
-  console.log(`[Socket.io] Play sufoof sheeloha in room ${roomId} (excluding sender ${userId}): ${audioUrl}`);
-}
-
 
 /**
  * بث تشغيل رسالة صوتية عند الجميع في الساحة
@@ -615,9 +526,7 @@ export function emitPlayAudioMessage(
   audioUrl: string,
   messageType: string,
   userId: string,
-  username: string,
-  sheelohaUrl?: string,
-  isSheeloha?: boolean
+  username: string
 ): void {
   if (!io) {
     console.error("[Socket.io] ERROR: io is null, cannot emit playAudioMessage");
@@ -628,41 +537,17 @@ export function emitPlayAudioMessage(
   const room = io.sockets.adapter.rooms.get(roomName);
   const socketsInRoom = room ? room.size : 0;
   
-  console.log(`[Socket.io] ========== EMITTING playAudioMessage ==========`);
-  console.log(`[Socket.io] Room: ${roomName}`);
-  console.log(`[Socket.io] Sockets in room: ${socketsInRoom}`);
-  console.log(`[Socket.io] Message type: ${messageType}`);
-  console.log(`[Socket.io] Audio URL: ${audioUrl}`);
-  console.log(`[Socket.io] Sheeloha URL: ${sheelohaUrl || 'none'}`);
-  console.log(`[Socket.io] User: ${username} (${userId})`);
+  console.log(`[Socket.io] playAudioMessage: ${messageType} to room ${roomName} (${socketsInRoom} sockets, excluding sender ${userId})`);
   
-  if (isSheeloha) {
-    // الشيلوها: بث للجميع بما فيهم المرسل
-    io.to(roomName).emit("playAudioMessage", {
-      roomId,
-      messageId,
-      audioUrl,
-      messageType,
-      userId,
-      username,
-      sheelohaUrl,
-      isSheeloha: true,
-    });
-    console.log(`[Socket.io] Sheeloha broadcast to ALL ${socketsInRoom} sockets (including sender)`);
-  } else {
-    // الطاروق/التعليق: استبعاد المرسل (يشغل محلياً)
-    io.to(roomName).except(`user:${userId}`).emit("playAudioMessage", {
-      roomId,
-      messageId,
-      audioUrl,
-      messageType,
-      userId,
-      username,
-      sheelohaUrl,
-      isSheeloha: false,
-    });
-    console.log(`[Socket.io] playAudioMessage emitted to ${socketsInRoom} sockets (excluding sender ${userId})`);
-  }
+  // الطاروق/التعليق: بث للجميع ما عدا المرسل (يشغل محلياً)
+  io.to(roomName).except(`user:${userId}`).emit("playAudioMessage", {
+    roomId,
+    messageId,
+    audioUrl,
+    messageType,
+    userId,
+    username,
+  });
 }
 
 

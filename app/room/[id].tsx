@@ -15,8 +15,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
-import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
-import { useAutoSheeloha } from "@/hooks/use-auto-sheeloha";
+// شيلوها hooks removed - الشيلوها ستُعاد بمنطق جديد
 import { useSocket } from "@/hooks/use-socket";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
@@ -176,7 +175,7 @@ export default function RoomScreen() {
   const [socketAudioMessages, setSocketAudioMessages] = useState<any[]>([]);
   const [socketReactions, setSocketReactions] = useState<any[]>([]);
   const [socketActiveRecordings, setSocketActiveRecordings] = useState<any[]>([]);
-  const [socketSheelohaBroadcast, setSocketSheelohaBroadcast] = useState<any | null>(null);
+
   const [socketKhaloohaCommand, setSocketKhaloohaCommand] = useState<any | null>(null);
   // حالة محلية لطلبات الانضمام (فوري عبر Socket.io)
   const [socketJoinRequests, setSocketJoinRequests] = useState<any[]>([]);
@@ -255,14 +254,6 @@ export default function RoomScreen() {
           }
         });
       },
-      // استماع لشيلوها
-      onSheelohaBroadcast: (data) => {
-        console.log("[RoomScreen] Sheeloha broadcast via Socket.io:", data);
-        setSocketSheelohaBroadcast({
-          id: Date.now(),
-          ...data,
-        });
-      },
       // استماع لخلوها
       onKhaloohaCommand: (data) => {
         console.log("[RoomScreen] Khalooha command via Socket.io:", data);
@@ -307,8 +298,7 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Tarouk controller changed via Socket.io:", data);
         setTaroukController(data.controller);
       },
-      // استماع لإيقاف الصوت القديم وتشغيل الجديد (مزامنة) - سيتم إعداده لاحقاً بعد تعريف useSheelohaPlayer
-      // onStopAndPlayNewSheeloha سيتم إعداده في useEffect منفصل بعد تعريف stopSheeloha و playSheeloha
+
     });
   }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
 
@@ -412,8 +402,6 @@ export default function RoomScreen() {
   useEffect(() => {
     return () => {
       stop();
-      stopSheeloha();
-      stopAutoSheeloha();
       stopTarouk();
     };
   }, []);
@@ -422,8 +410,6 @@ export default function RoomScreen() {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
       // إيقاف جميع الأصوات عند الخروج
       stop();
-      stopSheeloha();
-      stopAutoSheeloha();
       stopTarouk();
       
       // المنشئ لا يُحذف عند مغادرة الصفحة
@@ -449,8 +435,7 @@ export default function RoomScreen() {
   const createReactionMutation = trpc.reactions.create.useMutation();
   const createAudioMutation = trpc.audio.create.useMutation();
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
-  const createSheelohaBroadcastMutation = trpc.sheeloha.broadcast.useMutation();
-  const playSufoofMutation = trpc.sheeloha.playSufoof.useMutation();
+
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
 
@@ -494,23 +479,8 @@ export default function RoomScreen() {
     return () => clearTimeout(timer);
   }, [requestPermissions]);
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
-  // Sheeloha player - plays tarouk 3 times overlapping with distance effect
-  const { 
-    isPlaying: isSheelohaPlaying, 
-    isProcessing: isSheelohaProcessing, 
-    playSheeloha,
-    stopSheeloha 
-  } = useSheelohaPlayer();
-  
   // Tarouk player
   const { stopTarouk } = useTaroukPlayer();
-
-  // Auto Sheeloha - تشغيل تلقائي بعد الطاروق (ملف مدمج من الخادم)
-  const { 
-    isPlaying: isAutoSheelohaPlaying, 
-    playSheeloha: playAutoSheeloha, 
-    stopSheeloha: stopAutoSheeloha 
-  } = useAutoSheeloha();
 
   // إعداد Socket callbacks للشيلوها التلقائية والرسائل الصوتية
   useEffect(() => {
@@ -522,16 +492,9 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
         const isSender = data.userId === userId;
         
-        // الشيلوها: تشغيل عند الجميع بما فيهم المرسل (تأتي من الخادم فقط)
-        if (data.isSheeloha) {
-          console.log("[RoomScreen] Playing sheeloha from server for EVERYONE (including sender)");
-          playAutoSheeloha(data.audioUrl);
-          return;
-        }
-        
-        // المرسل: يتجاهل الطاروق/التعليق (يشغلهم محلياً)
+        // المرسل: يتجاهل (يشغل محلياً)
         if (isSender) {
-          console.log("[RoomScreen] Sender skipping tarouk/comment broadcast - plays locally");
+          console.log("[RoomScreen] Sender skipping broadcast - plays locally");
           return;
         }
         
@@ -540,7 +503,7 @@ export default function RoomScreen() {
         play(data.audioUrl);
       },
     });
-  }, [roomId, setCallbacks, play, userId, playAutoSheeloha]);
+  }, [roomId, setCallbacks, play, userId]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
@@ -553,10 +516,7 @@ export default function RoomScreen() {
     { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
   );
 
-  const { data: initialSheelohaBroadcasts, refetch: refetchSheelohaBroadcasts } = trpc.sheeloha.list.useQuery(
-    { roomId },
-    { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
-  );
+
   
   // دمج البيانات الأولية مع التحديثات عبر Socket.io
   const audioMessages = useMemo(() => {
@@ -585,32 +545,7 @@ export default function RoomScreen() {
     return merged.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [initialReactions, socketReactions]);
   
-  const sheelohaBroadcasts = useMemo(() => {
-    const initial = initialSheelohaBroadcasts || [];
-    if (socketSheelohaBroadcast) {
-      // إضافة البث الجديد في البداية
-      return [socketSheelohaBroadcast, ...initial.filter(b => b.id !== socketSheelohaBroadcast.id)];
-    }
-    return initial;
-  }, [initialSheelohaBroadcasts, socketSheelohaBroadcast]);
 
-  // Check if there's an active sheeloha broadcast (within last 4 seconds)
-  // This is used to disable the sheeloha button for all users while playing
-  // Also check if khalooha was pressed recently to stop the sheeloha
-  const [sheelohaDisabledUntil, setSheelohaDisabledUntil] = useState<number>(0);
-  
-  const isSheelohaActiveGlobally = useMemo(() => {
-    // If manually disabled (by khalooha), check if still in disabled period
-    if (Date.now() < sheelohaDisabledUntil) return false;
-    
-    if (!sheelohaBroadcasts || sheelohaBroadcasts.length === 0) return false;
-    const latestBroadcast = sheelohaBroadcasts[0];
-    const broadcastTime = new Date(latestBroadcast.createdAt).getTime();
-    const now = Date.now();
-    const timeSinceBroadcast = now - broadcastTime;
-    // Sheeloha plays for about 3.5 seconds, add buffer
-    return timeSinceBroadcast < 10000; // 10 seconds
-  }, [sheelohaBroadcasts, sheelohaDisabledUntil]);
 
   // جلب أولي لأمر خلوها (بدون polling - التحديثات عبر Socket.io)
   const { data: initialKhaloohaCommand } = trpc.khalooha.latest.useQuery(
@@ -754,7 +689,7 @@ export default function RoomScreen() {
       duration: lastTarouk.duration,
     });
     
-    // Return audio URL string for playSheeloha
+    // Return audio URL string for sheeloha button
     return lastTarouk.audioUrl;
   }, [audioMessages]); // Use full audioMessages as dependency to catch all changes
 
@@ -865,15 +800,11 @@ export default function RoomScreen() {
       // Mark as processed
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
       
-      // Stop sheeloha for this user (both old and auto)
-      stopSheeloha();
-      stopAutoSheeloha();
-      console.log("[RoomScreen] Sheeloha stopped by khalooha command from:", latestKhaloohaCommand.username);
+      console.log("[RoomScreen] Khalooha command from:", latestKhaloohaCommand.username);
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
-      // Mark own command as processed without stopping (already stopped locally)
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
     }
-  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, stopSheeloha, stopAutoSheeloha, userId]);
+  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1385,7 +1316,6 @@ export default function RoomScreen() {
     // كتم جميع الأصوات المشغلة أثناء التسجيل
     console.log("[RoomScreen] Stopping all audio before recording...");
     stop(); // إيقاف تشغيل الرسائل الصوتية
-    stopSheeloha(); // إيقاف شيلوها
     stopTarouk(); // إيقاف طاروق
     
     try {
@@ -1547,46 +1477,27 @@ export default function RoomScreen() {
           });
         }
         
-        // Upload to S3 (مع تسريع 1.15 للطاروق + إنشاء شيلوها مدمجة)
+        // رفع الصوت على S3
         const isTarouk = currentRecordingType === "tarouk";
         const uploadResult = await uploadAudioMutation.mutateAsync({
           base64Data,
           fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
-          speedUp: isTarouk, // تسريع الطاروق فقط
+          speedUp: isTarouk,
         });
         const { url } = uploadResult;
-        const sheelohaUrl = uploadResult.sheelohaUrl;
-        const sheelohaError = (uploadResult as any).sheelohaError;
         
-        console.log("[RoomScreen] ========== UPLOAD RESULT ==========");
-        console.log("[RoomScreen] Tarouk URL:", url);
-        console.log("[RoomScreen] Sheeloha URL:", sheelohaUrl || "NONE - SHEELOHA NOT GENERATED");
-        console.log("[RoomScreen] Sheeloha Error:", sheelohaError || "none");
-        console.log("[RoomScreen] Is Tarouk:", isTarouk);
+        console.log("[RoomScreen] Audio uploaded:", url);
         
-        // === DEBUG ALERT (مؤقت للتشخيص) ===
-        if (isTarouk && !sheelohaUrl) {
-          Alert.alert(
-            "تشخيص الشيلوها",
-            `الطاروق: ${url ? 'نعم ✅' : 'لا ❌'}\nالشيلوها: لم يتم إنشاؤها ❌\n${sheelohaError ? 'الخطأ: ' + sheelohaError : 'لا توجد تفاصيل'}`
-          );
-        }
-        
-        // ===== تشغيل محلي فوري للمسجّل =====
-        // الطاروق: يشغل محلياً فقط - الشيلوها تأتي من الخادم للجميع
-        // التعليق: يشغل محلياً فقط
-        console.log("[RoomScreen] Playing recorded audio LOCALLY for the recorder:", url);
+        // تشغيل محلي فوري للمسجّل
         play(url);
         
-        // Save to database with S3 URL (with actual duration from recording)
-        // الخادم سيبث للجميع (including sender for sheeloha)
+        // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
         await createAudioMutation.mutateAsync({
           roomId,
           userId,
           username,
           messageType: currentRecordingType,
           audioUrl: url,
-          sheelohaUrl: sheelohaUrl,
           duration: recording.duration || 0,
         });
         
@@ -2299,7 +2210,7 @@ export default function RoomScreen() {
               <TouchableOpacity
                 style={{
                   backgroundColor: "#5D4037",
-                  opacity: isAutoSheelohaPlaying ? 1 : 0.5,
+                  opacity: 0.5,
                   width: 56,
                   height: 56,
                   borderRadius: 12,
@@ -2307,11 +2218,6 @@ export default function RoomScreen() {
                   justifyContent: 'center',
                 }}
                 onPress={async () => {
-                  // إيقاف الشيلوها التلقائية والقديمة محلياً
-                  stopAutoSheeloha();
-                  stopSheeloha();
-                  setSheelohaDisabledUntil(0);
-                  
                   // بث أمر إيقاف للجميع
                   try {
                     console.log("[RoomScreen] Broadcasting khalooha command to all users");
