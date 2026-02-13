@@ -76,20 +76,53 @@ async function startServer() {
     
     const checks: Record<string, any> = {};
     
-    // 1. فحص ffmpeg
+    // 1. فحص ffmpeg النظام
     try {
       const { stdout } = await execAsync("ffmpeg -version");
-      checks.ffmpeg = { available: true, version: stdout.split('\n')[0] };
+      checks.systemFfmpeg = { available: true, version: stdout.split('\n')[0] };
     } catch (e) {
-      checks.ffmpeg = { available: false, error: String(e) };
+      checks.systemFfmpeg = { available: false, error: String(e) };
+    }
+    
+    // 1b. فحص ffmpeg-static (المضمّن)
+    try {
+      const { createRequire } = await import("module");
+      const require = createRequire(import.meta.url);
+      const ffmpegStaticPath = require("ffmpeg-static");
+      const ffmpegExists = fs.existsSync(ffmpegStaticPath);
+      if (ffmpegExists) {
+        const { stdout } = await execAsync(`"${ffmpegStaticPath}" -version`);
+        checks.ffmpegStatic = { available: true, path: ffmpegStaticPath, version: stdout.split('\n')[0] };
+      } else {
+        checks.ffmpegStatic = { available: false, path: ffmpegStaticPath, error: "Binary not found at path" };
+      }
+    } catch (e) {
+      checks.ffmpegStatic = { available: false, error: String(e) };
     }
     
     // 2. فحص ffprobe
     try {
       const { stdout } = await execAsync("ffprobe -version");
-      checks.ffprobe = { available: true, version: stdout.split('\n')[0] };
+      checks.systemFfprobe = { available: true, version: stdout.split('\n')[0] };
     } catch (e) {
-      checks.ffprobe = { available: false, error: String(e) };
+      checks.systemFfprobe = { available: false, error: String(e) };
+    }
+    
+    // 2b. فحص ffprobe-static
+    try {
+      const { createRequire } = await import("module");
+      const require = createRequire(import.meta.url);
+      const ffprobeStatic = require("ffprobe-static");
+      const ffprobePath = ffprobeStatic.path || ffprobeStatic;
+      const ffprobeExists = fs.existsSync(ffprobePath);
+      if (ffprobeExists) {
+        const { stdout } = await execAsync(`"${ffprobePath}" -version`);
+        checks.ffprobeStatic = { available: true, path: ffprobePath, version: stdout.split('\n')[0] };
+      } else {
+        checks.ffprobeStatic = { available: false, path: ffprobePath, error: "Binary not found" };
+      }
+    } catch (e) {
+      checks.ffprobeStatic = { available: false, error: String(e) };
     }
     
     // 3. فحص ملفات التصفيق
@@ -128,10 +161,20 @@ async function startServer() {
       checks.env.tmpdirError = String(e);
     }
     
-    // 5. اختبار إنشاء ملف صوتي بسيط بـ ffmpeg
+    // 5. تحديد مسار ffmpeg المستخدم (مضمّن أو نظام)
+    let ffmpegCmd = "ffmpeg";
+    try {
+      const { createRequire: cr } = await import("module");
+      const req = cr(import.meta.url);
+      const staticPath = req("ffmpeg-static");
+      if (staticPath && fs.existsSync(staticPath)) ffmpegCmd = `"${staticPath}"`;
+    } catch {}
+    checks.ffmpegUsed = ffmpegCmd;
+    
+    // 5b. اختبار إنشاء ملف صوتي بسيط
     try {
       const testOutput = path.join(os.tmpdir(), `sheeloha-test-${Date.now()}.m4a`);
-      await execAsync(`ffmpeg -y -f lavfi -i "sine=frequency=440:duration=1" -c:a aac -b:a 64k "${testOutput}"`, { timeout: 10000 });
+      await execAsync(`${ffmpegCmd} -y -f lavfi -i "sine=frequency=440:duration=1" -c:a aac -b:a 64k "${testOutput}"`, { timeout: 10000 });
       const stat = fs.statSync(testOutput);
       checks.ffmpegTest = { success: true, outputSize: stat.size };
       fs.unlinkSync(testOutput);
@@ -143,7 +186,7 @@ async function startServer() {
     try {
       const testAudioPath = path.join(os.tmpdir(), `sheeloha-test-input-${Date.now()}.m4a`);
       // إنشاء ملف صوتي تجريبي (2 ثواني)
-      await execAsync(`ffmpeg -y -f lavfi -i "sine=frequency=300:duration=2" -c:a aac -b:a 64k "${testAudioPath}"`, { timeout: 10000 });
+      await execAsync(`${ffmpegCmd} -y -f lavfi -i "sine=frequency=300:duration=2" -c:a aac -b:a 64k "${testAudioPath}"`, { timeout: 10000 });
       const testBuffer = fs.readFileSync(testAudioPath);
       fs.unlinkSync(testAudioPath);
       
