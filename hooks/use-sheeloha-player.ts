@@ -6,12 +6,12 @@
  * 2. الجولة الثانية: طاروق بمستوى 35% مع تأثير Chorus + تصفيق إيقاعي
  * 3. التصفيق الختامي
  * 
- * يعمل عبر expo-audio (لا يعتمد على Web Audio API لأنه غير متوفر في React Native)
+ * يستخدم createAudioPlayer (نفس الطريقة المستخدمة في use-audio-player.ts التي تعمل)
  */
 
 import { useRef, useCallback } from "react";
 import { Platform } from "react-native";
-import { AudioModule } from "expo-audio";
+import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 
 interface SheelohaData {
   taroukUrl: string;
@@ -23,7 +23,7 @@ interface SheelohaData {
 export function useSheelohaPlayer() {
   const isPlayingRef = useRef(false);
   const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const playersRef = useRef<InstanceType<typeof AudioModule.AudioPlayer>[]>([]);
+  const playersRef = useRef<AudioPlayer[]>([]);
   
   /**
    * إيقاف جميع الأصوات والمؤقتات
@@ -52,19 +52,34 @@ export function useSheelohaPlayer() {
   
   /**
    * تشغيل صوت واحد بمستوى صوت محدد
+   * يستخدم createAudioPlayer (نفس الطريقة التي تعمل في use-audio-player.ts)
    */
-  const playSound = useCallback(async (url: string, volume: number): Promise<InstanceType<typeof AudioModule.AudioPlayer> | null> => {
+  const playSound = useCallback(async (url: string, volume: number): Promise<AudioPlayer | null> => {
     try {
-      // Use dynamic import for expo-audio to create player
-      const { AudioModule: AM } = await import("expo-audio");
-      const { setAudioModeAsync } = await import("expo-audio");
+      if (!isPlayingRef.current) return null;
       
-      // Ensure audio plays in silent mode
+      // ضبط audio mode للتشغيل في الوضع الصامت
       if (Platform.OS !== "web") {
-        await setAudioModeAsync({ playsInSilentMode: true });
+        try {
+          await AudioModule.setAudioModeAsync({
+            playsInSilentMode: true,
+            allowsRecording: false,
+          });
+        } catch (e) {
+          // ignore - may already be set
+        }
       }
       
-      const player = new AM.AudioPlayer(url, 0.1, false);
+      if (Platform.OS === "web") {
+        // على الويب نستخدم HTML5 Audio
+        const audio = new Audio(url);
+        audio.volume = volume;
+        audio.play().catch(() => {});
+        return null;
+      }
+      
+      // على Native نستخدم createAudioPlayer (نفس الطريقة المجربة والعاملة)
+      const player = createAudioPlayer(url);
       player.volume = volume;
       playersRef.current.push(player);
       
@@ -101,7 +116,6 @@ export function useSheelohaPlayer() {
    * 
    * التسلسل:
    * 1. جولة 1: طاروق (45% صوت) + تصفيق إيقاعي - تأثير Delay+Detune
-   *    (نشغل الطاروق بسرعة مختلفة قليلاً لمحاكاة التأثير)
    * 2. جولة 2: طاروق (35% صوت) + تصفيق إيقاعي - تأثير Chorus
    * 3. تصفيق ختامي
    */
@@ -121,19 +135,18 @@ export function useSheelohaPlayer() {
     console.log("[Sheeloha] Round 1: Delay+Detune at 45% volume");
     
     // تشغيل الطاروق الأصلي بمستوى 45%
-    const round1Player = await playSound(taroukUrl, 0.45);
+    await playSound(taroukUrl, 0.45);
     
     // تشغيل نسخة ثانية بتأخير بسيط لمحاكاة Delay+Detune
     const t1 = setTimeout(async () => {
       if (!isPlayingRef.current) return;
       const delayedPlayer = await playSound(taroukUrl, 0.25);
       if (delayedPlayer) {
-        // تغيير السرعة قليلاً لمحاكاة Detune
         try {
           delayedPlayer.playbackRate = 1.02; // أعلى قليلاً
         } catch (e) { /* rate not supported on all platforms */ }
       }
-    }, 60); // تأخير 60ms
+    }, 60);
     timeoutsRef.current.push(t1);
     
     // نسخة ثالثة بتأخير أكبر
@@ -145,7 +158,7 @@ export function useSheelohaPlayer() {
           delayedPlayer2.playbackRate = 0.98; // أخفض قليلاً
         } catch (e) { /* rate not supported on all platforms */ }
       }
-    }, 120); // تأخير 120ms
+    }, 120);
     timeoutsRef.current.push(t1b);
     
     // تصفيق إيقاعي للجولة الأولى
@@ -182,11 +195,11 @@ export function useSheelohaPlayer() {
       
       // تصفيق إيقاعي للجولة الثانية
       playClapLoop(clapUrl, roundDurationMs, 0.45);
-    }, roundDurationMs + 500); // فاصلة 500ms بين الجولتين
+    }, roundDurationMs + 500);
     timeoutsRef.current.push(t2);
     
     // === التصفيق الختامي - بعد انتهاء الجولتين ===
-    const totalWait = (roundDurationMs * 2) + 1500; // جولتين + فواصل
+    const totalWait = (roundDurationMs * 2) + 1500;
     const t3 = setTimeout(async () => {
       if (!isPlayingRef.current) return;
       console.log("[Sheeloha] Final clapping");
@@ -198,7 +211,7 @@ export function useSheelohaPlayer() {
           console.log("[Sheeloha] Complete");
           isPlayingRef.current = false;
         }
-      }, 5000); // التصفيق الختامي ~5 ثواني
+      }, 5000);
       timeoutsRef.current.push(t4);
     }, totalWait);
     timeoutsRef.current.push(t3);

@@ -2289,3 +2289,7 @@
 - [x] ربط خلوها بإيقاف الشيلوها عند الجميع
 - [x] ربط playSheeloha callback في room/[id].tsx
 - [ ] اختبار على الجوال بعد النشر
+
+## [BUG] شيلوها لا تعمل على Android - Cannot convert URL to Kotlin
+- [x] إصلاح use-sheeloha-player.ts: استخدام createAudioPlayer بدلاً من new AudioPlayer
+- [x] التأكد من أن الأصوات تُحمّل وتُشغّل بشكل صحيح على Android
