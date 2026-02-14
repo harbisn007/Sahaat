@@ -2,7 +2,8 @@
  * Sheeloha Player Hook
  * 
  * بعد انتهاء تشغيل الطاروق:
- * - تشغيل الطاروق بمستوى 35%
+ * - تشغيل الطاروق بطبقة صوت مختلفة (playbackRate = 1.12) بمستوى 35%
+ *   هذا يجعل الصوت أعلى طبقة (كأنه شخص آخر يردد)
  * - تصفيق إيقاعي كل 0.96 ثانية بمستوى 35%
  * - تكرار لا نهائي حتى يضغط أحد "خلوها"
  * - عند خلوها: إيقاف فوري + تصفيق ختامي مرة واحدة بمستوى 25%
@@ -14,6 +15,9 @@ import { useRef, useCallback } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { Platform } from "react-native";
 
+// سرعة/طبقة صوت الشيلوها - أعلى من الأصلي ليبدو كشخص مختلف
+const SHEELOHA_RATE = 1.12;
+
 interface SheelohaData {
   taroukUrl: string;
   taroukDuration: number;
@@ -22,11 +26,14 @@ interface SheelohaData {
 }
 
 // دالة مساعدة: إنشاء مشغل على الجوال مع انتظار التحميل
-function createNativePlayerAsync(url: string, volume: number): Promise<AudioPlayer | null> {
+function createNativePlayerAsync(url: string, volume: number, rate?: number): Promise<AudioPlayer | null> {
   return new Promise((resolve) => {
     try {
       const player = createAudioPlayer(url);
       player.volume = volume;
+      if (rate && rate !== 1) {
+        try { player.playbackRate = rate; } catch (_) { /* بعض المنصات لا تدعم */ }
+      }
 
       // انتظار التحميل عبر playbackStatusUpdate
       const onStatus = (status: { isLoaded: boolean }) => {
@@ -108,9 +115,10 @@ export function useSheelohaPlayer() {
     if (!isPlayingRef.current || !dataRef.current) return;
 
     const { taroukUrl, taroukDuration, clapUrl } = dataRef.current;
-    const roundMs = taroukDuration * 1000;
+    // المدة الفعلية أقصر لأن السرعة أعلى
+    const roundMs = (taroukDuration / SHEELOHA_RATE) * 1000;
 
-    console.log("[Sheeloha] Round start, duration:", taroukDuration, "s, platform:", Platform.OS);
+    console.log("[Sheeloha] Round start, duration:", taroukDuration, "s, effective:", (taroukDuration / SHEELOHA_RATE).toFixed(2), "s, rate:", SHEELOHA_RATE);
 
     // تنظيف المشغلات السابقة (بدون إيقاف isPlaying)
     if (clapTimerRef.current) {
@@ -124,17 +132,17 @@ export function useSheelohaPlayer() {
 
     if (isWeb) {
       // ===== الويب: HTML5 Audio =====
-      // تنظيف السابق
       if (webTaroukRef.current) {
         try { webTaroukRef.current.pause(); webTaroukRef.current.src = ""; } catch (_) {}
       }
 
-      // طاروق
+      // طاروق بطبقة صوت مختلفة
       const taroukAudio = new Audio(taroukUrl);
       taroukAudio.volume = 0.35;
+      taroukAudio.playbackRate = SHEELOHA_RATE;
       webTaroukRef.current = taroukAudio;
       try { await taroukAudio.play(); } catch (e) { console.error("[Sheeloha] Web tarouk play error:", e); }
-      console.log("[Sheeloha] Web tarouk playing");
+      console.log("[Sheeloha] Web tarouk playing at rate", SHEELOHA_RATE);
 
       // تصفيق كل 0.96 ثانية
       const CLAP_INTERVAL = 960;
@@ -151,23 +159,21 @@ export function useSheelohaPlayer() {
 
     } else {
       // ===== الجوال: expo-audio مع انتظار التحميل =====
-      // تنظيف السابق
       if (nativeTaroukRef.current) {
         try { nativeTaroukRef.current.pause(); } catch (_) {}
         try { nativeTaroukRef.current.release(); } catch (_) {}
       }
 
-      // طاروق: إنشاء + انتظار التحميل + تشغيل
-      const tp = await createNativePlayerAsync(taroukUrl, 0.35);
+      // طاروق بطبقة صوت مختلفة + انتظار التحميل
+      const tp = await createNativePlayerAsync(taroukUrl, 0.35, SHEELOHA_RATE);
       if (!isPlayingRef.current) {
-        // تم الإيقاف أثناء الانتظار
         if (tp) { try { tp.release(); } catch (_) {} }
         return;
       }
       nativeTaroukRef.current = tp;
       if (tp) {
         tp.play();
-        console.log("[Sheeloha] Native tarouk playing");
+        console.log("[Sheeloha] Native tarouk playing at rate", SHEELOHA_RATE);
       }
 
       // تصفيق كل 0.96 ثانية
@@ -175,7 +181,6 @@ export function useSheelohaPlayer() {
       const playNativeClap = async () => {
         if (!isPlayingRef.current) return;
         try {
-          // تحرير السابق
           if (nativeClapRef.current) {
             try { nativeClapRef.current.release(); } catch (_) {}
           }
@@ -191,7 +196,7 @@ export function useSheelohaPlayer() {
       clapTimerRef.current = setInterval(playNativeClap, CLAP_INTERVAL);
     }
 
-    // بعد انتهاء مدة الطاروق: ابدأ جولة جديدة
+    // بعد انتهاء مدة الطاروق (المعدّلة بالسرعة): ابدأ جولة جديدة
     loopTimerRef.current = setTimeout(() => {
       if (!isPlayingRef.current) return;
       playOneRound();
@@ -202,13 +207,11 @@ export function useSheelohaPlayer() {
    * تشغيل الشيلوها
    */
   const play = useCallback(async (data: SheelohaData) => {
-    console.log("[Sheeloha] play() called, duration:", data.taroukDuration, "s, platform:", Platform.OS);
+    console.log("[Sheeloha] play() called, duration:", data.taroukDuration, "s, rate:", SHEELOHA_RATE);
 
-    // إيقاف أي شيلوها سابقة
     isPlayingRef.current = false;
     cleanup();
 
-    // ضبط audio mode على الجوال
     if (!isWeb) {
       try {
         await AudioModule.setAudioModeAsync({
@@ -221,7 +224,6 @@ export function useSheelohaPlayer() {
     isPlayingRef.current = true;
     dataRef.current = data;
 
-    // ابدأ أول جولة
     await playOneRound();
   }, [cleanup, playOneRound, isWeb]);
 
@@ -237,7 +239,6 @@ export function useSheelohaPlayer() {
     const finalClapUrl = dataRef.current?.finalClapUrl;
     cleanup();
 
-    // تصفيق ختامي مرة واحدة بمستوى 25%
     if (finalClapUrl) {
       try {
         if (isWeb) {
