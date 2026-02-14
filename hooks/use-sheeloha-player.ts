@@ -1,13 +1,14 @@
 /**
  * Sheeloha Player Hook
  * 
- * بعد الطاروق مباشرة:
- * - تشغيل الطاروق بتأثير كورس (عدة نسخ بتأخيرات وسرعات مختلفة) بمستوى 35%
+ * بعد انتهاء تشغيل الطاروق:
+ * - تشغيل الطاروق بمستوى 35% (نسخة واحدة فقط - بسيط وموثوق)
  * - تصفيق إيقاعي كل 0.96 ثانية بمستوى 35%
  * - تكرار لا نهائي حتى يضغط أحد "خلوها"
  * - عند خلوها: إيقاف فوري + تصفيق ختامي مرة واحدة بمستوى 25%
  * 
- * يستخدم createAudioPlayer (نفس الطريقة المستخدمة في use-audio-player.ts)
+ * مبسّط للعمل على الجوال: مشغّلان فقط (طاروق + تصفيق)
+ * بدلاً من إنشاء عشرات المشغلات التي تفشل على Android/iOS
  */
 
 import { useRef, useCallback } from "react";
@@ -22,121 +23,114 @@ interface SheelohaData {
 
 export function useSheelohaPlayer() {
   const isPlayingRef = useRef(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const playersRef = useRef<AudioPlayer[]>([]);
+  const taroukPlayerRef = useRef<AudioPlayer | null>(null);
+  const clapPlayerRef = useRef<AudioPlayer | null>(null);
   const dataRef = useRef<SheelohaData | null>(null);
+  const clapTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
-   * إنشاء مشغل صوت وإضافته للقائمة
-   */
-  const makePlayer = useCallback((url: string, volume: number): AudioPlayer | null => {
-    try {
-      const p = createAudioPlayer(url);
-      p.volume = volume;
-      playersRef.current.push(p);
-      return p;
-    } catch (e) {
-      console.error("[Sheeloha] makePlayer failed:", e);
-      return null;
-    }
-  }, []);
-
-  /**
-   * تنظيف جميع المؤقتات والمشغلات
+   * تنظيف كل شيء
    */
   const cleanup = useCallback(() => {
-    // إيقاف جميع المؤقتات
-    for (const t of timersRef.current) clearTimeout(t);
-    timersRef.current = [];
+    // إيقاف المؤقتات
+    if (clapTimerRef.current) {
+      clearInterval(clapTimerRef.current);
+      clapTimerRef.current = null;
+    }
     if (loopTimerRef.current) {
       clearTimeout(loopTimerRef.current);
       loopTimerRef.current = null;
     }
-    // إيقاف وتحرير جميع المشغلات
-    for (const p of playersRef.current) {
-      try { p.pause(); } catch (_) { /* */ }
-      try { p.release(); } catch (_) { /* */ }
+    // إيقاف وتحرير المشغلات
+    if (taroukPlayerRef.current) {
+      try { taroukPlayerRef.current.pause(); } catch (_) { /* */ }
+      try { taroukPlayerRef.current.release(); } catch (_) { /* */ }
+      taroukPlayerRef.current = null;
     }
-    playersRef.current = [];
+    if (clapPlayerRef.current) {
+      try { clapPlayerRef.current.pause(); } catch (_) { /* */ }
+      try { clapPlayerRef.current.release(); } catch (_) { /* */ }
+      clapPlayerRef.current = null;
+    }
   }, []);
 
   /**
-   * تشغيل جولة واحدة من الشيلوها (كورس + تصفيق)
-   * تُعيد Promise تنتهي بعد مدة الطاروق
+   * تشغيل جولة واحدة: طاروق واحد + تصفيق متكرر
    */
   const playOneRound = useCallback(() => {
-    const data = dataRef.current;
-    if (!data || !isPlayingRef.current) return;
+    if (!isPlayingRef.current || !dataRef.current) return;
 
-    const { taroukUrl, taroukDuration, clapUrl } = data;
+    const { taroukUrl, taroukDuration, clapUrl } = dataRef.current;
     const roundMs = taroukDuration * 1000;
 
-    console.log("[Sheeloha] Starting round, duration:", taroukDuration, "s");
+    console.log("[Sheeloha] Round start, duration:", taroukDuration, "s");
 
-    // === الكورس: عدة نسخ من الطاروق بتأخيرات وسرعات مختلفة ===
-    // النسخة الرئيسية (الأعلى صوتاً)
-    const main = makePlayer(taroukUrl, 0.35);
-    if (main) main.play();
-
-    // نسخ الكورس بتأخيرات بسيطة
-    const chorusVoices = [
-      { delay: 30,  volume: 0.20, rate: 1.015 },
-      { delay: 60,  volume: 0.18, rate: 0.985 },
-      { delay: 90,  volume: 0.15, rate: 1.03  },
-      { delay: 45,  volume: 0.12, rate: 0.97  },
-    ];
-
-    for (const v of chorusVoices) {
-      const t = setTimeout(() => {
-        if (!isPlayingRef.current) return;
-        const p = makePlayer(taroukUrl, v.volume);
-        if (p) {
-          try { p.playbackRate = v.rate; } catch (_) { /* بعض المنصات لا تدعم */ }
-          p.play();
-        }
-      }, v.delay);
-      timersRef.current.push(t);
+    // تنظيف المشغلات السابقة (لكن لا نوقف isPlaying)
+    if (taroukPlayerRef.current) {
+      try { taroukPlayerRef.current.pause(); } catch (_) { /* */ }
+      try { taroukPlayerRef.current.release(); } catch (_) { /* */ }
+    }
+    if (clapPlayerRef.current) {
+      try { clapPlayerRef.current.pause(); } catch (_) { /* */ }
+      try { clapPlayerRef.current.release(); } catch (_) { /* */ }
+    }
+    if (clapTimerRef.current) {
+      clearInterval(clapTimerRef.current);
+      clapTimerRef.current = null;
     }
 
-    // === التصفيق الإيقاعي كل 0.96 ثانية ===
-    const CLAP_INTERVAL = 960; // 0.96 ثانية
-    let clapElapsed = 0;
+    // === مشغل واحد للطاروق بمستوى 35% ===
+    try {
+      const tp = createAudioPlayer(taroukUrl);
+      tp.volume = 0.35;
+      taroukPlayerRef.current = tp;
+      tp.play();
+      console.log("[Sheeloha] Tarouk playing at 35%");
+    } catch (e) {
+      console.error("[Sheeloha] Failed to create tarouk player:", e);
+    }
 
-    const scheduleClap = () => {
-      if (!isPlayingRef.current || clapElapsed >= roundMs) return;
-      const cp = makePlayer(clapUrl, 0.35);
-      if (cp) cp.play();
-      clapElapsed += CLAP_INTERVAL;
-      const ct = setTimeout(scheduleClap, CLAP_INTERVAL);
-      timersRef.current.push(ct);
+    // === تصفيق إيقاعي: كل 0.96 ثانية ===
+    // ننشئ مشغل تصفيق جديد كل مرة (لأن seek(0) غير موثوق على كل المنصات)
+    const CLAP_INTERVAL = 960;
+    
+    const playClap = () => {
+      if (!isPlayingRef.current) return;
+      try {
+        // تحرير المشغل السابق
+        if (clapPlayerRef.current) {
+          try { clapPlayerRef.current.release(); } catch (_) { /* */ }
+        }
+        const cp = createAudioPlayer(clapUrl);
+        cp.volume = 0.35;
+        clapPlayerRef.current = cp;
+        cp.play();
+      } catch (e) {
+        console.error("[Sheeloha] Clap error:", e);
+      }
     };
-    // أول تصفيقة بعد 0.96 ثانية (ليس فوراً)
-    const firstClapTimer = setTimeout(scheduleClap, CLAP_INTERVAL);
-    timersRef.current.push(firstClapTimer);
+
+    // أول تصفيقة بعد 0.96 ثانية
+    clapTimerRef.current = setInterval(playClap, CLAP_INTERVAL);
 
     // === بعد انتهاء مدة الطاروق: ابدأ جولة جديدة ===
     loopTimerRef.current = setTimeout(() => {
       if (!isPlayingRef.current) return;
-      // تنظيف المشغلات القديمة لتوفير الذاكرة (لكن لا نوقف التشغيل)
-      // نحتفظ فقط بالمشغلات الأخيرة
-      const oldPlayers = playersRef.current.splice(0, playersRef.current.length);
-      for (const op of oldPlayers) {
-        try { op.pause(); } catch (_) { /* */ }
-        try { op.release(); } catch (_) { /* */ }
-      }
-      // ابدأ جولة جديدة
       playOneRound();
-    }, roundMs + 200); // فاصل 200ms بين الجولات
-  }, [makePlayer]);
+    }, roundMs + 200);
+  }, []);
 
   /**
-   * تشغيل الشيلوها - تبدأ فوراً وتتكرر حتى خلوها
+   * تشغيل الشيلوها
    */
   const play = useCallback(async (data: SheelohaData) => {
-    // إيقاف أي شيلوها سابقة
-    cleanup();
+    console.log("[Sheeloha] play() called, tarouk duration:", data.taroukDuration, "s");
     
+    // إيقاف أي شيلوها سابقة
+    isPlayingRef.current = false;
+    cleanup();
+
     // ضبط audio mode
     try {
       await AudioModule.setAudioModeAsync({
@@ -148,45 +142,38 @@ export function useSheelohaPlayer() {
     isPlayingRef.current = true;
     dataRef.current = data;
 
-    console.log("[Sheeloha] Starting - tarouk:", data.taroukDuration, "s, clap interval: 0.96s");
-    
-    // ابدأ أول جولة فوراً
+    // ابدأ أول جولة
     playOneRound();
   }, [cleanup, playOneRound]);
 
   /**
-   * إيقاف الشيلوها + تشغيل التصفيق الختامي
+   * إيقاف الشيلوها + تصفيق ختامي
    */
   const stop = useCallback(() => {
-    if (!isPlayingRef.current && playersRef.current.length === 0) {
-      // لا شيء يعمل
+    if (!isPlayingRef.current && !taroukPlayerRef.current && !clapPlayerRef.current) {
       return;
     }
-    
+
     console.log("[Sheeloha] Stopping (khalooha)");
     isPlayingRef.current = false;
-    
+
     const finalClapUrl = dataRef.current?.finalClapUrl;
-    
-    // تنظيف كل شيء
+
     cleanup();
-    
-    // تشغيل التصفيق الختامي مرة واحدة بمستوى 25%
+
+    // تصفيق ختامي مرة واحدة بمستوى 25%
     if (finalClapUrl) {
       try {
-        const finalPlayer = createAudioPlayer(finalClapUrl);
-        finalPlayer.volume = 0.25;
-        finalPlayer.play();
-        console.log("[Sheeloha] Playing final clap at 25%");
-        // تحرير بعد 10 ثوان (مدة كافية للتصفيق الختامي)
-        setTimeout(() => {
-          try { finalPlayer.release(); } catch (_) { /* */ }
-        }, 10000);
+        const fp = createAudioPlayer(finalClapUrl);
+        fp.volume = 0.25;
+        fp.play();
+        console.log("[Sheeloha] Final clap at 25%");
+        setTimeout(() => { try { fp.release(); } catch (_) { /* */ } }, 10000);
       } catch (e) {
-        console.error("[Sheeloha] Failed to play final clap:", e);
+        console.error("[Sheeloha] Final clap error:", e);
       }
     }
-    
+
     dataRef.current = null;
   }, [cleanup]);
 

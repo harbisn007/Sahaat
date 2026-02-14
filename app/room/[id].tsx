@@ -61,6 +61,8 @@ export default function RoomScreen() {
   const [clappingDelay, setClappingDelay] = useState<number>(0.80);
   // تتبع آخر تغيير محلي للعجلة (لمنع التحديث المزدوج)
   const lastLocalClappingChangeRef = useRef<number>(0);
+  // حفظ بيانات الشيلوها المعلقة حتى ينتهي الطاروق
+  const pendingSheelohaRef = useRef<{ taroukUrl: string; taroukDuration: number; clapUrl: string; finalClapUrl: string } | null>(null);
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -508,27 +510,34 @@ export default function RoomScreen() {
             const commentPlayer = createAudioPlayer(data.audioUrl);
             commentPlayer.volume = 1.0;
             commentPlayer.play();
-            // تحرير بعد 120 ثانية (مدة كافية)
             setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
             console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: تشغيل عادي (يوقف أي صوت سابق)
+          // الطاروق: تشغيل عادي - الشيلوها ستبدأ بعد انتهائه (عبر pendingSheeloha)
           console.log("[RoomScreen] Playing tarouk for listener");
-          play(data.audioUrl);
+          play(data.audioUrl, () => {
+            // بعد انتهاء الطاروق: شغّل الشيلوها إذا كانت محفوظة
+            if (pendingSheelohaRef.current) {
+              console.log("[RoomScreen] Tarouk ended -> starting sheeloha");
+              const sheelohaData = pendingSheelohaRef.current;
+              pendingSheelohaRef.current = null;
+              sheelohaPlayer.play(sheelohaData);
+            }
+          });
         }
       },
       
-      // استقبال أمر تشغيل الشيلوها بعد الطاروق
+      // استقبال أمر الشيلوها: نحفظها فقط - ستبدأ بعد انتهاء الطاروق
       onPlaySheeloha: (data) => {
-        console.log("[RoomScreen] Play sheeloha via Socket.io:", data);
-        sheelohaPlayer.play({
+        console.log("[RoomScreen] Sheeloha data received, saving as pending (will start after tarouk ends)");
+        pendingSheelohaRef.current = {
           taroukUrl: data.taroukUrl,
           taroukDuration: data.taroukDuration,
           clapUrl: data.clapUrl,
           finalClapUrl: data.finalClapUrl,
-        });
+        };
       },
     });
   }, [roomId, setCallbacks, play, userId, sheelohaPlayer]);
@@ -1448,7 +1457,15 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play local comment in parallel:", e);
           }
         } else {
-          play(url);
+          // الطاروق: بعد انتهائه شغّل الشيلوها إذا كانت محفوظة
+          play(url, () => {
+            if (pendingSheelohaRef.current) {
+              console.log("[RoomScreen] Local tarouk ended -> starting sheeloha");
+              const sheelohaData = pendingSheelohaRef.current;
+              pendingSheelohaRef.current = null;
+              sheelohaPlayer.play(sheelohaData);
+            }
+          });
         }
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
