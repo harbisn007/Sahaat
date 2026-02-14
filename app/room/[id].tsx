@@ -1,5 +1,5 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
-import { AudioModule, RecordingPresets } from "expo-audio";
+import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
 
@@ -501,9 +501,23 @@ export default function RoomScreen() {
           return;
         }
         
-        // الآخرون: تشغيل الطاروق/التعليق
-        console.log("[RoomScreen] Playing audio for listener:", data.messageType);
-        play(data.audioUrl);
+        if (data.messageType === "comment") {
+          // التعليق: يشتغل بالتوازي مع أي صوت آخر (طاروق/شيلوها) بدون إيقافه
+          console.log("[RoomScreen] Playing comment in parallel (no stop)");
+          try {
+            const commentPlayer = createAudioPlayer(data.audioUrl);
+            commentPlayer.volume = 1.0;
+            commentPlayer.play();
+            // تحرير بعد 120 ثانية (مدة كافية)
+            setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
+          } catch (e) {
+            console.error("[RoomScreen] Failed to play comment in parallel:", e);
+          }
+        } else {
+          // الطاروق: تشغيل عادي (يوقف أي صوت سابق)
+          console.log("[RoomScreen] Playing tarouk for listener");
+          play(data.audioUrl);
+        }
       },
       
       // استقبال أمر تشغيل الشيلوها بعد الطاروق
@@ -1423,7 +1437,19 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Audio uploaded:", url);
         
         // تشغيل محلي فوري للمسجّل
-        play(url);
+        if (currentRecordingType === "comment") {
+          // التعليق: يشتغل بالتوازي مع الطاروق/الشيلوها بدون إيقافهم
+          try {
+            const commentPlayer = createAudioPlayer(url);
+            commentPlayer.volume = 1.0;
+            commentPlayer.play();
+            setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
+          } catch (e) {
+            console.error("[RoomScreen] Failed to play local comment in parallel:", e);
+          }
+        } else {
+          play(url);
+        }
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
         await createAudioMutation.mutateAsync({
