@@ -2,21 +2,21 @@
  * Sheeloha Player Hook
  * 
  * بعد انتهاء تشغيل الطاروق:
- * - تشغيل الطاروق بطبقة صوت مختلفة (playbackRate = 1.12) بمستوى 35%
- *   هذا يجعل الصوت أعلى طبقة (كأنه شخص آخر يردد)
+ * - تشغيل 3 نسخ من الطاروق بطبقات صوت مختلفة وتأخيرات بسيطة
+ *   لإعطاء تأثير مجموعة/جمهور يردد (وليس شخص واحد)
  * - تصفيق إيقاعي كل 0.96 ثانية بمستوى 35%
  * - تكرار لا نهائي حتى يضغط أحد "خلوها"
  * - عند خلوها: إيقاف فوري + تصفيق ختامي مرة واحدة بمستوى 25%
  * 
- * يدعم الويب (HTML5 Audio) والجوال (expo-audio مع انتظار التحميل)
+ * النسخ الثلاث:
+ *   1. rate=0.92  vol=0.30  delay=0ms   (صوت أخفض/أغلظ)
+ *   2. rate=1.08  vol=0.28  delay=80ms  (صوت أعلى/أرفع)
+ *   3. rate=1.00  vol=0.22  delay=150ms (صوت طبيعي متأخر قليلاً)
  */
 
 import { useRef, useCallback } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { Platform } from "react-native";
-
-// سرعة/طبقة صوت الشيلوها - أعلى من الأصلي ليبدو كشخص مختلف
-const SHEELOHA_RATE = 1.12;
 
 interface SheelohaData {
   taroukUrl: string;
@@ -25,6 +25,13 @@ interface SheelohaData {
   finalClapUrl: string;
 }
 
+// تعريف أصوات المجموعة: كل صوت بطبقة وتأخير مختلف
+const CROWD_VOICES = [
+  { rate: 0.92, volume: 0.30, delay: 0 },     // صوت غليظ - يبدأ فوراً
+  { rate: 1.08, volume: 0.28, delay: 80 },     // صوت رفيع - متأخر 80ms
+  { rate: 1.00, volume: 0.22, delay: 150 },    // صوت طبيعي - متأخر 150ms
+];
+
 // دالة مساعدة: إنشاء مشغل على الجوال مع انتظار التحميل
 function createNativePlayerAsync(url: string, volume: number, rate?: number): Promise<AudioPlayer | null> {
   return new Promise((resolve) => {
@@ -32,10 +39,9 @@ function createNativePlayerAsync(url: string, volume: number, rate?: number): Pr
       const player = createAudioPlayer(url);
       player.volume = volume;
       if (rate && rate !== 1) {
-        try { player.playbackRate = rate; } catch (_) { /* بعض المنصات لا تدعم */ }
+        try { player.playbackRate = rate; } catch (_) { /* */ }
       }
 
-      // انتظار التحميل عبر playbackStatusUpdate
       const onStatus = (status: { isLoaded: boolean }) => {
         if (status.isLoaded) {
           player.removeListener("playbackStatusUpdate", onStatus);
@@ -44,7 +50,6 @@ function createNativePlayerAsync(url: string, volume: number, rate?: number): Pr
       };
       player.addListener("playbackStatusUpdate", onStatus);
 
-      // timeout: إذا لم يتحمل خلال 3 ثوان، شغّله على أي حال
       setTimeout(() => {
         player.removeListener("playbackStatusUpdate", onStatus);
         resolve(player);
@@ -61,13 +66,14 @@ export function useSheelohaPlayer() {
   const dataRef = useRef<SheelohaData | null>(null);
   const clapTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const voiceTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  // Native players
-  const nativeTaroukRef = useRef<AudioPlayer | null>(null);
+  // Native players (عدة نسخ)
+  const nativePlayersRef = useRef<AudioPlayer[]>([]);
   const nativeClapRef = useRef<AudioPlayer | null>(null);
 
   // Web players
-  const webTaroukRef = useRef<HTMLAudioElement | null>(null);
+  const webPlayersRef = useRef<HTMLAudioElement[]>([]);
   const webClapRef = useRef<HTMLAudioElement | null>(null);
 
   const isWeb = Platform.OS === "web";
@@ -76,6 +82,7 @@ export function useSheelohaPlayer() {
    * تنظيف كل شيء
    */
   const cleanup = useCallback(() => {
+    // مؤقتات
     if (clapTimerRef.current) {
       clearInterval(clapTimerRef.current);
       clapTimerRef.current = null;
@@ -84,22 +91,24 @@ export function useSheelohaPlayer() {
       clearTimeout(loopTimerRef.current);
       loopTimerRef.current = null;
     }
+    for (const t of voiceTimersRef.current) clearTimeout(t);
+    voiceTimersRef.current = [];
 
     if (isWeb) {
-      if (webTaroukRef.current) {
-        try { webTaroukRef.current.pause(); webTaroukRef.current.src = ""; } catch (_) {}
-        webTaroukRef.current = null;
+      for (const a of webPlayersRef.current) {
+        try { a.pause(); a.src = ""; } catch (_) {}
       }
+      webPlayersRef.current = [];
       if (webClapRef.current) {
         try { webClapRef.current.pause(); webClapRef.current.src = ""; } catch (_) {}
         webClapRef.current = null;
       }
     } else {
-      if (nativeTaroukRef.current) {
-        try { nativeTaroukRef.current.pause(); } catch (_) {}
-        try { nativeTaroukRef.current.release(); } catch (_) {}
-        nativeTaroukRef.current = null;
+      for (const p of nativePlayersRef.current) {
+        try { p.pause(); } catch (_) {}
+        try { p.release(); } catch (_) {}
       }
+      nativePlayersRef.current = [];
       if (nativeClapRef.current) {
         try { nativeClapRef.current.pause(); } catch (_) {}
         try { nativeClapRef.current.release(); } catch (_) {}
@@ -115,12 +124,13 @@ export function useSheelohaPlayer() {
     if (!isPlayingRef.current || !dataRef.current) return;
 
     const { taroukUrl, taroukDuration, clapUrl } = dataRef.current;
-    // المدة الفعلية أقصر لأن السرعة أعلى
-    const roundMs = (taroukDuration / SHEELOHA_RATE) * 1000;
+    // أبطأ rate يحدد أطول مدة
+    const slowestRate = Math.min(...CROWD_VOICES.map(v => v.rate));
+    const roundMs = (taroukDuration / slowestRate) * 1000;
 
-    console.log("[Sheeloha] Round start, duration:", taroukDuration, "s, effective:", (taroukDuration / SHEELOHA_RATE).toFixed(2), "s, rate:", SHEELOHA_RATE);
+    console.log("[Sheeloha] Round start, voices:", CROWD_VOICES.length, ", effective duration:", (roundMs / 1000).toFixed(2), "s");
 
-    // تنظيف المشغلات السابقة (بدون إيقاف isPlaying)
+    // تنظيف السابق (بدون إيقاف isPlaying)
     if (clapTimerRef.current) {
       clearInterval(clapTimerRef.current);
       clapTimerRef.current = null;
@@ -129,20 +139,31 @@ export function useSheelohaPlayer() {
       clearTimeout(loopTimerRef.current);
       loopTimerRef.current = null;
     }
+    for (const t of voiceTimersRef.current) clearTimeout(t);
+    voiceTimersRef.current = [];
 
     if (isWeb) {
-      // ===== الويب: HTML5 Audio =====
-      if (webTaroukRef.current) {
-        try { webTaroukRef.current.pause(); webTaroukRef.current.src = ""; } catch (_) {}
+      // تنظيف المشغلات السابقة
+      for (const a of webPlayersRef.current) {
+        try { a.pause(); a.src = ""; } catch (_) {}
       }
+      webPlayersRef.current = [];
 
-      // طاروق بطبقة صوت مختلفة
-      const taroukAudio = new Audio(taroukUrl);
-      taroukAudio.volume = 0.35;
-      taroukAudio.playbackRate = SHEELOHA_RATE;
-      webTaroukRef.current = taroukAudio;
-      try { await taroukAudio.play(); } catch (e) { console.error("[Sheeloha] Web tarouk play error:", e); }
-      console.log("[Sheeloha] Web tarouk playing at rate", SHEELOHA_RATE);
+      // ===== الويب: 3 نسخ HTML5 Audio =====
+      for (const voice of CROWD_VOICES) {
+        const t = setTimeout(() => {
+          if (!isPlayingRef.current) return;
+          try {
+            const audio = new Audio(taroukUrl);
+            audio.volume = voice.volume;
+            audio.playbackRate = voice.rate;
+            webPlayersRef.current.push(audio);
+            audio.play().catch(() => {});
+          } catch (_) {}
+        }, voice.delay);
+        voiceTimersRef.current.push(t);
+      }
+      console.log("[Sheeloha] Web crowd voices started");
 
       // تصفيق كل 0.96 ثانية
       const CLAP_INTERVAL = 960;
@@ -158,23 +179,30 @@ export function useSheelohaPlayer() {
       clapTimerRef.current = setInterval(playWebClap, CLAP_INTERVAL);
 
     } else {
-      // ===== الجوال: expo-audio مع انتظار التحميل =====
-      if (nativeTaroukRef.current) {
-        try { nativeTaroukRef.current.pause(); } catch (_) {}
-        try { nativeTaroukRef.current.release(); } catch (_) {}
+      // تنظيف المشغلات السابقة
+      for (const p of nativePlayersRef.current) {
+        try { p.pause(); } catch (_) {}
+        try { p.release(); } catch (_) {}
       }
+      nativePlayersRef.current = [];
 
-      // طاروق بطبقة صوت مختلفة + انتظار التحميل
-      const tp = await createNativePlayerAsync(taroukUrl, 0.35, SHEELOHA_RATE);
-      if (!isPlayingRef.current) {
-        if (tp) { try { tp.release(); } catch (_) {} }
-        return;
+      // ===== الجوال: 3 نسخ expo-audio مع انتظار التحميل =====
+      for (const voice of CROWD_VOICES) {
+        const t = setTimeout(async () => {
+          if (!isPlayingRef.current) return;
+          const p = await createNativePlayerAsync(taroukUrl, voice.volume, voice.rate);
+          if (!isPlayingRef.current) {
+            if (p) { try { p.release(); } catch (_) {} }
+            return;
+          }
+          if (p) {
+            nativePlayersRef.current.push(p);
+            p.play();
+          }
+        }, voice.delay);
+        voiceTimersRef.current.push(t);
       }
-      nativeTaroukRef.current = tp;
-      if (tp) {
-        tp.play();
-        console.log("[Sheeloha] Native tarouk playing at rate", SHEELOHA_RATE);
-      }
+      console.log("[Sheeloha] Native crowd voices started");
 
       // تصفيق كل 0.96 ثانية
       const CLAP_INTERVAL = 960;
@@ -196,7 +224,7 @@ export function useSheelohaPlayer() {
       clapTimerRef.current = setInterval(playNativeClap, CLAP_INTERVAL);
     }
 
-    // بعد انتهاء مدة الطاروق (المعدّلة بالسرعة): ابدأ جولة جديدة
+    // بعد انتهاء الجولة: ابدأ جولة جديدة
     loopTimerRef.current = setTimeout(() => {
       if (!isPlayingRef.current) return;
       playOneRound();
@@ -207,7 +235,7 @@ export function useSheelohaPlayer() {
    * تشغيل الشيلوها
    */
   const play = useCallback(async (data: SheelohaData) => {
-    console.log("[Sheeloha] play() called, duration:", data.taroukDuration, "s, rate:", SHEELOHA_RATE);
+    console.log("[Sheeloha] play() called, duration:", data.taroukDuration, "s, voices:", CROWD_VOICES.length);
 
     isPlayingRef.current = false;
     cleanup();
@@ -245,15 +273,14 @@ export function useSheelohaPlayer() {
           const fa = new Audio(finalClapUrl);
           fa.volume = 0.25;
           fa.play().catch(() => {});
-          console.log("[Sheeloha] Web final clap at 25%");
         } else {
           const fp = await createNativePlayerAsync(finalClapUrl, 0.25);
           if (fp) {
             fp.play();
-            console.log("[Sheeloha] Native final clap at 25%");
             setTimeout(() => { try { fp.release(); } catch (_) {} }, 10000);
           }
         }
+        console.log("[Sheeloha] Final clap at 25%");
       } catch (e) {
         console.error("[Sheeloha] Final clap error:", e);
       }
