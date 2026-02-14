@@ -1527,13 +1527,9 @@ export default function RoomScreen() {
       
       console.log("[RoomScreen] Reaction sent successfully:", result);
       
-      // إزالة الرسالة المحلية بعد تأخير بسيط لمنع الوميض
-      await refetchReactions();
-      // انتظار قليل حتى يظهر من الخادم قبل إزالة المحلي
-      setTimeout(() => {
-        setLocalMessages(prev => prev.filter(m => m.id !== localId));
-      }, 500);
-      console.log("[RoomScreen] Reactions refetched");
+      // إزالة الرسالة المحلية فوراً - الخادم سيرسلها عبر Socket
+      setLocalMessages(prev => prev.filter(m => m.id !== localId));
+      console.log("[RoomScreen] Local reaction removed, server will send via socket");
     } catch (error: any) {
       console.error("[RoomScreen] Failed to send reaction:", error);
       console.error("[RoomScreen] Error details:", {
@@ -2157,7 +2153,7 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <MaterialCommunityIcons name="microphone-variant" size={36} color="#EF4444" />
+                <MaterialIcons name="mic" size={36} color="#EF4444" />
               }
               label=""
               showLabel={false}
@@ -2185,9 +2181,10 @@ export default function RoomScreen() {
           {isPlayer && (
             <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
+                disabled={!sheelohaPlayer.isPlaying}
                 style={{
                   backgroundColor: "#5D4037",
-                  opacity: 0.5,
+                  opacity: sheelohaPlayer.isPlaying ? 1 : 0.35,
                   width: 56,
                   height: 56,
                   borderRadius: 12,

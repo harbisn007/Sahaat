@@ -14,7 +14,7 @@
  *   3. rate=1.00  vol=0.22  delay=150ms (صوت طبيعي متأخر قليلاً)
  */
 
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useState } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { Platform } from "react-native";
 
@@ -63,6 +63,7 @@ function createNativePlayerAsync(url: string, volume: number, rate?: number): Pr
 
 export function useSheelohaPlayer() {
   const isPlayingRef = useRef(false);
+  const [isPlayingState, setIsPlayingState] = useState(false);
   const dataRef = useRef<SheelohaData | null>(null);
   const clapTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const loopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,6 +239,7 @@ export function useSheelohaPlayer() {
     console.log("[Sheeloha] play() called, duration:", data.taroukDuration, "s, voices:", CROWD_VOICES.length);
 
     isPlayingRef.current = false;
+    setIsPlayingState(false);
     cleanup();
 
     if (!isWeb) {
@@ -250,6 +252,7 @@ export function useSheelohaPlayer() {
     }
 
     isPlayingRef.current = true;
+    setIsPlayingState(true);
     dataRef.current = data;
 
     await playOneRound();
@@ -263,6 +266,7 @@ export function useSheelohaPlayer() {
 
     console.log("[Sheeloha] Stopping (khalooha)");
     isPlayingRef.current = false;
+    setIsPlayingState(false);
 
     const finalClapUrl = dataRef.current?.finalClapUrl;
     cleanup();
@@ -292,6 +296,6 @@ export function useSheelohaPlayer() {
   return {
     play,
     stop,
-    isPlaying: isPlayingRef.current,
+    isPlaying: isPlayingState,
   };
 }

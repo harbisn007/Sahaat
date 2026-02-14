@@ -183,12 +183,7 @@ export function MessageBubble({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  // #10: أيقونة مايكروفون للتعليق ورمز وجه يتحدث بدلاً من "تعليق"
-  const getTypeLabel = () => {
-    if (messageType === "tarouk") return "طاروق";
-    if (messageType === "comment") return "تعليق";
-    return "";
-  };
+  // #10: أيقونة مايكروفون بدلاً من النص
 
   return (
     <View className="px-2 py-0.5 items-start">
@@ -217,24 +212,12 @@ export function MessageBubble({
             {formatDuration(duration || 0)}
           </Text>
           
-          {/* Message Type Badge */}
-          {messageType && (
-            <View 
-              className="px-1 py-0.5 rounded"
-              style={{ 
-                backgroundColor: messageType === "tarouk" ? colors.success : colors.primary,
-                opacity: 0.9,
-              }}
-            >
-              <Text className="text-[9px] text-background font-bold">
-                {getTypeLabel()}
-              </Text>
-            </View>
+          {/* Message Type Icon - أيقونة فقط بدون نص */}
+          {messageType === "tarouk" && (
+            <MaterialIcons name="mic" size={14} color="#EF4444" />
           )}
-          
-          {/* #10: أيقونة مايكروفون صغير للتعليق */}
           {messageType === "comment" && (
-            <MaterialIcons name="mic" size={12} color={colors.primary} />
+            <MaterialIcons name="mic" size={14} color={colors.primary} />
           )}
           
           {/* Username */}

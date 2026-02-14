@@ -1,4 +1,5 @@
 import { View, Text } from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
 
 interface AudioMessageProps {
@@ -30,22 +31,7 @@ export function AudioMessage({
         </View>
         
         <View className="flex-row items-center gap-2">
-          <View
-            className="px-2 py-0.5 rounded"
-            style={{
-              backgroundColor:
-                messageType === "tarouk" ? colors.success + "30" : colors.primary + "30",
-            }}
-          >
-            <Text
-              className="text-xs font-bold"
-              style={{
-                color: messageType === "tarouk" ? colors.success : colors.primary,
-              }}
-            >
-              {messageType === "tarouk" ? "طاروق" : "تعليق"}
-            </Text>
-          </View>
+          <MaterialIcons name="mic" size={16} color={messageType === "tarouk" ? "#EF4444" : colors.primary} />
           
           <View className="flex-row items-center gap-1">
             <Text className="text-lg">{isPlaying ? "🔊" : "🔇"}</Text>
