@@ -215,7 +215,7 @@ export function MessageBubble({
           
           {/* Message Type Icon - أيقونة فقط بدون نص */}
           {messageType === "tarouk" && (
-            <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/TJssuAOhLRGEzJNi.png" }} style={{ width: 20, height: 20 }} resizeMode="contain" />
+            <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/sZlQZCwgNoyonQZE.png" }} style={{ width: 20, height: 20 }} resizeMode="contain" />
           )}
           {messageType === "comment" && (
             <MaterialIcons name="mic" size={14} color={colors.primary} />

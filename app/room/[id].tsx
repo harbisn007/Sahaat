@@ -2138,7 +2138,7 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/TJssuAOhLRGEzJNi.png" }} style={{ width: 60, height: 60 }} resizeMode="contain" />
+                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/sZlQZCwgNoyonQZE.png" }} style={{ width: 60, height: 60 }} resizeMode="contain" />
               }
               label=""
               showLabel={false}
