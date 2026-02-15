@@ -63,6 +63,14 @@ export default function RoomScreen() {
   const lastLocalClappingChangeRef = useRef<number>(0);
   // حفظ بيانات الشيلوها المعلقة حتى ينتهي الطاروق
   const pendingSheelohaRef = useRef<{ taroukUrl: string; taroukDuration: number; clapUrl: string; finalClapUrl: string } | null>(null);
+  // تعريف مؤقت للبيانات المستقبلة من الخادم
+  interface SheelohaPayload {
+    roomId: number;
+    taroukUrl: string;
+    taroukDuration: number;
+    userId: string;
+    username: string;
+  }
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -530,14 +538,13 @@ export default function RoomScreen() {
       },
       
       // استقبال أمر الشيلوها: نحفظها فقط - ستبدأ بعد انتهاء الطاروق
-      onPlaySheeloha: (data) => {
-        console.log("[RoomScreen] Sheeloha data received, saving as pending (will start after tarouk ends)");
-        pendingSheelohaRef.current = {
+      onPlaySheeloha: (data: SheelohaPayload) => {
+        console.log("[RoomScreen] Sheeloha command received:", data);
+        // تشغيل الشيلوها فوراً
+        sheelohaPlayer.play({
           taroukUrl: data.taroukUrl,
           taroukDuration: data.taroukDuration,
-          clapUrl: data.clapUrl,
-          finalClapUrl: data.finalClapUrl,
-        };
+        });
       },
     });
   }, [roomId, setCallbacks, play, userId, sheelohaPlayer]);

@@ -417,19 +417,17 @@ export const appRouter = router({
         
         // إذا كان طاروق: بث أمر الشيلوها مباشرة للجميع (بدون تأخير)
         if (input.messageType === "tarouk" && input.duration > 0) {
-          const CLAP_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/single-clap-short.mp3";
-          const FINAL_CLAP_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/sheeloha-claps.mp3";
-          
-          emitPlaySheeloha(
-            input.roomId,
-            input.audioUrl,
-            input.duration,
-            CLAP_URL,
-            FINAL_CLAP_URL,
-            input.userId,
-            input.username
-          );
-          console.log(`[audio.create] Sheeloha broadcast immediately for tarouk in room ${input.roomId}`);
+          // بث أمر "شغّل الشيلوها" بعد انتهاء مدة الطاروق
+          setTimeout(() => {
+            emitPlaySheeloha(
+              input.roomId,
+              input.audioUrl,
+              input.duration,
+              input.userId,
+              input.username
+            );
+            console.log(`[audio.create] Sheeloha command broadcast for tarouk in room ${input.roomId}`);
+          }, input.duration * 1000);
         }
         
         return { messageId };
