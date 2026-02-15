@@ -126,15 +126,11 @@ export interface ServerToClientEvents {
   // حدث تشغيل الشيلوها عند الجميع بعد الطاروق
   playSheeloha: (data: {
     roomId: number;
-    taroukUrl: string; // رابط صوت الطاروق الأصلي
-    taroukDuration: number; // مدة الطاروق بالثواني
-    clapUrl: string; // رابط صوت التصفيق الإيقاعي
-    finalClapUrl: string; // رابط صوت التصفيق الختامي
+    echoUrl: string;
+    clapUrl: string;
     userId: string;
     username: string;
   }) => void;
-  
-  // حدث إشعار المنشئ بطلب انضمام جديد
   creatorJoinRequest: (data: {
     roomId: number;
     creatorId: string;
@@ -576,12 +572,12 @@ export function emitPlaySheeloha(
   username: string
 ): void {
   if (!io) return;
+  const ECHO_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/echo-crowd.mp3";
+  const CLAP_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/single-clap-short.mp3";
   io.to(`room:${roomId}`).emit("playSheeloha", {
     roomId,
-    taroukUrl,
-    taroukDuration,
-    clapUrl,
-    finalClapUrl,
+    echoUrl: ECHO_URL,
+    clapUrl: CLAP_URL,
     userId,
     username,
   });

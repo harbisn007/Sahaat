@@ -289,10 +289,9 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       username: string;
     }) => void;
     onPlaySheeloha?: (data: {
-      taroukUrl: string;
-      taroukDuration: number;
+      roomId: number;
+      echoUrl: string;
       clapUrl: string;
-      finalClapUrl: string;
       userId: string;
       username: string;
     }) => void;
@@ -423,10 +422,16 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         });
 
         // حدث تشغيل الشيلوها بعد الطاروق
-        socket.on("playSheeloha", (data) => {
+        socket.on("playSheeloha", (data: any) => {
           if (data.roomId === roomId) {
             console.log("[Socket.io] Received playSheeloha for room", roomId);
-            callbacksRef.current.onPlaySheeloha?.(data);
+            callbacksRef.current.onPlaySheeloha?.({
+              roomId: data.roomId,
+              echoUrl: data.echoUrl,
+              clapUrl: data.clapUrl,
+              userId: data.userId,
+              username: data.username,
+            });
           }
         });
 

@@ -63,6 +63,14 @@ export default function RoomScreen() {
   const lastLocalClappingChangeRef = useRef<number>(0);
   // حفظ بيانات الشيلوها المعلقة حتى ينتهي الطاروق
   const pendingSheelohaRef = useRef<{ taroukUrl: string; taroukDuration: number; clapUrl: string; finalClapUrl: string } | null>(null);
+  // تعريف مؤقت للبيانات المستقبلة من الخادم
+  interface SheelohaPayload {
+    roomId: number;
+    echoUrl: string;
+    clapUrl: string;
+    userId: string;
+    username: string;
+  }
   // المتحكم بالطاروق: "creator" | "player1" | "player2" | null
   const [taroukController, setTaroukController] = useState<"creator" | "player1" | "player2" | null>(null);
   // Track when user joined the room (persist across reloads)
@@ -530,13 +538,14 @@ export default function RoomScreen() {
       },
       
       // استقبال أمر الشيلوها: نحفظها فقط - ستبدأ بعد انتهاء الطاروق
-      onPlaySheeloha: (data) => {
+      onPlaySheeloha: (data: SheelohaPayload) => {
         console.log("[RoomScreen] Sheeloha data received, saving as pending (will start after tarouk ends)");
+        const FINAL_CLAP_URL = "https://d2xsxph8kpxj0f.cloudfront.net/310519663292181877/Y67HhrMGN4rr3vJiD7GHZk/sounds/sheeloha-claps.mp3";
         pendingSheelohaRef.current = {
-          taroukUrl: data.taroukUrl,
-          taroukDuration: data.taroukDuration,
+          taroukUrl: data.echoUrl,
+          taroukDuration: 0,
           clapUrl: data.clapUrl,
-          finalClapUrl: data.finalClapUrl,
+          finalClapUrl: FINAL_CLAP_URL,
         };
       },
     });
