@@ -2350,3 +2350,6 @@
 - [x] إعادة كتابة use-sheeloha-player: تشغيل الطاروق الأصلي + تصفيق متكرر (0.96s)
 - [x] تعديل الخادم: بث أمر "شغّل الشيلوها" فقط (taroukUrl + taroukDuration)
 - [x] زر "خلوها": إيقاف + تصفيق نهائي فوري (final-clap.mp3)
+
+## إصلاح خطأ AudioPlayer released
+- [x] إصلاح "Cannot use shared object that was already released" في use-sheeloha-player.ts (إزالة التحرير المبكر للتصفيق)

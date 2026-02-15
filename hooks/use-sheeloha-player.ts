@@ -129,16 +129,15 @@ export function useSheelohaPlayer() {
       clapTimerRef.current = setInterval(async () => {
         if (!isPlayingRef.current) return;
         try {
+          // إيقاف التصفيق السابق بدون تحرير
           if (clapPlayerRef.current) {
             try { clapPlayerRef.current.pause(); } catch (_) {}
-            try { clapPlayerRef.current.release(); } catch (_) {}
           }
           const cp = createAudioPlayer(clapUrl);
           clapPlayerRef.current = cp;
           cp.volume = CLAP_VOLUME;
           await new Promise(r => setTimeout(r, 100));
           if (!isPlayingRef.current) {
-            try { cp.release(); } catch (_) {}
             return;
           }
           cp.play();
