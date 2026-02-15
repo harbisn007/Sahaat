@@ -432,7 +432,7 @@ export const appRouter = router({
               input.username
             );
             console.log(`[audio.create] Sheeloha broadcast for tarouk in room ${input.roomId} after ${input.duration}ms`);
-          }, input.duration * 1000 + 100);
+          }, input.duration * 1000);
         }
         
         return { messageId };
