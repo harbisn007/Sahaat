@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, Platform } from "react-native";
+import { View, Text, TouchableOpacity, Platform, Image } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
@@ -215,7 +215,7 @@ export function MessageBubble({
           
           {/* Message Type Icon - أيقونة فقط بدون نص */}
           {messageType === "tarouk" && (
-            <MaterialCommunityIcons name="microphone" size={14} color="#EF4444" />
+            <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/HJVrvBsQHSlMROUv.png" }} style={{ width: 16, height: 16 }} resizeMode="contain" />
           )}
           {messageType === "comment" && (
             <MaterialIcons name="mic" size={14} color={colors.primary} />

@@ -2153,7 +2153,7 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <MaterialCommunityIcons name="microphone" size={36} color="#EF4444" />
+                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/HJVrvBsQHSlMROUv.png" }} style={{ width: 40, height: 40 }} resizeMode="contain" />
               }
               label=""
               showLabel={false}
