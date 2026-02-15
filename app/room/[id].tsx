@@ -1497,19 +1497,8 @@ export default function RoomScreen() {
       return;
     }
 
-    // Optimistic Update - إضافة التفاعل محلياً فوراً (مثل الواتساب)
-    const localId = `local-reaction-${Date.now()}`;
-    const now = new Date();
-    setLocalMessages(prev => [...prev, {
-      type: "reaction" as const,
-      id: localId,
-      timestamp: now,
-      username: username,
-      reactionType: reactionType,
-      createdAt: now,
-      isLocal: true,
-    }]);
-
+    // إرسال التفاعل مباشرة بدون optimistic update
+    // التفاعل سيظهر فقط عند وصوله عبر Socket.io لتجنب التكرار
     try {
       console.log("[RoomScreen] Sending reaction:", {
         reactionType,
@@ -1526,10 +1515,6 @@ export default function RoomScreen() {
       });
       
       console.log("[RoomScreen] Reaction sent successfully:", result);
-      
-      // إزالة الرسالة المحلية فوراً - الخادم سيرسلها عبر Socket
-      setLocalMessages(prev => prev.filter(m => m.id !== localId));
-      console.log("[RoomScreen] Local reaction removed, server will send via socket");
     } catch (error: any) {
       console.error("[RoomScreen] Failed to send reaction:", error);
       console.error("[RoomScreen] Error details:", {
@@ -2153,7 +2138,7 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/HJVrvBsQHSlMROUv.png" }} style={{ width: 40, height: 40 }} resizeMode="contain" />
+                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/KDHHJAAcyyiJmEUq.png" }} style={{ width: 46, height: 46 }} resizeMode="contain" />
               }
               label=""
               showLabel={false}
