@@ -2153,7 +2153,7 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <MaterialIcons name="mic" size={36} color="#EF4444" />
+                <MaterialCommunityIcons name="microphone" size={36} color="#EF4444" />
               }
               label=""
               showLabel={false}

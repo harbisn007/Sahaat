@@ -3,6 +3,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { MaterialIcons } from "@expo/vector-icons";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
 interface MessageBubbleProps {
   type: "audio" | "reaction";
@@ -214,7 +215,7 @@ export function MessageBubble({
           
           {/* Message Type Icon - أيقونة فقط بدون نص */}
           {messageType === "tarouk" && (
-            <MaterialIcons name="mic" size={14} color="#EF4444" />
+            <MaterialCommunityIcons name="microphone" size={14} color="#EF4444" />
           )}
           {messageType === "comment" && (
             <MaterialIcons name="mic" size={14} color={colors.primary} />
