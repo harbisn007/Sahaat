@@ -1452,28 +1452,8 @@ export default function RoomScreen() {
         
         console.log("[RoomScreen] Audio uploaded:", url);
         
-        // تشغيل محلي فوري للمسجّل
-        if (currentRecordingType === "comment") {
-          // التعليق: يشتغل بالتوازي مع الطاروق/الشيلوها بدون إيقافهم
-          try {
-            const commentPlayer = createAudioPlayer(url);
-            commentPlayer.volume = 1.0;
-            commentPlayer.play();
-            setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
-          } catch (e) {
-            console.error("[RoomScreen] Failed to play local comment in parallel:", e);
-          }
-        } else {
-          // الطاروق: بعد انتهائه شغّل الشيلوها إذا كانت محفوظة
-          play(url, () => {
-            if (pendingSheelohaRef.current) {
-              console.log("[RoomScreen] Local tarouk ended -> starting sheeloha");
-              const sheelohaData = pendingSheelohaRef.current;
-              pendingSheelohaRef.current = null;
-              sheelohaPlayer.play(sheelohaData);
-            }
-          });
-        }
+        // إلغاء التشغيل المحلي - كل شيء عبر الخادم فقط
+        console.log("[RoomScreen] Audio uploaded, server will handle playback");
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
         await createAudioMutation.mutateAsync({
@@ -2131,15 +2111,13 @@ export default function RoomScreen() {
           paddingBottom: Platform.OS === "web" ? 10 : Math.max(insets.bottom + 4, 16),
         }}
       >
-        {/* الصف الأول: زر طاروق دائري كبير في المنتصف (للاعبين فقط) */}
+        {/* الصف الأول: زر طاروق دائري كبير في المنتصف (للاعبين فقط - باهت أثناء الشيلوها) */}
         {isPlayer && (
-          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 12, width: '100%' }}>
+          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 12, width: '100%', opacity: sheelohaPlayer.isPlaying ? 0.35 : 1 }}>
             <RecordingButton
-              buttonId="tarouk"
-              isRecording={isRecording && recordingType === "tarouk"}
               isPreparing={isPreparing && recordingType === "tarouk"}
               pressAndHold={true}
-              onPressIn={() => handleStartRecording("tarouk")}
+              onPressIn={() => !sheelohaPlayer.isPlaying && handleStartRecording("tarouk")}
               onPressOut={() => handleStopRecording()}
               onCancelRecording={handleCancelRecording}
               backgroundColor="#5D4037"

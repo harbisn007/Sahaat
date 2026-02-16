@@ -427,7 +427,8 @@ export const appRouter = router({
               });
               console.log(`[audio.create] Sheeloha generated: ${sheelohaUrl}`);
               
-              // بث الشيلوها بعد انتهاء مدة الطاروق
+              // بث الشيلوها قبل ثانية واحدة من نهاية الطاروق
+              const sheelohaDelay = Math.max(0, (input.duration - 1) * 1000);
               setTimeout(() => {
                 emitPlaySheeloha(
                   input.roomId,
@@ -436,8 +437,8 @@ export const appRouter = router({
                   input.userId,
                   input.username
                 );
-                console.log(`[audio.create] Sheeloha broadcast for tarouk in room ${input.roomId}`);
-              }, input.duration * 1000);
+                console.log(`[audio.create] Sheeloha broadcast for tarouk in room ${input.roomId} (started ${sheelohaDelay}ms after tarouk)`);
+              }, sheelohaDelay);
             } catch (error) {
               console.error(`[audio.create] Failed to generate sheeloha:`, error);
             }
