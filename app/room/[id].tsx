@@ -1452,8 +1452,21 @@ export default function RoomScreen() {
         
         console.log("[RoomScreen] Audio uploaded:", url);
         
-        // إلغاء التشغيل المحلي - كل شيء عبر الخادم فقط
-        console.log("[RoomScreen] Audio uploaded, server will handle playback");
+        // تشغيل محلي فوري للمرسل فقط (الآخرون يستقبلون عبر Socket.io)
+        if (currentRecordingType === "comment") {
+          // التعليق: يشتغل بالتوازي مع الطاروق/الشيلوها بدون إيقافهم
+          try {
+            const commentPlayer = createAudioPlayer(url);
+            commentPlayer.volume = 1.0;
+            commentPlayer.play();
+            setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
+          } catch (e) {
+            console.error("[RoomScreen] Failed to play local comment in parallel:", e);
+          }
+        } else {
+          // الطاروق: تشغيل محلي للمرسل فقط
+          play(url);
+        }
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
         await createAudioMutation.mutateAsync({
