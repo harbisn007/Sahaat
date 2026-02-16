@@ -1379,10 +1379,13 @@ export default function RoomScreen() {
   };
 
   const handleStopRecording = async () => {
+    console.log("[RoomScreen] ========== handleStopRecording START ==========");
     // Capture the current recording type before it gets reset
     const currentRecordingType = recordingType;
+    console.log("[RoomScreen] currentRecordingType:", currentRecordingType);
     
     if (!currentRecordingType) {
+      console.log("[RoomScreen] No recording type, returning");
       return;
     }
     
@@ -1410,8 +1413,11 @@ export default function RoomScreen() {
       if (!recording) {
         console.error("[RoomScreen] Recording is null after retry - showing error");
         Alert.alert("خطأ", "فشل حفظ الصوت. حاول مرة أخرى.");
+        console.log("[RoomScreen] ========== handleStopRecording END (FAILED) ==========");
         return;
       }
+      
+      console.log("[RoomScreen] Recording obtained successfully");
       
       if (recording && username) {
         let base64Data: string;
@@ -1442,6 +1448,7 @@ export default function RoomScreen() {
         
         // رفع الصوت على S3
         const isTarouk = currentRecordingType === "tarouk";
+        console.log("[RoomScreen] Starting upload, isTarouk:", isTarouk);
         const uploadResult = await uploadAudioMutation.mutateAsync({
           base64Data,
           fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
@@ -1449,7 +1456,7 @@ export default function RoomScreen() {
         });
         const { url } = uploadResult;
         
-        console.log("[RoomScreen] Audio uploaded:", url);
+        console.log("[RoomScreen] Audio uploaded successfully:", url);
         
         // تشغيل محلي فوري للمرسل فقط (الآخرون يستقبلون عبر Socket.io)
         if (currentRecordingType === "comment") {
@@ -1476,6 +1483,7 @@ export default function RoomScreen() {
         }
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
+        console.log("[RoomScreen] Saving to database, messageType:", currentRecordingType);
         await createAudioMutation.mutateAsync({
           roomId,
           userId,
@@ -1484,11 +1492,15 @@ export default function RoomScreen() {
           audioUrl: url,
           duration: recording.duration || 0,
         });
+        console.log("[RoomScreen] Saved to database successfully");
         
         // Refresh audio messages فوراً
+        console.log("[RoomScreen] Refetching audio messages...");
         await refetchAudioMessages();
+        console.log("[RoomScreen] ========== handleStopRecording END (SUCCESS) ==========");
       }
     } catch (error) {
+      console.log("[RoomScreen] ========== handleStopRecording END (ERROR) ==========");
       const errMsg = error instanceof Error ? error.message : String(error);
       const errStack = error instanceof Error ? error.stack : '';
       console.error("Failed to save audio message:", errMsg);
