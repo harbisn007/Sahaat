@@ -69,10 +69,8 @@ interface ServerToClientEvents {
   // حدث تشغيل الشيلوها بعد الطاروق
   playSheeloha: (data: {
     roomId: number;
-    taroukUrl: string;
+    sheelohaUrl: string;
     taroukDuration: number;
-    clapUrl: string;
-    finalClapUrl: string;
     userId: string;
     username: string;
   }) => void;
@@ -290,7 +288,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
     }) => void;
     onPlaySheeloha?: (data: {
       roomId: number;
-      taroukUrl: string;
+      sheelohaUrl: string;
       taroukDuration: number;
       userId: string;
       username: string;
@@ -427,7 +425,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
             console.log("[Socket.io] Received playSheeloha for room", roomId);
             callbacksRef.current.onPlaySheeloha?.({
               roomId: data.roomId,
-              taroukUrl: data.taroukUrl,
+              sheelohaUrl: data.sheelohaUrl,
               taroukDuration: data.taroukDuration,
               userId: data.userId,
               username: data.username,

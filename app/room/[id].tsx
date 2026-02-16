@@ -62,11 +62,11 @@ export default function RoomScreen() {
   // تتبع آخر تغيير محلي للعجلة (لمنع التحديث المزدوج)
   const lastLocalClappingChangeRef = useRef<number>(0);
   // حفظ بيانات الشيلوها المعلقة حتى ينتهي الطاروق
-  const pendingSheelohaRef = useRef<{ taroukUrl: string; taroukDuration: number; clapUrl: string; finalClapUrl: string } | null>(null);
+  const pendingSheelohaRef = useRef<{ sheelohaUrl: string; taroukDuration: number } | null>(null);
   // تعريف مؤقت للبيانات المستقبلة من الخادم
   interface SheelohaPayload {
     roomId: number;
-    taroukUrl: string;
+    sheelohaUrl: string;
     taroukDuration: number;
     userId: string;
     username: string;
@@ -542,7 +542,7 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Sheeloha command received:", data);
         // تشغيل الشيلوها فوراً
         sheelohaPlayer.play({
-          taroukUrl: data.taroukUrl,
+          sheelohaUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
         });
       },
@@ -2145,7 +2145,7 @@ export default function RoomScreen() {
               backgroundColor="#5D4037"
               recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
               iconComponent={
-                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/sZlQZCwgNoyonQZE.png" }} style={{ width: 60, height: 60 }} resizeMode="contain" />
+                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 120, height: 120 }} resizeMode="contain" />
               }
               label=""
               showLabel={false}

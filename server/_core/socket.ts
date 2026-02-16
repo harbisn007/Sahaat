@@ -126,7 +126,7 @@ export interface ServerToClientEvents {
   // حدث تشغيل الشيلوها عند الجميع بعد الطاروق
   playSheeloha: (data: {
     roomId: number;
-    taroukUrl: string;
+    sheelohaUrl: string;
     taroukDuration: number;
     userId: string;
     username: string;
@@ -564,7 +564,7 @@ export function emitPlayAudioMessage(
  */
 export function emitPlaySheeloha(
   roomId: number,
-  taroukUrl: string,
+  sheelohaUrl: string,
   taroukDuration: number,
   userId: string,
   username: string
@@ -572,7 +572,7 @@ export function emitPlaySheeloha(
   if (!io) return;
   io.to(`room:${roomId}`).emit("playSheeloha", {
     roomId,
-    taroukUrl,
+    sheelohaUrl,
     taroukDuration,
     userId,
     username,

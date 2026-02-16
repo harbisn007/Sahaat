@@ -2353,3 +2353,11 @@
 
 ## إصلاح خطأ AudioPlayer released
 - [x] إصلاح "Cannot use shared object that was already released" في use-sheeloha-player.ts (إزالة التحرير المبكر للتصفيق)
+
+## إصلاح أيقونة المايك
+- [x] إنشاء أيقونة مايك v6 احترافية (بدون حدود بيضاء + حجم 120x120 في الزر و 40x40 في الفقاعة)
+
+## إنشاء الشيلوها على الخادم (ffmpeg)
+- [x] إنشاء دالة generateSheeloha: دمج طاروق + echo (200ms delay, 60% volume) + تصفيق (0.96s interval)
+- [x] تعديل routers.ts: إنشاء الشيلوها بالتوازي مع بث الطاروق + بث بعد duration
+- [x] تعديل use-sheeloha-player: تشغيل ملف واحد (35% volume, loop حتى خلوها)
