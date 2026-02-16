@@ -1279,7 +1279,7 @@ export default function RoomScreen() {
     // كتم جميع الأصوات المشغلة أثناء التسجيل
     console.log("[RoomScreen] Stopping all audio before recording...");
     stop(); // إيقاف تشغيل الرسائل الصوتية
-    stopTarouk(); // إيقاف طاروق
+    // stopTarouk() محذوف - كان يسبب "Cannot use shared object that was already released"
     
     try {
       console.log("[RoomScreen] Calling startRecording...");
