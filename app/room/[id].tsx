@@ -490,7 +490,7 @@ export default function RoomScreen() {
   }, [requestPermissions]);
   const { isPlaying, currentUri, play, stop } = useAudioPlayerHook();
   // Tarouk player
-  const { stopTarouk } = useTaroukPlayer();
+  const { playTarouk, stopTarouk } = useTaroukPlayer();
   
   // مشغّل الشيلوها
   const sheelohaPlayer = useSheelohaPlayer();
@@ -523,17 +523,16 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: تشغيل عادي - الشيلوها ستبدأ بعد انتهائه (عبر pendingSheeloha)
+          // الطاروق: تشغيل بدون تأثيرات مؤقتاً
           console.log("[RoomScreen] Playing tarouk for listener");
-          play(data.audioUrl, () => {
-            // بعد انتهاء الطاروق: شغّل الشيلوها إذا كانت محفوظة
-            if (pendingSheelohaRef.current) {
-              console.log("[RoomScreen] Tarouk ended -> starting sheeloha");
-              const sheelohaData = pendingSheelohaRef.current;
-              pendingSheelohaRef.current = null;
-              sheelohaPlayer.play(sheelohaData);
-            }
-          });
+          try {
+            const taroukPlayer = createAudioPlayer(data.audioUrl);
+            taroukPlayer.volume = 1.0;
+            taroukPlayer.play();
+            setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
+          } catch (e) {
+            console.error("[RoomScreen] Failed to play tarouk for listener:", e);
+          }
         }
       },
       
@@ -547,7 +546,7 @@ export default function RoomScreen() {
         });
       },
     });
-  }, [roomId, setCallbacks, play, userId, sheelohaPlayer]);
+  }, [roomId, setCallbacks, userId, sheelohaPlayer]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
@@ -1464,8 +1463,16 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play local comment in parallel:", e);
           }
         } else {
-          // الطاروق: تشغيل محلي للمرسل فقط
-          play(url);
+          // الطاروق: تشغيل محلي للمرسل فقط (بدون تأثيرات مؤقتاً)
+          try {
+            const taroukPlayer = createAudioPlayer(url);
+            taroukPlayer.volume = 1.0;
+            taroukPlayer.play();
+            setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
+            console.log("[RoomScreen] Tarouk playing locally for sender");
+          } catch (e) {
+            console.error("[RoomScreen] Failed to play local tarouk:", e);
+          }
         }
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
