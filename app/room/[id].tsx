@@ -17,7 +17,7 @@ import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
 import { useTaroukPlayer } from "@/hooks/use-tarouk-player";
 import { useSheelohaPlayer } from "@/hooks/use-sheeloha-player";
-import { useSocket } from "@/hooks/use-socket";
+import { useSocket, getSocket } from "@/hooks/use-socket";
 import { RecordingButton } from "@/components/recording-button";
 import { AudioMessage } from "@/components/audio-message";
 import { MessageBubble } from "@/components/message-bubble";
@@ -2157,74 +2157,160 @@ export default function RoomScreen() {
           paddingBottom: Platform.OS === "web" ? 10 : Math.max(insets.bottom + 4, 16),
         }}
       >
-        {/* الصف الأول: زر طاروق دائري كبير في المنتصف (للاعبين فقط - باهت أثناء الشيلوها) */}
+        {/* الصف الأول: شيلوها | طاروق | خلوها (للاعبين فقط) */}
         {isPlayer && (
-          <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 12, width: '100%', opacity: sheelohaPlayer.isPlaying ? 0.35 : 1 }}>
-            <RecordingButton
-              buttonId="tarouk"
-              isRecording={isRecording && recordingType === "tarouk"}
-              isPreparing={isPreparing && recordingType === "tarouk"}
-              pressAndHold={true}
-              onPressIn={() => handleStartRecording("tarouk")}
-              onPressOut={() => handleStopRecording()}
-              onCancelRecording={handleCancelRecording}
-              backgroundColor="#5D4037"
-              recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
-              iconComponent={
-                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 70, height: 70 }} resizeMode="contain" />
-              }
-              label=""
-              showLabel={false}
-              minHeight={80}
-              width={80}
-              borderRadius={40}
-            />
-            <Text 
-              style={{ 
-                color: colors.muted,
-                fontSize: 11,
-                fontWeight: '900',
-                textAlign: 'center',
-                marginTop: 4,
-              }}
-            >
-              طاروق
-            </Text>
-          </View>
-        )}
-
-        {/* الصف الثاني: خلوها | تعليق/موال (بمايكروفون ذهبي) | تفاعلات */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 20, width: '100%' }}>
-          {/* خلوها - للاعبين فقط */}
-          {isPlayer && (
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 16, width: '100%', marginBottom: 12 }}>
+            {/* شيلوها - يمين طاروق */}
             <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
-                disabled={!sheelohaPlayer.isPlaying}
                 style={{
                   backgroundColor: "#5D4037",
-                  opacity: sheelohaPlayer.isPlaying ? 1 : 0.35,
                   width: 56,
                   height: 56,
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
+                  shadowColor: '#FFD700',
+                  shadowOffset: { width: -2, height: -2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 3,
+                  elevation: 5,
                 }}
                 onPress={async () => {
-                  // إيقاف الشيلوها محلياً فوراً
-                  sheelohaPlayer.stop();
-                  stop();
-                  
-                  // بث أمر إيقاف للجميع
+                  // تشغيل آخر رسالة طاروق بتأثير الصفوف
+                  const lastTarouk = audioMessages.find(msg => msg.type === "tarouk");
+                  if (!lastTarouk) {
+                    Alert.alert("لا توجد رسالة طاروق", "لم يتم إرسال أي رسالة طاروق بعد.");
+                    return;
+                  }
+
                   try {
-                    console.log("[RoomScreen] Broadcasting khalooha command to all users");
+                    console.log("[RoomScreen] Generating and playing Sheeloha for last Tarouk:", lastTarouk.audioUrl);
+                    
+                    // استدعاء الخادم لتجهيز الشيلوها
+                    const { generateSheeloha } = await import("@/lib/trpc");
+                    const response = await trpc.audioMessages.generateSheeloha.mutate({
+                      taroukUrl: lastTarouk.audioUrl,
+                      taroukDuration: lastTarouk.duration || 3,
+                      roomId,
+                    });
+
+                    // تشغيل الشيلوها محلياً وبثها للجميع
+                    if (response.sheelohaUrl) {
+                      console.log("[RoomScreen] Sheeloha generated:", response.sheelohaUrl);
+                      await sheelohaPlayer.play(response.sheelohaUrl);
+                      
+                      // بث للجميع عبر Socket.io
+                      const socket = await getSocket();
+                      socket.emit("playSheeloha", {
+                        roomId,
+                        sheelohaUrl: response.sheelohaUrl,
+                        userId,
+                        username: username || "",
+                      });
+                    }
+                  } catch (error) {
+                    console.error("[RoomScreen] Failed to generate/play Sheeloha:", error);
+                    Alert.alert("خطأ", "فشل تشغيل صوت الصفوف.");
+                  }
+                }}
+              >
+                <Text style={{ fontSize: 28 }}>👏</Text>
+              </TouchableOpacity>
+              <Text 
+                style={{ 
+                  color: colors.muted,
+                  fontSize: 9,
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                شيلوها
+              </Text>
+            </View>
+
+            {/* طاروق - وسط */}
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                shadowColor: '#FFD700',
+                shadowOffset: { width: -2, height: -2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 4,
+                elevation: 6,
+              }}>
+                <RecordingButton
+                  buttonId="tarouk"
+                  isRecording={isRecording && recordingType === "tarouk"}
+                  isPreparing={isPreparing && recordingType === "tarouk"}
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("tarouk")}
+                  onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
+                  backgroundColor="#5D4037"
+                  recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
+                  iconComponent={
+                    <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 70, height: 70 }} resizeMode="contain" />
+                  }
+                  label=""
+                  showLabel={false}
+                  minHeight={80}
+                  width={80}
+                  borderRadius={40}
+                />
+              </View>
+              <Text 
+                style={{ 
+                  color: colors.muted,
+                  fontSize: 11,
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                طاروق
+              </Text>
+            </View>
+
+            {/* خلوها - يسار طاروق */}
+            <View style={{ alignItems: 'center' }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#5D4037",
+                  width: 56,
+                  height: 56,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#FFD700',
+                  shadowOffset: { width: -2, height: -2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 3,
+                  elevation: 5,
+                }}
+                onPress={async () => {
+                  // تشغيل التصفيق الختامي (35%) وإيقاف صوت الصفوف
+                  try {
+                    console.log("[RoomScreen] Playing final clap and stopping Sheeloha");
+                    
+                    // إيقاف الشيلوها محلياً
+                    sheelohaPlayer.stop();
+                    
+                    // تشغيل التصفيق الختامي
+                    const finalClapPlayer = createAudioPlayer({ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3" });
+                    finalClapPlayer.volume = 0.35;
+                    await finalClapPlayer.play();
+                    
+                    // بث أمر إيقاف للجميع
                     await createKhaloohaCommandMutation.mutateAsync({
                       roomId,
                       userId,
                       username: username || "",
                     });
+                    
                     console.log("[RoomScreen] Khalooha command sent successfully");
                   } catch (error) {
-                    console.error("[RoomScreen] Failed to broadcast khalooha:", error);
+                    console.error("[RoomScreen] Failed to execute Khalooha:", error);
                   }
                 }}
               >
@@ -2242,30 +2328,41 @@ export default function RoomScreen() {
                 خلوها
               </Text>
             </View>
-          )}
+          </View>
+        )}
 
+        {/* الصف الثاني: تعليق/موال | تفاعلات */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 12, width: '100%' }}>
           {/* تعليق/موال - بمايكروفون ذهبي في المنتصف (للاعبين فقط) */}
           {isPlayer && (
             <View style={{ alignItems: 'center' }}>
-              <RecordingButton
-                buttonId="comment"
-                isRecording={isRecording && recordingType === "comment"}
-                isPreparing={isPreparing && recordingType === "comment"}
-                pressAndHold={true}
-                onPressIn={() => handleStartRecording("comment")}
-                onPressOut={() => handleStopRecording()}
-                onCancelRecording={handleCancelRecording}
-                recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
-                iconComponent={
-                  <MaterialIcons name="mic" size={30} color="#FFD700" />
-                }
-                label=""
-                showLabel={false}
-                backgroundColor="#5D4037"
-                minHeight={64}
-                width={64}
-                borderRadius={32}
-              />
+              <View style={{
+                shadowColor: '#FFD700',
+                shadowOffset: { width: -2, height: -2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+                elevation: 5,
+              }}>
+                <RecordingButton
+                  buttonId="comment"
+                  isRecording={isRecording && recordingType === "comment"}
+                  isPreparing={isPreparing && recordingType === "comment"}
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("comment")}
+                  onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
+                  recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
+                  iconComponent={
+                    <MaterialIcons name="mic" size={30} color="#FFD700" />
+                  }
+                  label=""
+                  showLabel={false}
+                  backgroundColor="#5D4037"
+                  minHeight={64}
+                  width={64}
+                  borderRadius={32}
+                />
+              </View>
               <Text 
                 style={{ 
                   color: colors.muted,
@@ -2290,6 +2387,11 @@ export default function RoomScreen() {
                 borderRadius: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
+                shadowColor: '#FFD700',
+                shadowOffset: { width: -2, height: -2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+                elevation: 5,
               }}
               onPress={() => setIsReactionsPickerOpen(true)}
             >
