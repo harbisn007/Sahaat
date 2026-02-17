@@ -31,6 +31,7 @@ export interface SheelohaOptions {
  */
 export async function generateSheeloha(options: SheelohaOptions): Promise<string> {
   const { taroukUrl, taroukDuration } = options;
+  console.log(`[generateSheeloha] START - taroukUrl: ${taroukUrl}, duration: ${taroukDuration}s`);
   
   const tempDir = tmpdir();
   const taroukFile = path.join(tempDir, `tarouk-${Date.now()}.mp3`);
@@ -39,10 +40,14 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
 
   try {
     // 1. تحميل الطاروق
+    console.log(`[generateSheeloha] Downloading tarouk from ${taroukUrl}`);
     await execAsync(`curl -s "${taroukUrl}" -o "${taroukFile}"`);
+    console.log(`[generateSheeloha] Tarouk downloaded to ${taroukFile}`);
     
     // 2. تحميل التصفيق
+    console.log(`[generateSheeloha] Downloading clap from ${CLAP_URL}`);
     await execAsync(`curl -s "${CLAP_URL}" -o "${clapFile}"`);
+    console.log(`[generateSheeloha] Clap downloaded to ${clapFile}`);
 
     // 3. إنشاء ملف الشيلوها باستخدام ffmpeg
     // تأثير chorus: 3 نسخ بتأخيرات (0, 50, 120ms) وطبقات مختلفة (pitch shift)
@@ -60,11 +65,15 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
       " \\
       -map "[out]" -t ${taroukDuration} -y "${outputFile}"`;
 
+    console.log(`[generateSheeloha] Running ffmpeg...`);
     await execAsync(ffmpegCmd);
+    console.log(`[generateSheeloha] Ffmpeg completed, output: ${outputFile}`);
 
     // 4. رفع الملف إلى S3
+    console.log(`[generateSheeloha] Uploading to S3...`);
     const { stdout } = await execAsync(`manus-upload-file "${outputFile}"`);
     const sheelohaUrl = stdout.trim();
+    console.log(`[generateSheeloha] SUCCESS - sheelohaUrl: ${sheelohaUrl}`);
 
     // 5. حذف الملفات المؤقتة
     await Promise.all([
@@ -75,6 +84,7 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
 
     return sheelohaUrl;
   } catch (error) {
+    console.error(`[generateSheeloha] ERROR:`, error);
     // حذف الملفات المؤقتة في حالة الخطأ
     await Promise.all([
       unlink(taroukFile).catch(() => {}),

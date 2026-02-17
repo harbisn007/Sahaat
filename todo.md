@@ -2408,3 +2408,7 @@
 - [x] إصلاح: Cannot read property 'Base64' - استيراد expo-file-system بشكل static
 - [x] تفعيل صوت الصفوف (إزالة if (false))
 - [x] إصلاح: الصوت لا ينتظر عودة المستخدم - يأخذ وقته الحقيقي
+
+## مشكلة: صوت الصفوف لا يشتغل
+- [x] إضافة console.log مفصلة في generateSheeloha
+- [ ] اختبار: إرسال طاروق وفحص logs
