@@ -2220,10 +2220,10 @@ export default function RoomScreen() {
                 onPress={async () => {
                   // تشغيل آخر رسالة طاروق بتأثير الصفوف
                   console.log("[Sheeloha] Total audioMessages:", audioMessages.length);
-                  console.log("[Sheeloha] audioMessages types:", audioMessages.map(m => ({ id: m.id, type: m.type })));
+                  console.log("[Sheeloha] audioMessages types:", audioMessages.map(m => ({ id: m.id, messageType: m.messageType })));
                   
                   // البحث عن آخر رسالة طاروق (المصفوفة مرتبة من الأحدث للأقدم)
-                  const lastTarouk = audioMessages.find(msg => msg.type === "tarouk");
+                  const lastTarouk = audioMessages.find(msg => msg.messageType === "tarouk");
                   console.log("[Sheeloha] Found lastTarouk:", lastTarouk);
                   
                   if (!lastTarouk) {
