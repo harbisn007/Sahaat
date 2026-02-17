@@ -427,8 +427,8 @@ export const appRouter = router({
               });
               console.log(`[audio.create] Sheeloha generated: ${sheelohaUrl}`);
               
-              // بث الشيلوها قبل ثانية واحدة من نهاية الطاروق
-              const sheelohaDelay = Math.max(0, (input.duration - 1) * 1000);
+              // بث الشيلوها فوراً عند نهاية الطاروق (ليس قبل ثانية)
+              const sheelohaDelay = Math.max(0, input.duration * 1000);
               setTimeout(() => {
                 emitPlaySheeloha(
                   input.roomId,

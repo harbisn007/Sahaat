@@ -1459,27 +1459,15 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Audio uploaded successfully:", url);
         
         // تشغيل محلي فوري للمرسل فقط (الآخرون يستقبلون عبر Socket.io)
-        if (currentRecordingType === "comment") {
-          // التعليق: يشتغل بالتوازي مع الطاروق/الشيلوها بدون إيقافهم
-          try {
-            const commentPlayer = createAudioPlayer(url);
-            commentPlayer.volume = 1.0;
-            commentPlayer.play();
-            setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
-          } catch (e) {
-            console.error("[RoomScreen] Failed to play local comment in parallel:", e);
-          }
-        } else {
-          // الطاروق: تشغيل محلي للمرسل فقط (بدون تأثيرات مؤقتاً)
-          try {
-            const taroukPlayer = createAudioPlayer(url);
-            taroukPlayer.volume = 1.0;
-            taroukPlayer.play();
-            setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
-            console.log("[RoomScreen] Tarouk playing locally for sender");
-          } catch (e) {
-            console.error("[RoomScreen] Failed to play local tarouk:", e);
-          }
+        // طاروق وتعليق يعملان بنفس الطريقة تماماً
+        try {
+          const player = createAudioPlayer(url);
+          player.volume = 1.0;
+          player.play();
+          setTimeout(() => { try { player.release(); } catch (_) {} }, 120000);
+          console.log(`[RoomScreen] ${currentRecordingType} playing locally for sender`);
+        } catch (e) {
+          console.error(`[RoomScreen] Failed to play local ${currentRecordingType}:`, e);
         }
         
         // حفظ في قاعدة البيانات + بث للآخرين عبر الخادم
