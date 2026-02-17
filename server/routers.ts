@@ -412,12 +412,13 @@ export const appRouter = router({
           input.audioUrl,
           input.messageType,
           input.userId,
-          input.username
+          input.username,
+          now, // startTime
+          input.duration
         );
         
         // إذا كان طاروق: إنشاء الشيلوها بالتوازي مع بث الطاروق
-        // TODO: معطل مؤقتاً للتركيز على إصلاح الطاروق أولاً
-        if (false && input.messageType === "tarouk" && input.duration > 0) {
+        if (input.messageType === "tarouk" && input.duration > 0) {
           // إنشاء الشيلوها بالتوازي (بدون انتظار)
           (async () => {
             try {

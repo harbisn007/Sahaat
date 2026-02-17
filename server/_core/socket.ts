@@ -121,6 +121,8 @@ export interface ServerToClientEvents {
     messageType: string; // "tarouk" | "comment"
     userId: string;
     username: string;
+    startTime: number; // timestamp وقت بدء التشغيل
+    duration: number; // مدة الصوت بالثواني
   }) => void;
   
   // حدث تشغيل الشيلوها عند الجميع بعد الطاروق
@@ -533,7 +535,9 @@ export function emitPlayAudioMessage(
   audioUrl: string,
   messageType: string,
   userId: string,
-  username: string
+  username: string,
+  startTime: number,
+  duration: number
 ): void {
   if (!io) {
     console.error("[Socket.io] ERROR: io is null, cannot emit playAudioMessage");
@@ -554,6 +558,8 @@ export function emitPlayAudioMessage(
     messageType,
     userId,
     username,
+    startTime,
+    duration,
   });
 }
 

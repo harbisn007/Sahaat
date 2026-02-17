@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, Fla
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
+import * as FileSystem from "expo-file-system/legacy";
 
 // Room background image
 const roomBackground = require("@/assets/images/room-background.png");
@@ -510,6 +511,17 @@ export default function RoomScreen() {
           console.log("[RoomScreen] Sender skipping broadcast - plays locally");
           return;
         }
+        
+        // فحص: هل انتهى وقت الصوت؟
+        const now = Date.now();
+        const elapsed = (now - data.startTime) / 1000; // الوقت المنقضي بالثواني
+        if (elapsed >= data.duration) {
+          console.log(`[RoomScreen] Audio expired (elapsed: ${elapsed.toFixed(1)}s, duration: ${data.duration}s) - NOT playing`);
+          return;
+        }
+        
+        console.log(`[RoomScreen] Audio still valid (elapsed: ${elapsed.toFixed(1)}s / ${data.duration}s)`);
+      
         
         if (data.messageType === "comment") {
           // التعليق: يشتغل بالتوازي مع أي صوت آخر (طاروق/شيلوها) بدون إيقافه
@@ -1440,9 +1452,8 @@ export default function RoomScreen() {
           });
         } else {
           // Native: Read file as base64
-          const FileSystemModule = await import("expo-file-system/legacy");
-          base64Data = await FileSystemModule.readAsStringAsync(recording.uri, {
-            encoding: FileSystemModule.EncodingType.Base64,
+          base64Data = await FileSystem.readAsStringAsync(recording.uri, {
+            encoding: FileSystem.EncodingType.Base64,
           });
         }
         
