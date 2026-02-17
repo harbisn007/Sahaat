@@ -2447,3 +2447,4 @@
 
 ## إصلاح خطأ تشغيل الشيلوها
 - [x] إصلاح خطأ "hooks[lastArg] is not a function" عند الضغط على زر شيلوها (إضافة endpoint generateSheeloha)
+- [x] تصحيح مسار API من trpc.audio إلى trpc.rooms.audio
