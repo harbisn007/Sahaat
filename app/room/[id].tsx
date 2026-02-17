@@ -203,16 +203,25 @@ export default function RoomScreen() {
     if (!roomId || roomId <= 0) return;
     
     setCallbacks({
-      onRoomDeleted: (roomName: string) => {
-        console.log("[RoomScreen] Room deleted via Socket.io:", roomName);
+      onRoomDeleted: (roomName: string, reason?: "manual" | "auto") => {
+        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason);
         if (!roomClosedAlertShown) {
           setRoomClosedAlertShown(true);
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
-          Alert.alert(
-            "تم حذف الساحة",
-            `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
-          );
+          
+          // رسالة مختلفة حسب سبب الحذف
+          if (reason === "auto") {
+            Alert.alert(
+              "تم حذف الساحة",
+              `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
+            );
+          } else {
+            Alert.alert(
+              "تم إغلاق الساحة",
+              "تم إغلاق الساحة بنجاح"
+            );
+          }
         }
       },
       // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية

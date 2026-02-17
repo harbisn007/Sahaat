@@ -236,7 +236,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
   // Callbacks للأحداث
   const callbacksRef = useRef<{
     onRoomUpdated?: () => void;
-    onRoomDeleted?: (roomName: string) => void;
+    onRoomDeleted?: (roomName: string, reason?: "manual" | "auto") => void;
     onParticipantJoined?: (data: { userId: string; username: string; role: string }) => void;
     onParticipantLeft?: (userId: string) => void;
     onJoinRequestCreated?: (data: { requestId: number; userId: string; username: string; avatar: string }) => void;
@@ -295,6 +295,9 @@ export function useSocket(roomId: number | null, userId?: string | null) {
     }) => void;
   }>({});
 
+  // تتبع roomId السابق لمغادرته عند التغيير
+  const previousRoomIdRef = useRef<number | null>(null);
+
   // الاتصال والانضمام للساحة
   useEffect(() => {
     if (!roomId) return;
@@ -308,7 +311,16 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         console.log("[Socket.io] Cannot join room - not connected or unmounted");
         return;
       }
+      
+      // مغادرة الساحة القديمة قبل الانضمام للجديدة
+      if (previousRoomIdRef.current !== null && previousRoomIdRef.current !== roomId) {
+        console.log("[Socket.io] Leaving previous room:", previousRoomIdRef.current);
+        socket.emit("leaveRoom", previousRoomIdRef.current);
+      }
+      
       socket.emit("joinRoom", roomId!);
+      previousRoomIdRef.current = roomId;
+      
       // الانضمام لقناة المستخدم الشخصية لاستقبال إشعارات طلبات الانضمام
       if (userId) {
         socket.emit("joinUserChannel", userId);
@@ -347,7 +359,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
 
         socket.on("roomDeleted", (data) => {
           if (data.roomId === roomId) {
-            callbacksRef.current.onRoomDeleted?.(data.roomName);
+            callbacksRef.current.onRoomDeleted?.(data.roomName, data.reason);
           }
         });
 

@@ -322,9 +322,9 @@ export function emitRoomUpdated(roomId: number): void {
 /**
  * بث حذف الساحة لجميع المشاركين
  */
-export function emitRoomDeleted(roomId: number, roomName: string): void {
+export function emitRoomDeleted(roomId: number, roomName: string, reason: "manual" | "auto" = "manual"): void {
   if (!io) return;
-  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName });
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName, reason });
 }
 
 /**
@@ -455,9 +455,9 @@ export function emitKhaloohaCommand(
  */
 export function broadcastRoomDeleted(roomId: number): void {
   if (!io) return;
-  // بث لجميع المتصلين في الساحة
-  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "" });
-  console.log(`[Socket.io] Broadcasted room deletion: ${roomId}`);
+  // بث لجميع المتصلين في الساحة (حذف تلقائي بعد 15 دقيقة)
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "", reason: "auto" });
+  console.log(`[Socket.io] Broadcasted room deletion (auto): ${roomId}`);
 }
 
 /**
