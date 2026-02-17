@@ -416,7 +416,8 @@ export const appRouter = router({
         );
         
         // إذا كان طاروق: إنشاء الشيلوها بالتوازي مع بث الطاروق
-        if (input.messageType === "tarouk" && input.duration > 0) {
+        // TODO: معطل مؤقتاً للتركيز على إصلاح الطاروق أولاً
+        if (false && input.messageType === "tarouk" && input.duration > 0) {
           // إنشاء الشيلوها بالتوازي (بدون انتظار)
           (async () => {
             try {

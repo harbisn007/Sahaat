@@ -2137,7 +2137,7 @@ export default function RoomScreen() {
             <RecordingButton
               isPreparing={isPreparing && recordingType === "tarouk"}
               pressAndHold={true}
-              onPressIn={() => !sheelohaPlayer.isPlaying && handleStartRecording("tarouk")}
+              onPressIn={() => handleStartRecording("tarouk")}
               onPressOut={() => handleStopRecording()}
               onCancelRecording={handleCancelRecording}
               backgroundColor="#5D4037"
