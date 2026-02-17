@@ -2135,6 +2135,8 @@ export default function RoomScreen() {
         {isPlayer && (
           <View style={{ alignItems: 'center', justifyContent: 'center', marginBottom: 12, width: '100%', opacity: sheelohaPlayer.isPlaying ? 0.35 : 1 }}>
             <RecordingButton
+              buttonId="tarouk"
+              isRecording={isRecording && recordingType === "tarouk"}
               isPreparing={isPreparing && recordingType === "tarouk"}
               pressAndHold={true}
               onPressIn={() => handleStartRecording("tarouk")}
