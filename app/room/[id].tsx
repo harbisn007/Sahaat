@@ -2244,12 +2244,25 @@ export default function RoomScreen() {
                   try {
                     console.log("[RoomScreen] Generating and playing Sheeloha for last Tarouk:", lastTarouk.audioUrl);
                     
-                    // استدعاء الخادم لتجهيز الشيلوها
-                    const response = await generateSheelohaMutation.mutateAsync({
-                      taroukUrl: lastTarouk.audioUrl,
-                      taroukDuration: lastTarouk.duration || 3,
-                      roomId,
+                    // استدعاء الخادم مباشرة عبر fetch
+                    const { getApiBaseUrl } = await import('@/constants/oauth');
+                    const apiUrl = getApiBaseUrl();
+                    const fetchResponse = await fetch(`${apiUrl}/api/trpc/audio.generateSheeloha`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        taroukUrl: lastTarouk.audioUrl,
+                        taroukDuration: lastTarouk.duration || 3,
+                        roomId,
+                      }),
                     });
+                    
+                    if (!fetchResponse.ok) {
+                      throw new Error(`HTTP ${fetchResponse.status}`);
+                    }
+                    
+                    const responseData = await fetchResponse.json();
+                    const response = responseData.result?.data || responseData;
 
                     // تشغيل الشيلوها محلياً وبثها للجميع
                     if (response.sheelohaUrl) {
