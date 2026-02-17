@@ -2157,9 +2157,50 @@ export default function RoomScreen() {
           paddingBottom: Platform.OS === "web" ? 10 : Math.max(insets.bottom + 4, 16),
         }}
       >
-        {/* الصف الأول: شيلوها | طاروق | خلوها (للاعبين فقط) */}
+        {/* صف واحد: تعليق/موال | شيلوها | طاروق | خلوها | تفاعلات (للاعبين فقط) */}
         {isPlayer && (
-          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 16, width: '100%', marginBottom: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 12, width: '100%' }}>
+            {/* تعليق/موال - الأول يميناً */}
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                shadowColor: '#FFD700',
+                shadowOffset: { width: -2, height: -2 },
+                shadowOpacity: 0.3,
+                shadowRadius: 3,
+                elevation: 5,
+              }}>
+                <RecordingButton
+                  buttonId="comment"
+                  isRecording={isRecording && recordingType === "comment"}
+                  isPreparing={isPreparing && recordingType === "comment"}
+                  pressAndHold={true}
+                  onPressIn={() => handleStartRecording("comment")}
+                  onPressOut={() => handleStopRecording()}
+                  onCancelRecording={handleCancelRecording}
+                  recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
+                  iconComponent={
+                    <MaterialIcons name="mic" size={28} color="#FFD700" />
+                  }
+                  label=""
+                  showLabel={false}
+                  backgroundColor="#5D4037"
+                  minHeight={55}
+                  width={55}
+                  borderRadius={28}
+                />
+              </View>
+              <Text 
+                style={{ 
+                  color: colors.muted,
+                  fontSize: 8,
+                  fontWeight: '900',
+                  textAlign: 'center',
+                  marginTop: 4,
+                }}
+              >
+                تعليق / موال
+              </Text>
+            </View>
             {/* شيلوها - يمين طاروق */}
             <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
@@ -2178,7 +2219,13 @@ export default function RoomScreen() {
                 }}
                 onPress={async () => {
                   // تشغيل آخر رسالة طاروق بتأثير الصفوف
+                  console.log("[Sheeloha] Total audioMessages:", audioMessages.length);
+                  console.log("[Sheeloha] audioMessages types:", audioMessages.map(m => ({ id: m.id, type: m.type })));
+                  
+                  // البحث عن آخر رسالة طاروق (المصفوفة مرتبة من الأحدث للأقدم)
                   const lastTarouk = audioMessages.find(msg => msg.type === "tarouk");
+                  console.log("[Sheeloha] Found lastTarouk:", lastTarouk);
+                  
                   if (!lastTarouk) {
                     Alert.alert("لا توجد رسالة طاروق", "لم يتم إرسال أي رسالة طاروق بعد.");
                     return;
@@ -2328,87 +2375,44 @@ export default function RoomScreen() {
                 خلوها
               </Text>
             </View>
-          </View>
-        )}
 
-        {/* الصف الثاني: تعليق/موال | تفاعلات */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 12, width: '100%' }}>
-          {/* تعليق/موال - بمايكروفون ذهبي في المنتصف (للاعبين فقط) */}
-          {isPlayer && (
+            {/* تفاعلات - الأخير يساراً */}
             <View style={{ alignItems: 'center' }}>
-              <View style={{
-                shadowColor: '#FFD700',
-                shadowOffset: { width: -2, height: -2 },
-                shadowOpacity: 0.3,
-                shadowRadius: 3,
-                elevation: 5,
-              }}>
-                <RecordingButton
-                  buttonId="comment"
-                  isRecording={isRecording && recordingType === "comment"}
-                  isPreparing={isPreparing && recordingType === "comment"}
-                  pressAndHold={true}
-                  onPressIn={() => handleStartRecording("comment")}
-                  onPressOut={() => handleStopRecording()}
-                  onCancelRecording={handleCancelRecording}
-                  recordingDuration={recordingType === "comment" ? formattedDuration : "00:00"}
-                  iconComponent={
-                    <MaterialIcons name="mic" size={30} color="#FFD700" />
-                  }
-                  label=""
-                  showLabel={false}
-                  backgroundColor="#5D4037"
-                  minHeight={64}
-                  width={64}
-                  borderRadius={32}
-                />
-              </View>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#5D4037",
+                  width: 55,
+                  height: 55,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#FFD700',
+                  shadowOffset: { width: -2, height: -2 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 3,
+                  elevation: 5,
+                }}
+                onPress={() => setIsReactionsPickerOpen(true)}
+              >
+                <MaterialIcons name="emoji-emotions" size={25} color="#FFD700" />
+              </TouchableOpacity>
               <Text 
                 style={{ 
                   color: colors.muted,
-                  fontSize: 9,
+                  fontSize: 8,
                   fontWeight: '900',
                   textAlign: 'center',
                   marginTop: 4,
                 }}
               >
-                تعليق / موال
+                تفاعلات
               </Text>
             </View>
-          )}
-
-          {/* تفاعلات - للجميع */}
-          <View style={{ alignItems: 'center' }}>
-            <TouchableOpacity
-              style={{
-                backgroundColor: "#5D4037",
-                width: 56,
-                height: 56,
-                borderRadius: 12,
-                alignItems: 'center',
-                justifyContent: 'center',
-                shadowColor: '#FFD700',
-                shadowOffset: { width: -2, height: -2 },
-                shadowOpacity: 0.3,
-                shadowRadius: 3,
-                elevation: 5,
-              }}
-              onPress={() => setIsReactionsPickerOpen(true)}
-            >
-              <MaterialIcons name="emoji-emotions" size={26} color="#FFD700" />
-            </TouchableOpacity>
-            <Text 
-              style={{ 
-                color: colors.muted,
-                fontSize: 9,
-                fontWeight: '900',
-                textAlign: 'center',
-                marginTop: 4,
-              }}
-            >
-              تفاعلات
-            </Text>
           </View>
+        )}
+
+        {/* Viewer: Request to Join as Player */}
+        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 12, width: '100%' }}>
 
           {/* Viewer: Request to Join as Player */}
           {isViewer && (
