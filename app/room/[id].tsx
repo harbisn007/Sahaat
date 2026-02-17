@@ -458,6 +458,7 @@ export default function RoomScreen() {
   const uploadAudioMutation = trpc.uploadAudio.useMutation();
 
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
+  const generateSheelohaMutation = trpc.audio.generateSheeloha.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
@@ -2244,7 +2245,7 @@ export default function RoomScreen() {
                     console.log("[RoomScreen] Generating and playing Sheeloha for last Tarouk:", lastTarouk.audioUrl);
                     
                     // استدعاء الخادم لتجهيز الشيلوها
-                    const response = await trpc.audio.generateSheeloha.mutate({
+                    const response = await generateSheelohaMutation.mutateAsync({
                       taroukUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
                       roomId,
