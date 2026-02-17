@@ -80,6 +80,7 @@ export default function RoomScreen() {
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
+  const [pendingSheeloha, setPendingSheeloha] = useState<{ sheelohaUrl: string; taroukDuration: number } | null>(null);
   const [localRecordingType, setLocalRecordingType] = useState<"comment" | "tarouk" | null>(null);
   // تتبع آخر رسالة شغّلها المستخدم محلياً (لمنع التشغيل المزدوج)
   const [locallyPlayedAudioUrls, setLocallyPlayedAudioUrls] = useState<Set<string>>(new Set());
@@ -535,11 +536,25 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: تشغيل بدون تأثيرات مؤقتاً
+          // الطاروق: تشغيل وتشغيل الشيلوها عند الانتهاء
           console.log("[RoomScreen] Playing tarouk for listener");
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
+            
+            // عند انتهاء الطاروق: تشغيل الشيلوها إذا كانت موجودة
+            taroukPlayer.onPlaybackStatusUpdate = (status) => {
+              if (status.didJustFinish) {
+                console.log("[RoomScreen] Tarouk finished - checking for pending sheeloha");
+                // تحقق: هل هناك شيلوها منتظرة؟
+                if (pendingSheeloha) {
+                  console.log("[RoomScreen] Playing pending sheeloha:", pendingSheeloha);
+                  sheelohaPlayer.play(pendingSheeloha);
+                  setPendingSheeloha(null); // مسح بعد التشغيل
+                }
+              }
+            };
+            
             taroukPlayer.play();
             setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
@@ -548,17 +563,17 @@ export default function RoomScreen() {
         }
       },
       
-      // استقبال أمر الشيلوها: نحفظها فقط - ستبدأ بعد انتهاء الطاروق
+      // استقبال أمر الشيلوها: نحفظها لتشغيلها عند انتهاء الطاروق
       onPlaySheeloha: (data: SheelohaPayload) => {
-        console.log("[RoomScreen] Sheeloha command received:", data);
-        // تشغيل الشيلوها فوراً
-        sheelohaPlayer.play({
+        console.log("[RoomScreen] Sheeloha command received - saving for later:", data);
+        // حفظ الشيلوها - ستشتغل عند انتهاء الطاروق
+        setPendingSheeloha({
           sheelohaUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
         });
       },
     });
-  }, [roomId, setCallbacks, userId, sheelohaPlayer]);
+  }, [roomId, setCallbacks, userId, sheelohaPlayer, pendingSheeloha]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(
