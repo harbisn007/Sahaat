@@ -2235,8 +2235,7 @@ export default function RoomScreen() {
                     console.log("[RoomScreen] Generating and playing Sheeloha for last Tarouk:", lastTarouk.audioUrl);
                     
                     // استدعاء الخادم لتجهيز الشيلوها
-                    const { generateSheeloha } = await import("@/lib/trpc");
-                    const response = await trpc.audioMessages.generateSheeloha.mutate({
+                    const response = await trpc.audio.generateSheeloha.mutate({
                       taroukUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
                       roomId,

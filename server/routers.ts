@@ -453,6 +453,33 @@ export const appRouter = router({
       .query(async ({ input }) => {
         return db.getLastTaroukMessage(input.roomId);
       }),
+
+    // Generate sheeloha for a tarouk
+    generateSheeloha: publicProcedure
+      .input(
+        z.object({
+          taroukUrl: z.string(),
+          taroukDuration: z.number(),
+          roomId: z.number(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        console.log(`[audio.generateSheeloha] Generating sheeloha for tarouk: ${input.taroukUrl}`);
+        
+        try {
+          const { generateSheeloha } = await import("./sheeloha-generator");
+          const sheelohaUrl = await generateSheeloha({
+            taroukUrl: input.taroukUrl,
+            taroukDuration: input.taroukDuration,
+          });
+          
+          console.log(`[audio.generateSheeloha] Sheeloha generated: ${sheelohaUrl}`);
+          return { sheelohaUrl };
+        } catch (error) {
+          console.error(`[audio.generateSheeloha] Failed:`, error);
+          throw new Error("Failed to generate sheeloha");
+        }
+      }),
   }),
 
   // Upload audio file
