@@ -292,11 +292,17 @@ export function useAudioRecorder() {
       preparingTimeoutRef.current = null;
     }
 
-    // Save current duration before resetting
-    const currentDuration = recordingDuration;
+    // Calculate actual duration from start time (more accurate than timer)
+    const actualDuration = recordingStartTimeRef.current > 0 
+      ? Math.max(1, Math.round((Date.now() - recordingStartTimeRef.current) / 1000))
+      : recordingDuration;
+    
+    console.log(`[useAudioRecorder] stopRecording - actualDuration: ${actualDuration}s, timerDuration: ${recordingDuration}s`);
+    
     setIsRecording(false);
     setIsPreparing(false);
     setRecordingDuration(0);
+    recordingStartTimeRef.current = 0;
 
     try {
       if (Platform.OS === "web") {
@@ -322,7 +328,7 @@ export function useAudioRecorder() {
             
             resolve({
               uri,
-              duration: currentDuration,
+              duration: actualDuration,
             });
           };
 
@@ -353,7 +359,7 @@ export function useAudioRecorder() {
         
         const result: AudioRecording = {
           uri,
-          duration: currentDuration,
+          duration: actualDuration,
         };
         
         // Release recorder
