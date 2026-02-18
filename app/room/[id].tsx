@@ -2250,10 +2250,15 @@ export default function RoomScreen() {
                     const fetchResponse = await fetch(`${apiUrl}/api/trpc/audio.generateSheeloha`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
+                      credentials: 'include',
                       body: JSON.stringify({
-                        taroukUrl: lastTarouk.audioUrl,
-                        taroukDuration: lastTarouk.duration || 3,
-                        roomId,
+                        "0": {
+                          json: {
+                            taroukUrl: lastTarouk.audioUrl,
+                            taroukDuration: lastTarouk.duration || 3,
+                            roomId,
+                          }
+                        }
                       }),
                     });
                     
@@ -2262,7 +2267,7 @@ export default function RoomScreen() {
                     }
                     
                     const responseData = await fetchResponse.json();
-                    const response = responseData.result?.data || responseData;
+                    const response = responseData[0]?.result?.data || responseData.result?.data || responseData;
 
                     // تشغيل الشيلوها محلياً وبثها للجميع
                     if (response.sheelohaUrl) {
