@@ -6,7 +6,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 // أنواع الأحداث من الخادم
 interface ServerToClientEvents {
   roomUpdated: (data: { roomId: number }) => void;
-  roomDeleted: (data: { roomId: number; roomName: string }) => void;
+  roomDeleted: (data: { roomId: number; roomName: string; reason?: "manual" | "auto" }) => void;
   participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;
   participantLeft: (data: { roomId: number; userId: string }) => void;
   joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
@@ -93,6 +93,7 @@ interface ClientToServerEvents {
   leaveUserChannel: (userId: string) => void;
   joinCreatorChannel: (userId: string) => void;
   leaveCreatorChannel: (userId: string) => void;
+  playSheeloha: (data: { roomId: number; sheelohaUrl: string; userId: string; username: string }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
