@@ -2371,7 +2371,7 @@ export default function RoomScreen() {
                     sheelohaPlayer.stop();
                     
                     // تشغيل التصفيق الختامي
-                    const finalClapPlayer = createAudioPlayer({ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3" });
+                    const finalClapPlayer = createAudioPlayer("https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3");
                     finalClapPlayer.volume = 0.35;
                     await finalClapPlayer.play();
                     
