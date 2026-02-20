@@ -17,7 +17,7 @@ import { tmpdir } from "os";
 
 const execAsync = promisify(exec);
 
-const CLAP_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
+const CLAP_REL_KEY = "audio/clap-final.mp3";
 const CLAP_INTERVAL = 0.96; // seconds
 
 export interface SheelohaOptions {
@@ -39,14 +39,19 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   const outputFile = path.join(tempDir, `sheeloha-${Date.now()}.mp3`);
 
   try {
-    // 1. تحميل الطاروق
+    // 1. الحصول على signed URL للتصفيق
+    const { storageGet } = await import("./storage");
+    const { url: clapSignedUrl } = await storageGet(CLAP_REL_KEY);
+    console.log(`[generateSheeloha] Got signed URL for clap`);
+    
+    // 2. تحميل الطاروق
     console.log(`[generateSheeloha] Downloading tarouk from ${taroukUrl}`);
     await execAsync(`curl -s "${taroukUrl}" -o "${taroukFile}"`);
     console.log(`[generateSheeloha] Tarouk downloaded to ${taroukFile}`);
     
-    // 2. تحميل التصفيق
-    console.log(`[generateSheeloha] Downloading clap from ${CLAP_URL}`);
-    await execAsync(`curl -s "${CLAP_URL}" -o "${clapFile}"`);
+    // 3. تحميل التصفيق
+    console.log(`[generateSheeloha] Downloading clap from signed URL`);
+    await execAsync(`curl -s "${clapSignedUrl}" -o "${clapFile}"`);
     console.log(`[generateSheeloha] Clap downloaded to ${clapFile}`);
 
     // 3. إنشاء ملف الشيلوها باستخدام ffmpeg

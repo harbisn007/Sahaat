@@ -467,17 +467,26 @@ export const appRouter = router({
         console.log(`[audio.generateSheeloha] Generating sheeloha for tarouk: ${input.taroukUrl}`);
         
         try {
+          // استخراج relKey من URL والحصول على signed URL
+          const { storageGet } = await import("./storage");
+          const urlObj = new URL(input.taroukUrl);
+          const relKey = urlObj.pathname.replace(/^\//, ""); // إزالة / الأولى
+          const { url: signedTaroukUrl } = await storageGet(relKey);
+          console.log(`[audio.generateSheeloha] Got signed URL for tarouk`);
+          
           const { generateSheeloha } = await import("./sheeloha-generator");
           const sheelohaUrl = await generateSheeloha({
-            taroukUrl: input.taroukUrl,
+            taroukUrl: signedTaroukUrl,
             taroukDuration: input.taroukDuration,
           });
           
           console.log(`[audio.generateSheeloha] Sheeloha generated: ${sheelohaUrl}`);
           return { sheelohaUrl };
-        } catch (error) {
+        } catch (error: any) {
           console.error(`[audio.generateSheeloha] Failed:`, error);
-          throw new Error("Failed to generate sheeloha");
+          console.error(`[audio.generateSheeloha] Error message:`, error.message);
+          console.error(`[audio.generateSheeloha] Error stack:`, error.stack);
+          throw new Error(`Failed to generate sheeloha: ${error.message}`);
         }
       }),
   }),
