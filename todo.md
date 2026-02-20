@@ -2511,3 +2511,16 @@
 - [x] فحص كود استدعاء generateSheeloha في [id].tsx
 - [x] إصلاح taroukDuration في use-audio-recorder (تعيين recordingStartTimeRef في Web)
 - [ ] اختبار على الجوال
+
+
+## فشل تشغيل الشيلوها بعد التوليد
+- [ ] فحص كود sheelohaPlayer.play() في [id].tsx
+- [ ] فحص server logs للتأكد من رفع الملف إلى S3
+- [ ] إصلاح سبب فشل التشغيل
+
+
+## تطبيق الحل المقترح من الصورة
+- [x] استخراج النص من الصورة
+- [x] فهم الحل المقترح (مشكلة dependencies في Metro bundler)
+- [x] تطبيق الحل (إجبار استيراد expo-audio بـ import * as)
+- [ ] اختبار على الجوال

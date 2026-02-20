@@ -8,7 +8,9 @@
  */
 
 import { useRef, useCallback, useState } from "react";
-import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
+import * as ExpoAudio from "expo-audio";
+const { createAudioPlayer, AudioModule } = ExpoAudio;
+type AudioPlayer = ExpoAudio.AudioPlayer;
 import { Platform } from "react-native";
 
 interface SheelohaData {
