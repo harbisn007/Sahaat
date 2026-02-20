@@ -1,0 +1,43 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "audio_messages"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "join_requests"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "khalooha_commands"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "public_invitations"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "reactions"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "recording_status"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "room_participants"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "rooms"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "sheeloha_broadcasts"
+    },
+    {
+      "Tables_in_Y67HhrMGN4rr3vJiD7GHZk": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_Y67HhrMGN4rr3vJiD7GHZk\n__drizzle_migrations\naudio_messages\njoin_requests\nkhalooha_commands\npublic_invitations\nreactions\nrecording_status\nroom_participants\nrooms\nsheeloha_broadcasts\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 1576
+}

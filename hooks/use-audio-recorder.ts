@@ -123,6 +123,8 @@ export function useAudioRecorder() {
       setRecordingDuration(0);
       setIsRecording(true);
       
+      // Start timer and track start time
+      recordingStartTimeRef.current = Date.now();
       timerRef.current = setInterval(() => {
         setRecordingDuration((prev) => prev + 1);
       }, 1000);

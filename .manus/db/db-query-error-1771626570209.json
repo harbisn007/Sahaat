@@ -1,0 +1,8 @@
+{
+  "query": "SELECT id, duration, messageType, audioUrl FROM audioMessages WHERE messageType = 'tarouk' ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute SELECT id, duration, messageType, audioUrl FROM audioMessages WHERE messageType = 'tarouk' ORDER BY createdAt DESC LIMIT 5;",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1146 (42S02) at line 1: Table 'y67hhrmgn4rr3vjid7ghzk.audioMessages' doesn't exist"
+  ]
+}

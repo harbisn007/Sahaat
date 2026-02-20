@@ -1,0 +1,20 @@
+{
+  "query": "SELECT id, duration, messageType FROM audio_messages WHERE messageType = 'tarouk' ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute SELECT id, duration, messageType FROM audio_messages WHERE messageType = 'tarouk' ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "3120010",
+      "duration": "1",
+      "messageType": "tarouk"
+    },
+    {
+      "id": "3120009",
+      "duration": "1",
+      "messageType": "tarouk"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tduration\tmessageType\n3120010\t1\ttarouk\n3120009\t1\ttarouk\n",
+  "stderr": "",
+  "execution_time_ms": 1597
+}

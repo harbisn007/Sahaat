@@ -2505,3 +2505,9 @@
 - [x] فحص كود توليد الشيلوها في [id].tsx
 - [x] فحص API endpoint في الخادم
 - [x] إصلاح سبب الـ 400 (جعل roomId optional)
+
+
+## إصلاح مدة الشيلوها (1 ثانية فقط)
+- [x] فحص كود استدعاء generateSheeloha في [id].tsx
+- [x] إصلاح taroukDuration في use-audio-recorder (تعيين recordingStartTimeRef في Web)
+- [ ] اختبار على الجوال
