@@ -33,7 +33,7 @@ export function getActiveUsersCount(): number {
 export interface ServerToClientEvents {
   // أحداث الساحة
   roomUpdated: (data: { roomId: number }) => void;
-  roomDeleted: (data: { roomId: number; roomName: string }) => void;
+  roomDeleted: (data: { roomId: number; roomName: string; reason: "manual" | "auto" }) => void;
   
   // أحداث المشاركين
   participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;

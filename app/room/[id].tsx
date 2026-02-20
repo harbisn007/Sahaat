@@ -551,21 +551,18 @@ export default function RoomScreen() {
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
-            
-            // عند انتهاء الطاروق: تشغيل الشيلوها إذا كانت موجودة
-            taroukPlayer.onPlaybackStatusUpdate = (status) => {
-              if (status.didJustFinish) {
-                console.log("[RoomScreen] Tarouk finished - checking for pending sheeloha");
-                // تحقق: هل هناك شيلوها منتظرة؟
-                if (pendingSheeloha) {
-                  console.log("[RoomScreen] Playing pending sheeloha:", pendingSheeloha);
-                  sheelohaPlayer.play(pendingSheeloha);
-                  setPendingSheeloha(null); // مسح بعد التشغيل
-                }
-              }
-            };
-            
             taroukPlayer.play();
+            
+            // تشغيل الشيلوها بعد انتهاء الطاروق (باستخدام setTimeout)
+            if (pendingSheeloha) {
+              const delay = (data.duration || 3) * 1000; // مدة الطاروق بالملي ثانية
+              console.log(`[RoomScreen] Will play pending sheeloha after ${delay}ms`);
+              setTimeout(() => {
+                console.log("[RoomScreen] Playing pending sheeloha:", pendingSheeloha);
+                sheelohaPlayer.play(pendingSheeloha);
+                setPendingSheeloha(null);
+              }, delay);
+            }
             setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
             console.error("[RoomScreen] Failed to play tarouk for listener:", e);

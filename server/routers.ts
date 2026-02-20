@@ -413,7 +413,7 @@ export const appRouter = router({
           input.messageType,
           input.userId,
           input.username,
-          now, // startTime
+          now.getTime(), // startTime as timestamp
           input.duration
         );
         

@@ -6,7 +6,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 // أنواع الأحداث من الخادم
 interface ServerToClientEvents {
   roomUpdated: (data: { roomId: number }) => void;
-  roomDeleted: (data: { roomId: number; roomName: string; reason?: "manual" | "auto" }) => void;
+  roomDeleted: (data: { roomId: number; roomName: string; reason: "manual" | "auto" }) => void;
   participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;
   participantLeft: (data: { roomId: number; userId: string }) => void;
   joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
@@ -65,6 +65,8 @@ interface ServerToClientEvents {
     messageType: string;
     userId: string;
     username: string;
+    startTime: number;
+    duration: number;
   }) => void;
   // حدث تشغيل الشيلوها بعد الطاروق
   playSheeloha: (data: {
@@ -286,6 +288,8 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       messageType: string;
       userId: string;
       username: string;
+      startTime: number;
+      duration: number;
     }) => void;
     onPlaySheeloha?: (data: {
       roomId: number;
