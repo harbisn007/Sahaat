@@ -460,7 +460,7 @@ export const appRouter = router({
         z.object({
           taroukUrl: z.string(),
           taroukDuration: z.number(),
-          roomId: z.number(),
+          roomId: z.number().optional(),
         })
       )
       .mutation(async ({ input }) => {
