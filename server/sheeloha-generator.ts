@@ -10,18 +10,19 @@
 
 import { exec } from "child_process";
 import { promisify } from "util";
-import { unlink } from "fs/promises";
+import { unlink, readFile } from "fs/promises";
 import path from "path";
 import { tmpdir } from "os";
+import { storagePut } from "./storage";
 
 const execAsync = promisify(exec);
 
-// رابط مباشر لصوت التصفيق على CDN (موثّق في العميل أيضاً)
+// رابط مباشر لصوت التصفيق على CDN
 const CLAP_CDN_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
 
 export interface SheelohaOptions {
   taroukUrl: string;
-  taroukDuration: number; // seconds
+  taroukDuration: number;
 }
 
 export async function generateSheeloha(options: SheelohaOptions): Promise<string> {
@@ -35,43 +36,34 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   console.log(`[generateSheeloha] START - duration: ${taroukDuration}s`);
 
   try {
-    // 2. تحميل الملفات
+    // 1. تحميل الملفات
     await execAsync(`curl -sL "${taroukUrl}" -o "${taroukFile}"`);
     await execAsync(`curl -sL "${CLAP_CDN_URL}" -o "${clapFile}"`);
     console.log(`[generateSheeloha] Files downloaded`);
 
-    // 3. توليد الشيلوها بـ ffmpeg:
-    //    - تأثير chorus: 3 نسخ (الأصل + تأخير 50ms pitch -5% + تأخير 120ms pitch +7%)
-    //    - تصفيق يتكرر كل 0.96 ثانية طوال مدة الطاروق
-    //    - مستوى الصوت 35%
-    const ffmpegCmd = [
-      `ffmpeg -y`,
-      `-i "${taroukFile}"`,
-      `-i "${clapFile}"`,
-      `-filter_complex "`,
-        `[0:a]asplit=3[v1][v2][v3];`,
-        `[v1]volume=0.35[voice1];`,
-        `[v2]adelay=50|50,asetrate=44100*0.95,aresample=44100,volume=0.30[voice2];`,
-        `[v3]adelay=120|120,asetrate=44100*1.07,aresample=44100,volume=0.28[voice3];`,
-        `[1:a]aloop=loop=-1:size=2147483647,atrim=end=${taroukDuration},volume=0.35[clap_loop];`,
-        `[voice1][voice2][voice3][clap_loop]amix=inputs=4:duration=first:dropout_transition=0[out]`,
-      `"`,
-      `-map "[out]"`,
-      `-t ${taroukDuration}`,
-      `-ar 44100 -ac 2 -b:a 128k`,
-      `"${outputFile}"`,
-    ].join(" ");
+    // 2. توليد الشيلوها بـ ffmpeg
+    const filter = [
+      `[0:a]asplit=3[v1][v2][v3]`,
+      `[v1]volume=0.35[voice1]`,
+      `[v2]adelay=50|50,asetrate=44100*0.95,aresample=44100,volume=0.30[voice2]`,
+      `[v3]adelay=120|120,asetrate=44100*1.07,aresample=44100,volume=0.28[voice3]`,
+      `[1:a]aloop=loop=-1:size=2147483647,atrim=end=${taroukDuration},volume=0.35[clap_loop]`,
+      `[voice1][voice2][voice3][clap_loop]amix=inputs=4:duration=first:dropout_transition=0[out]`,
+    ].join(";");
+
+    const ffmpegCmd = `ffmpeg -y -i "${taroukFile}" -i "${clapFile}" -filter_complex "${filter}" -map "[out]" -t ${taroukDuration} -ar 44100 -ac 2 -b:a 128k "${outputFile}"`;
 
     console.log(`[generateSheeloha] Running ffmpeg...`);
-    await execAsync(ffmpegCmd);
+    await execAsync(ffmpegCmd, { maxBuffer: 10 * 1024 * 1024 });
     console.log(`[generateSheeloha] ffmpeg done`);
 
-    // 4. رفع على S3
-    const { stdout } = await execAsync(`manus-upload-file "${outputFile}"`);
-    const sheelohaUrl = stdout.trim();
+    // 3. رفع الملف باستخدام storagePut
+    const fileBuffer = await readFile(outputFile);
+    const relKey = `audio/sheeloha-${ts}.mp3`;
+    const { url: sheelohaUrl } = await storagePut(relKey, fileBuffer, "audio/mpeg");
     console.log(`[generateSheeloha] Uploaded: ${sheelohaUrl}`);
 
-    // 5. تنظيف
+    // 4. تنظيف
     await Promise.all([
       unlink(taroukFile).catch(() => {}),
       unlink(clapFile).catch(() => {}),
