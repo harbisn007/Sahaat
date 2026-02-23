@@ -2224,39 +2224,45 @@ export default function RoomScreen() {
                   elevation: 5,
                 }}
                 onPress={async () => {
-                  // تشغيل آخر رسالة طاروق مع تأثير الطاروق + تصفيق متكرر بسرعة 0.96
-                  console.log("[Sheeloha] Total audioMessages:", audioMessages.length);
-
-                  // البحث عن آخر رسالة طاروق (المصفوفة مرتبة من الأحدث للأقدم)
+                  // البحث عن آخر رسالة طاروق
                   const lastTarouk = audioMessages.find(msg => msg.messageType === "tarouk");
-                  console.log("[Sheeloha] Found lastTarouk:", lastTarouk);
-
                   if (!lastTarouk) {
                     Alert.alert("لا توجد رسالة طاروق", "لم يتم إرسال أي رسالة طاروق بعد.");
                     return;
                   }
 
                   try {
-                    console.log("[RoomScreen] Playing Sheeloha for last Tarouk:", lastTarouk.audioUrl);
+                    console.log("[RoomScreen] Generating Sheeloha for:", lastTarouk.audioUrl);
 
-                    // تشغيل آخر طاروق مع تأثيراته + تصفيق متكرر 0.96
-                    await sheelohaPlayer.play({
+                    // استدعاء الخادم لتوليد ملف الشيلوها (chorus + تصفيق 0.96 بـ ffmpeg)
+                    const response = await generateSheelohaMutation.mutateAsync({
                       taroukUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
+                      roomId,
                     });
 
-                    // بث للجميع عبر Socket.io
-                    const socket = await getSocket();
-                    socket.emit("playSheeloha", {
-                      roomId,
-                      sheelohaUrl: lastTarouk.audioUrl,
-                      taroukDuration: lastTarouk.duration || 3,
-                      userId,
-                      username: username || "",
-                    });
+                    if (response.sheelohaUrl) {
+                      console.log("[RoomScreen] Sheeloha ready:", response.sheelohaUrl);
+
+                      // تشغيل الملف الجاهز مع loop مستمر
+                      await sheelohaPlayer.play({
+                        sheelohaUrl: response.sheelohaUrl,
+                        taroukDuration: lastTarouk.duration || 3,
+                      });
+
+                      // بث للجميع عبر Socket.io
+                      const socket = await getSocket();
+                      socket.emit("playSheeloha", {
+                        roomId,
+                        sheelohaUrl: response.sheelohaUrl,
+                        taroukDuration: lastTarouk.duration || 3,
+                        userId,
+                        username: username || "",
+                      });
+                    }
                   } catch (error) {
-                    console.error("[RoomScreen] Failed to play Sheeloha:", error);
-                    Alert.alert("خطأ", "فشل تشغيل صوت الشيلوها.");
+                    console.error("[RoomScreen] Failed to generate/play Sheeloha:", error);
+                    Alert.alert("خطأ", "فشل تشغيل صوت الصفوف.");
                   }
                 }}
               >
