@@ -42,19 +42,36 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
     console.log(`[generateSheeloha] Files downloaded`);
 
     // 2. توليد الشيلوها بـ ffmpeg
-    const filter = [
-      `[0:a]asplit=3[v1][v2][v3]`,
-      `[v1]volume=0.35[voice1]`,
-      `[v2]adelay=50|50,asetrate=44100*0.95,aresample=44100,volume=0.30[voice2]`,
-      `[v3]adelay=120|120,asetrate=44100*1.07,aresample=44100,volume=0.28[voice3]`,
-      `[1:a]aloop=loop=-1:size=2147483647,atrim=end=${taroukDuration},volume=0.35[clap_loop]`,
-      `[voice1][voice2][voice3][clap_loop]amix=inputs=4:duration=first:dropout_transition=0[out]`,
-    ].join(";");
+    // 5 أصوات بطبقات مختلفة (88%-112%) وتأخيرات مختلفة = إحساس بأشخاص مختلفين
+    // + تصفيق متكرر 35%
+    const scriptFile = path.join(tempDir, `ffmpeg-${ts}.sh`);
+    const { writeFile } = await import("fs/promises");
 
-    const ffmpegCmd = `ffmpeg -y -i "${taroukFile}" -i "${clapFile}" -filter_complex "${filter}" -map "[out]" -t ${taroukDuration} -ar 44100 -ac 2 -b:a 128k "${outputFile}"`;
+    const scriptContent = `#!/bin/bash
+ffmpeg -y \\
+  -i "${taroukFile}" \\
+  -stream_loop -1 -i "${clapFile}" \\
+  -filter_complex "
+    [0:a]asplit=5[s1][s2][s3][s4][s5];
+    [s1]volume=0.45[v1];
+    [s2]asetrate=44100*0.88,aresample=44100,adelay=25|25,volume=0.40[v2];
+    [s3]asetrate=44100*1.12,aresample=44100,adelay=60|60,volume=0.38[v3];
+    [s4]asetrate=44100*0.94,aresample=44100,adelay=110|110,volume=0.35[v4];
+    [s5]asetrate=44100*1.06,aresample=44100,adelay=160|160,volume=0.32[v5];
+    [v1][v2][v3][v4][v5]amix=inputs=5:duration=first:normalize=0[crowd];
+    [1:a]atrim=end=${taroukDuration},volume=0.35[clap];
+    [crowd][clap]amix=inputs=2:duration=first:normalize=0[out]
+  " \\
+  -map "[out]" \\
+  -t ${taroukDuration} \\
+  -ar 44100 -ac 2 -b:a 128k \\
+  "${outputFile}"
+`;
 
+    await writeFile(scriptFile, scriptContent, { mode: 0o755 });
     console.log(`[generateSheeloha] Running ffmpeg...`);
-    await execAsync(ffmpegCmd, { maxBuffer: 10 * 1024 * 1024 });
+    await execAsync(`bash "${scriptFile}"`, { maxBuffer: 10 * 1024 * 1024 });
+    await unlink(scriptFile).catch(() => {});
     console.log(`[generateSheeloha] ffmpeg done`);
 
     // 3. رفع الملف باستخدام storagePut
