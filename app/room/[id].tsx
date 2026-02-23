@@ -2255,7 +2255,6 @@ export default function RoomScreen() {
                       socket.emit("playSheeloha", {
                         roomId,
                         sheelohaUrl: response.sheelohaUrl,
-                        taroukDuration: lastTarouk.duration || 3,
                         userId,
                         username: username || "",
                       });

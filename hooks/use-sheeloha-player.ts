@@ -15,8 +15,8 @@ import { Platform } from "react-native";
 const SHEELOHA_VOLUME = 0.8; // رفعنا الصوت لأن ffmpeg يخفضه
 
 interface SheelohaData {
-  sheelohaUrl: string;
-  taroukUrl?: string;   // للتوافق
+  sheelohaUrl?: string;
+  taroukUrl?: string;
   taroukDuration?: number;
 }
 
