@@ -1,28 +1,33 @@
 /**
  * Sheeloha Generator - إنشاء ملف الشيلوها على الخادم
- *
- * يدمج:
- * 1. صوت الطاروق بتأثير chorus (3 نسخ بتأخيرات وطبقات مختلفة)
- * 2. تصفيق متكرر كل 0.96 ثانية
- *
- * الناتج: ملف MP3 جاهز للبث مع loop في العميل
+ * 5 أصوات بطبقات مختلفة + تصفيق متكرر
  */
 
 import { exec } from "child_process";
 import { promisify } from "util";
-import { unlink, readFile } from "fs/promises";
+import { unlink, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { tmpdir } from "os";
 import { storagePut } from "./storage";
 
 const execAsync = promisify(exec);
 
-// رابط مباشر لصوت التصفيق على CDN
 const CLAP_CDN_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
 
 export interface SheelohaOptions {
   taroukUrl: string;
   taroukDuration: number;
+}
+
+// تحميل ملف باستخدام fetch وحفظه محلياً
+async function downloadFile(url: string, dest: string): Promise<void> {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
+  }
+  const buffer = Buffer.from(await response.arrayBuffer());
+  await writeFile(dest, buffer);
+  console.log(`[downloadFile] Downloaded ${url} -> ${dest} (${buffer.length} bytes)`);
 }
 
 export async function generateSheeloha(options: SheelohaOptions): Promise<string> {
@@ -32,22 +37,19 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   const taroukFile = path.join(tempDir, `tarouk-${ts}.mp3`);
   const clapFile   = path.join(tempDir, `clap-${ts}.mp3`);
   const outputFile = path.join(tempDir, `sheeloha-${ts}.mp3`);
+  const scriptFile = path.join(tempDir, `ffmpeg-${ts}.sh`);
 
   console.log(`[generateSheeloha] START - duration: ${taroukDuration}s`);
 
   try {
-    // 1. تحميل الملفات
-    await execAsync(`curl -sL "${taroukUrl}" -o "${taroukFile}"`);
-    await execAsync(`curl -sL "${CLAP_CDN_URL}" -o "${clapFile}"`);
-    console.log(`[generateSheeloha] Files downloaded`);
+    // 1. تحميل الملفات بـ fetch (أكثر موثوقية من curl)
+    await downloadFile(taroukUrl, taroukFile);
+    await downloadFile(CLAP_CDN_URL, clapFile);
 
-    // 2. توليد الشيلوها بـ ffmpeg
-    // 5 أصوات بطبقات مختلفة (88%-112%) وتأخيرات مختلفة = إحساس بأشخاص مختلفين
-    // + تصفيق متكرر 35%
-    const scriptFile = path.join(tempDir, `ffmpeg-${ts}.sh`);
-    const { writeFile } = await import("fs/promises");
-
+    // 2. كتابة script ffmpeg
+    // 5 أصوات بطبقات مختلفة: أصلي + أخفض -12% + أعلى +12% + أخفض -6% + أعلى +6%
     const scriptContent = `#!/bin/bash
+set -e
 ffmpeg -y \\
   -i "${taroukFile}" \\
   -stream_loop -1 -i "${clapFile}" \\
@@ -70,11 +72,11 @@ ffmpeg -y \\
 
     await writeFile(scriptFile, scriptContent, { mode: 0o755 });
     console.log(`[generateSheeloha] Running ffmpeg...`);
-    await execAsync(`bash "${scriptFile}"`, { maxBuffer: 10 * 1024 * 1024 });
-    await unlink(scriptFile).catch(() => {});
+    const { stderr } = await execAsync(`bash "${scriptFile}"`, { maxBuffer: 10 * 1024 * 1024 });
+    if (stderr) console.log(`[generateSheeloha] ffmpeg stderr: ${stderr.slice(-300)}`);
     console.log(`[generateSheeloha] ffmpeg done`);
 
-    // 3. رفع الملف باستخدام storagePut
+    // 3. رفع الملف
     const fileBuffer = await readFile(outputFile);
     const relKey = `audio/sheeloha-${ts}.mp3`;
     const { url: sheelohaUrl } = await storagePut(relKey, fileBuffer, "audio/mpeg");
@@ -85,6 +87,7 @@ ffmpeg -y \\
       unlink(taroukFile).catch(() => {}),
       unlink(clapFile).catch(() => {}),
       unlink(outputFile).catch(() => {}),
+      unlink(scriptFile).catch(() => {}),
     ]);
 
     return sheelohaUrl;
@@ -93,6 +96,7 @@ ffmpeg -y \\
       unlink(taroukFile).catch(() => {}),
       unlink(clapFile).catch(() => {}),
       unlink(outputFile).catch(() => {}),
+      unlink(scriptFile).catch(() => {}),
     ]);
     console.error(`[generateSheeloha] ERROR:`, error);
     throw error;
