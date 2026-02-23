@@ -1,10 +1,10 @@
 /**
- * Sheeloha Player Hook - النسخة النهائية
- * 
- * يشغل ملف الشيلوها الجاهز من الخادم (طاروق + echo + تصفيق)
- * - مستوى الصوت: 35%
- * - يستمر التشغيل حتى الضغط على "خلوها"
- * - عند "خلوها": إيقاف فوري
+ * Sheeloha Player Hook - النسخة المحدّثة
+ *
+ * عند الضغط على زر "شيلوها":
+ * - يشغّل آخر صوت طاروق بتأثير الطاروق (echo + reverb + pitch)
+ * - يصاحبه صوت تصفيق يتكرر بسرعة 0.96 ثانية بين كل تصفيقة
+ * - يستمر حتى الضغط على "خلوها"
  */
 
 import { useRef, useCallback, useState } from "react";
@@ -12,103 +12,173 @@ import * as ExpoAudio from "expo-audio";
 const { createAudioPlayer, AudioModule } = ExpoAudio;
 type AudioPlayer = ExpoAudio.AudioPlayer;
 import { Platform } from "react-native";
+import { playWithTaroukEffects, TAROUK_EFFECTS } from "@/lib/audio-effects";
+
+// رابط صوت التصفيق المفرد
+const CLAP_SOUND_URL =
+  "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
+
+// سرعة تكرار التصفيق بالثواني
+const CLAP_REPEAT_SPEED = 0.96;
 
 interface SheelohaData {
-  sheelohaUrl: string; // رابط ملف الشيلوها الجاهز من الخادم
-  taroukDuration: number;
+  taroukUrl?: string;    // رابط آخر صوت طاروق (الصيغة الجديدة)
+  sheelohaUrl?: string;  // للتوافق مع الاستدعاء القديم
+  taroukDuration?: number;
 }
-
-const SHEELOHA_VOLUME = 0.35; // 35%
 
 export function useSheelohaPlayer() {
   const isPlayingRef = useRef(false);
   const [isPlayingState, setIsPlayingState] = useState(false);
-  const dataRef = useRef<SheelohaData | null>(null);
 
-  const sheelohaPlayerRef = useRef<AudioPlayer | null>(null);
-  const webAudioRef = useRef<HTMLAudioElement | null>(null);
+  // Native players
+  const taroukPlayerRef = useRef<AudioPlayer | null>(null);
+  const clapIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clapPlayersRef = useRef<AudioPlayer[]>([]);
+
+  // Web audio
+  const webStopRef = useRef<(() => void) | null>(null);
+  const webClapIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const isWeb = Platform.OS === "web";
 
+  // ---- تنظيف شامل ----
   const cleanup = useCallback(() => {
-    if (isWeb) {
-      if (webAudioRef.current) {
-        try { webAudioRef.current.pause(); } catch (_) {}
-        webAudioRef.current = null;
-      }
-    } else {
-      if (sheelohaPlayerRef.current) {
-        try { sheelohaPlayerRef.current.pause(); } catch (_) {}
-        try { sheelohaPlayerRef.current.release(); } catch (_) {}
-        sheelohaPlayerRef.current = null;
-      }
+    if (clapIntervalRef.current) {
+      clearInterval(clapIntervalRef.current);
+      clapIntervalRef.current = null;
     }
-
+    if (webClapIntervalRef.current) {
+      clearInterval(webClapIntervalRef.current);
+      webClapIntervalRef.current = null;
+    }
+    clapPlayersRef.current.forEach((p) => {
+      try { p.pause(); } catch (_) {}
+      try { p.release(); } catch (_) {}
+    });
+    clapPlayersRef.current = [];
+    if (taroukPlayerRef.current) {
+      try { taroukPlayerRef.current.pause(); } catch (_) {}
+      try { taroukPlayerRef.current.release(); } catch (_) {}
+      taroukPlayerRef.current = null;
+    }
+    if (webStopRef.current) {
+      try { webStopRef.current(); } catch (_) {}
+      webStopRef.current = null;
+    }
     isPlayingRef.current = false;
     setIsPlayingState(false);
-    dataRef.current = null;
-  }, [isWeb]);
+  }, []);
 
+  // ---- تشغيل تصفيقة واحدة (native) ----
+  const playOneClap = useCallback(() => {
+    try {
+      const p = createAudioPlayer(CLAP_SOUND_URL);
+      p.volume = TAROUK_EFFECTS.volume.clap;
+      p.play();
+      clapPlayersRef.current.push(p);
+      setTimeout(() => {
+        try { p.pause(); } catch (_) {}
+        try { p.release(); } catch (_) {}
+        clapPlayersRef.current = clapPlayersRef.current.filter((x) => x !== p);
+      }, 4000);
+    } catch (e) {
+      console.warn("[SheelohaPlayer] clap error:", e);
+    }
+  }, []);
+
+  // ---- تشغيل ----
   const play = useCallback(
     async (data: SheelohaData) => {
-      console.log("[Sheeloha] play() called:", data);
-      
-      // تنظيف أي تشغيل سابق
+      console.log("[SheelohaPlayer] play() called:", data);
       cleanup();
 
-      dataRef.current = data;
+      // رابط الصوت - يدعم الصيغتين
+      const audioUrl = data.taroukUrl || data.sheelohaUrl || "";
+      if (!audioUrl) {
+        console.warn("[SheelohaPlayer] No audio URL provided");
+        return;
+      }
+
       isPlayingRef.current = true;
       setIsPlayingState(true);
 
       try {
         if (isWeb) {
-          // Web: استخدام HTML5 Audio
-          const audio = new Audio(data.sheelohaUrl);
-          audio.volume = SHEELOHA_VOLUME;
-          audio.loop = true; // تكرار حتى الضغط على "خلوها"
-          webAudioRef.current = audio;
-          
-          audio.onerror = (e) => {
-            console.error("[Sheeloha] Web audio error:", e);
-            cleanup();
-          };
+          // Web: تشغيل الطاروق بتأثيراته + تصفيق متكرر
+          const result = await playWithTaroukEffects(audioUrl, () => {
+            if (webClapIntervalRef.current) {
+              clearInterval(webClapIntervalRef.current);
+              webClapIntervalRef.current = null;
+            }
+          });
+          if (result) webStopRef.current = result.stop;
 
-          await audio.play();
-          console.log("[Sheeloha] Web audio started");
+          const playWebClap = () => {
+            if (!isPlayingRef.current) return;
+            try {
+              const audio = new Audio(CLAP_SOUND_URL);
+              audio.volume = TAROUK_EFFECTS.volume.clap;
+              audio.play().catch(() => {});
+            } catch (_) {}
+          };
+          playWebClap();
+          webClapIntervalRef.current = setInterval(() => {
+            if (!isPlayingRef.current) {
+              clearInterval(webClapIntervalRef.current!);
+              webClapIntervalRef.current = null;
+              return;
+            }
+            playWebClap();
+          }, CLAP_REPEAT_SPEED * 1000);
         } else {
-          // Native: استخدام expo-audio
+          // Native: تشغيل الطاروق + تصفيق متكرر
           try {
             await AudioModule.setAudioModeAsync({
               playsInSilentMode: true,
               allowsRecording: false,
             });
           } catch (e) {
-            console.warn("[Sheeloha] Failed to set audio mode:", e);
+            console.warn("[SheelohaPlayer] setAudioMode error:", e);
           }
 
-          const player = createAudioPlayer(data.sheelohaUrl);
-          sheelohaPlayerRef.current = player;
-          player.volume = SHEELOHA_VOLUME;
-          player.loop = true; // تكرار حتى الضغط على "خلوها"
+          const player = createAudioPlayer(audioUrl);
+          taroukPlayerRef.current = player;
+          player.volume = TAROUK_EFFECTS.volume.master;
+
+          await new Promise((r) => setTimeout(r, 300));
+          try {
+            if (typeof (player as any).setPlaybackRate === "function") {
+              (player as any).setPlaybackRate(TAROUK_EFFECTS.pitch.playbackRate);
+            }
+          } catch (_) {}
+
           player.play();
-          console.log("[Sheeloha] Native audio started");
+          console.log("[SheelohaPlayer] Tarouk playing with effects");
+
+          // تصفيق أولي فوري ثم كل 0.96 ثانية
+          playOneClap();
+          clapIntervalRef.current = setInterval(() => {
+            if (!isPlayingRef.current) {
+              clearInterval(clapIntervalRef.current!);
+              clapIntervalRef.current = null;
+              return;
+            }
+            playOneClap();
+          }, CLAP_REPEAT_SPEED * 1000);
         }
       } catch (error) {
-        console.error("[Sheeloha] Play error:", error);
+        console.error("[SheelohaPlayer] play error:", error);
         cleanup();
       }
     },
-    [cleanup, isWeb]
+    [cleanup, isWeb, playOneClap]
   );
 
   const stop = useCallback(() => {
-    console.log("[Sheeloha] stop() called");
+    console.log("[SheelohaPlayer] stop() called");
     cleanup();
   }, [cleanup]);
 
-  return {
-    play,
-    stop,
-    isPlaying: isPlayingState,
-  };
+  return { play, stop, isPlaying: isPlayingState };
 }
