@@ -93,3 +93,18 @@ export async function storageGet(relKey: string): Promise<{ key: string; url: st
     url: await buildDownloadUrl(baseUrl, key, apiKey),
   };
 }
+
+export async function storageDownload(relKey: string): Promise<Buffer> {
+  const { baseUrl, apiKey } = getStorageConfig();
+  const key = normalizeKey(relKey);
+  const downloadApiUrl = new URL("v1/storage/download", ensureTrailingSlash(baseUrl));
+  downloadApiUrl.searchParams.set("path", key);
+  const response = await fetch(downloadApiUrl, {
+    method: "GET",
+    headers: buildAuthHeaders(apiKey),
+  });
+  if (!response.ok) {
+    throw new Error(`Storage download failed (${response.status}): ${key}`);
+  }
+  return Buffer.from(await response.arrayBuffer());
+}

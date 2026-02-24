@@ -1,5 +1,5 @@
 /**
- * Sheeloha Generator - إنشاء ملف الشيلوها على الخادم
+ * Sheeloha Generator
  * 5 أصوات بطبقات مختلفة + تصفيق متكرر
  */
 
@@ -8,27 +8,15 @@ import { promisify } from "util";
 import { unlink, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { tmpdir } from "os";
-import { storagePut, storageGet } from "./storage";
+import { storagePut, storageDownload } from "./storage";
 
 const execAsync = promisify(exec);
 
-// مفتاح ملف التصفيق في S3
 const CLAP_REL_KEY = "user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
 
 export interface SheelohaOptions {
   taroukUrl: string;
   taroukDuration: number;
-}
-
-// تحميل ملف باستخدام fetch وحفظه محلياً
-async function downloadFile(url: string, dest: string): Promise<void> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Failed to download ${url}: ${response.status} ${response.statusText}`);
-  }
-  const buffer = Buffer.from(await response.arrayBuffer());
-  await writeFile(dest, buffer);
-  console.log(`[downloadFile] Downloaded -> ${dest} (${buffer.length} bytes)`);
 }
 
 export async function generateSheeloha(options: SheelohaOptions): Promise<string> {
@@ -43,18 +31,17 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   console.log(`[generateSheeloha] START - duration: ${taroukDuration}s`);
 
   try {
-    // 1. الحصول على signed URLs ثم تحميل الملفين
-    // الطاروق: نستخرج relKey من الرابط
+    // 1. تحميل الملفين مباشرة عبر storage proxy (بدون CloudFront)
     const taroukRelKey = new URL(taroukUrl).pathname.replace(/^\//, "");
-    const { url: taroukSignedUrl } = await storageGet(taroukRelKey);
-    await downloadFile(taroukSignedUrl, taroukFile);
+    const taroukBuffer = await storageDownload(taroukRelKey);
+    await writeFile(taroukFile, taroukBuffer);
+    console.log(`[generateSheeloha] Tarouk downloaded: ${taroukBuffer.length} bytes`);
 
-    // التصفيق: نستخدم المفتاح المحفوظ
-    const { url: clapSignedUrl } = await storageGet(CLAP_REL_KEY);
-    await downloadFile(clapSignedUrl, clapFile);
+    const clapBuffer = await storageDownload(CLAP_REL_KEY);
+    await writeFile(clapFile, clapBuffer);
+    console.log(`[generateSheeloha] Clap downloaded: ${clapBuffer.length} bytes`);
 
-    // 2. كتابة script ffmpeg
-    // 5 أصوات بطبقات مختلفة: أصلي + أخفض -12% + أعلى +12% + أخفض -6% + أعلى +6%
+    // 2. ffmpeg: 5 أصوات بطبقات مختلفة + تصفيق
     const scriptContent = `#!/bin/bash
 set -e
 ffmpeg -y \\
@@ -76,35 +63,22 @@ ffmpeg -y \\
   -ar 44100 -ac 2 -b:a 128k \\
   "${outputFile}"
 `;
-
     await writeFile(scriptFile, scriptContent, { mode: 0o755 });
-    console.log(`[generateSheeloha] Running ffmpeg...`);
     const { stderr } = await execAsync(`bash "${scriptFile}"`, { maxBuffer: 10 * 1024 * 1024 });
-    if (stderr) console.log(`[generateSheeloha] ffmpeg stderr: ${stderr.slice(-300)}`);
+    if (stderr) console.log(`[generateSheeloha] ffmpeg: ${stderr.slice(-200)}`);
     console.log(`[generateSheeloha] ffmpeg done`);
 
     // 3. رفع الملف
     const fileBuffer = await readFile(outputFile);
-    const relKey = `audio/sheeloha-${ts}.mp3`;
-    const { url: sheelohaUrl } = await storagePut(relKey, fileBuffer, "audio/mpeg");
+    const { url: sheelohaUrl } = await storagePut(`audio/sheeloha-${ts}.mp3`, fileBuffer, "audio/mpeg");
     console.log(`[generateSheeloha] Uploaded: ${sheelohaUrl}`);
 
     // 4. تنظيف
-    await Promise.all([
-      unlink(taroukFile).catch(() => {}),
-      unlink(clapFile).catch(() => {}),
-      unlink(outputFile).catch(() => {}),
-      unlink(scriptFile).catch(() => {}),
-    ]);
+    await Promise.all([taroukFile, clapFile, outputFile, scriptFile].map(f => unlink(f).catch(() => {})));
 
     return sheelohaUrl;
   } catch (error) {
-    await Promise.all([
-      unlink(taroukFile).catch(() => {}),
-      unlink(clapFile).catch(() => {}),
-      unlink(outputFile).catch(() => {}),
-      unlink(scriptFile).catch(() => {}),
-    ]);
+    await Promise.all([taroukFile, clapFile, outputFile, scriptFile].map(f => unlink(f).catch(() => {})));
     console.error(`[generateSheeloha] ERROR:`, error);
     throw error;
   }
