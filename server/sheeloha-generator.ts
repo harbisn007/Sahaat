@@ -30,6 +30,7 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   const ts = Date.now();
   const tempDir = tmpdir();
   const taroukFile = join(tempDir, `tarouk-${ts}.m4a`);
+  const clapRaw    = join(tempDir, `clap-raw-${ts}.mp3`);
   const clapFile   = join(tempDir, `clap-${ts}.mp3`);
   const outputFile = join(tempDir, `sheeloha-${ts}.mp3`);
   const scriptFile = join(tempDir, `ffmpeg-${ts}.sh`);
