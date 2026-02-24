@@ -2237,7 +2237,14 @@ export default function RoomScreen() {
                     // تحميل الصوت كـ base64 من الرابط وإرساله للخادم
                     const taroukResponse = await fetch(lastTarouk.audioUrl);
                     const taroukArrayBuffer = await taroukResponse.arrayBuffer();
-                    const taroukBase64 = btoa(String.fromCharCode(...new Uint8Array(taroukArrayBuffer)));
+                    // نستخدم chunk-by-chunk بدل spread لتجنب stack overflow على الجوال
+                    const uint8Array = new Uint8Array(taroukArrayBuffer);
+                    let binary = "";
+                    const chunkSize = 8192;
+                    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                      binary += String.fromCharCode(...uint8Array.subarray(i, i + chunkSize));
+                    }
+                    const taroukBase64 = btoa(binary);
 
                     const response = await generateSheelohaMutation.mutateAsync({
                       taroukBase64,
