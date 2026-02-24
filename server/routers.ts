@@ -467,12 +467,19 @@ export const appRouter = router({
         console.log(`[audio.generateSheeloha] Generating sheeloha for tarouk: ${input.taroukUrl}`);
         
         try {
-          // استخراج relKey من URL والحصول على signed URL
+          // استخراج relKey من URL: الجزء بداية من "audio/"
           const { storageGet } = await import("./storage");
           const urlObj = new URL(input.taroukUrl);
-          const relKey = urlObj.pathname.replace(/^\//, ""); // إزالة / الأولى
+          const audioIndex = urlObj.pathname.indexOf('/audio/');
+          if (audioIndex === -1) {
+            throw new Error(`Invalid tarouk URL: no 'audio/' found in path`);
+          }
+          const relKey = urlObj.pathname.substring(audioIndex + 1); // +1 لإزالة / الأولى
+          console.log(`[audio.generateSheeloha] Extracted relKey: ${relKey}`);
+          
+          // توليد signed URL جديد
           const { url: signedTaroukUrl } = await storageGet(relKey);
-          console.log(`[audio.generateSheeloha] Got signed URL for tarouk`);
+          console.log(`[audio.generateSheeloha] Got fresh signed URL`);
           
           const { generateSheeloha } = await import("./sheeloha-generator");
           const sheelohaUrl = await generateSheeloha({
@@ -512,10 +519,11 @@ export const appRouter = router({
       const fileKey = `audio/${timestamp}-${randomSuffix}-${input.fileName}`;
       
       // رفع الصوت على S3
-      const { url } = await storagePut(fileKey, buffer, "audio/mp4");
+      const { key, url } = await storagePut(fileKey, buffer, "audio/mp4");
       console.log("[uploadAudio] Audio uploaded:", url);
+      console.log("[uploadAudio] Storage key:", key);
       
-      return { url };
+      return { url, key };
     }),
 
   // Reactions router
