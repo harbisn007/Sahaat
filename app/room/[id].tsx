@@ -2235,11 +2235,14 @@ export default function RoomScreen() {
                     console.log("[RoomScreen] Generating Sheeloha for:", lastTarouk.audioUrl);
 
                     // تحميل الطاروق محلياً ثم قراءته كـ base64
-                    const localUri = FileSystem.cacheDirectory + `tarouk-${Date.now()}.m4a`;
-                    await FileSystem.downloadAsync(lastTarouk.audioUrl, localUri);
+                    const localUri = FileSystem.cacheDirectory + `tarouk-sheeloha-${Date.now()}.m4a`;
+                    console.log("[RoomScreen] Downloading to:", localUri);
+                    const downloadResult = await FileSystem.downloadAsync(lastTarouk.audioUrl, localUri);
+                    console.log("[RoomScreen] Download status:", downloadResult.status);
                     const taroukBase64 = await FileSystem.readAsStringAsync(localUri, {
                       encoding: FileSystem.EncodingType.Base64,
                     });
+                    console.log("[RoomScreen] base64 length:", taroukBase64.length);
                     await FileSystem.deleteAsync(localUri, { idempotent: true });
 
                     const response = await generateSheelohaMutation.mutateAsync({
