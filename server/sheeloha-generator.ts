@@ -42,18 +42,17 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
     await writeFile(taroukFile, taroukBuffer);
     console.log(`[generateSheeloha] Tarouk saved: ${taroukBuffer.length} bytes`);
 
-    // 2. نسخ التصفيق من الملف المحلي
-    await copyFile(CLAP_LOCAL_PATH, clapFile);
-    console.log(`[generateSheeloha] Clap copied from local`);
+    // 2. بناء ملف التصفيق: تصفيقة + صمت = 0.96 ثانية بالضبط
+    await copyFile(CLAP_LOCAL_PATH, clapRaw);
+    await execAsync(`ffmpeg -y -i "${clapRaw}" -filter_complex "[0:a]apad=pad_dur=0.62[out]" -map "[out]" -t 0.96 -ar 44100 -ac 2 "${clapFile}"`, { maxBuffer: 10 * 1024 * 1024 });
+    console.log(`[generateSheeloha] Clap with gap built`);
 
-    // 3. ffmpeg:
-    // - 4 نسخ بتأخيرات مختلفة = إحساس بالجمع بدون تغيير pitch (لا صوت فئران)
-    // - apad: صمت 0.62 ثانية بعد التصفيقة = فاصل 0.96 ثانية
+    // 3. ffmpeg: 4 نسخ بتأخيرات + تصفيق كل 0.96 ثانية
     const scriptContent = `#!/bin/bash
 set -e
 ffmpeg -y \\
   -i "${taroukFile}" \\
-  -i "${clapFile}" \\
+  -stream_loop -1 -i "${clapFile}" \\
   -filter_complex "
     [0:a]asplit=4[s1][s2][s3][s4];
     [s1]volume=0.50[v1];
@@ -61,7 +60,7 @@ ffmpeg -y \\
     [s3]adelay=90|90,volume=0.38[v3];
     [s4]adelay=150|150,volume=0.34[v4];
     [v1][v2][v3][v4]amix=inputs=4:duration=first:normalize=0[crowd];
-    [1:a]apad=pad_dur=0.62,aloop=loop=-1:size=2147483647,atrim=end=${taroukDuration},volume=0.35[clap];
+    [1:a]atrim=end=${taroukDuration},volume=0.35[clap];
     [crowd][clap]amix=inputs=2:duration=first:normalize=0[out]
   " \\
   -map "[out]" \\
@@ -79,10 +78,10 @@ ffmpeg -y \\
     const { url: sheelohaUrl } = await storagePut(`audio/sheeloha-${ts}.mp3`, fileBuffer, "audio/mpeg");
     console.log(`[generateSheeloha] Uploaded: ${sheelohaUrl}`);
 
-    await Promise.all([taroukFile, clapFile, outputFile, scriptFile].map(f => unlink(f).catch(() => {})));
+    await Promise.all([taroukFile, clapRaw, clapFile, outputFile, scriptFile].map(f => unlink(f).catch(() => {})));
     return sheelohaUrl;
   } catch (error) {
-    await Promise.all([taroukFile, clapFile, outputFile, scriptFile].map(f => unlink(f).catch(() => {})));
+    await Promise.all([taroukFile, clapRaw, clapFile, outputFile, scriptFile].map(f => unlink(f).catch(() => {})));
     console.error(`[generateSheeloha] ERROR:`, error);
     throw error;
   }
