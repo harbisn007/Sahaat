@@ -2234,17 +2234,13 @@ export default function RoomScreen() {
                   try {
                     console.log("[RoomScreen] Generating Sheeloha for:", lastTarouk.audioUrl);
 
-                    // تحميل الصوت كـ base64 من الرابط وإرساله للخادم
-                    const taroukResponse = await fetch(lastTarouk.audioUrl);
-                    const taroukArrayBuffer = await taroukResponse.arrayBuffer();
-                    // نستخدم chunk-by-chunk بدل spread لتجنب stack overflow على الجوال
-                    const uint8Array = new Uint8Array(taroukArrayBuffer);
-                    let binary = "";
-                    const chunkSize = 8192;
-                    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-                      binary += String.fromCharCode(...uint8Array.subarray(i, i + chunkSize));
-                    }
-                    const taroukBase64 = btoa(binary);
+                    // تحميل الطاروق محلياً ثم قراءته كـ base64
+                    const localUri = FileSystem.cacheDirectory + `tarouk-${Date.now()}.m4a`;
+                    await FileSystem.downloadAsync(lastTarouk.audioUrl, localUri);
+                    const taroukBase64 = await FileSystem.readAsStringAsync(localUri, {
+                      encoding: FileSystem.EncodingType.Base64,
+                    });
+                    await FileSystem.deleteAsync(localUri, { idempotent: true });
 
                     const response = await generateSheelohaMutation.mutateAsync({
                       taroukBase64,
