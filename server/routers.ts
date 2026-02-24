@@ -458,19 +458,18 @@ export const appRouter = router({
     generateSheeloha: publicProcedure
       .input(
         z.object({
-          taroukUrl: z.string(),
+          taroukBase64: z.string(),
           taroukDuration: z.number(),
           roomId: z.number().optional(),
         })
       )
       .mutation(async ({ input }) => {
-        console.log(`[audio.generateSheeloha] Generating sheeloha for tarouk: ${input.taroukUrl}`);
+        console.log(`[audio.generateSheeloha] Generating sheeloha, duration: ${input.taroukDuration}s`);
         
         try {
-          // نمرر الرابط الأصلي مباشرة بدون signed URL
           const { generateSheeloha } = await import("./sheeloha-generator");
           const sheelohaUrl = await generateSheeloha({
-            taroukUrl: input.taroukUrl,
+            taroukBase64: input.taroukBase64,
             taroukDuration: input.taroukDuration,
           });
           

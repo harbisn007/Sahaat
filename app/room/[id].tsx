@@ -2234,9 +2234,13 @@ export default function RoomScreen() {
                   try {
                     console.log("[RoomScreen] Generating Sheeloha for:", lastTarouk.audioUrl);
 
-                    // استدعاء الخادم لتوليد ملف الشيلوها (chorus + تصفيق 0.96 بـ ffmpeg)
+                    // تحميل الصوت كـ base64 من الرابط وإرساله للخادم
+                    const taroukResponse = await fetch(lastTarouk.audioUrl);
+                    const taroukArrayBuffer = await taroukResponse.arrayBuffer();
+                    const taroukBase64 = btoa(String.fromCharCode(...new Uint8Array(taroukArrayBuffer)));
+
                     const response = await generateSheelohaMutation.mutateAsync({
-                      taroukUrl: lastTarouk.audioUrl,
+                      taroukBase64,
                       taroukDuration: lastTarouk.duration || 3,
                       roomId,
                     });
@@ -2255,6 +2259,7 @@ export default function RoomScreen() {
                       socket.emit("playSheeloha", {
                         roomId,
                         sheelohaUrl: response.sheelohaUrl,
+                        taroukDuration: lastTarouk.duration || 3,
                         userId,
                         username: username || "",
                       });
