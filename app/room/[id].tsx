@@ -2361,7 +2361,7 @@ export default function RoomScreen() {
                     // تشغيل التصفيق الختامي من الملف المحلي (مرة واحدة فقط)
                     const finalClapAsset = require("@/assets/sounds/sheeloha-claps.mp3");
                     const finalClapPlayer = createAudioPlayer(finalClapAsset);
-                    finalClapPlayer.volume = 0.8;
+                    finalClapPlayer.volume = 0.35;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
                     
