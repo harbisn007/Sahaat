@@ -1,22 +1,27 @@
 /**
  * Sheeloha Generator
  * 5 أصوات بطبقات مختلفة + تصفيق متكرر
- * يستقبل الصوت كـ base64 بدل URL لتجنب مشاكل CloudFront
+ * الطاروق يصل كـ base64 من العميل
+ * التصفيق من ملف محلي في server/sounds
  */
 
 import { exec } from "child_process";
+import { fileURLToPath } from "url";
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 import { promisify } from "util";
-import { unlink, readFile, writeFile } from "fs/promises";
-import path from "path";
+import { unlink, readFile, writeFile, copyFile } from "fs/promises";
+import { join, dirname } from "path";
 import { tmpdir } from "os";
-import { storagePut, storageGet } from "./storage";
+import { storagePut } from "./storage";
 
 const execAsync = promisify(exec);
 
-const CLAP_REL_KEY = "user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
+// ملف التصفيق موجود محلياً - يُنسخ لـ dist/sounds عند البناء
+const CLAP_LOCAL_PATH = join(__dirname, "sounds", "single-clap-short.mp3");
 
 export interface SheelohaOptions {
-  taroukBase64: string;  // الصوت كـ base64 من العميل
+  taroukBase64: string;
   taroukDuration: number;
 }
 
@@ -24,25 +29,22 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   const { taroukBase64, taroukDuration } = options;
   const ts = Date.now();
   const tempDir = tmpdir();
-  const taroukFile = path.join(tempDir, `tarouk-${ts}.m4a`);
-  const clapFile   = path.join(tempDir, `clap-${ts}.mp3`);
-  const outputFile = path.join(tempDir, `sheeloha-${ts}.mp3`);
-  const scriptFile = path.join(tempDir, `ffmpeg-${ts}.sh`);
+  const taroukFile = join(tempDir, `tarouk-${ts}.m4a`);
+  const clapFile   = join(tempDir, `clap-${ts}.mp3`);
+  const outputFile = join(tempDir, `sheeloha-${ts}.mp3`);
+  const scriptFile = join(tempDir, `ffmpeg-${ts}.sh`);
 
   console.log(`[generateSheeloha] START - duration: ${taroukDuration}s`);
 
   try {
-    // 1. حفظ الطاروق من base64 مباشرة
+    // 1. حفظ الطاروق من base64
     const taroukBuffer = Buffer.from(taroukBase64, "base64");
     await writeFile(taroukFile, taroukBuffer);
     console.log(`[generateSheeloha] Tarouk saved: ${taroukBuffer.length} bytes`);
 
-    // 2. تحميل التصفيق عبر signed URL
-    const { url: clapSignedUrl } = await storageGet(CLAP_REL_KEY);
-    const clapResponse = await fetch(clapSignedUrl);
-    if (!clapResponse.ok) throw new Error(`Clap download failed: ${clapResponse.status}`);
-    await writeFile(clapFile, Buffer.from(await clapResponse.arrayBuffer()));
-    console.log(`[generateSheeloha] Clap downloaded`);
+    // 2. نسخ التصفيق من الملف المحلي
+    await copyFile(CLAP_LOCAL_PATH, clapFile);
+    console.log(`[generateSheeloha] Clap copied from local`);
 
     // 3. ffmpeg: 5 أصوات بطبقات مختلفة + تصفيق
     const scriptContent = `#!/bin/bash
@@ -69,6 +71,7 @@ ffmpeg -y \\
     await writeFile(scriptFile, scriptContent, { mode: 0o755 });
     const { stderr } = await execAsync(`bash "${scriptFile}"`, { maxBuffer: 10 * 1024 * 1024 });
     if (stderr) console.log(`[generateSheeloha] ffmpeg: ${stderr.slice(-200)}`);
+    console.log(`[generateSheeloha] ffmpeg done`);
 
     // 4. رفع الملف
     const fileBuffer = await readFile(outputFile);
