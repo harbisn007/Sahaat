@@ -20,12 +20,12 @@ const execAsync = promisify(exec);
 
 const CLAP_LOCAL_PATH = join(__dirname, "sounds", "single-clap-short.mp3");
 
-// مسار ffmpeg
+// مسار ffmpeg من ffmpeg-static
 let FFMPEG = "ffmpeg";
 try {
   // @ts-ignore
-  const installer = require("@ffmpeg-installer/ffmpeg");
-  FFMPEG = installer.path;
+  const ffmpegStatic = require("ffmpeg-static");
+  if (ffmpegStatic) FFMPEG = ffmpegStatic;
 } catch {}
 
 export interface SheelohaOptions {

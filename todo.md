@@ -2534,3 +2534,8 @@
 ## تحديث ملفات الشيلوها (الجلسة الحالية)
 - [x] تحديث server/sheeloha-generator.ts بنسخة جديدة من المستخدم
 - [x] تحديث app/room/[id].tsx بنسخة جديدة من المستخدم
+
+## تحديث ملفات الشيلوها - الجلسة الثانية
+- [x] استبدال server/sheeloha-generator.ts (استخدام ffmpeg-static)
+- [x] استبدال package.json (إضافة ffmpeg-static)
+- [x] تشغيل pnpm install لتثبيت ffmpeg-static
