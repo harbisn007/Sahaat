@@ -2351,10 +2351,12 @@ export default function RoomScreen() {
                     // إيقاف الشيلوها محلياً
                     sheelohaPlayer.stop();
                     
-                    // تشغيل التصفيق الختامي
-                    const finalClapPlayer = createAudioPlayer("https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3");
-                    finalClapPlayer.volume = 0.35;
-                    await finalClapPlayer.play();
+                    // تشغيل التصفيق الختامي من الملف المحلي (مرة واحدة فقط)
+                    const finalClapAsset = require("@/assets/sounds/sheeloha-claps.mp3");
+                    const finalClapPlayer = createAudioPlayer(finalClapAsset);
+                    finalClapPlayer.volume = 0.8;
+                    finalClapPlayer.loop = false;
+                    finalClapPlayer.play();
                     
                     // بث أمر إيقاف للجميع
                     await createKhaloohaCommandMutation.mutateAsync({
