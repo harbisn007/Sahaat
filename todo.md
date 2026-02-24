@@ -2552,3 +2552,6 @@
 ## تحديث sheeloha-generator - الجلسة الخامسة
 - [x] استبدال sheeloha-generator.ts (استخدام which ffmpeg للبحث الديناميكي)
 - [x] إعادة تشغيل pnpm install لإصلاح مشكلة البناء
+
+## تحديث sheeloha-generator - الجلسة السادسة
+- [x] إضافة دالة findOrInstallFFmpeg للبحث في nix store وتثبيت ffmpeg تلقائياً

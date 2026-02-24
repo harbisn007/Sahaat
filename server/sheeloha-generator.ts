@@ -20,13 +20,43 @@ const execAsync = promisify(exec);
 
 const CLAP_LOCAL_PATH = join(__dirname, "sounds", "single-clap-short.mp3");
 
-// البحث عن مسار ffmpeg
+// البحث عن ffmpeg وتثبيته إن لم يكن موجوداً
 import { execSync } from "child_process";
-let FFMPEG = "ffmpeg";
-try {
-  FFMPEG = execSync("which ffmpeg 2>/dev/null || command -v ffmpeg 2>/dev/null || echo ffmpeg").toString().trim();
-} catch {}
-console.log("[sheeloha-generator] ffmpeg path:", FFMPEG);
+
+function findOrInstallFFmpeg(): string {
+  // البحث في المسارات الشائعة
+  const paths = ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/bin/ffmpeg", "/nix/store"];
+  
+  // البحث في nix store
+  try {
+    const nixPath = execSync("find /nix/store -name 'ffmpeg' -type f 2>/dev/null | head -1").toString().trim();
+    if (nixPath) {
+      console.log("[sheeloha-generator] Found ffmpeg in nix:", nixPath);
+      return nixPath;
+    }
+  } catch {}
+
+  // البحث بـ which
+  try {
+    const whichPath = execSync("which ffmpeg 2>/dev/null").toString().trim();
+    if (whichPath) {
+      console.log("[sheeloha-generator] Found ffmpeg:", whichPath);
+      return whichPath;
+    }
+  } catch {}
+
+  // تثبيت عبر apt
+  try {
+    console.log("[sheeloha-generator] Installing ffmpeg via apt...");
+    execSync("apt-get install -y ffmpeg 2>/dev/null || true", { timeout: 60000 });
+    return "ffmpeg";
+  } catch {}
+
+  return "ffmpeg";
+}
+
+const FFMPEG = findOrInstallFFmpeg();
+console.log("[sheeloha-generator] Using ffmpeg:", FFMPEG);
 
 export interface SheelohaOptions {
   taroukBase64: string;
