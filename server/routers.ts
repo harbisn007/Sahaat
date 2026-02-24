@@ -417,32 +417,7 @@ export const appRouter = router({
           input.duration
         );
         
-        // إذا كان طاروق: إنشاء الشيلوها وبثها فوراً مع الطاروق
-        if (input.messageType === "tarouk" && input.duration > 0) {
-          // إنشاء الشيلوها بالتوازي (بدون انتظار)
-          (async () => {
-            try {
-              const { generateSheeloha } = await import("./sheeloha-generator");
-              const sheelohaUrl = await generateSheeloha({
-                taroukUrl: input.audioUrl,
-                taroukDuration: input.duration,
-              });
-              console.log(`[audio.create] Sheeloha generated: ${sheelohaUrl}`);
-              
-              // بث الشيلوها فوراً - العميل سيشغّلها عند انتهاء الطاروق
-              emitPlaySheeloha(
-                input.roomId,
-                sheelohaUrl,
-                input.duration,
-                input.userId,
-                input.username
-              );
-              console.log(`[audio.create] Sheeloha broadcast for tarouk in room ${input.roomId}`);
-            } catch (error) {
-              console.error(`[audio.create] Failed to generate sheeloha:`, error);
-            }
-          })();
-        }
+        // الشيلوها تُولَّد فقط عند ضغط زر شيلوها - لا توليد تلقائي
         
         return { messageId };
       }),
