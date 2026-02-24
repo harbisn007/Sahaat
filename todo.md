@@ -2548,3 +2548,6 @@
 ## تحديث package.json - الجلسة الرابعة
 - [x] حذف mpg123-decoder من dependencies
 - [x] تشغيل pnpm install لتحديث lock file
+
+## تحديث sheeloha-generator - الجلسة الخامسة
+- [x] استبدال sheeloha-generator.ts (استخدام which ffmpeg للبحث الديناميكي)

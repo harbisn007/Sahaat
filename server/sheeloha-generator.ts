@@ -20,8 +20,13 @@ const execAsync = promisify(exec);
 
 const CLAP_LOCAL_PATH = join(__dirname, "sounds", "single-clap-short.mp3");
 
-// مسار ffmpeg - nixpacks يثبّته في /usr/bin/ffmpeg
-const FFMPEG = "/usr/bin/ffmpeg";
+// البحث عن مسار ffmpeg
+import { execSync } from "child_process";
+let FFMPEG = "ffmpeg";
+try {
+  FFMPEG = execSync("which ffmpeg 2>/dev/null || command -v ffmpeg 2>/dev/null || echo ffmpeg").toString().trim();
+} catch {}
+console.log("[sheeloha-generator] ffmpeg path:", FFMPEG);
 
 export interface SheelohaOptions {
   taroukBase64: string;
