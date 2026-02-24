@@ -46,21 +46,22 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
     await copyFile(CLAP_LOCAL_PATH, clapFile);
     console.log(`[generateSheeloha] Clap copied from local`);
 
-    // 3. ffmpeg: 5 أصوات بطبقات مختلفة + تصفيق
+    // 3. ffmpeg:
+    // - 4 نسخ بتأخيرات مختلفة = إحساس بالجمع بدون تغيير pitch (لا صوت فئران)
+    // - apad: صمت 0.62 ثانية بعد التصفيقة = فاصل 0.96 ثانية
     const scriptContent = `#!/bin/bash
 set -e
 ffmpeg -y \\
   -i "${taroukFile}" \\
-  -stream_loop -1 -i "${clapFile}" \\
+  -i "${clapFile}" \\
   -filter_complex "
-    [0:a]asplit=5[s1][s2][s3][s4][s5];
-    [s1]volume=0.45[v1];
-    [s2]asetrate=44100*0.88,aresample=44100,adelay=25|25,volume=0.40[v2];
-    [s3]asetrate=44100*1.12,aresample=44100,adelay=60|60,volume=0.38[v3];
-    [s4]asetrate=44100*0.94,aresample=44100,adelay=110|110,volume=0.35[v4];
-    [s5]asetrate=44100*1.06,aresample=44100,adelay=160|160,volume=0.32[v5];
-    [v1][v2][v3][v4][v5]amix=inputs=5:duration=first:normalize=0[crowd];
-    [1:a]atrim=end=${taroukDuration},volume=0.35[clap];
+    [0:a]asplit=4[s1][s2][s3][s4];
+    [s1]volume=0.50[v1];
+    [s2]adelay=40|40,volume=0.42[v2];
+    [s3]adelay=90|90,volume=0.38[v3];
+    [s4]adelay=150|150,volume=0.34[v4];
+    [v1][v2][v3][v4]amix=inputs=4:duration=first:normalize=0[crowd];
+    [1:a]apad=pad_dur=0.62,aloop=loop=-1:size=2147483647,atrim=end=${taroukDuration},volume=0.35[clap];
     [crowd][clap]amix=inputs=2:duration=first:normalize=0[out]
   " \\
   -map "[out]" \\
