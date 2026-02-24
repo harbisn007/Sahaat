@@ -8,11 +8,12 @@ import { promisify } from "util";
 import { unlink, readFile, writeFile } from "fs/promises";
 import path from "path";
 import { tmpdir } from "os";
-import { storagePut } from "./storage";
+import { storagePut, storageGet } from "./storage";
 
 const execAsync = promisify(exec);
 
-const CLAP_CDN_URL = "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
+// مفتاح ملف التصفيق في S3
+const CLAP_REL_KEY = "user_upload_by_module/session_file/310519663292181877/bXZOlcZxcTqODWQb.mp3";
 
 export interface SheelohaOptions {
   taroukUrl: string;
@@ -27,7 +28,7 @@ async function downloadFile(url: string, dest: string): Promise<void> {
   }
   const buffer = Buffer.from(await response.arrayBuffer());
   await writeFile(dest, buffer);
-  console.log(`[downloadFile] Downloaded ${url} -> ${dest} (${buffer.length} bytes)`);
+  console.log(`[downloadFile] Downloaded -> ${dest} (${buffer.length} bytes)`);
 }
 
 export async function generateSheeloha(options: SheelohaOptions): Promise<string> {
@@ -42,9 +43,15 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
   console.log(`[generateSheeloha] START - duration: ${taroukDuration}s`);
 
   try {
-    // 1. تحميل الملفات بـ fetch (أكثر موثوقية من curl)
-    await downloadFile(taroukUrl, taroukFile);
-    await downloadFile(CLAP_CDN_URL, clapFile);
+    // 1. الحصول على signed URLs ثم تحميل الملفين
+    // الطاروق: نستخرج relKey من الرابط
+    const taroukRelKey = new URL(taroukUrl).pathname.replace(/^\//, "");
+    const { url: taroukSignedUrl } = await storageGet(taroukRelKey);
+    await downloadFile(taroukSignedUrl, taroukFile);
+
+    // التصفيق: نستخدم المفتاح المحفوظ
+    const { url: clapSignedUrl } = await storageGet(CLAP_REL_KEY);
+    await downloadFile(clapSignedUrl, clapFile);
 
     // 2. كتابة script ffmpeg
     // 5 أصوات بطبقات مختلفة: أصلي + أخفض -12% + أعلى +12% + أخفض -6% + أعلى +6%
