@@ -2544,3 +2544,7 @@
 - [x] استبدال server/sheeloha-generator.ts (استخدام /usr/bin/ffmpeg مباشرة)
 - [x] استبدال package.json (إزالة ffmpeg-static)
 - [x] تشغيل pnpm install لتحديث lock file بعد حذف ffmpeg-static
+
+## تحديث package.json - الجلسة الرابعة
+- [x] حذف mpg123-decoder من dependencies
+- [x] تشغيل pnpm install لتحديث lock file
