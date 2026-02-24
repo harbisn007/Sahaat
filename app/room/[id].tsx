@@ -2270,9 +2270,10 @@ export default function RoomScreen() {
                         username: username || "",
                       });
                     }
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error("[RoomScreen] Failed to generate/play Sheeloha:", error);
-                    Alert.alert("خطأ", "فشل تشغيل صوت الصفوف.");
+                    const msg = error?.message || error?.toString() || "unknown error";
+                    Alert.alert("خطأ", msg);
                   }
                 }}
               >
