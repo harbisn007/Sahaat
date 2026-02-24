@@ -2539,3 +2539,7 @@
 - [x] استبدال server/sheeloha-generator.ts (استخدام ffmpeg-static)
 - [x] استبدال package.json (إضافة ffmpeg-static)
 - [x] تشغيل pnpm install لتثبيت ffmpeg-static
+
+## تحديث ملفات الشيلوها - الجلسة الثالثة
+- [x] استبدال server/sheeloha-generator.ts (استخدام /usr/bin/ffmpeg مباشرة)
+- [x] استبدال package.json (إزالة ffmpeg-static)

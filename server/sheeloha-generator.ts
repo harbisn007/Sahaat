@@ -20,13 +20,8 @@ const execAsync = promisify(exec);
 
 const CLAP_LOCAL_PATH = join(__dirname, "sounds", "single-clap-short.mp3");
 
-// مسار ffmpeg من ffmpeg-static
-let FFMPEG = "ffmpeg";
-try {
-  // @ts-ignore
-  const ffmpegStatic = require("ffmpeg-static");
-  if (ffmpegStatic) FFMPEG = ffmpegStatic;
-} catch {}
+// مسار ffmpeg - nixpacks يثبّته في /usr/bin/ffmpeg
+const FFMPEG = "/usr/bin/ffmpeg";
 
 export interface SheelohaOptions {
   taroukBase64: string;
@@ -61,6 +56,7 @@ export async function generateSheeloha(options: SheelohaOptions): Promise<string
     // 4. الملف النهائي: loop مستمر 120s
     const scriptContent = `#!/bin/bash
 set -e
+export PATH="/usr/bin:/usr/local/bin:$PATH"
 "${FFMPEG}" -y \\
   -stream_loop -1 -i "${taroukLoopFile}" \\
   -stream_loop -1 -i "${clapUnitFile}" \\
