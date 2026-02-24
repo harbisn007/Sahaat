@@ -2543,3 +2543,4 @@
 ## تحديث ملفات الشيلوها - الجلسة الثالثة
 - [x] استبدال server/sheeloha-generator.ts (استخدام /usr/bin/ffmpeg مباشرة)
 - [x] استبدال package.json (إزالة ffmpeg-static)
+- [x] تشغيل pnpm install لتحديث lock file بعد حذف ffmpeg-static
