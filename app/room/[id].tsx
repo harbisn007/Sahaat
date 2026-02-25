@@ -1724,7 +1724,7 @@ export default function RoomScreen() {
               borderColor: '#D4AF37',
             }}
           >
-            <Text style={{ fontSize: 18 }}>{isCreator ? '🚪' : '👋'}</Text>
+            <MaterialIcons name={isCreator ? "close" : "exit-to-app"} size={20} color="#D4AF37" />
           </TouchableOpacity>
           
           {/* Center: Room info */}
@@ -1750,7 +1750,7 @@ export default function RoomScreen() {
                 onPress={handleSendPublicInvite}
                 disabled={!canSendPublicInvite || isSendingPublicInvite}
               >
-                <Text style={{ fontSize: 18 }}>📢</Text>
+                <MaterialIcons name="campaign" size={18} color="#D4AF37" />
               </TouchableOpacity>
             )}
             
@@ -1764,7 +1764,7 @@ export default function RoomScreen() {
                 borderColor: '#D4AF37',
               }}
             >
-              <Text style={{ fontSize: 18 }}>📤</Text>
+              <MaterialIcons name="share" size={20} color="#D4AF37" />
             </TouchableOpacity>
           </View>
         </View>
