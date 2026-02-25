@@ -1699,74 +1699,64 @@ export default function RoomScreen() {
       className="p-0" 
       containerClassName="bg-transparent"
     >
-      {/* Header - Luxurious Design */}
-      <View className="px-4 pt-4 pb-3">
-        <View 
-          className="flex-row items-center justify-between px-4 py-3 rounded-2xl"
-          style={{
-            backgroundColor: 'rgba(45, 28, 16, 0.95)',
-            borderWidth: 2,
-            borderColor: '#D4AF37',
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 8,
-            elevation: 8,
-          }}
-        >
-          {/* Left: Exit/Close button */}
+      {/* Header */}
+      <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
+        {/* Left: Exit/Close button */}
+        {isCreator ? (
           <TouchableOpacity 
-            onPress={isCreator ? handleDeleteRoom : handleLeaveRoom}
-            className="w-10 h-10 rounded-full items-center justify-center"
-            style={{ 
-              backgroundColor: 'rgba(139, 69, 19, 0.3)',
-              borderWidth: 1.5,
-              borderColor: '#D4AF37',
-            }}
+            onPress={handleDeleteRoom}
+            className="px-3 py-1 rounded-lg"
+            style={{ backgroundColor: colors.error }}
           >
-            <MaterialIcons name={isCreator ? "close" : "exit-to-app"} size={20} color="#D4AF37" />
+            <Text className="text-background text-xs font-semibold">إغلاق</Text>
           </TouchableOpacity>
-          
-          {/* Center: Room info */}
-          <View className="flex-1 px-3">
-            <Text className="text-lg font-bold text-center" style={{ color: '#D4AF37' }}>{roomData.name}</Text>
-            <Text className="text-xs text-center" style={{ color: '#D4AF37', opacity: 0.8 }}>
-              👥 {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
-            </Text>
-          </View>
-          
-          {/* Right: Share/Invite buttons */}
-          <View className="flex-row items-center" style={{ gap: 6 }}>
-            {/* زر الدعوة العامة - لمنشئ الساحة فقط */}
-            {isCreator && (
-              <TouchableOpacity
-                className="w-10 h-10 rounded-full items-center justify-center"
-                style={{ 
-                  backgroundColor: canSendPublicInvite ? 'rgba(139, 69, 19, 0.3)' : 'rgba(156, 163, 175, 0.3)',
-                  borderWidth: 1.5,
-                  borderColor: canSendPublicInvite ? '#D4AF37' : '#9CA3AF',
-                  opacity: canSendPublicInvite ? 1 : 0.5,
-                }}
-                onPress={handleSendPublicInvite}
-                disabled={!canSendPublicInvite || isSendingPublicInvite}
-              >
-                <MaterialIcons name="campaign" size={18} color="#D4AF37" />
-              </TouchableOpacity>
-            )}
-            
-            {/* زر المشاركة */}
+        ) : (
+          <TouchableOpacity 
+            onPress={handleLeaveRoom}
+            className="px-3 py-1 rounded-lg"
+            style={{ backgroundColor: colors.error }}
+          >
+            <Text className="text-background text-xs font-semibold">خروج</Text>
+          </TouchableOpacity>
+        )}
+        
+        {/* Center: Room info */}
+        <View className="flex-1">
+          <Text className="text-xl font-bold text-center" style={{ color: colors.foreground }}>{roomData.name}</Text>
+          <Text className="text-sm text-center" style={{ color: colors.foreground, opacity: 0.8 }}>
+            {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
+          </Text>
+        </View>
+        
+        {/* Right: Share/Invite buttons */}
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          {/* زر الدعوة العامة - لمنشئ الساحة فقط */}
+          {isCreator && (
             <TouchableOpacity
-              className="w-10 h-10 rounded-full items-center justify-center"
-              onPress={handleShareInvite}
-              style={{
-                backgroundColor: 'rgba(139, 69, 19, 0.3)',
-                borderWidth: 1.5,
-                borderColor: '#D4AF37',
+              style={{ 
+                backgroundColor: canSendPublicInvite ? '#EF4444' : '#9CA3AF',
+                paddingHorizontal: 8,
+                paddingVertical: 6,
+                borderRadius: 8,
+                opacity: canSendPublicInvite ? 1 : 0.6,
               }}
+              onPress={handleSendPublicInvite}
+              disabled={!canSendPublicInvite || isSendingPublicInvite}
             >
-              <MaterialIcons name="share" size={20} color="#D4AF37" />
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>
+                {isSendingPublicInvite ? 'جاري...' : 'دعوة عامة'}
+              </Text>
             </TouchableOpacity>
-          </View>
+          )}
+          
+          {/* زر المشاركة */}
+          <TouchableOpacity
+            className="items-center justify-center"
+            onPress={handleShareInvite}
+          >
+            <MaterialIcons name="share" size={24} color={colors.foreground} />
+            <Text className="text-xs font-bold text-foreground">دعوة</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -1996,7 +1986,7 @@ export default function RoomScreen() {
         className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
         style={{
           borderWidth: 2,
-          borderColor: "rgba(139, 69, 19, 0.6)", // بني داكن
+          borderColor: "#FFD700", // ذهبي
         }}
       >
         {/* Players Display - Creator in center, Players on sides */}
@@ -2172,12 +2162,15 @@ export default function RoomScreen() {
 
       {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
-      {/* Bottom Controls - تصميم جديد: صفين */}
+      {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
       <View 
-        className="bg-surface px-4 border-t border-border"
         style={{
-          paddingTop: 10,
-          paddingBottom: Platform.OS === "web" ? 10 : Math.max(insets.bottom + 4, 16),
+          paddingTop: 14,
+          paddingBottom: Platform.OS === "web" ? 14 : Math.max(insets.bottom + 6, 18),
+          paddingHorizontal: 16,
+          backgroundColor: '#1c1208',
+          borderTopWidth: 2,
+          borderTopColor: '#c8860a',
         }}
       >
         {/* صف واحد: تعليق/موال | شيلوها | طاروق | خلوها | تفاعلات (للاعبين فقط) */}
@@ -2186,11 +2179,11 @@ export default function RoomScreen() {
             {/* تعليق/موال - الأول يميناً */}
             <View style={{ alignItems: 'center' }}>
               <View style={{
-                shadowColor: '#FFD700',
-                shadowOffset: { width: -2, height: -2 },
-                shadowOpacity: 0.3,
-                shadowRadius: 3,
-                elevation: 5,
+                shadowColor: '#c8860a',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.5,
+                shadowRadius: 8,
+                elevation: 8,
               }}>
                 <RecordingButton
                   buttonId="comment"
@@ -2206,7 +2199,7 @@ export default function RoomScreen() {
                   }
                   label=""
                   showLabel={false}
-                  backgroundColor="#5D4037"
+                  backgroundColor="#2d1f0e"
                   minHeight={55}
                   width={55}
                   borderRadius={28}
@@ -2228,17 +2221,17 @@ export default function RoomScreen() {
             <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#5D4037",
+                  backgroundColor: "#2d1f0e",
                   width: 56,
                   height: 56,
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  shadowColor: '#FFD700',
-                  shadowOffset: { width: -2, height: -2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 3,
-                  elevation: 5,
+                  shadowColor: '#c8860a',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.5,
+                  shadowRadius: 8,
+                  elevation: 8,
                 }}
                 onPress={async () => {
                   // البحث عن آخر رسالة طاروق
@@ -2278,7 +2271,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               <Text 
                 style={{ 
-                  color: colors.muted,
+                  color: 'rgba(212,175,55,0.75)',
                   fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
@@ -2306,7 +2299,7 @@ export default function RoomScreen() {
                   onPressIn={() => handleStartRecording("tarouk")}
                   onPressOut={() => handleStopRecording()}
                   onCancelRecording={handleCancelRecording}
-                  backgroundColor="#5D4037"
+                  backgroundColor="#2d1f0e"
                   recordingDuration={recordingType === "tarouk" ? formattedDuration : "00:00"}
                   iconComponent={
                     <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 70, height: 70 }} resizeMode="contain" />
@@ -2335,17 +2328,17 @@ export default function RoomScreen() {
             <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#5D4037",
+                  backgroundColor: "#2d1f0e",
                   width: 56,
                   height: 56,
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  shadowColor: '#FFD700',
-                  shadowOffset: { width: -2, height: -2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 3,
-                  elevation: 5,
+                  shadowColor: '#c8860a',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.5,
+                  shadowRadius: 8,
+                  elevation: 8,
                 }}
                 onPress={async () => {
                   // لا يعمل إذا لم تكن الشيلوها تشتغل
@@ -2381,7 +2374,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               <Text 
                 style={{ 
-                  color: colors.muted,
+                  color: 'rgba(212,175,55,0.75)',
                   fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
@@ -2396,17 +2389,17 @@ export default function RoomScreen() {
             <View style={{ alignItems: 'center' }}>
               <TouchableOpacity
                 style={{
-                  backgroundColor: "#5D4037",
+                  backgroundColor: "#2d1f0e",
                   width: 55,
                   height: 55,
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  shadowColor: '#FFD700',
-                  shadowOffset: { width: -2, height: -2 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 3,
-                  elevation: 5,
+                  shadowColor: '#c8860a',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.5,
+                  shadowRadius: 8,
+                  elevation: 8,
                 }}
                 onPress={() => setIsReactionsPickerOpen(true)}
               >
