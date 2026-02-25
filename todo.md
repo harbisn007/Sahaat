@@ -2590,3 +2590,4 @@
 ## حذف الأفاتار الخاطئ
 - [x] حذف avatar-male-5.png من assets/images
 - [x] حذف التصاميم الفاشلة من webdev-static-assets
+- [x] استبدال recording-button.tsx بالنسخة الجديدة المرسلة من المستخدم

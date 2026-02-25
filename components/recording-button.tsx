@@ -309,7 +309,9 @@ export function RecordingButton({
           style={{
             backgroundColor: isActive ? colors.error : backgroundColor || colors.primary,
             opacity: isTouchActive ? 0.7 : ((isPreparing && !isTouchActive) ? 0.6 : 1),
-            borderRadius: customBorderRadius ?? 8,
+            borderRadius: customBorderRadius ?? 14,
+            borderWidth: backgroundColor === '#2d1f0e' ? 1 : 0,
+            borderColor: '#c8860a',
             paddingVertical: 8,
             paddingHorizontal: 4,
             alignItems: "center",
