@@ -546,27 +546,9 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: تشغيل وتشغيل الشيلوها عند الانتهاء
-          console.log("[RoomScreen] Playing tarouk for listener");
-          try {
-            const taroukPlayer = createAudioPlayer(data.audioUrl);
-            taroukPlayer.volume = 1.0;
-            taroukPlayer.play();
-            
-            // تشغيل الشيلوها بعد انتهاء الطاروق (باستخدام setTimeout)
-            if (pendingSheeloha) {
-              const delay = (data.duration || 3) * 1000; // مدة الطاروق بالملي ثانية
-              console.log(`[RoomScreen] Will play pending sheeloha after ${delay}ms`);
-              setTimeout(() => {
-                console.log("[RoomScreen] Playing pending sheeloha:", pendingSheeloha);
-                sheelohaPlayer.play(pendingSheeloha);
-                setPendingSheeloha(null);
-              }, delay);
-            }
-            setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
-          } catch (e) {
-            console.error("[RoomScreen] Failed to play tarouk for listener:", e);
-          }
+          // الطاروق: لا نشغله مباشرة، فقط نحفظه للشيلوها
+          console.log("[RoomScreen] Tarouk received, waiting for sheeloha command");
+          // لا نشغل الطاروق هنا - سيتم تشغيله فقط عند أمر الشيلوها
         }
       },
       
