@@ -546,9 +546,13 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: لا نشغله مباشرة، فقط نحفظه للشيلوها
-          console.log("[RoomScreen] Tarouk received, waiting for sheeloha command");
-          // لا نشغل الطاروق هنا - سيتم تشغيله فقط عند أمر الشيلوها
+          // الطاروق: يشتغل تلقائياً بشكل عادي، ويمكن تشغيله مع تأثير الصفوف عبر زر الشيلوها
+          console.log("[RoomScreen] Playing tarouk automatically");
+          try {
+            playTarouk(data.audioUrl);
+          } catch (e) {
+            console.error("[RoomScreen] Failed to play tarouk:", e);
+          }
         }
       },
       
@@ -1991,8 +1995,8 @@ export default function RoomScreen() {
       <View 
         className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
         style={{
-          borderWidth: 2,
-          borderColor: "#FFD700", // ذهبي
+          borderWidth: 3,
+          borderColor: "#2d1f0e", // بني داكن سميك
         }}
       >
         {/* Players Display - Creator in center, Players on sides */}
