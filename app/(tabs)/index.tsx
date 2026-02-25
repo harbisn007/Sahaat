@@ -20,20 +20,127 @@ interface PublicInvitation {
   status: string; displayedAt: Date | null; createdAt: Date;
 }
 
-const saduBanner1 = require("@/assets/images/sadu-banner-1.png");
-const saduBanner2 = require("@/assets/images/sadu-banner-2.png");
-const saduBanner3 = require("@/assets/images/sadu-banner-3.png");
-
+// ══ بنر السدو المتحرك - نقوش على تدرج ذهبي مع خط عربي ══
 function SaduBanner() {
-  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
-  const banners = [saduBanner1, saduBanner2, saduBanner3];
+  const translateX = useRef(new Animated.Value(0)).current;
+  const screenWidth = Dimensions.get('window').width;
+
   useEffect(() => {
-    const interval = setInterval(() => setCurrentBannerIndex(p => (p + 1) % banners.length), 20000);
-    return () => clearInterval(interval);
+    // حركة النقوش من اليمين لليسار بشكل مستمر
+    const animate = () => {
+      translateX.setValue(0);
+      Animated.timing(translateX, {
+        toValue: -screenWidth * 2,
+        duration: 14000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) animate();
+      });
+    };
+    animate();
   }, []);
+
+  // رسم معين واحد كـ component
+  const Diamond = ({ x, size, color, opacity }: { x: number; size: number; color: string; opacity: number }) => (
+    <View style={{
+      position: 'absolute',
+      left: x - size,
+      top: 32 - size,
+      width: size * 2,
+      height: size * 2,
+      transform: [{ rotate: '45deg' }],
+      borderWidth: 1.5,
+      borderColor: color,
+      opacity,
+    }} />
+  );
+
+  const patternWidth = screenWidth * 3;
+  const spacing = 48;
+  const count = Math.ceil(patternWidth / spacing) + 2;
+
   return (
-    <View style={{ width: '103%', height: 60, marginVertical: 2, alignSelf: 'center' }}>
-      <Image source={banners[currentBannerIndex]} style={{ width: '100%', height: 60, borderRadius: 8 }} resizeMode="cover" />
+    <View style={{
+      height: 64,
+      marginVertical: 2,
+      overflow: 'hidden',
+      borderRadius: 10,
+      backgroundColor: '#1c1208',
+    }}>
+      {/* تدرج الخلفية */}
+      <View style={{
+        position: 'absolute', inset: 0,
+        backgroundColor: '#2d1f0e',
+        opacity: 0.8,
+      }} />
+
+      {/* الخطوط الأفقية العلوية والسفلية */}
+      <View style={{ position: 'absolute', top: 7, left: 0, right: 0, height: 2, backgroundColor: '#c8860a', opacity: 0.8 }} />
+      <View style={{ position: 'absolute', bottom: 7, left: 0, right: 0, height: 2, backgroundColor: '#c8860a', opacity: 0.8 }} />
+      <View style={{ position: 'absolute', top: 12, left: 0, right: 0, height: 1, backgroundColor: '#d4af37', opacity: 0.3 }} />
+      <View style={{ position: 'absolute', bottom: 12, left: 0, right: 0, height: 1, backgroundColor: '#d4af37', opacity: 0.3 }} />
+
+      {/* النقوش المتحركة */}
+      <Animated.View style={{
+        position: 'absolute', top: 0, bottom: 0,
+        flexDirection: 'row', alignItems: 'center',
+        width: patternWidth,
+        transform: [{ translateX }],
+      }}>
+        {Array.from({ length: count }).map((_, i) => {
+          const x = i * spacing;
+          const isBig = i % 2 === 0;
+          return (
+            <View key={i}>
+              {/* معين رئيسي */}
+              <View style={{
+                position: 'absolute',
+                left: x - (isBig ? 12 : 7),
+                top: 32 - (isBig ? 12 : 7),
+                width: isBig ? 24 : 14,
+                height: isBig ? 24 : 14,
+                transform: [{ rotate: '45deg' }],
+                borderWidth: isBig ? 1.5 : 1,
+                borderColor: isBig ? '#d4af37' : '#c8860a',
+                opacity: isBig ? 0.9 : 0.6,
+              }} />
+              {/* نقطة في وسط المعين الكبير */}
+              {isBig && (
+                <View style={{
+                  position: 'absolute',
+                  left: x - 2.5,
+                  top: 29.5,
+                  width: 5,
+                  height: 5,
+                  borderRadius: 2.5,
+                  backgroundColor: '#FFD700',
+                  opacity: 0.7,
+                }} />
+              )}
+            </View>
+          );
+        })}
+      </Animated.View>
+
+      {/* النص - ساحات المحاورة بخط جميل */}
+      <View style={{
+        position: 'absolute', inset: 0,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Text style={{
+          color: '#d4af37',
+          fontSize: 22,
+          fontWeight: '900',
+          letterSpacing: 4,
+          textShadowColor: 'rgba(212,175,55,0.6)',
+          textShadowOffset: { width: 0, height: 0 },
+          textShadowRadius: 12,
+          fontStyle: 'italic',
+        }}>
+          ✦ ساحات المحاورة ✦
+        </Text>
+      </View>
     </View>
   );
 }
@@ -299,12 +406,11 @@ export default function HomeScreen() {
             <MaterialIcons name="logout" size={22} color="#c8860a" />
           </TouchableOpacity>
 
-          {/* العنوان والعداد */}
+          {/* عداد المتواجدين فقط - العنوان انتقل للبنر */}
           <View style={{ flex: 1, alignItems: 'center' }}>
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#d4af37', textAlign: 'center' }}>ساحات المحاورة</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginLeft: 4 }} />
-              <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>({onlineCount}) المتواجدون الآن</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#22C55E', marginLeft: 5 }} />
+              <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: 'bold' }}>({onlineCount}) المتواجدون الآن</Text>
             </View>
           </View>
 
