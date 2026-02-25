@@ -1699,66 +1699,75 @@ export default function RoomScreen() {
       className="p-0" 
       containerClassName="bg-transparent"
     >
-      {/* Header */}
-      <View 
-        className="px-6 pt-4 pb-3 flex-row items-center justify-between"
-        style={{
-          backgroundColor: '#2d1f0e',
-          borderWidth: 1,
-          borderColor: '#c8860a',
-          borderRadius: 12,
-          marginHorizontal: 16,
-          marginTop: 8,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.3,
-          shadowRadius: 4,
-          elevation: 5,
-        }}
-      >
+      {/* Header - نحاسي ذهبي متناسق مع الأزرار */}
+      <View style={{
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: 12,
+        backgroundColor: '#1c1208',
+        borderBottomWidth: 2,
+        borderBottomColor: '#c8860a',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
         {/* Left: Exit/Close button */}
         {isCreator ? (
           <TouchableOpacity 
             onPress={handleDeleteRoom}
-            className="px-3 py-1 rounded-lg"
-            style={{ backgroundColor: colors.error }}
+            style={{
+              backgroundColor: '#3d0a0a',
+              borderWidth: 1,
+              borderColor: '#c0392b',
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 10,
+            }}
           >
-            <Text className="text-background text-xs font-semibold">إغلاق</Text>
+            <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: 'bold' }}>إغلاق</Text>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity 
             onPress={handleLeaveRoom}
-            className="px-3 py-1 rounded-lg"
-            style={{ backgroundColor: colors.error }}
+            style={{
+              backgroundColor: '#3d0a0a',
+              borderWidth: 1,
+              borderColor: '#c0392b',
+              paddingHorizontal: 12,
+              paddingVertical: 7,
+              borderRadius: 10,
+            }}
           >
-            <Text className="text-background text-xs font-semibold">خروج</Text>
+            <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: 'bold' }}>خروج</Text>
           </TouchableOpacity>
         )}
         
         {/* Center: Room info */}
-        <View className="flex-1">
-          <Text className="text-xl font-bold text-center" style={{ color: colors.foreground }}>{roomData.name}</Text>
-          <Text className="text-sm text-center" style={{ color: colors.foreground, opacity: 0.8 }}>
+        <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
+          <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>{roomData.name}</Text>
+          <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
             {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
           </Text>
         </View>
         
         {/* Right: Share/Invite buttons */}
-        <View className="flex-row items-center" style={{ gap: 8 }}>
-          {/* زر الدعوة العامة - لمنشئ الساحة فقط */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* زر الدعوة العامة */}
           {isCreator && (
             <TouchableOpacity
               style={{ 
-                backgroundColor: canSendPublicInvite ? '#EF4444' : '#9CA3AF',
-                paddingHorizontal: 8,
-                paddingVertical: 6,
-                borderRadius: 8,
-                opacity: canSendPublicInvite ? 1 : 0.6,
+                backgroundColor: canSendPublicInvite ? '#2d1f0e' : '#1a1a1a',
+                borderWidth: 1,
+                borderColor: canSendPublicInvite ? '#c8860a' : '#444',
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 10,
+                opacity: canSendPublicInvite ? 1 : 0.5,
               }}
               onPress={handleSendPublicInvite}
               disabled={!canSendPublicInvite || isSendingPublicInvite}
             >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>
+              <Text style={{ color: canSendPublicInvite ? '#d4af37' : '#888', fontWeight: 'bold', fontSize: 11 }}>
                 {isSendingPublicInvite ? 'جاري...' : 'دعوة عامة'}
               </Text>
             </TouchableOpacity>
@@ -1766,11 +1775,11 @@ export default function RoomScreen() {
           
           {/* زر المشاركة */}
           <TouchableOpacity
-            className="items-center justify-center"
+            style={{ alignItems: 'center', justifyContent: 'center' }}
             onPress={handleShareInvite}
           >
-            <MaterialIcons name="share" size={24} color={colors.foreground} />
-            <Text className="text-xs font-bold text-foreground">دعوة</Text>
+            <MaterialIcons name="share" size={22} color="#d4af37" />
+            <Text style={{ fontSize: 10, fontWeight: 'bold', color: 'rgba(212,175,55,0.7)', marginTop: 2 }}>دعوة</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -2001,7 +2010,7 @@ export default function RoomScreen() {
         className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
         style={{
           borderWidth: 2,
-          borderColor: "#2d1f0e", // بني داكن
+          borderColor: "#FFD700", // ذهبي
         }}
       >
         {/* Players Display - Creator in center, Players on sides */}
@@ -2240,8 +2249,6 @@ export default function RoomScreen() {
                   width: 56,
                   height: 56,
                   borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: '#c8860a',
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#c8860a',
@@ -2349,8 +2356,6 @@ export default function RoomScreen() {
                   width: 56,
                   height: 56,
                   borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: '#c8860a',
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#c8860a',
@@ -2412,8 +2417,6 @@ export default function RoomScreen() {
                   width: 55,
                   height: 55,
                   borderRadius: 12,
-                  borderWidth: 1,
-                  borderColor: '#c8860a',
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#c8860a',
