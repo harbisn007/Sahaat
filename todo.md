@@ -2555,3 +2555,8 @@
 
 ## تحديث sheeloha-generator - الجلسة السادسة
 - [x] إضافة دالة findOrInstallFFmpeg للبحث في nix store وتثبيت ffmpeg تلقائياً
+
+## التحول إلى التشغيل المحلي - الجلسة السابعة
+- [x] إنشاء hooks/use-sheeloha-player.ts للتشغيل المحلي
+- [x] استبدال app/room/[id].tsx لاستخدام التشغيل المحلي بدلاً من الخادم
+- [x] إصلاح server/sheeloha-generator.ts (استبدال React Hook بـ stub function)

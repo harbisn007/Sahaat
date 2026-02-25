@@ -574,7 +574,7 @@ export default function RoomScreen() {
       onPlaySheeloha: (data: SheelohaPayload) => {
         console.log("[RoomScreen] Sheeloha command received:", data);
         sheelohaPlayer.play({
-          taroukUrl: data.sheelohaUrl,
+          taroukUrl: data.sheelohaUrl,   // هنا sheelohaUrl = audioUrl الطاروق
           taroukDuration: data.taroukDuration,
         });
       },
@@ -2232,46 +2232,26 @@ export default function RoomScreen() {
                   }
 
                   try {
-                    console.log("[RoomScreen] Generating Sheeloha for:", lastTarouk.audioUrl);
+                    console.log("[RoomScreen] Starting Sheeloha locally for:", lastTarouk.audioUrl);
 
-                    // تحميل الطاروق محلياً ثم قراءته كـ base64
-                    const localUri = FileSystem.cacheDirectory + `tarouk-sheeloha-${Date.now()}.m4a`;
-                    console.log("[RoomScreen] Downloading to:", localUri);
-                    const downloadResult = await FileSystem.downloadAsync(lastTarouk.audioUrl, localUri);
-                    console.log("[RoomScreen] Download status:", downloadResult.status);
-                    const taroukBase64 = await FileSystem.readAsStringAsync(localUri, {
-                      encoding: FileSystem.EncodingType.Base64,
-                    });
-                    console.log("[RoomScreen] base64 length:", taroukBase64.length);
-                    await FileSystem.deleteAsync(localUri, { idempotent: true });
-
-                    const response = await generateSheelohaMutation.mutateAsync({
-                      taroukBase64,
+                    // تشغيل محلي مباشرة - بدون خادم
+                    await sheelohaPlayer.play({
+                      taroukUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
-                      roomId,
                     });
 
-                    if (response.sheelohaUrl) {
-                      console.log("[RoomScreen] Sheeloha ready:", response.sheelohaUrl);
+                    // بث للجميع عبر Socket.io
+                    const socket = await getSocket();
+                    socket.emit("playSheeloha", {
+                      roomId,
+                      sheelohaUrl: lastTarouk.audioUrl,
+                      taroukDuration: lastTarouk.duration || 3,
+                      userId,
+                      username: username || "",
+                    });
 
-                      // تشغيل الملف الجاهز مع loop مستمر
-                      await sheelohaPlayer.play({
-                        sheelohaUrl: response.sheelohaUrl,
-                        taroukDuration: lastTarouk.duration || 3,
-                      });
-
-                      // بث للجميع عبر Socket.io
-                      const socket = await getSocket();
-                      socket.emit("playSheeloha", {
-                        roomId,
-                        sheelohaUrl: response.sheelohaUrl,
-                        taroukDuration: lastTarouk.duration || 3,
-                        userId,
-                        username: username || "",
-                      });
-                    }
                   } catch (error: any) {
-                    console.error("[RoomScreen] Failed to generate/play Sheeloha:", error);
+                    console.error("[RoomScreen] Failed to play Sheeloha:", error);
                     const msg = error?.message || error?.toString() || "unknown error";
                     Alert.alert("خطأ", msg);
                   }
