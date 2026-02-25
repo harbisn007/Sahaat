@@ -1699,64 +1699,74 @@ export default function RoomScreen() {
       className="p-0" 
       containerClassName="bg-transparent"
     >
-      {/* Header */}
-      <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
-        {/* Left: Exit/Close button */}
-        {isCreator ? (
+      {/* Header - Luxurious Design */}
+      <View className="px-4 pt-4 pb-3">
+        <View 
+          className="flex-row items-center justify-between px-4 py-3 rounded-2xl"
+          style={{
+            backgroundColor: 'rgba(45, 28, 16, 0.95)',
+            borderWidth: 2,
+            borderColor: '#D4AF37',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 8,
+            elevation: 8,
+          }}
+        >
+          {/* Left: Exit/Close button */}
           <TouchableOpacity 
-            onPress={handleDeleteRoom}
-            className="px-3 py-1 rounded-lg"
-            style={{ backgroundColor: colors.error }}
+            onPress={isCreator ? handleDeleteRoom : handleLeaveRoom}
+            className="w-10 h-10 rounded-full items-center justify-center"
+            style={{ 
+              backgroundColor: 'rgba(139, 69, 19, 0.3)',
+              borderWidth: 1.5,
+              borderColor: '#D4AF37',
+            }}
           >
-            <Text className="text-background text-xs font-semibold">إغلاق</Text>
+            <Text style={{ fontSize: 18 }}>{isCreator ? '🚪' : '👋'}</Text>
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity 
-            onPress={handleLeaveRoom}
-            className="px-3 py-1 rounded-lg"
-            style={{ backgroundColor: colors.error }}
-          >
-            <Text className="text-background text-xs font-semibold">خروج</Text>
-          </TouchableOpacity>
-        )}
-        
-        {/* Center: Room info */}
-        <View className="flex-1">
-          <Text className="text-xl font-bold text-center" style={{ color: colors.foreground }}>{roomData.name}</Text>
-          <Text className="text-sm text-center" style={{ color: colors.foreground, opacity: 0.8 }}>
-            {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
-          </Text>
-        </View>
-        
-        {/* Right: Share/Invite buttons */}
-        <View className="flex-row items-center" style={{ gap: 8 }}>
-          {/* زر الدعوة العامة - لمنشئ الساحة فقط */}
-          {isCreator && (
-            <TouchableOpacity
-              style={{ 
-                backgroundColor: canSendPublicInvite ? '#EF4444' : '#9CA3AF',
-                paddingHorizontal: 8,
-                paddingVertical: 6,
-                borderRadius: 8,
-                opacity: canSendPublicInvite ? 1 : 0.6,
-              }}
-              onPress={handleSendPublicInvite}
-              disabled={!canSendPublicInvite || isSendingPublicInvite}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 10 }}>
-                {isSendingPublicInvite ? 'جاري...' : 'دعوة عامة'}
-              </Text>
-            </TouchableOpacity>
-          )}
           
-          {/* زر المشاركة */}
-          <TouchableOpacity
-            className="items-center justify-center"
-            onPress={handleShareInvite}
-          >
-            <MaterialIcons name="share" size={24} color={colors.foreground} />
-            <Text className="text-xs font-bold text-foreground">دعوة</Text>
-          </TouchableOpacity>
+          {/* Center: Room info */}
+          <View className="flex-1 px-3">
+            <Text className="text-lg font-bold text-center" style={{ color: '#D4AF37' }}>{roomData.name}</Text>
+            <Text className="text-xs text-center" style={{ color: '#D4AF37', opacity: 0.8 }}>
+              👥 {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
+            </Text>
+          </View>
+          
+          {/* Right: Share/Invite buttons */}
+          <View className="flex-row items-center" style={{ gap: 6 }}>
+            {/* زر الدعوة العامة - لمنشئ الساحة فقط */}
+            {isCreator && (
+              <TouchableOpacity
+                className="w-10 h-10 rounded-full items-center justify-center"
+                style={{ 
+                  backgroundColor: canSendPublicInvite ? 'rgba(139, 69, 19, 0.3)' : 'rgba(156, 163, 175, 0.3)',
+                  borderWidth: 1.5,
+                  borderColor: canSendPublicInvite ? '#D4AF37' : '#9CA3AF',
+                  opacity: canSendPublicInvite ? 1 : 0.5,
+                }}
+                onPress={handleSendPublicInvite}
+                disabled={!canSendPublicInvite || isSendingPublicInvite}
+              >
+                <Text style={{ fontSize: 18 }}>📢</Text>
+              </TouchableOpacity>
+            )}
+            
+            {/* زر المشاركة */}
+            <TouchableOpacity
+              className="w-10 h-10 rounded-full items-center justify-center"
+              onPress={handleShareInvite}
+              style={{
+                backgroundColor: 'rgba(139, 69, 19, 0.3)',
+                borderWidth: 1.5,
+                borderColor: '#D4AF37',
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>📤</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -1986,7 +1996,7 @@ export default function RoomScreen() {
         className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
         style={{
           borderWidth: 2,
-          borderColor: "#FFD700", // ذهبي
+          borderColor: "rgba(139, 69, 19, 0.6)", // بني داكن
         }}
       >
         {/* Players Display - Creator in center, Players on sides */}
