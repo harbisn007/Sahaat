@@ -343,23 +343,27 @@ export default function RoomScreen() {
     setJoinRequestResponse(null);
   }, [joinRequestResponse]);
   
-  // التحقق من حذف الساحة عبر polling (احتياطي)
+  // التحقق من حذف الساحة - فوري عند فتح الشاشة أو عبر polling
   useEffect(() => {
-    // إذا كان هناك خطأ أو لم تعد roomData موجودة بعد التحميل
-    // وكان لدينا اسم الساحة محفوظاً (يعني كانت موجودة سابقاً)
-    const roomNotFound = !isLoading && savedRoomName && (!roomData || error);
-    
-    if (roomNotFound && !roomClosedAlertShown) {
-      console.log("[RoomScreen] Room closed detected via polling - error:", error?.message, "roomData:", !!roomData);
+    if (roomClosedAlertShown) return;
+    if (isLoading) return;
+
+    // ساحة غير موجودة = خطأ أو roomData فارغ بعد اكتمال التحميل
+    const roomNotFound = !roomData || error;
+
+    if (roomNotFound) {
+      console.log("[RoomScreen] Room not found - redirecting to home. error:", error?.message);
       setRoomClosedAlertShown(true);
-      // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
       router.replace("/");
-      Alert.alert(
-        "تم حذف الساحة",
-        `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
-      );
+      // نعرض alert فقط إذا كان المستخدم في الساحة سابقاً (savedRoomName موجود)
+      if (savedRoomName) {
+        Alert.alert(
+          "تم حذف الساحة",
+          "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
+        );
+      }
     }
-  }, [isLoading, roomData, savedRoomName, error, roomClosedAlertShown]);
+  }, [isLoading, roomData, error, roomClosedAlertShown, savedRoomName]);
 
   // Mutation for auto-join (must be defined before useEffect that uses it)
   const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
@@ -422,19 +426,16 @@ export default function RoomScreen() {
   // إيقاف جميع الأصوات عند الخروج من الساحة (لا ينتظر عودة المستخدم)
   useEffect(() => {
     return () => {
-      console.log("[RoomScreen] Unmounting - stopping all audio");
-      stop();           // إيقاف التعليقات
-      stopTarouk();     // إيقاف الطاروق
-      sheelohaPlayer.stop(); // إيقاف الشيلوها
+      stop();
+      stopTarouk();
     };
-  }, [sheelohaPlayer]);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
       // إيقاف جميع الأصوات عند الخروج
       stop();
       stopTarouk();
-      sheelohaPlayer.stop();
       
       // المنشئ لا يُحذف عند مغادرة الصفحة
       if (isRoomCreatorRef.current) return;
@@ -509,6 +510,17 @@ export default function RoomScreen() {
   
   // مشغّل الشيلوها
   const sheelohaPlayer = useSheelohaPlayer();
+  
+  // تنظيف الأصوات عند الخروج من الساحة
+  useEffect(() => {
+    return () => {
+      console.log("[RoomScreen] Unmounting - cleaning up all audio players");
+      // إيقاف جميع الأصوات (تستمر حتى تنتهي ولا تستكمل عند العودة)
+      stop();
+      stopTarouk();
+      sheelohaPlayer.stop();
+    };
+  }, [stop, stopTarouk, sheelohaPlayer]);
 
   // إعداد Socket callbacks للرسائل الصوتية والشيلوها
   useEffect(() => {
@@ -538,29 +550,38 @@ export default function RoomScreen() {
       
         
         if (data.messageType === "comment") {
-          // التعليق: يشتغل فوراً ويتداخل مع أي صوت آخر بدون إيقاف أو انتظار
-          console.log("[RoomScreen] Playing comment - overlaps with everything");
+          // التعليق: يشتغل بالتوازي مع أي صوت آخر (طاروق/شيلوها) بدون إيقافه
+          console.log("[RoomScreen] Auto-playing comment in parallel (no stop)");
           try {
             const commentPlayer = createAudioPlayer(data.audioUrl);
             commentPlayer.volume = 1.0;
             commentPlayer.play();
             setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
-            console.error("[RoomScreen] Failed to play comment:", e);
+            console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: يشتغل فوراً ويوقف الشيلوها فقط (لا يوقف التعليق أو الطاروق الآخر)
-          console.log("[RoomScreen] Playing tarouk - stops sheeloha only");
+          // الطاروق: إيقاف الشيلوها أولاً، ثم تشغيل الطاروق
+          console.log("[RoomScreen] Auto-playing tarouk for listener - stopping sheeloha first");
+          sheelohaPlayer.stop();
           try {
-            // إيقاف الشيلوها فقط
-            if (sheelohaPlayer.isPlaying) {
-              console.log("[RoomScreen] Stopping sheeloha because tarouk arrived");
-              sheelohaPlayer.stop();
+            const taroukPlayer = createAudioPlayer(data.audioUrl);
+            taroukPlayer.volume = 1.0;
+            taroukPlayer.play();
+            
+            // تشغيل الشيلوها بعد انتهاء الطاروق (باستخدام setTimeout)
+            if (pendingSheeloha) {
+              const delay = (data.duration || 3) * 1000; // مدة الطاروق بالملي ثانية
+              console.log(`[RoomScreen] Will play pending sheeloha after ${delay}ms`);
+              setTimeout(() => {
+                console.log("[RoomScreen] Playing pending sheeloha:", pendingSheeloha);
+                sheelohaPlayer.play(pendingSheeloha);
+                setPendingSheeloha(null);
+              }, delay);
             }
-            // تشغيل الطاروق
-            playTarouk(data.audioUrl);
+            setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
-            console.error("[RoomScreen] Failed to play tarouk:", e);
+            console.error("[RoomScreen] Failed to play tarouk for listener:", e);
           }
         }
       },
@@ -1845,12 +1866,12 @@ export default function RoomScreen() {
               lineHeight: 28,
               textAlign: 'left',
             }}>
-              • استخدم زر طاروق لتسجيل ابيات البدع والرد وذلك بالضغط المستمر على زر طاروق للتسجيل، عند إفلات الزر يتم إرسال الصوت (يمكنك الحذف وإلغاء الإرسال أثناء التسجيل).{"\n"}
-              • اثناء تسجيل الابيات احرص ان يكون التسجيل صافيا خاليا من الضوضاء والاصوات الاخرى لان هذا ماستردده الصفوف بعدك.{"\n"}
-              • استخدم زر شيلوها لتجعل الصفوف تردد البيت حتى تجهز الرد (الصفوف ستردد اخر بيت مرسل من زر طاروق من اي من الشاعرين).{"\n"}
-              • زر خلوها يوقف الصفوف.{"\n"}
-              • للحوارات الجانبية أو للموال استخدم زر التعليق والموال.{"\n"}
-              • التنسيق وادارة الملعبة مابين الشعراء للخروج بملعبة نظيفة خالية من التقاطعات التي تفسد.
+              عند بداية كل طاروق جديد؛{"\n"}
+              • قم بتحديد من يبدأ الطاروق بالضغط على اسم الشاعر (سيظهر باللون الأحمر عند اختياره).{"\n"}
+              • قم بضبط اللحن مع الصفوف بالضغط المستمر على زر طاروق وغناء اللحين بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة إيقاع التصفيق حتى تصل للإيقاع المتناسب مع اللحن.{"\n"}
+              • ثم ابدأ الطاروق بالضغط المستمر على زر طاروق للتسجيل، عند إفلات الزر يتم إرسال الصوت (يمكنك الحذف وإلغاء الإرسال أثناء التسجيل).{"\n"}
+              • لا تفلت زر طاروق حتى تسجل البيت كاملاً وليس الشطر.{"\n"}
+              • للحوارات الجانبية أو للموال استخدم زر التعليق والموال.
             </Text>
             <Text style={{
               color: '#9CA3AF',
@@ -2004,8 +2025,8 @@ export default function RoomScreen() {
       <View 
         className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
         style={{
-          borderWidth: 3,
-          borderColor: "#2d1f0e", // بني داكن سميك
+          borderWidth: 2,
+          borderColor: "#FFD700", // ذهبي
         }}
       >
         {/* Players Display - Creator in center, Players on sides */}
@@ -2246,8 +2267,6 @@ export default function RoomScreen() {
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: '#c8860a',
                   shadowColor: '#c8860a',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.5,
@@ -2292,7 +2311,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               <Text 
                 style={{ 
-                  color: colors.muted,
+                  color: 'rgba(212,175,55,0.75)',
                   fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
@@ -2355,8 +2374,6 @@ export default function RoomScreen() {
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: '#c8860a',
                   shadowColor: '#c8860a',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.5,
@@ -2397,7 +2414,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               <Text 
                 style={{ 
-                  color: colors.muted,
+                  color: 'rgba(212,175,55,0.75)',
                   fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
@@ -2418,8 +2435,6 @@ export default function RoomScreen() {
                   borderRadius: 12,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  borderWidth: 1,
-                  borderColor: '#c8860a',
                   shadowColor: '#c8860a',
                   shadowOffset: { width: 0, height: 4 },
                   shadowOpacity: 0.5,
