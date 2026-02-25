@@ -535,20 +535,26 @@ export default function RoomScreen() {
       
         
         if (data.messageType === "comment") {
-          // التعليق: يشتغل بالتوازي مع أي صوت آخر (طاروق/شيلوها) بدون إيقافه
-          console.log("[RoomScreen] Playing comment in parallel (no stop)");
+          // التعليق: يشتغل فوراً ويتداخل مع أي صوت آخر بدون إيقاف أو انتظار
+          console.log("[RoomScreen] Playing comment - overlaps with everything");
           try {
             const commentPlayer = createAudioPlayer(data.audioUrl);
             commentPlayer.volume = 1.0;
             commentPlayer.play();
             setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
-            console.error("[RoomScreen] Failed to play comment in parallel:", e);
+            console.error("[RoomScreen] Failed to play comment:", e);
           }
         } else {
-          // الطاروق: يشتغل تلقائياً بشكل عادي، ويمكن تشغيله مع تأثير الصفوف عبر زر الشيلوها
-          console.log("[RoomScreen] Playing tarouk automatically");
+          // الطاروق: يشتغل فوراً ويوقف الشيلوها فقط (لا يوقف التعليق أو الطاروق الآخر)
+          console.log("[RoomScreen] Playing tarouk - stops sheeloha only");
           try {
+            // إيقاف الشيلوها فقط
+            if (sheelohaPlayer.isPlaying) {
+              console.log("[RoomScreen] Stopping sheeloha because tarouk arrived");
+              sheelohaPlayer.stop();
+            }
+            // تشغيل الطاروق
             playTarouk(data.audioUrl);
           } catch (e) {
             console.error("[RoomScreen] Failed to play tarouk:", e);
