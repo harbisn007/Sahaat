@@ -506,26 +506,8 @@ export default function RoomScreen() {
   
   // مشغّل الشيلوها
   const sheelohaPlayer = useSheelohaPlayer();
-  
-  // تنظيف الأصوات عند الخروج من الساحة
-  useEffect(() => {
-    return () => {
-      console.log("[RoomScreen] Unmounting - cleaning up all audio players");
-      // إيقاف جميع الأصوات (تستمر حتى تنتهي ولا تستكمل عند العودة)
-      stop();
-      stopTarouk();
-      sheelohaPlayer.stop();
-    };
-  }, [stop, stopTarouk, sheelohaPlayer]);
-
-  // refs للوصول لأحدث قيمة بدون إعادة تسجيل الـ callback
-  const sheelohaPlayerRef = useRef(sheelohaPlayer);
-  sheelohaPlayerRef.current = sheelohaPlayer;
-  const userIdRef = useRef(userId);
-  userIdRef.current = userId;
 
   // إعداد Socket callbacks للرسائل الصوتية والشيلوها
-  // يُسجَّل مرة واحدة فقط (roomId) - يستخدم refs للقيم المتغيرة
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
     
@@ -533,7 +515,7 @@ export default function RoomScreen() {
       // استقبال أمر تشغيل رسالة صوتية عند الجميع (من الخادم)
       onPlayAudioMessage: (data) => {
         console.log("[RoomScreen] Play audio message via Socket.io:", data);
-        const isSender = data.userId === userIdRef.current;
+        const isSender = data.userId === userId;
         
         // المرسل: يتجاهل (يشغل محلياً)
         if (isSender) {
@@ -541,54 +523,63 @@ export default function RoomScreen() {
           return;
         }
         
-        // فحص مخفف: فقط إذا مضى أكثر من 30 ثانية نتجاهله
-        // (نتجنب مشاكل فرق التوقيت بين الأجهزة)
+        // فحص: هل انتهى وقت الصوت؟
         const now = Date.now();
-        const elapsed = (now - data.startTime) / 1000;
-        const MAX_ALLOWED_DELAY = 30; // ثانية
-        if (elapsed > MAX_ALLOWED_DELAY) {
-          console.log(`[RoomScreen] Audio too old (elapsed: ${elapsed.toFixed(1)}s) - skipping`);
+        const elapsed = (now - data.startTime) / 1000; // الوقت المنقضي بالثواني
+        if (elapsed >= data.duration) {
+          console.log(`[RoomScreen] Audio expired (elapsed: ${elapsed.toFixed(1)}s, duration: ${data.duration}s) - NOT playing`);
           return;
         }
         
-        console.log(`[RoomScreen] Playing audio (elapsed: ${elapsed.toFixed(1)}s, type: ${data.messageType})`);
+        console.log(`[RoomScreen] Audio still valid (elapsed: ${elapsed.toFixed(1)}s / ${data.duration}s)`);
+      
         
         if (data.messageType === "comment") {
           // التعليق: يشتغل بالتوازي مع أي صوت آخر (طاروق/شيلوها) بدون إيقافه
-          console.log("[RoomScreen] Auto-playing comment in parallel");
+          console.log("[RoomScreen] Playing comment in parallel (no stop)");
           try {
             const commentPlayer = createAudioPlayer(data.audioUrl);
             commentPlayer.volume = 1.0;
             commentPlayer.play();
             setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
-            console.error("[RoomScreen] Failed to play comment:", e);
+            console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: إيقاف الشيلوها أولاً، ثم تشغيل الطاروق
-          console.log("[RoomScreen] Auto-playing tarouk - stopping sheeloha first");
-          sheelohaPlayerRef.current.stop();
+          // الطاروق: تشغيل وتشغيل الشيلوها عند الانتهاء
+          console.log("[RoomScreen] Playing tarouk for listener");
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
+            
+            // تشغيل الشيلوها بعد انتهاء الطاروق (باستخدام setTimeout)
+            if (pendingSheeloha) {
+              const delay = (data.duration || 3) * 1000; // مدة الطاروق بالملي ثانية
+              console.log(`[RoomScreen] Will play pending sheeloha after ${delay}ms`);
+              setTimeout(() => {
+                console.log("[RoomScreen] Playing pending sheeloha:", pendingSheeloha);
+                sheelohaPlayer.play(pendingSheeloha);
+                setPendingSheeloha(null);
+              }, delay);
+            }
             setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
           } catch (e) {
-            console.error("[RoomScreen] Failed to play tarouk:", e);
+            console.error("[RoomScreen] Failed to play tarouk for listener:", e);
           }
         }
       },
       
-      // استقبال أمر الشيلوها
+      // استقبال أمر الشيلوها: تشغيل آخر طاروق مع تأثيراته + تصفيق متكرر
       onPlaySheeloha: (data: SheelohaPayload) => {
         console.log("[RoomScreen] Sheeloha command received:", data);
-        sheelohaPlayerRef.current.play({
-          taroukUrl: data.sheelohaUrl,
+        sheelohaPlayer.play({
+          taroukUrl: data.sheelohaUrl,   // هنا sheelohaUrl = audioUrl الطاروق
           taroukDuration: data.taroukDuration,
         });
       },
     });
-  }, [roomId, setCallbacks]);
+  }, [roomId, setCallbacks, userId, sheelohaPlayer, pendingSheeloha]);
 
   // جلب البيانات مع polling كنسخة احتياطية + Socket.io للتحديثات الفورية
   const { data: initialAudioMessages, refetch: refetchAudioMessages } = trpc.audio.list.useQuery(

@@ -6,7 +6,7 @@
  * الـ loop: 0.15 ثانية صمت بين كل تكرار للطاروق
  */
 
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useRef, useCallback, useState } from "react";
 import * as ExpoAudio from "expo-audio";
 
 const { createAudioPlayer, AudioModule } = ExpoAudio;
@@ -36,22 +36,6 @@ export function useSheelohaPlayer() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
-
-  // ══ تنظيف كامل عند الخروج من الساحة (unmount) ══
-  useEffect(() => {
-    return () => {
-      isPlayingRef.current = false;
-      timersRef.current.forEach(t => clearTimeout(t));
-      timersRef.current = [];
-      intervalsRef.current.forEach(i => clearInterval(i));
-      intervalsRef.current = [];
-      playersRef.current.forEach(p => {
-        try { p.pause(); } catch (_) {}
-        try { p.release(); } catch (_) {}
-      });
-      playersRef.current = [];
-    };
-  }, []);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
