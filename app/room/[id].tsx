@@ -2279,7 +2279,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               <Text 
                 style={{ 
-                  color: 'rgba(212,175,55,0.75)',
+                  color: colors.muted,
                   fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
@@ -2384,7 +2384,7 @@ export default function RoomScreen() {
               </TouchableOpacity>
               <Text 
                 style={{ 
-                  color: 'rgba(212,175,55,0.75)',
+                  color: colors.muted,
                   fontSize: 9,
                   fontWeight: '900',
                   textAlign: 'center',
