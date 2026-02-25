@@ -506,6 +506,17 @@ export default function RoomScreen() {
   
   // مشغّل الشيلوها
   const sheelohaPlayer = useSheelohaPlayer();
+  
+  // تنظيف الأصوات عند الخروج من الساحة
+  useEffect(() => {
+    return () => {
+      console.log("[RoomScreen] Unmounting - cleaning up all audio players");
+      // إيقاف جميع الأصوات (تستمر حتى تنتهي ولا تستكمل عند العودة)
+      stop();
+      stopTarouk();
+      sheelohaPlayer.stop();
+    };
+  }, [stop, stopTarouk, sheelohaPlayer]);
 
   // إعداد Socket callbacks للرسائل الصوتية والشيلوها
   useEffect(() => {
@@ -536,7 +547,7 @@ export default function RoomScreen() {
         
         if (data.messageType === "comment") {
           // التعليق: يشتغل بالتوازي مع أي صوت آخر (طاروق/شيلوها) بدون إيقافه
-          console.log("[RoomScreen] Playing comment in parallel (no stop)");
+          console.log("[RoomScreen] Auto-playing comment in parallel (no stop)");
           try {
             const commentPlayer = createAudioPlayer(data.audioUrl);
             commentPlayer.volume = 1.0;
@@ -546,8 +557,9 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment in parallel:", e);
           }
         } else {
-          // الطاروق: تشغيل وتشغيل الشيلوها عند الانتهاء
-          console.log("[RoomScreen] Playing tarouk for listener");
+          // الطاروق: إيقاف الشيلوها أولاً، ثم تشغيل الطاروق
+          console.log("[RoomScreen] Auto-playing tarouk for listener - stopping sheeloha first");
+          sheelohaPlayer.stop();
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
