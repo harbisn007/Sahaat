@@ -2236,15 +2236,7 @@ export default function RoomScreen() {
                   borderRadius={28}
                 />
               </View>
-              <Text 
-                style={{ 
-                  color: colors.muted,
-                  fontSize: 8,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
+              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 4 }}>
                 تعليق / موال
               </Text>
             </View>
@@ -2253,9 +2245,11 @@ export default function RoomScreen() {
               <TouchableOpacity
                 style={{
                   backgroundColor: "#2d1f0e",
-                  width: 56,
-                  height: 56,
-                  borderRadius: 12,
+                  width: 55,
+                  height: 55,
+                  borderRadius: 28,
+                  borderWidth: 1,
+                  borderColor: '#c8860a',
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#c8860a',
@@ -2300,15 +2294,7 @@ export default function RoomScreen() {
               >
                 <Text style={{ fontSize: 28 }}>👏</Text>
               </TouchableOpacity>
-              <Text 
-                style={{ 
-                  color: 'rgba(212,175,55,0.75)',
-                  fontSize: 9,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
+              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 4 }}>
                 شيلوها
               </Text>
             </View>
@@ -2342,15 +2328,7 @@ export default function RoomScreen() {
                   borderRadius={40}
                 />
               </View>
-              <Text 
-                style={{ 
-                  color: colors.muted,
-                  fontSize: 11,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
+              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 4 }}>
                 طاروق
               </Text>
             </View>
@@ -2360,9 +2338,11 @@ export default function RoomScreen() {
               <TouchableOpacity
                 style={{
                   backgroundColor: "#2d1f0e",
-                  width: 56,
-                  height: 56,
-                  borderRadius: 12,
+                  width: 55,
+                  height: 55,
+                  borderRadius: 28,
+                  borderWidth: 1,
+                  borderColor: '#c8860a',
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#c8860a',
@@ -2403,15 +2383,7 @@ export default function RoomScreen() {
               >
                 <MaterialIcons name="pan-tool" size={26} color="#FFD700" />
               </TouchableOpacity>
-              <Text 
-                style={{ 
-                  color: 'rgba(212,175,55,0.75)',
-                  fontSize: 9,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
+              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 4 }}>
                 خلوها
               </Text>
             </View>
@@ -2423,7 +2395,9 @@ export default function RoomScreen() {
                   backgroundColor: "#2d1f0e",
                   width: 55,
                   height: 55,
-                  borderRadius: 12,
+                  borderRadius: 28,
+                  borderWidth: 1,
+                  borderColor: '#c8860a',
                   alignItems: 'center',
                   justifyContent: 'center',
                   shadowColor: '#c8860a',
@@ -2436,15 +2410,7 @@ export default function RoomScreen() {
               >
                 <MaterialIcons name="emoji-emotions" size={25} color="#FFD700" />
               </TouchableOpacity>
-              <Text 
-                style={{ 
-                  color: colors.muted,
-                  fontSize: 8,
-                  fontWeight: '900',
-                  textAlign: 'center',
-                  marginTop: 4,
-                }}
-              >
+              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 4 }}>
                 تفاعلات
               </Text>
             </View>
