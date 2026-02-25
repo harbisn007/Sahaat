@@ -2560,3 +2560,7 @@
 - [x] إنشاء hooks/use-sheeloha-player.ts للتشغيل المحلي
 - [x] استبدال app/room/[id].tsx لاستخدام التشغيل المحلي بدلاً من الخادم
 - [x] إصلاح server/sheeloha-generator.ts (استبدال React Hook بـ stub function)
+
+## تحديث التشغيل المحلي - الجلسة الثامنة
+- [x] تحديث hooks/use-sheeloha-player.ts (إضافة playbackRate وpitch correction)
+- [x] تحديث app/room/[id].tsx لاستخدام النسخة المحدثة

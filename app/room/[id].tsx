@@ -794,9 +794,16 @@ export default function RoomScreen() {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
       
       console.log("[RoomScreen] Khalooha command from:", latestKhaloohaCommand.username);
-      // إيقاف الشيلوها عند استقبال خلوها
+      // إيقاف الشيلوها وتشغيل التصفيق الختامي
       sheelohaPlayer.stop();
-      stop(); // إيقاف أي صوت آخر
+      stop();
+      try {
+        const finalClapAsset = require("@/assets/sounds/sheeloha-claps.mp3");
+        const finalClapPlayer = createAudioPlayer(finalClapAsset);
+        finalClapPlayer.volume = 0.35;
+        finalClapPlayer.loop = false;
+        finalClapPlayer.play();
+      } catch (_) {}
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
     }
@@ -2331,21 +2338,23 @@ export default function RoomScreen() {
                   elevation: 5,
                 }}
                 onPress={async () => {
-                  // تشغيل التصفيق الختامي (35%) وإيقاف صوت الصفوف
+                  // لا يعمل إذا لم تكن الشيلوها تشتغل
+                  if (!sheelohaPlayer.isPlaying) return;
+
                   try {
-                    console.log("[RoomScreen] Playing final clap and stopping Sheeloha");
+                    console.log("[RoomScreen] Khalooha pressed - stopping sheeloha");
                     
                     // إيقاف الشيلوها محلياً
                     sheelohaPlayer.stop();
                     
-                    // تشغيل التصفيق الختامي من الملف المحلي (مرة واحدة فقط)
+                    // تشغيل التصفيق الختامي
                     const finalClapAsset = require("@/assets/sounds/sheeloha-claps.mp3");
                     const finalClapPlayer = createAudioPlayer(finalClapAsset);
                     finalClapPlayer.volume = 0.35;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
                     
-                    // بث أمر إيقاف للجميع
+                    // بث أمر إيقاف للجميع مع URL الطاروق للتصفيق الختامي
                     await createKhaloohaCommandMutation.mutateAsync({
                       roomId,
                       userId,
