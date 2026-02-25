@@ -1700,7 +1700,22 @@ export default function RoomScreen() {
       containerClassName="bg-transparent"
     >
       {/* Header */}
-      <View className="px-6 pt-4 pb-3 border-b border-border flex-row items-center justify-between">
+      <View 
+        className="px-6 pt-4 pb-3 flex-row items-center justify-between"
+        style={{
+          backgroundColor: '#2d1f0e',
+          borderWidth: 1,
+          borderColor: '#c8860a',
+          borderRadius: 12,
+          marginHorizontal: 16,
+          marginTop: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 4,
+          elevation: 5,
+        }}
+      >
         {/* Left: Exit/Close button */}
         {isCreator ? (
           <TouchableOpacity 
@@ -1986,7 +2001,7 @@ export default function RoomScreen() {
         className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
         style={{
           borderWidth: 2,
-          borderColor: "#FFD700", // ذهبي
+          borderColor: "#2d1f0e", // بني داكن
         }}
       >
         {/* Players Display - Creator in center, Players on sides */}
