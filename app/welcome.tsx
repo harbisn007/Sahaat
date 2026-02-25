@@ -289,7 +289,7 @@ export default function WelcomeScreen() {
       >
         <ScrollView 
           ref={scrollViewRef}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 50 }}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -335,6 +335,33 @@ export default function WelcomeScreen() {
                     />
                   </TouchableOpacity>
                 ))}
+                
+                {/* زر رفع صورة مخصصة */}
+                <TouchableOpacity
+                  onPress={handlePickImage}
+                  disabled={anyLoading}
+                  style={{
+                    borderWidth: 3,
+                    borderColor: customAvatarUri ? colors.primary : colors.border,
+                    borderRadius: 35,
+                    padding: 2,
+                    opacity: anyLoading ? 0.5 : 1,
+                    width: 64,
+                    height: 64,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    backgroundColor: colors.surface,
+                  }}
+                >
+                  {customAvatarUri ? (
+                    <Image
+                      source={{ uri: customAvatarUri }}
+                      style={{ width: 60, height: 60, borderRadius: 30 }}
+                    />
+                  ) : (
+                    <MaterialCommunityIcons name="camera-plus" size={30} color={colors.muted} />
+                  )}
+                </TouchableOpacity>
               </View>
 
               {/* Name Input */}

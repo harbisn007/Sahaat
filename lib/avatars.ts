@@ -10,6 +10,9 @@ const avatarMale3 = require("@/assets/images/avatar-male-3.png");
 const avatarMale4 = require("@/assets/images/avatar-male-4.png");
 const avatarFemale = require("@/assets/images/avatar-female.png");
 const avatarNeutral = require("@/assets/images/avatar-neutral.png");
+const avatarMaleGlasses = require("@/assets/images/avatar-male-glasses.png");
+const avatarMaleBeard = require("@/assets/images/avatar-male-beard.png");
+const avatarMaleSide = require("@/assets/images/avatar-male-side.png");
 
 export interface AvatarOption {
   id: string;
@@ -28,6 +31,9 @@ export const AVATAR_OPTIONS: AvatarOption[] = [
   { id: "male4", source: avatarMale4, label: "أفتار 4" },
   { id: "female", source: avatarFemale, label: "أفتار أنثى" },
   { id: "neutral", source: avatarNeutral, label: "أفتار محايد" },
+  { id: "male-glasses", source: avatarMaleGlasses, label: "أفتار نظارة" },
+  { id: "male-beard", source: avatarMaleBeard, label: "أفتار لحية" },
+  { id: "male-side", source: avatarMaleSide, label: "أفتار جانبي" },
 ];
 
 /**
