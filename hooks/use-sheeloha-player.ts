@@ -58,9 +58,8 @@ export function useSheelohaPlayer() {
         try {
           const player = createAudioPlayer(taroukUrl);
           player.volume = volume;
-          // playbackRate مع shouldCorrectPitch = يغيّر "جرس" الصوت بشكل طبيعي
-          player.playbackRate = rate;
-          player.shouldCorrectPitch = true;
+          // setPlaybackRate مع pitch correction = يغيّر جرس الصوت بشكل طبيعي
+          player.setPlaybackRate(rate, 'medium');
           player.play();
           playersRef.current.push(player);
           setTimeout(() => {
