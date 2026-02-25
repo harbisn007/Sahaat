@@ -422,16 +422,19 @@ export default function RoomScreen() {
   // إيقاف جميع الأصوات عند الخروج من الساحة (لا ينتظر عودة المستخدم)
   useEffect(() => {
     return () => {
-      stop();
-      stopTarouk();
+      console.log("[RoomScreen] Unmounting - stopping all audio");
+      stop();           // إيقاف التعليقات
+      stopTarouk();     // إيقاف الطاروق
+      sheelohaPlayer.stop(); // إيقاف الشيلوها
     };
-  }, []);
+  }, [sheelohaPlayer]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("beforeRemove", (e) => {
       // إيقاف جميع الأصوات عند الخروج
       stop();
       stopTarouk();
+      sheelohaPlayer.stop();
       
       // المنشئ لا يُحذف عند مغادرة الصفحة
       if (isRoomCreatorRef.current) return;
