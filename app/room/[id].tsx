@@ -344,18 +344,25 @@ export default function RoomScreen() {
   }, [joinRequestResponse]);
   
   // التحقق من حذف الساحة - فوري عند فتح الشاشة أو عبر polling
+  // نستخدم ref لتتبع هل رأينا roomData مرة واحدة على الأقل
+  const hasSeenRoomDataRef = useRef(false);
+  if (roomData) hasSeenRoomDataRef.current = true;
+
   useEffect(() => {
     if (roomClosedAlertShown) return;
     if (isLoading) return;
 
-    // ساحة غير موجودة = خطأ أو roomData فارغ بعد اكتمال التحميل
-    const roomNotFound = !roomData || error;
+    // نتجاهل إذا لم نرَ roomData بعد (أول تحميل لم يكتمل)
+    // نتحقق فقط إذا:
+    // 1. رأينا roomData مرة سابقاً ثم اختفى (حُذفت الساحة)
+    // 2. أو وصل خطأ صريح من الخادم
+    const roomDisappeared = hasSeenRoomDataRef.current && !roomData;
+    const serverError = !!error;
 
-    if (roomNotFound) {
-      console.log("[RoomScreen] Room not found - redirecting to home. error:", error?.message);
+    if (roomDisappeared || serverError) {
+      console.log("[RoomScreen] Room not found - redirecting. disappeared:", roomDisappeared, "error:", error?.message);
       setRoomClosedAlertShown(true);
       router.replace("/");
-      // نعرض alert فقط إذا كان المستخدم في الساحة سابقاً (savedRoomName موجود)
       if (savedRoomName) {
         Alert.alert(
           "تم حذف الساحة",
