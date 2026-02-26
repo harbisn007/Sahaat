@@ -1170,8 +1170,10 @@ export default function RoomScreen() {
       if (Platform.OS === 'web' && typeof window !== 'undefined') {
         webBaseUrl = window.location.origin;
       } else {
-        // For native, use the Metro URL pattern
-        webBaseUrl = 'https://8081-i3qpyldk49w6968nmbwks-e7348139.sg1.manus.computer';
+        // For native, use the API base URL from environment
+        const apiUrl = getApiBaseUrl();
+        // Convert API URL (port 3000) to web URL (port 8081)
+        webBaseUrl = apiUrl.replace(/^(https?:\/\/)3000-/, '$18081-');
       }
       
       // Create a web URL that will redirect to the invite page
