@@ -56,6 +56,9 @@ export default function RoomScreen() {
   // State
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
   const [isApproved, setIsApproved] = useState(false);
+  // refs لحفظ آخر role معروف حتى لا تصفّر عند غياب roomData لحظياً
+  const lastKnownRoleRef = useRef<"creator" | "player" | "viewer" | null>(null);
+  const lastKnownApprovedRef = useRef(false);
   const [recordingType, setRecordingType] = useState<"comment" | "tarouk" | null>(null);
   const [savedRoomName, setSavedRoomName] = useState<string>("");
   // Clapping delay in seconds: 0 = no clapping, 0.05-1.50 = delay between claps
@@ -842,7 +845,10 @@ export default function RoomScreen() {
         const newApproved = participant.status === "accepted";
         
         // Only update if changed to avoid unnecessary re-renders
-        if (userRole !== newRole) {
+        lastKnownRoleRef.current = newRole;
+      lastKnownApprovedRef.current = newApproved;
+
+      if (userRole !== newRole) {
           console.log("[RoomScreen] Role changed:", userRole, "->", newRole);
           setUserRole(newRole);
         }
@@ -1696,10 +1702,12 @@ export default function RoomScreen() {
     );
   }
 
-  const isCreator = userRole === "creator";
-  // isPlayer includes creator OR approved player
-  const isPlayer = isCreator || (userRole === "player" && isApproved);
-  const isViewer = userRole === "viewer";
+  // effectiveRole: يستخدم lastKnownRef عند غياب userRole مؤقتاً (أثناء refetch)
+  const effectiveRole = userRole || lastKnownRoleRef.current;
+  const effectiveApproved = userRole ? isApproved : lastKnownApprovedRef.current;
+  const isCreator = effectiveRole === "creator";
+  const isPlayer = isCreator || (effectiveRole === "player" && effectiveApproved);
+  const isViewer = effectiveRole === "viewer";
   
   console.log("[RoomScreen] Render - userRole:", userRole, "isApproved:", isApproved, "isPlayer:", isPlayer);
 
@@ -1864,12 +1872,12 @@ export default function RoomScreen() {
               lineHeight: 28,
               textAlign: 'left',
             }}>
-              عند بداية كل طاروق جديد؛{"\n"}
-              • قم بتحديد من يبدأ الطاروق بالضغط على اسم الشاعر (سيظهر باللون الأحمر عند اختياره).{"\n"}
-              • قم بضبط اللحن مع الصفوف بالضغط المستمر على زر طاروق وغناء اللحين بالملالاة على شكل (يالا لا لا) وقم بتدوير عجلة سرعة إيقاع التصفيق حتى تصل للإيقاع المتناسب مع اللحن.{"\n"}
-              • ثم ابدأ الطاروق بالضغط المستمر على زر طاروق للتسجيل، عند إفلات الزر يتم إرسال الصوت (يمكنك الحذف وإلغاء الإرسال أثناء التسجيل).{"\n"}
-              • لا تفلت زر طاروق حتى تسجل البيت كاملاً وليس الشطر.{"\n"}
-              • للحوارات الجانبية أو للموال استخدم زر التعليق والموال.
+              • استخدم زر طاروق لتسجيل ابيات البدع والرد وذلك بالضغط المستمر على زر طاروق للتسجيل، عند إفلات الزر يتم إرسال الصوت (يمكنك الحذف وإلغاء الإرسال أثناء التسجيل).{"\n"}
+              • اثناء تسجيل الابيات احرص ان يكون التسجيل صافيا خاليا من الضوضاء والاصوات الاخرى لان هذا ماستردده الصفوف بعدك.{"\n"}
+              • استخدم زر شيلوها لتجعل الصفوف تردد البيت حتى تجهز الرد ( الصفوف ستردد اخر بيت مرسل من زر طاروق من اي من الشاعرين){"\n"}
+              • زر خلوها يوقف الصفوف{"\n"}
+              • للحوارات الجانبية أو للموال استخدم زر التعليق والموال.{"\n"}
+              • التنسيق وادارة الملعبة مابين الشعراء . للخروج بملعبة نظيفة خالية من التقاطعات التي تفسد
             </Text>
             <Text style={{
               color: '#9CA3AF',
