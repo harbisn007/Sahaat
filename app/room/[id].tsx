@@ -1165,24 +1165,18 @@ export default function RoomScreen() {
   // Share invite link using web URL (clickable in messaging apps)
   const handleShareInvite = async () => {
     try {
-      // Get the web base URL from current location or API
-      let webBaseUrl = '';
-      if (Platform.OS === 'web' && typeof window !== 'undefined') {
-        webBaseUrl = window.location.origin;
-      } else {
-        // For native, use the API base URL from environment
-        const apiUrl = getApiBaseUrl();
-        // Convert API URL (port 3000) to web URL (port 8081)
-        webBaseUrl = apiUrl.replace(/^(https?:\/\/)3000-/, '$18081-');
-      }
+      // رابط Railway الثابت
+      const webBaseUrl = 'https://sahaat-production.up.railway.app';
       
-      // Create a web URL that will redirect to the invite page
-      const inviteUrl = `${webBaseUrl}/invite/${roomId}?inviter=${encodeURIComponent(username || '')}`;
-      const roomName = roomData?.name || 'ساحة المحاورة';
+      // اسم من أرسل الدعوة (المستخدم الحالي)
+      const senderName = username || '';
       
-      const message = `🎙️ دعوة للانضمام إلى ساحة المحاورة الشعرية\n\n` +
+      const inviteUrl = `${webBaseUrl}/invite/${roomId}?inviter=${encodeURIComponent(senderName)}`;
+      const roomName = roomData?.name || 'ساحة الطواريق';
+      
+      const message = `🎙️ دعوة للانضمام إلى ساحة الطواريق\n\n` +
         `📍 اسم الساحة: ${roomName}\n` +
-        `👤 الداعي: ${username}\n\n` +
+        `👤 الداعي: ${senderName}\n\n` +
         `انضم الآن كشاعر أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
