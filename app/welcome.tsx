@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator, Modal, Pressable } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, Alert, KeyboardAvoidingView, Platform, Image, ScrollView, ImageBackground, Keyboard, ActivityIndicator, Modal, Pressable, FlatList } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -7,31 +7,85 @@ import { useUser } from "@/lib/user-context";
 import { useColors } from "@/hooks/use-colors";
 import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
-import { signInWithGoogle, signInWithApple, isGoogleAuthConfigured, isAppleAuthConfigured } from "@/lib/auth-service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-
-// Import avatar system
 import { AVATAR_OPTIONS, getAvatarSourceById } from "@/lib/avatars";
 
-// Welcome background image
+// Firebase
+import { initializeApp, getApps } from "firebase/app";
+import { getAuth, PhoneAuthProvider, signInWithCredential, RecaptchaVerifier } from "firebase/auth";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDNBaajAEqA4kzqzVCZW4BN3X19WuFVK5M",
+  projectId: "sahaat-72acf",
+  appId: "1:279839215257:android:dd61f6a81b8f1134813208",
+};
+
+if (!getApps().length) {
+  initializeApp(firebaseConfig);
+}
+
 const welcomeBackground = require("@/assets/images/welcome-background.png");
+
+// قائمة مفاتيح الدول الشائعة
+const COUNTRY_CODES = [
+  { code: "+966", flag: "🇸🇦", name: "السعودية" },
+  { code: "+971", flag: "🇦🇪", name: "الإمارات" },
+  { code: "+965", flag: "🇰🇼", name: "الكويت" },
+  { code: "+974", flag: "🇶🇦", name: "قطر" },
+  { code: "+973", flag: "🇧🇭", name: "البحرين" },
+  { code: "+968", flag: "🇴🇲", name: "عُمان" },
+  { code: "+962", flag: "🇯🇴", name: "الأردن" },
+  { code: "+961", flag: "🇱🇧", name: "لبنان" },
+  { code: "+963", flag: "🇸🇾", name: "سوريا" },
+  { code: "+964", flag: "🇮🇶", name: "العراق" },
+  { code: "+20", flag: "🇪🇬", name: "مصر" },
+  { code: "+212", flag: "🇲🇦", name: "المغرب" },
+  { code: "+213", flag: "🇩🇿", name: "الجزائر" },
+  { code: "+216", flag: "🇹🇳", name: "تونس" },
+  { code: "+249", flag: "🇸🇩", name: "السودان" },
+  { code: "+218", flag: "🇱🇾", name: "ليبيا" },
+  { code: "+967", flag: "🇾🇪", name: "اليمن" },
+  { code: "+1", flag: "🇺🇸", name: "أمريكا" },
+  { code: "+44", flag: "🇬🇧", name: "بريطانيا" },
+  { code: "+49", flag: "🇩🇪", name: "ألمانيا" },
+  { code: "+33", flag: "🇫🇷", name: "فرنسا" },
+  { code: "+90", flag: "🇹🇷", name: "تركيا" },
+  { code: "+92", flag: "🇵🇰", name: "باكستان" },
+  { code: "+91", flag: "🇮🇳", name: "الهند" },
+];
+
+type Screen = "choice" | "login" | "register" | "otp";
 
 export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const colors = useColors();
+  const { loginAsGuest } = useUser();
+  const scrollViewRef = useRef<ScrollView>(null);
+
+  // الشاشة الحالية
+  const [screen, setScreen] = useState<Screen>("choice");
+
+  // بيانات التسجيل
   const [name, setName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarType | null>(null);
   const [customAvatarUri, setCustomAvatarUri] = useState<string | null>(null);
+
+  // بيانات الجوال
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // OTP
+  const [otp, setOtp] = useState("");
+  const [verificationId, setVerificationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [isAppleLoading, setIsAppleLoading] = useState(false);
-  const { loginAsGuest, loginWithGoogle, loginWithApple } = useUser();
-  const colors = useColors();
-  const scrollViewRef = useRef<ScrollView>(null);
+  const [otpSent, setOtpSent] = useState(false);
+
+  // Terms
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [termsChecked, setTermsChecked] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
 
-  // التحقق من قبول الإقرار سابقاً
   useEffect(() => {
     const checkTerms = async () => {
       const accepted = await AsyncStorage.getItem('terms_accepted');
@@ -44,501 +98,452 @@ export default function WelcomeScreen() {
     checkTerms();
   }, []);
 
-  // دالة قبول الإقرار
   const handleAcceptTerms = async () => {
     await AsyncStorage.setItem('terms_accepted', 'true');
     setTermsAccepted(true);
     setShowTermsModal(false);
   };
 
-  // التحقق من توفر Google/Apple
-  const googleConfigured = isGoogleAuthConfigured();
-  const appleConfigured = isAppleAuthConfigured();
-  const showSocialLogin = googleConfigured || appleConfigured;
-
   const handlePickImage = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
       if (!permissionResult.granted) {
         Alert.alert("خطأ", "يجب السماح بالوصول إلى الصور");
         return;
       }
-
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
       });
-
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
         setCustomAvatarUri(uri);
         setSelectedAvatar(uri);
       }
     } catch (error) {
-      console.error("Error picking image:", error);
       Alert.alert("خطأ", "حدث خطأ أثناء اختيار الصورة");
     }
   };
 
-  const handleSelectAvatar = (avatarId: string) => {
-    setSelectedAvatar(avatarId);
-    setCustomAvatarUri(null);
-  };
-
-  // دالة للتحقق من صحة الاسم (3 حروف عربية/إنجليزية على الأقل)
   const validateName = (text: string): { valid: boolean; message: string } => {
     const trimmed = text.trim();
-    
-    // التحقق من أن الاسم ليس فارغاً
-    if (trimmed.length === 0) {
-      return { valid: false, message: "يرجى إدخال اسم" };
-    }
-    
-    // عد الحروف العربية والإنجليزية فقط
+    if (trimmed.length === 0) return { valid: false, message: "يرجى إدخال اسم" };
     const arabicLetters = (trimmed.match(/[\u0600-\u06FF]/g) || []).length;
     const englishLetters = (trimmed.match(/[a-zA-Z]/g) || []).length;
     const totalLetters = arabicLetters + englishLetters;
-    
-    // عد الأرقام
-    const numbers = (trimmed.match(/[0-9]/g) || []).length;
-    
-    // عد الرموز (كل شيء ليس حرفاً أو رقماً أو مسافة)
-    const symbols = trimmed.replace(/[\u0600-\u06FFa-zA-Z0-9\s]/g, '').length;
-    
-    // رفض الأرقام وحدها (بدون حروف)
-    if (numbers > 0 && totalLetters === 0) {
-      return { valid: false, message: "لا يمكن أن يكون الاسم أرقاماً فقط" };
-    }
-    
-    // رفض الرموز وحدها (بدون حروف)
-    if (symbols > 0 && totalLetters === 0) {
-      return { valid: false, message: "لا يمكن أن يكون الاسم رموزاً فقط" };
-    }
-    
-    // يجب أن يحتوي على 3 حروف على الأقل
-    if (totalLetters < 3) {
-      return { valid: false, message: "يجب أن يحتوي الاسم على 3 حروف عربية أو إنجليزية على الأقل" };
-    }
-    
-    if (trimmed.length > 20) {
-      return { valid: false, message: "يجب أن لا يزيد الاسم عن 20 حرف" };
-    }
-    
+    if (totalLetters < 3) return { valid: false, message: "يجب أن يحتوي الاسم على 3 حروف على الأقل" };
+    if (trimmed.length > 20) return { valid: false, message: "يجب أن لا يزيد الاسم عن 20 حرف" };
     return { valid: true, message: "" };
   };
 
-  // دخول (بحساب زائر)
-  const handleGuestLogin = async () => {
-    Keyboard.dismiss();
-    const trimmedName = name.trim();
-    
-    const validation = validateName(trimmedName);
-    if (!validation.valid) {
-      Alert.alert("خطأ", validation.message);
+  const validatePhone = (): boolean => {
+    const digits = phoneNumber.replace(/\D/g, '');
+    return digits.length >= 7 && digits.length <= 15;
+  };
+
+  // إرسال كود OTP
+  const handleSendOTP = async () => {
+    if (!validatePhone()) {
+      Alert.alert("خطأ", "يرجى إدخال رقم جوال صحيح");
       return;
     }
 
-    if (!selectedAvatar) {
-      Alert.alert("خطأ", "يجب اختيار صورة شخصية");
+    if (screen === "register") {
+      const nameValidation = validateName(name);
+      if (!nameValidation.valid) {
+        Alert.alert("خطأ", nameValidation.message);
+        return;
+      }
+      if (!selectedAvatar) {
+        Alert.alert("خطأ", "يجب اختيار صورة شخصية");
+        return;
+      }
+    }
+
+    setIsLoading(true);
+    try {
+      const auth = getAuth();
+      const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
+
+      // إنشاء RecaptchaVerifier
+      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+      });
+
+      const provider = new PhoneAuthProvider(auth);
+      const id = await provider.verifyPhoneNumber(fullPhone, recaptchaVerifier);
+      setVerificationId(id);
+      setOtpSent(true);
+      setScreen("otp");
+      Alert.alert("تم الإرسال", `تم إرسال كود التحقق إلى ${fullPhone}`);
+    } catch (error: any) {
+      console.error("[OTP] Send error:", error);
+      Alert.alert("خطأ", "فشل إرسال كود التحقق. تأكد من رقم الجوال وحاول مرة أخرى.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // التحقق من الكود
+  const handleVerifyOTP = async () => {
+    if (!verificationId) {
+      Alert.alert("خطأ", "يرجى إعادة إرسال الكود");
+      return;
+    }
+    if (otp.length < 6) {
+      Alert.alert("خطأ", "يرجى إدخال الكود المكون من 6 أرقام");
       return;
     }
 
     setIsLoading(true);
     try {
-      await loginAsGuest(trimmedName, selectedAvatar);
-      // Redirect to the original page if provided, otherwise go to tabs
+      const auth = getAuth();
+      const credential = PhoneAuthProvider.credential(verificationId, otp);
+      await signInWithCredential(auth, credential);
+
+      const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
+
+      if (screen === "otp") {
+        // تسجيل الدخول بالاسم الحالي أو اسم افتراضي
+        const displayName = name.trim() || `مستخدم`;
+        const avatar = selectedAvatar || "male";
+        await loginAsGuest(displayName, avatar as AvatarType);
+      }
+
       if (redirect) {
         router.replace(redirect as any);
       } else {
         router.replace("/(tabs)");
       }
     } catch (error: any) {
-      console.error("[Welcome] Login error:", error);
-      Alert.alert("خطأ", error?.message || "حدث خطأ أثناء حفظ البيانات. يرجى المحاولة مرة أخرى.");
+      console.error("[OTP] Verify error:", error);
+      Alert.alert("خطأ", "كود التحقق غير صحيح. حاول مرة أخرى.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // تسجيل دخول بـ Google
-  const handleGoogleLogin = async () => {
-    if (!googleConfigured) {
-      Alert.alert(
-        "غير متاح",
-        "تسجيل الدخول بـ Google غير مُعد حالياً.\n\nيرجى إضافة EXPO_PUBLIC_GOOGLE_CLIENT_ID في ملف .env"
-      );
-      return;
-    }
+  const fullPhoneDisplay = `${selectedCountry.code} ${phoneNumber}`;
+  const isRegisterValid = name.trim().length >= 3 && !!selectedAvatar && validatePhone();
+  const isLoginValid = validatePhone();
 
-    setIsGoogleLoading(true);
-    try {
-      const result = await signInWithGoogle();
-      
-      if (result.success) {
-        // إذا كان مستخدم جديد، نحتاج اسم وصورة
-        // إذا كان مستخدم مسجل، ندخل مباشرة
-        // حالياً نطلب الاسم والصورة دائماً
-        
-        if (result.name && result.avatar) {
-          // استخدام بيانات Google
-          await loginWithGoogle(result.userId, result.name, result.avatar);
-        } else if (name.trim() && selectedAvatar) {
-          // استخدام البيانات المدخلة
-          await loginWithGoogle(result.userId, name.trim(), selectedAvatar);
-        } else {
-          // طلب إدخال الاسم والصورة
-          Alert.alert(
-            "أكمل بياناتك",
-            "يرجى إدخال اسمك واختيار صورة شخصية ثم الضغط على زر Google مرة أخرى"
-          );
-          setIsGoogleLoading(false);
-          return;
-        }
-        
-        if (redirect) {
-          router.replace(redirect as any);
-        } else {
-          router.replace("/(tabs)");
-        }
-      } else {
-        if (result.error !== 'تم إلغاء تسجيل الدخول') {
-          Alert.alert("خطأ", result.error || "فشل تسجيل الدخول بـ Google");
-        }
-      }
-    } catch (error) {
-      console.error("Google login error:", error);
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Google");
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
+  // ══ شاشة الاختيار ══
+  if (screen === "choice") {
+    return (
+      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+        <ScreenContainer>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <Text style={{ fontSize: 32, fontWeight: '900', color: '#d4af37', marginBottom: 8, textAlign: 'center' }}>
+              ساحات الطواريق
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(212,175,55,0.7)', marginBottom: 48, textAlign: 'center' }}>
+              منصة تفاعلية للمحاورة الشعرية
+            </Text>
 
-  // تسجيل دخول بـ Apple
-  const handleAppleLogin = async () => {
-    if (!appleConfigured) {
-      Alert.alert(
-        "غير متاح",
-        "تسجيل الدخول بـ Apple غير مُعد حالياً.\n\nيرجى إضافة EXPO_PUBLIC_APPLE_SERVICE_ID في ملف .env"
-      );
-      return;
-    }
+            <TouchableOpacity
+              onPress={() => setScreen("register")}
+              style={{
+                backgroundColor: '#c8860a',
+                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 40,
+                width: '100%',
+                alignItems: 'center',
+                marginBottom: 16,
+                shadowColor: '#c8860a',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.4,
+                shadowRadius: 8,
+                elevation: 6,
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>تسجيل جديد</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>إنشاء حساب جديد</Text>
+            </TouchableOpacity>
 
-    if (Platform.OS === 'android') {
-      Alert.alert("غير متاح", "تسجيل الدخول بـ Apple متاح فقط على iOS");
-      return;
-    }
+            <TouchableOpacity
+              onPress={() => setScreen("login")}
+              style={{
+                backgroundColor: '#2d1f0e',
+                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 40,
+                width: '100%',
+                alignItems: 'center',
+                borderWidth: 2,
+                borderColor: '#c8860a',
+              }}
+            >
+              <Text style={{ color: '#d4af37', fontWeight: '900', fontSize: 18 }}>دخول</Text>
+              <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 12, marginTop: 2 }}>لديك حساب مسبق</Text>
+            </TouchableOpacity>
+          </View>
 
-    setIsAppleLoading(true);
-    try {
-      const result = await signInWithApple();
-      
-      if (result.success) {
-        if (name.trim() && selectedAvatar) {
-          await loginWithApple(result.userId, name.trim(), selectedAvatar);
-        } else {
-          Alert.alert(
-            "أكمل بياناتك",
-            "يرجى إدخال اسمك واختيار صورة شخصية ثم الضغط على زر Apple مرة أخرى"
-          );
-          setIsAppleLoading(false);
-          return;
-        }
-        
-        if (redirect) {
-          router.replace(redirect as any);
-        } else {
-          router.replace("/(tabs)");
-        }
-      } else {
-        if (result.error !== 'تم إلغاء تسجيل الدخول') {
-          Alert.alert("خطأ", result.error || "فشل تسجيل الدخول بـ Apple");
-        }
-      }
-    } catch (error) {
-      console.error("Apple login error:", error);
-      Alert.alert("خطأ", "حدث خطأ أثناء تسجيل الدخول بـ Apple");
-    } finally {
-      setIsAppleLoading(false);
-    }
-  };
-
-  const handleInputFocus = () => {
-    // Scroll to bottom when input is focused to ensure it's visible
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 300);
-  };
-
-  const isFormValid = validateName(name).valid && selectedAvatar !== null;
-  const anyLoading = isLoading || isGoogleLoading || isAppleLoading;
-
-  return (
-    <ImageBackground 
-      source={welcomeBackground} 
-      style={{ flex: 1 }} 
-      resizeMode="cover"
-    >
-    <ScreenContainer containerClassName="bg-transparent">
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
-      >
-        <ScrollView 
-          ref={scrollViewRef}
-          contentContainerStyle={{ flexGrow: 1, paddingBottom: 150 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="flex-1 justify-center items-center px-6 py-8">
-            {/* Logo/Title */}
-            <View className="items-center mb-8">
-              <Text style={{ fontSize: 48, fontWeight: '900', color: '#c8860a', marginBottom: 12, fontFamily: 'System', letterSpacing: 2 }}>
-                طواريق
-              </Text>
-              <Text className="text-base text-muted text-center">
-                منصة تفاعلية للمحاورة الشعرية
-              </Text>
+          {/* Terms Modal */}
+          <Modal visible={showTermsModal} transparent animationType="fade" onRequestClose={() => {}}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 400, borderWidth: 3, borderColor: '#DC2626' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Pressable
+                    onPress={() => setTermsChecked(!termsChecked)}
+                    style={{ width: 24, height: 24, borderWidth: 2, borderColor: '#DC2626', borderRadius: 4, marginLeft: 10, marginTop: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: termsChecked ? '#EF4444' : 'transparent' }}
+                  >
+                    {termsChecked && <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>✓</Text>}
+                  </Pressable>
+                  <Text style={{ flex: 1, color: '#000', fontSize: 15, lineHeight: 26, textAlign: 'left' }}>
+                    أقر وأتعهد عند استخدامي لتطبيق / منصة طواريق بالالتزام التام بقواعد الذوق العام وتجنب أي طرح يسبب الفرقة او يسيء للنظام العام او القيم الدينية او يسيء لأي مكون من مكونات المجتمع وان لا أقوم بأي فعل من افعال الجرائم المعلوماتية، وأتحمل المسؤولية الكاملة عن كل ما يصدر من حسابي من رسائل أو وسائط، وأقر بأن إدارة المنصة لها الحق في تزويد الجهات المعنية ببياناتي عند حدوث أي مخالفة نظامية.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleAcceptTerms}
+                  disabled={!termsChecked}
+                  style={{ backgroundColor: termsChecked ? '#22C55E' : '#9CA3AF', borderRadius: 8, paddingVertical: 12, marginTop: 16, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>موافق</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+          </Modal>
+        </ScreenContainer>
+      </ImageBackground>
+    );
+  }
 
-            {/* Input Card */}
-            <View className="w-full max-w-sm bg-surface rounded-2xl p-6 shadow-sm border border-border">
-              <Text className="text-lg font-semibold text-foreground mb-4 text-center">
-                مرحباً بك!
-              </Text>
-              
-              {/* Avatar Selection */}
-              <Text className="text-sm text-muted mb-3 text-center">
-                اختر صورتك الشخصية
-              </Text>
-              
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+  // ══ شاشة تسجيل جديد ══
+  if (screen === "register") {
+    return (
+      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+        <ScreenContainer>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+            <ScrollView ref={scrollViewRef} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
+
+              {/* Back */}
+              <TouchableOpacity onPress={() => setScreen("choice")} style={{ marginBottom: 16 }}>
+                <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
+              </TouchableOpacity>
+
+              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 24 }}>تسجيل جديد</Text>
+
+              {/* Avatar */}
+              <Text style={{ color: 'rgba(212,175,55,0.8)', textAlign: 'center', marginBottom: 12 }}>اختر صورتك الشخصية</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
                 {AVATAR_OPTIONS.map((opt) => (
                   <TouchableOpacity
                     key={opt.id}
-                    onPress={() => handleSelectAvatar(opt.id)}
-                    disabled={anyLoading}
-                    style={{
-                      borderWidth: 3,
-                      borderColor: selectedAvatar === opt.id ? colors.primary : 'transparent',
-                      borderRadius: 35,
-                      padding: 2,
-                      opacity: anyLoading ? 0.5 : 1,
-                    }}
+                    onPress={() => { setSelectedAvatar(opt.id); setCustomAvatarUri(null); }}
+                    style={{ borderWidth: 3, borderColor: selectedAvatar === opt.id ? '#c8860a' : 'transparent', borderRadius: 35, padding: 2 }}
                   >
-                    <Image
-                      source={opt.source}
-                      style={{ width: 60, height: 60, borderRadius: 30 }}
-                    />
+                    <Image source={opt.source} style={{ width: 60, height: 60, borderRadius: 30 }} />
                   </TouchableOpacity>
                 ))}
-                
-                {/* زر رفع صورة مخصصة */}
                 <TouchableOpacity
                   onPress={handlePickImage}
-                  disabled={anyLoading}
-                  style={{
-                    borderWidth: 3,
-                    borderColor: customAvatarUri ? colors.primary : colors.border,
-                    borderRadius: 35,
-                    padding: 2,
-                    opacity: anyLoading ? 0.5 : 1,
-                    width: 64,
-                    height: 64,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    backgroundColor: colors.surface,
-                  }}
+                  style={{ borderWidth: 3, borderColor: customAvatarUri ? '#c8860a' : '#444', borderRadius: 35, padding: 2, width: 66, height: 66, justifyContent: 'center', alignItems: 'center', backgroundColor: '#2d1f0e' }}
                 >
                   {customAvatarUri ? (
-                    <Image
-                      source={{ uri: customAvatarUri }}
-                      style={{ width: 60, height: 60, borderRadius: 30 }}
-                    />
+                    <Image source={{ uri: customAvatarUri }} style={{ width: 60, height: 60, borderRadius: 30 }} />
                   ) : (
-                    <MaterialCommunityIcons name="camera-plus" size={30} color={colors.muted} />
+                    <MaterialCommunityIcons name="camera-plus" size={28} color="#c8860a" />
                   )}
                 </TouchableOpacity>
               </View>
 
-              {/* Name Input */}
-              <Text className="text-sm text-muted mb-2 text-center">
-                أدخل اسمك الذي يظهر للآخرين
-              </Text>
-              
+              {/* Name */}
+              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>الاسم</Text>
               <TextInput
-                className="w-full bg-background border border-border rounded-xl px-4 py-3 text-foreground text-base mb-4"
+                style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'right', marginBottom: 16 }}
                 placeholder="اسمك هنا"
-                placeholderTextColor={colors.muted}
+                placeholderTextColor="rgba(212,175,55,0.4)"
                 value={name}
                 onChangeText={setName}
                 maxLength={20}
-                returnKeyType="done"
-                onSubmitEditing={handleGuestLogin}
-                onFocus={handleInputFocus}
-                editable={!anyLoading}
-                style={{ textAlign: "right" }}
               />
 
-              {/* Login Buttons */}
-              <View className="flex-row items-center gap-3">
-                {/* Guest Login Button */}
+              {/* Phone */}
+              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>رقم الجوال</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+                <TextInput
+                  style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'left' }}
+                  placeholder="5XXXXXXXX"
+                  placeholderTextColor="rgba(212,175,55,0.4)"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
                 <TouchableOpacity
-                  className="flex-1 bg-primary rounded-xl py-3 items-center"
-                  onPress={handleGuestLogin}
-                  disabled={anyLoading || !isFormValid}
-                  style={{
-                    opacity: anyLoading || !isFormValid ? 0.5 : 1,
-                  }}
+                  onPress={() => setShowCountryPicker(true)}
+                  style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center', minWidth: 80 }}
                 >
-                  {isLoading ? (
-                    <ActivityIndicator color={colors.background} />
-                  ) : (
-                    <Text className="text-background font-semibold text-base">
-                      دخول (بحساب زائر)
-                    </Text>
-                  )}
+                  <Text style={{ color: '#d4af37', fontSize: 18 }}>{selectedCountry.flag}</Text>
+                  <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 12 }}>{selectedCountry.code}</Text>
                 </TouchableOpacity>
+              </View>
 
-                {/* Separator */}
-                <Text className="text-muted text-sm">أو</Text>
+              <TouchableOpacity
+                onPress={handleSendOTP}
+                disabled={isLoading || !isRegisterValid}
+                style={{ backgroundColor: isRegisterValid ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+              >
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>إرسال كود التحقق</Text>}
+              </TouchableOpacity>
 
-                {/* Social Login Buttons */}
-                <View className="flex-row gap-2">
-                  {/* Google Button */}
-                  <TouchableOpacity
-                    className="rounded-xl py-3 px-4 items-center justify-center"
-                    style={{
-                      backgroundColor: googleConfigured ? '#4285F4' : colors.border,
-                      opacity: anyLoading ? 0.5 : 1,
-                    }}
-                    onPress={handleGoogleLogin}
-                    disabled={anyLoading}
-                  >
-                    {isGoogleLoading ? (
-                      <ActivityIndicator color="#fff" size="small" />
-                    ) : (
-                      <MaterialCommunityIcons name="google" size={24} color="#fff" />
-                    )}
+              <View style={{ height: 100 }} />
+            </ScrollView>
+          </KeyboardAvoidingView>
+
+          {/* Country Picker Modal */}
+          <Modal visible={showCountryPicker} transparent animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#1c1208', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#c8860a' }}>
+                  <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                    <Text style={{ color: '#c8860a', fontSize: 16 }}>إغلاق</Text>
                   </TouchableOpacity>
-
-                  {/* Apple Button - iOS only */}
-                  {Platform.OS !== 'android' && (
+                  <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 16 }}>اختر الدولة</Text>
+                </View>
+                <FlatList
+                  data={COUNTRY_CODES}
+                  keyExtractor={(item) => item.code}
+                  renderItem={({ item }) => (
                     <TouchableOpacity
-                      className="rounded-xl py-3 px-4 items-center justify-center"
-                      style={{
-                        backgroundColor: appleConfigured ? '#000' : colors.border,
-                        opacity: anyLoading ? 0.5 : 1,
-                      }}
-                      onPress={handleAppleLogin}
-                      disabled={anyLoading}
+                      onPress={() => { setSelectedCountry(item); setShowCountryPicker(false); }}
+                      style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}
                     >
-                      {isAppleLoading ? (
-                        <ActivityIndicator color="#fff" size="small" />
-                      ) : (
-                        <MaterialCommunityIcons name="apple" size={24} color="#fff" />
-                      )}
+                      <Text style={{ fontSize: 24, marginRight: 12 }}>{item.flag}</Text>
+                      <Text style={{ flex: 1, color: '#d4af37', fontSize: 16 }}>{item.name}</Text>
+                      <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14 }}>{item.code}</Text>
                     </TouchableOpacity>
                   )}
-                </View>
+                />
               </View>
             </View>
+          </Modal>
+        </ScreenContainer>
+      </ImageBackground>
+    );
+  }
 
-            {/* Helper Text */}
-            <Text className="text-xs text-muted mt-6 text-center">
-              يجب اختيار صورة وإدخال اسم (3-20 حرف)
-            </Text>
-            
-            {/* Social Login Note */}
-            {!showSocialLogin && (
-              <Text className="text-xs text-muted mt-2 text-center" style={{ color: colors.warning }}>
-                تسجيل الدخول بـ Google/Apple غير مُعد حالياً
-              </Text>
-            )}
-            
-            {/* Extra space for keyboard */}
-            <View style={{ height: 100 }} />
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
-    </ScreenContainer>
-      
-      {/* Modal صندوق الإقرار والتعهد */}
-      <Modal
-        visible={showTermsModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => {}}
-      >
-        <View style={{
-          flex: 1,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: 20,
-        }}>
-          <View style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 16,
-            padding: 20,
-            width: '100%',
-            maxWidth: 400,
-            borderWidth: 3,
-            borderColor: '#DC2626',
-          }}>
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-              <Pressable
-                onPress={() => setTermsChecked(!termsChecked)}
-                style={{
-                  width: 24,
-                  height: 24,
-                  borderWidth: 2,
-                  borderColor: '#DC2626',
-                  borderRadius: 4,
-                  marginLeft: 10,
-                  marginTop: 2,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  backgroundColor: termsChecked ? '#EF4444' : 'transparent',
-                }}
+  // ══ شاشة دخول ══
+  if (screen === "login") {
+    return (
+      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+        <ScreenContainer>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+            <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+
+              <TouchableOpacity onPress={() => setScreen("choice")} style={{ marginBottom: 24 }}>
+                <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
+              </TouchableOpacity>
+
+              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 32 }}>دخول</Text>
+
+              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>رقم الجوال</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+                <TextInput
+                  style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'left' }}
+                  placeholder="5XXXXXXXX"
+                  placeholderTextColor="rgba(212,175,55,0.4)"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowCountryPicker(true)}
+                  style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center', minWidth: 80 }}
+                >
+                  <Text style={{ fontSize: 24 }}>{selectedCountry.flag}</Text>
+                  <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 12 }}>{selectedCountry.code}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleSendOTP}
+                disabled={isLoading || !isLoginValid}
+                style={{ backgroundColor: isLoginValid ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
               >
-                {termsChecked && (
-                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>✓</Text>
-                )}
-              </Pressable>
-              
-              <Text style={{
-                flex: 1,
-                color: '#000000',
-                fontSize: 16,
-                lineHeight: 26,
-                textAlign: 'left',
-              }}>
-                 -أقر وأتعهد عند استخدامي لتطبيق / منصة طواريق بالالتزام التام بقواعد الذوق العام وتجنب أي طرح يسبب الفرقة او يسيء للنظام العام او القيم الدينية او يسيء لأي مكون من مكونات المجتمع وان لا اقوم بأي فعل من افعال الجرائم المعلوماتية ، وأتحمل المسؤولية الكاملة عن كل ما يصدر من حسابي من رسائل أو وسائط، وأقر بأن إدارة المنصة لها الحق في تزويد الجهات المعنية ببياناتي عند حدوث أي مخالفة نظامية.
-              </Text>
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>إرسال كود التحقق</Text>}
+              </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity
-              onPress={handleAcceptTerms}
-              disabled={!termsChecked}
-              style={{
-                backgroundColor: termsChecked ? '#22C55E' : '#9CA3AF',
-                borderRadius: 8,
-                paddingVertical: 12,
-                marginTop: 16,
-                alignItems: 'center',
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-                موافق
-              </Text>
-            </TouchableOpacity>
-          </View>
+          </KeyboardAvoidingView>
+
+          {/* Country Picker Modal */}
+          <Modal visible={showCountryPicker} transparent animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#1c1208', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#c8860a' }}>
+                  <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                    <Text style={{ color: '#c8860a', fontSize: 16 }}>إغلاق</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 16 }}>اختر الدولة</Text>
+                </View>
+                <FlatList
+                  data={COUNTRY_CODES}
+                  keyExtractor={(item) => item.code}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => { setSelectedCountry(item); setShowCountryPicker(false); }}
+                      style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}
+                    >
+                      <Text style={{ fontSize: 24, marginRight: 12 }}>{item.flag}</Text>
+                      <Text style={{ flex: 1, color: '#d4af37', fontSize: 16 }}>{item.name}</Text>
+                      <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14 }}>{item.code}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
+          </Modal>
+        </ScreenContainer>
+      </ImageBackground>
+    );
+  }
+
+  // ══ شاشة إدخال OTP ══
+  return (
+    <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+      <ScreenContainer>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+
+          <TouchableOpacity onPress={() => setScreen(screen === "otp" ? "login" : screen)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 8 }}>كود التحقق</Text>
+          <Text style={{ color: 'rgba(212,175,55,0.6)', textAlign: 'center', marginBottom: 32 }}>
+            أُرسل كود مكون من 6 أرقام إلى{'\n'}{fullPhoneDisplay}
+          </Text>
+
+          <TextInput
+            style={{ backgroundColor: '#2d1f0e', borderWidth: 2, borderColor: '#c8860a', borderRadius: 14, padding: 16, color: '#d4af37', fontSize: 28, textAlign: 'center', letterSpacing: 8, marginBottom: 24 }}
+            placeholder="------"
+            placeholderTextColor="rgba(212,175,55,0.3)"
+            value={otp}
+            onChangeText={setOtp}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+
+          <TouchableOpacity
+            onPress={handleVerifyOTP}
+            disabled={isLoading || otp.length < 6}
+            style={{ backgroundColor: otp.length >= 6 ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 16 }}
+          >
+            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>تحقق وادخل</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleSendOTP} disabled={isLoading}>
+            <Text style={{ color: 'rgba(212,175,55,0.6)', textAlign: 'center', fontSize: 14 }}>إعادة إرسال الكود</Text>
+          </TouchableOpacity>
         </View>
-      </Modal>
+
+        {/* div مخفي للـ reCAPTCHA */}
+        <View nativeID="recaptcha-container" />
+
+      </ScreenContainer>
     </ImageBackground>
   );
 }
