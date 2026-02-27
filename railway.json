@@ -4,6 +4,6 @@
     "buildCommand": "pnpm install && pnpm run build"
   },
   "deploy": {
-    "startCommand": "node dist/index.js"
+    "startCommand": "node dist/index.mjs"
   }
 }
