@@ -138,7 +138,7 @@ function SaduBanner() {
           textShadowRadius: 12,
           fontStyle: 'italic',
         }}>
-          ✦ ساحات المحاورة ✦
+          ✦ ساحات الطواريق ✦
         </Text>
       </View>
     </View>
