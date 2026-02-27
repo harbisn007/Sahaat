@@ -528,9 +528,9 @@ export default function RoomScreen() {
       // إيقاف جميع الأصوات (تستمر حتى تنتهي ولا تستكمل عند العودة)
       stop();
       stopTarouk();
-      sheelohaPlayer.stop();
+      sheelohaPlayerRef.current.stop();
     };
-  }, [stop, stopTarouk, sheelohaPlayer]);
+  }, [stop, stopTarouk]);
 
   // refs للوصول لأحدث قيمة بدون إعادة تسجيل الـ callback
   const sheelohaPlayerRef = useRef(sheelohaPlayer);
