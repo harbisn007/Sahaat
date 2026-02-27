@@ -1,1 +1,9 @@
-{"build": {"builder": "NIXPACKS", "buildCommand": "pnpm install && pnpm run build"}}
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "buildCommand": "pnpm install && pnpm run build"
+  },
+  "deploy": {
+    "startCommand": "node --experimental-vm-modules dist/index.js"
+  }
+}
