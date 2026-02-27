@@ -1165,6 +1165,7 @@ export default function RoomScreen() {
   // Share invite link using web URL (clickable in messaging apps)
   const handleShareInvite = async () => {
     try {
+      console.log("[Share] pressed, roomData:", !!roomData, "username:", username);
       // رابط Railway الثابت
       const webBaseUrl = 'https://sahaat-production.up.railway.app';
       
