@@ -30,8 +30,8 @@ export function CreateRoomModal({ visible, onClose, onSubmit }: CreateRoomModalP
       return;
     }
 
-    if (trimmedName.length > 100) {
-      Alert.alert("خطأ", "يجب أن لا يزيد اسم الساحة عن 100 حرف");
+    if (trimmedName.length > 25) {
+      Alert.alert("خطأ", "يجب أن لا يزيد اسم الساحة عن 25 حرف");
       return;
     }
 
@@ -74,7 +74,7 @@ export function CreateRoomModal({ visible, onClose, onSubmit }: CreateRoomModalP
               placeholderTextColor={colors.muted}
               value={roomName}
               onChangeText={setRoomName}
-              maxLength={100}
+              maxLength={25}
               autoFocus
               returnKeyType="done"
               onSubmitEditing={handleSubmit}

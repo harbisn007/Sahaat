@@ -296,8 +296,8 @@ export default function WelcomeScreen() {
           <View className="flex-1 justify-center items-center px-6 py-8">
             {/* Logo/Title */}
             <View className="items-center mb-8">
-              <Text className="text-4xl font-bold text-foreground mb-3">
-                ساحات المحاورة
+              <Text style={{ fontSize: 48, fontWeight: '900', color: '#c8860a', marginBottom: 12, fontFamily: 'System', letterSpacing: 2 }}>
+                طواريق
               </Text>
               <Text className="text-base text-muted text-center">
                 منصة تفاعلية للمحاورة الشعرية

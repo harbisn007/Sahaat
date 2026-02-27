@@ -1918,12 +1918,12 @@ export default function RoomScreen() {
               دعوة عامة
             </Text>
             <Text style={{ fontSize: 13, textAlign: 'center', marginBottom: 16, color: colors.muted }}>
-              أضف رسالة للدعوة (18 حرف كحد أقصى)
+              أضف رسالة للدعوة (25 حرف كحد أقصى)
             </Text>
             <TextInput
               value={publicInviteText}
-              onChangeText={(t) => setPublicInviteText(t.substring(0, 18))}
-              maxLength={18}
+              onChangeText={(t) => setPublicInviteText(t.substring(0, 25))}
+              maxLength={25}
               placeholder="مطلوب شاعر"
               placeholderTextColor="#999"
               style={{
