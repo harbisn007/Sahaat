@@ -2620,3 +2620,4 @@
 - [x] تحديث نص رسالة التعليمات للمنشئ بالنص الجديد
 - [x] تحديث Git remote ورفع التحديثات إلى GitHub
 - [x] حذف "type": "module" من package.json لإصلاح مشكلة Metro
+- [x] تحديث package.json و railway.json لاستخدام .mjs بدلاً من .js
