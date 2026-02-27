@@ -1,0 +1,8 @@
+{
+  "query": "ALTER TABLE users ADD COLUMN phoneNumber VARCHAR(20) UNIQUE;\nALTER TABLE users ADD COLUMN avatar VARCHAR(500);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway03.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 473L1jXo6W5XhAV.0e743721e8a2 --database Y67HhrMGN4rr3vJiD7GHZk --execute ALTER TABLE users ADD COLUMN phoneNumber VARCHAR(20) UNIQUE;\nALTER TABLE users ADD COLUMN avatar VARCHAR(500);",
+  "returncode": 1,
+  "logs": [
+    "ERROR 8200 (HY000) at line 1: unsupported add column 'phonenumber' constraint UNIQUE KEY when altering 'Y67HhrMGN4rr3vJiD7GHZk.users'"
+  ]
+}

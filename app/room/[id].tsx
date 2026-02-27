@@ -1181,8 +1181,7 @@ export default function RoomScreen() {
         `انضم الآن كشاعر أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
-        message,
-        url: inviteUrl,
+        message: message + '\n' + inviteUrl,
         title: `دعوة للانضمام إلى ${roomName}`,
       });
     } catch (error) {

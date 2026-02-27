@@ -9,6 +9,7 @@ import * as ImagePicker from "expo-image-picker";
 import type { AvatarType } from "@/lib/user-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { AVATAR_OPTIONS, getAvatarSourceById } from "@/lib/avatars";
+import { trpc } from "@/lib/trpc";
 
 // Firebase
 import { initializeApp, getApps } from "firebase/app";
@@ -61,6 +62,7 @@ export default function WelcomeScreen() {
   const colors = useColors();
   const { loginAsGuest } = useUser();
   const scrollViewRef = useRef<ScrollView>(null);
+  const trpcUtils = trpc.useUtils();
 
   // الشاشة الحالية
   const [screen, setScreen] = useState<Screen>("choice");
@@ -201,15 +203,40 @@ export default function WelcomeScreen() {
     try {
       const auth = getAuth();
       const credential = PhoneAuthProvider.credential(verificationId, otp);
-      await signInWithCredential(auth, credential);
+      const result = await signInWithCredential(auth, credential);
+      const firebaseUid = result.user.uid;
 
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
 
-      if (screen === "otp") {
-        // تسجيل الدخول بالاسم الحالي أو اسم افتراضي
-        const displayName = name.trim() || `مستخدم`;
+      if (screen === "login") {
+        // دخول — ابحث عن الحساب برقم الجوال
+        const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+
+        if (existingUser) {
+          // حساب موجود → ادخل بنفس البيانات
+          await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
+        } else {
+          // لا يوجد حساب → أنشئ واحداً جديداً
+          const displayName = `مستخدم`;
+          await loginAsGuest(displayName, "male");
+          await trpcUtils.auth.upsertUserByPhone.fetch({
+            phoneNumber: fullPhone,
+            name: displayName,
+            avatar: "male",
+            openId: firebaseUid,
+          });
+        }
+      } else {
+        // تسجيل جديد → احفظ الحساب
+        const displayName = name.trim() || "مستخدم";
         const avatar = selectedAvatar || "male";
         await loginAsGuest(displayName, avatar as AvatarType);
+        await trpcUtils.auth.upsertUserByPhone.fetch({
+          phoneNumber: fullPhone,
+          name: displayName,
+          avatar: avatar as string,
+          openId: firebaseUid,
+        });
       }
 
       if (redirect) {

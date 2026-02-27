@@ -39,6 +39,33 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+
+    // البحث عن مستخدم برقم الجوال
+    getUserByPhone: publicProcedure
+      .input(z.object({ phoneNumber: z.string() }))
+      .query(async ({ input }) => {
+        const user = await db.getUserByPhone(input.phoneNumber);
+        if (!user) return null;
+        return {
+          openId: user.openId,
+          name: user.name,
+          avatar: user.avatar,
+          phoneNumber: user.phoneNumber,
+        };
+      }),
+
+    // حفظ مستخدم جديد برقم الجوال
+    upsertUserByPhone: publicProcedure
+      .input(z.object({
+        phoneNumber: z.string(),
+        name: z.string(),
+        avatar: z.string(),
+        openId: z.string(),
+      }))
+      .mutation(async ({ input }) => {
+        await db.upsertUserByPhone(input);
+        return { success: true };
+      }),
   }),
 
   // Rooms router

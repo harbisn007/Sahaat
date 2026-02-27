@@ -94,6 +94,37 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUserByPhone(phoneNumber: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function upsertUserByPhone(data: {
+  phoneNumber: string;
+  name: string;
+  avatar: string;
+  openId: string;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  await db.insert(users).values({
+    openId: data.openId,
+    phoneNumber: data.phoneNumber,
+    name: data.name,
+    loginMethod: "phone",
+    lastSignedIn: new Date(),
+  }).onDuplicateKeyUpdate({
+    set: {
+      name: data.name,
+      lastSignedIn: new Date(),
+    }
+  });
+}
+
 // ============ Rooms ============
 
 import { and, asc, desc } from "drizzle-orm";
