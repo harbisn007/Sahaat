@@ -55,6 +55,7 @@ export default function WelcomeScreen() {
 
   // الشاشة الحالية
   const [screen, setScreen] = useState<Screen>("choice");
+  const previousScreenRef = useRef<Screen>("choice");
 
   // بيانات التسجيل
   const [name, setName] = useState("");
@@ -69,7 +70,7 @@ export default function WelcomeScreen() {
   // OTP
   const [otp, setOtp] = useState("");
   const [verificationId, setVerificationId] = useState<string | null>(null);
-  const [confirmResult, setConfirmResult] = useState<any>(null);
+  const confirmResultRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
@@ -158,22 +159,8 @@ export default function WelcomeScreen() {
     try {
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
       
-      // التحقق من تكرار الرقم عند التسجيل
-      if (screen === "register") {
-        try {
-          const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-          if (existingUser) {
-            Alert.alert("خطأ", "هذا الرقم مسجّل مسبقاً. استخدم خيار الدخول بدلاً من التسجيل.");
-            setIsLoading(false);
-            return;
-          }
-        } catch (e) {
-          // لا يوجد مستخدم — نكمل التسجيل
-        }
-      }
-
       // التحقق عند الدخول إن الرقم مسجّل
-      if (screen === "login") {
+      if (previousScreenRef.current === "login") {
         try {
           const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
           if (!existingUser) {
@@ -191,8 +178,9 @@ export default function WelcomeScreen() {
       console.log("[OTP] Sending to:", fullPhone);
       const confirmation = await auth().signInWithPhoneNumber(fullPhone);
       setVerificationId(confirmation.verificationId);
-      setConfirmResult(confirmation);
+      confirmResultRef.current = confirmation;
       setOtpSent(true);
+      previousScreenRef.current = screen as Screen;
       setScreen("otp");
       Alert.alert("تم الإرسال", `تم إرسال كود التحقق إلى ${fullPhone}`);
     } catch (error: any) {
@@ -205,7 +193,7 @@ export default function WelcomeScreen() {
 
   // التحقق من الكود
   const handleVerifyOTP = async () => {
-    if (!confirmResult) {
+    if (!confirmResultRef.current) {
       Alert.alert("خطأ", "يرجى إعادة إرسال الكود");
       return;
     }
@@ -217,7 +205,7 @@ export default function WelcomeScreen() {
     setIsLoading(true);
     try {
       // استخدام confirm() مباشرة — الطريقة الصحيحة
-      const result = await confirmResult.confirm(otp);
+      const result = await confirmResultRef.current.confirm(otp);
       
       if (!result || !result.user) {
         Alert.alert("خطأ", "فشل التحقق. حاول مرة أخرى.");
@@ -228,7 +216,7 @@ export default function WelcomeScreen() {
 
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
 
-      if (screen === "login") {
+      if (previousScreenRef.current === "login") {
         // دخول — ابحث عن الحساب برقم الجوال
         const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
 
@@ -247,7 +235,7 @@ export default function WelcomeScreen() {
           });
         }
       } else {
-        // تسجيل جديد → احفظ الحساب
+        // تسجيل جديد أو تحديث → احفظ/حدّث الحساب
         const displayName = name.trim() || "مستخدم";
         const avatar = selectedAvatar || "male";
         await loginAsGuest(displayName, avatar as AvatarType);
@@ -294,7 +282,7 @@ export default function WelcomeScreen() {
         <ScreenContainer>
           <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
             <Text style={{ fontSize: 32, fontWeight: '900', color: '#d4af37', marginBottom: 8, textAlign: 'center' }}>
-              ساحات الطواريق
+              طواريق
             </Text>
             <Text style={{ fontSize: 14, color: 'rgba(212,175,55,0.7)', marginBottom: 48, textAlign: 'center' }}>
               منصة تفاعلية للمحاورة الشعرية
@@ -317,8 +305,8 @@ export default function WelcomeScreen() {
                 elevation: 6,
               }}
             >
-              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>تسجيل جديد</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>إنشاء حساب جديد</Text>
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>تسجيل / تحديث</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>حساب جديد أو تحديث بياناتك</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -382,7 +370,7 @@ export default function WelcomeScreen() {
                 <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
               </TouchableOpacity>
 
-              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 24 }}>تسجيل جديد</Text>
+              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 24 }}>تسجيل / تحديث</Text>
 
               {/* Avatar */}
               <Text style={{ color: 'rgba(212,175,55,0.8)', textAlign: 'center', marginBottom: 12 }}>اختر صورتك الشخصية</Text>
