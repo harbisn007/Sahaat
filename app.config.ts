@@ -64,6 +64,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
+    googleServicesFile: "./google-services.json",
     permissions: ["RECORD_AUDIO"],
     intentFilters: [
       {
