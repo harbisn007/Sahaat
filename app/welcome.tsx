@@ -157,6 +157,37 @@ export default function WelcomeScreen() {
     setIsLoading(true);
     try {
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
+      
+      // التحقق من تكرار الرقم عند التسجيل
+      if (screen === "register") {
+        try {
+          const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+          if (existingUser) {
+            Alert.alert("خطأ", "هذا الرقم مسجّل مسبقاً. استخدم خيار الدخول بدلاً من التسجيل.");
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          // لا يوجد مستخدم — نكمل التسجيل
+        }
+      }
+
+      // التحقق عند الدخول إن الرقم مسجّل
+      if (screen === "login") {
+        try {
+          const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+          if (!existingUser) {
+            Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً.");
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً.");
+          setIsLoading(false);
+          return;
+        }
+      }
+
       console.log("[OTP] Sending to:", fullPhone);
       const confirmation = await auth().signInWithPhoneNumber(fullPhone);
       setVerificationId(confirmation.verificationId);
@@ -185,8 +216,14 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
-      // استخدام confirm() مباشرة بدل credential اليدوي
+      // استخدام confirm() مباشرة — الطريقة الصحيحة
       const result = await confirmResult.confirm(otp);
+      
+      if (!result || !result.user) {
+        Alert.alert("خطأ", "فشل التحقق. حاول مرة أخرى.");
+        return;
+      }
+      
       const firebaseUid = result.user.uid;
 
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
@@ -228,8 +265,19 @@ export default function WelcomeScreen() {
         router.replace("/(tabs)");
       }
     } catch (error: any) {
-      console.error("[OTP] Verify error:", error);
-      Alert.alert("خطأ", "كود التحقق غير صحيح. حاول مرة أخرى.");
+      console.error("[OTP] Verify error:", error?.code, error?.message, JSON.stringify(error));
+      const errorCode = error?.code || '';
+      let errorMsg = '';
+      if (errorCode === 'auth/invalid-verification-code') {
+        errorMsg = 'كود التحقق غير صحيح. تأكد من الكود وحاول مرة أخرى.';
+      } else if (errorCode === 'auth/session-expired') {
+        errorMsg = 'انتهت صلاحية الكود. اضغط إعادة إرسال الكود.';
+      } else if (errorCode === 'auth/too-many-requests') {
+        errorMsg = 'محاولات كثيرة. انتظر قليلاً وحاول مرة أخرى.';
+      } else {
+        errorMsg = `خطأ: ${error?.code || ''} - ${error?.message || 'خطأ غير معروف'}`;
+      }
+      Alert.alert("خطأ", errorMsg);
     } finally {
       setIsLoading(false);
     }
