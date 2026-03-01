@@ -119,7 +119,7 @@ export default function WelcomeScreen() {
           }
         } catch (e: any) {
           console.error("[AUTH] Auto-verify login error:", e);
-          Alert.alert("خطأ", "تم التحقق لكن حدث خطأ في تسجيل الدخول.");
+          Alert.alert("خطأ", `تم التحقق لكن حدث خطأ: ${e?.message || JSON.stringify(e)}`);
         }
       }
     });
