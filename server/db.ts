@@ -96,10 +96,10 @@ export async function getUserByOpenId(openId: string) {
 
 export async function getUserByPhone(phoneNumber: string) {
   const db = await getDb();
-  if (!db) return undefined;
+  if (!db) return null;
 
   const result = await db.select().from(users).where(eq(users.phoneNumber, phoneNumber)).limit(1);
-  return result.length > 0 ? result[0] : undefined;
+  return result.length > 0 ? result[0] : null;
 }
 
 export async function upsertUserByPhone(data: {
@@ -115,11 +115,13 @@ export async function upsertUserByPhone(data: {
     openId: data.openId,
     phoneNumber: data.phoneNumber,
     name: data.name,
+    avatar: data.avatar,
     loginMethod: "phone",
     lastSignedIn: new Date(),
   }).onDuplicateKeyUpdate({
     set: {
       name: data.name,
+      avatar: data.avatar,
       lastSignedIn: new Date(),
     }
   });

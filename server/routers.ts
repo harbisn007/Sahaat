@@ -62,7 +62,7 @@ export const appRouter = router({
         avatar: z.string(),
         openId: z.string(),
       }))
-      .mutation(async ({ input }) => {
+      .query(async ({ input }) => {
         await db.upsertUserByPhone(input);
         return { success: true };
       }),
