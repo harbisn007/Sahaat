@@ -73,6 +73,58 @@ export default function WelcomeScreen() {
   const confirmResultRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+  const autoVerifiedRef = useRef(false);
+
+  // مراقبة حالة المصادقة — يكتشف auto-verify
+  useEffect(() => {
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      if (user && otpSent && !autoVerifiedRef.current) {
+        autoVerifiedRef.current = true;
+        console.log("[AUTH] Auto-verified! UID:", user.uid);
+        
+        const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
+        const firebaseUid = user.uid;
+
+        try {
+          if (previousScreenRef.current === "login") {
+            const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+            if (existingUser) {
+              await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
+            } else {
+              const displayName = `مستخدم`;
+              await loginAsGuest(displayName, "male");
+              await trpcUtils.auth.upsertUserByPhone.fetch({
+                phoneNumber: fullPhone,
+                name: displayName,
+                avatar: "male",
+                openId: firebaseUid,
+              });
+            }
+          } else {
+            const displayName = name.trim() || "مستخدم";
+            const avatar = selectedAvatar || "male";
+            await loginAsGuest(displayName, avatar as AvatarType);
+            await trpcUtils.auth.upsertUserByPhone.fetch({
+              phoneNumber: fullPhone,
+              name: displayName,
+              avatar: avatar as string,
+              openId: firebaseUid,
+            });
+          }
+
+          if (redirect) {
+            router.replace(redirect as any);
+          } else {
+            router.replace("/(tabs)");
+          }
+        } catch (e: any) {
+          console.error("[AUTH] Auto-verify login error:", e);
+          Alert.alert("خطأ", "تم التحقق لكن حدث خطأ في تسجيل الدخول.");
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [otpSent, phoneNumber, selectedCountry, name, selectedAvatar]);
 
   // Terms
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -176,6 +228,7 @@ export default function WelcomeScreen() {
       }
 
       console.log("[OTP] Sending to:", fullPhone);
+      autoVerifiedRef.current = false;
       const confirmation = await auth().signInWithPhoneNumber(fullPhone);
       setVerificationId(confirmation.verificationId);
       confirmResultRef.current = confirmation;
@@ -255,6 +308,44 @@ export default function WelcomeScreen() {
     } catch (error: any) {
       console.error("[OTP] Verify error:", error?.code, error?.message, JSON.stringify(error));
       const errorCode = error?.code || '';
+      
+      // لو session-expired أو invalid-code، يمكن Firebase سوى auto-verify
+      if (errorCode === 'auth/session-expired' || errorCode === 'auth/invalid-verification-code') {
+        const currentUser = auth().currentUser;
+        if (currentUser) {
+          // المستخدم متحقق تلقائياً — نكمل الدخول
+          console.log("[OTP] User already auto-verified, proceeding...");
+          try {
+            const firebaseUid = currentUser.uid;
+            const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
+
+            if (previousScreenRef.current === "login") {
+              const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+              if (existingUser) {
+                await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
+              } else {
+                await loginAsGuest("مستخدم", "male");
+                await trpcUtils.auth.upsertUserByPhone.fetch({ phoneNumber: fullPhone, name: "مستخدم", avatar: "male", openId: firebaseUid });
+              }
+            } else {
+              const displayName = name.trim() || "مستخدم";
+              const avatar = selectedAvatar || "male";
+              await loginAsGuest(displayName, avatar as AvatarType);
+              await trpcUtils.auth.upsertUserByPhone.fetch({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
+            }
+
+            if (redirect) {
+              router.replace(redirect as any);
+            } else {
+              router.replace("/(tabs)");
+            }
+            return;
+          } catch (e2: any) {
+            console.error("[OTP] Auto-verify fallback error:", e2);
+          }
+        }
+      }
+      
       let errorMsg = '';
       if (errorCode === 'auth/invalid-verification-code') {
         errorMsg = 'كود التحقق غير صحيح. تأكد من الكود وحاول مرة أخرى.';
