@@ -11,19 +11,8 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { AVATAR_OPTIONS, getAvatarSourceById } from "@/lib/avatars";
 import { trpc } from "@/lib/trpc";
 
-// Firebase
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, PhoneAuthProvider, signInWithCredential, RecaptchaVerifier } from "firebase/auth";
-
-const firebaseConfig = {
-  apiKey: "AIzaSyDNBaajAEqA4kzqzVCZW4BN3X19WuFVK5M",
-  projectId: "sahaat-72acf",
-  appId: "1:279839215257:android:dd61f6a81b8f1134813208",
-};
-
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
-}
+// Firebase - React Native
+import auth from '@react-native-firebase/auth';
 
 const welcomeBackground = require("@/assets/images/welcome-background.png");
 
@@ -166,23 +155,16 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
-      const auth = getAuth();
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
-
-      // إنشاء RecaptchaVerifier
-      const recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible',
-      });
-
-      const provider = new PhoneAuthProvider(auth);
-      const id = await provider.verifyPhoneNumber(fullPhone, recaptchaVerifier);
-      setVerificationId(id);
+      console.log("[OTP] Sending to:", fullPhone);
+      const confirmation = await auth().signInWithPhoneNumber(fullPhone);
+      setVerificationId(confirmation.verificationId);
       setOtpSent(true);
       setScreen("otp");
       Alert.alert("تم الإرسال", `تم إرسال كود التحقق إلى ${fullPhone}`);
     } catch (error: any) {
-      console.error("[OTP] Send error:", error);
-      Alert.alert("خطأ", "فشل إرسال كود التحقق. تأكد من رقم الجوال وحاول مرة أخرى.");
+      console.error("[OTP] Send error:", error?.code, error?.message);
+      Alert.alert("خطأ", `فشل إرسال كود التحقق: ${error?.code || error?.message}`);
     } finally {
       setIsLoading(false);
     }
@@ -201,9 +183,8 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
-      const auth = getAuth();
-      const credential = PhoneAuthProvider.credential(verificationId, otp);
-      const result = await signInWithCredential(auth, credential);
+      const credential = auth.PhoneAuthProvider.credential(verificationId, otp);
+      const result = await auth().signInWithCredential(credential);
       const firebaseUid = result.user.uid;
 
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;

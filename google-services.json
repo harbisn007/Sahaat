@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "279839215257",
+    "project_id": "sahaat-72acf",
+    "storage_bucket": "sahaat-72acf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:279839215257:android:dd61f6a81b8f1134813208",
+        "android_client_info": {
+          "package_name": "space.manus.sahaat.muhawara.t20260120123613"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNBaajAEqA4kzqzVCZW4BN3X19WuFVK5M"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

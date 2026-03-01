@@ -85,6 +85,8 @@ const config: ExpoConfig = {
     favicon: "./assets/images/favicon.png",
   },
   plugins: [
+    "@react-native-firebase/app",
+    "@react-native-firebase/auth",
     "expo-router",
     [
       "expo-audio",
@@ -124,6 +126,11 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
+  },
+  extra: {
+    eas: {
+      projectId: "04b8b8f9-8660-43e5-8b5c-540bc5c97d37",
+    },
   },
 };
 
