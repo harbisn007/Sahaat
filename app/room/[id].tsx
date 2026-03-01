@@ -590,6 +590,10 @@ export default function RoomScreen() {
       // استقبال أمر الشيلوها
       onPlaySheeloha: (data: SheelohaPayload) => {
         console.log("[RoomScreen] Sheeloha command received:", data);
+        // الضاغط يشغّل محلياً فقط — نتجاهل الـ broadcast عنده
+        if (data.userId === userId) return;
+        // إذا شيلوها تعمل، نوقفها أولاً ونبدأ الجديدة
+        sheelohaPlayerRef.current.stop();
         sheelohaPlayerRef.current.play({
           taroukUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
@@ -2279,6 +2283,12 @@ export default function RoomScreen() {
 
                   try {
                     console.log("[RoomScreen] Starting Sheeloha locally for:", lastTarouk.audioUrl);
+
+                    // منع التداخل — إذا شيلوها تعمل عند أي أحد نمنع الضغط
+                    if (sheelohaPlayer.isPlaying) {
+                      Alert.alert("تنبيه", "شيلوها تعمل الآن، انتظر حتى تنتهي");
+                      return;
+                    }
 
                     // تشغيل محلي مباشرة - بدون خادم
                     await sheelohaPlayer.play({

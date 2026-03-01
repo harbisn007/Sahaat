@@ -16,12 +16,12 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 4 أصوات بسرعات مختلفة قليلاً مع pitch correction = تبدو كأشخاص مختلفين
+// 4 أصوات بجرسات مختلفة وتأخيرات صغيرة = تبدو كأشخاص مختلفين بدون صدى
 const CROWD = [
-  { delay: 0,   volume: 0.55, rate: 1.00 }, // الصوت الأصلي
-  { delay: 35,  volume: 0.45, rate: 0.94 }, // صوت أخفض قليلاً
-  { delay: 80,  volume: 0.42, rate: 1.06 }, // صوت أعلى قليلاً
-  { delay: 140, volume: 0.38, rate: 0.97 }, // صوت بينهما
+  { delay: 0,  volume: 0.65, rate: 1.00 }, // الشاعر نفسه
+  { delay: 8,  volume: 0.60, rate: 0.88 }, // صوت عميق
+  { delay: 12, volume: 0.58, rate: 1.15 }, // صوت خفيف
+  { delay: 18, volume: 0.55, rate: 0.93 }, // صوت متوسط
 ];
 
 interface SheelohaData {
