@@ -69,6 +69,7 @@ export default function WelcomeScreen() {
   // OTP
   const [otp, setOtp] = useState("");
   const [verificationId, setVerificationId] = useState<string | null>(null);
+  const [confirmResult, setConfirmResult] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
 
@@ -159,6 +160,7 @@ export default function WelcomeScreen() {
       console.log("[OTP] Sending to:", fullPhone);
       const confirmation = await auth().signInWithPhoneNumber(fullPhone);
       setVerificationId(confirmation.verificationId);
+      setConfirmResult(confirmation);
       setOtpSent(true);
       setScreen("otp");
       Alert.alert("تم الإرسال", `تم إرسال كود التحقق إلى ${fullPhone}`);
@@ -172,7 +174,7 @@ export default function WelcomeScreen() {
 
   // التحقق من الكود
   const handleVerifyOTP = async () => {
-    if (!verificationId) {
+    if (!confirmResult) {
       Alert.alert("خطأ", "يرجى إعادة إرسال الكود");
       return;
     }
@@ -183,8 +185,8 @@ export default function WelcomeScreen() {
 
     setIsLoading(true);
     try {
-      const credential = auth.PhoneAuthProvider.credential(verificationId, otp);
-      const result = await auth().signInWithCredential(credential);
+      // استخدام confirm() مباشرة بدل credential اليدوي
+      const result = await confirmResult.confirm(otp);
       const firebaseUid = result.user.uid;
 
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
