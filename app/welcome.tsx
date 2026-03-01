@@ -74,11 +74,21 @@ export default function WelcomeScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
   const autoVerifiedRef = useRef(false);
+  const otpSentTimestampRef = useRef<number>(0);
 
-  // مراقبة حالة المصادقة — يكتشف auto-verify
+  // تسجيل خروج من أي session قديمة عند فتح الشاشة
+  useEffect(() => {
+    auth().signOut().catch(() => {});
+  }, []);
+
+  // مراقبة حالة المصادقة — يكتشف auto-verify فقط أثناء عملية تحقق حالية
   useEffect(() => {
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
-      if (user && otpSent && !autoVerifiedRef.current) {
+      // شروط الأمان: لازم يكون فيه OTP مرسل + ما مر أكثر من 5 دقائق + ما تم auto-verify قبل
+      const timeSinceOtp = Date.now() - otpSentTimestampRef.current;
+      const isRecentOtp = otpSentTimestampRef.current > 0 && timeSinceOtp < 5 * 60 * 1000; // 5 دقائق
+      
+      if (user && otpSent && isRecentOtp && !autoVerifiedRef.current) {
         autoVerifiedRef.current = true;
         console.log("[AUTH] Auto-verified! UID:", user.uid);
         
@@ -229,6 +239,7 @@ export default function WelcomeScreen() {
 
       console.log("[OTP] Sending to:", fullPhone);
       autoVerifiedRef.current = false;
+      otpSentTimestampRef.current = Date.now();
       const confirmation = await auth().signInWithPhoneNumber(fullPhone);
       setVerificationId(confirmation.verificationId);
       confirmResultRef.current = confirmation;
