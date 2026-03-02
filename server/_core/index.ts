@@ -89,7 +89,7 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
-  server.listen(port, () => {
+  server.listen(port, '0.0.0.0', () => {
     console.log(`[api] server listening on port ${port}`);
     console.log(`[Socket.io] WebSocket server ready on port ${port}`);
     
