@@ -16,11 +16,11 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 4 أصوات مختلفة الجرس — لا أحد منها يشبه الصوت الأصلي
+// 3 أصوات بجرس مختلف — بدون pitch correction لتجنب الصدى
 const CROWD = [
-  { delay: 0,  volume: 0.65, rate: 0.91 }, // صوت عميق مختلف
-  { delay: 8,  volume: 0.60, rate: 0.88 }, // صوت عميق
-  { delay: 18, volume: 0.55, rate: 0.93 }, // صوت متوسط
+  { delay: 0,  volume: 0.50, rate: 0.91 }, // صوت عميق
+  { delay: 8,  volume: 0.40, rate: 0.88 }, // صوت أعمق
+  { delay: 18, volume: 0.30, rate: 0.93 }, // صوت متوسط
 ];
 
 interface SheelohaData {
@@ -58,7 +58,7 @@ export function useSheelohaPlayer() {
           const player = createAudioPlayer(taroukUrl);
           player.volume = volume;
           // setPlaybackRate مع pitch correction = يغيّر جرس الصوت بشكل طبيعي
-          player.setPlaybackRate(rate, 'medium');
+          player.setPlaybackRate(rate);
           player.play();
           playersRef.current.push(player);
           setTimeout(() => {
