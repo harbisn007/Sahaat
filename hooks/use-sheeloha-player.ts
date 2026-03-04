@@ -18,9 +18,9 @@ const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
 // 3 أصوات بجرس مختلف — بدون pitch correction لتجنب الصدى
 const CROWD = [
-  { delay: 0,  volume: 0.50, rate: 0.91 }, // صوت عميق
-  { delay: 8,  volume: 0.40, rate: 0.88 }, // صوت أعمق
-  { delay: 18, volume: 0.30, rate: 0.93 }, // صوت متوسط
+  { delay: 0,  volume: 0.50, rate: 1.05 }, // صوت عميق
+  { delay: 8,  volume: 0.40, rate: 1.07 }, // صوت أعمق
+  { delay: 18, volume: 0.30, rate: 1.06 }, // صوت متوسط
 ];
 
 interface SheelohaData {
