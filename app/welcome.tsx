@@ -90,7 +90,7 @@ export default function WelcomeScreen() {
 
   useEffect(() => {
     const checkTerms = async () => {
-      // فحص UUID أولاً — إذا موجود ادخل مباشرة
+      // فحص UUID — إذا موجود ادخل مباشرة
       try {
         const uuid = await AsyncStorage.getItem('user_uuid');
         const savedName = await AsyncStorage.getItem('user_name');
@@ -248,7 +248,6 @@ export default function WelcomeScreen() {
         if (existingUser) {
           // حساب موجود → ادخل بنفس البيانات
           await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
-          // حفظ UUID للدخول التلقائي المرة القادمة
           await AsyncStorage.setItem('user_uuid', firebaseUid);
           await AsyncStorage.setItem('user_name', existingUser.name || "مستخدم");
           await AsyncStorage.setItem('user_avatar', existingUser.avatar || "male");
@@ -262,9 +261,6 @@ export default function WelcomeScreen() {
             avatar: "male",
             openId: firebaseUid,
           });
-          await AsyncStorage.setItem('user_uuid', firebaseUid);
-          await AsyncStorage.setItem('user_name', displayName);
-          await AsyncStorage.setItem('user_avatar', "male");
         }
       } else {
         // تسجيل جديد أو تحديث → احفظ/حدّث الحساب
@@ -277,7 +273,6 @@ export default function WelcomeScreen() {
           avatar: avatar as string,
           openId: firebaseUid,
         });
-        // حفظ UUID للدخول التلقائي المرة القادمة
         await AsyncStorage.setItem('user_uuid', firebaseUid);
         await AsyncStorage.setItem('user_name', displayName);
         await AsyncStorage.setItem('user_avatar', avatar as string);
@@ -351,11 +346,7 @@ export default function WelcomeScreen() {
 
   // ══ شاشة الاختيار ══
   if (isCheckingUUID) {
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1c1208' }}>
-        <ActivityIndicator size="large" color="#c8860a" />
-      </View>
-    );
+    return <View style={{ flex: 1, backgroundColor: '#1c1208', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#c8860a" /></View>;
   }
 
   if (screen === "choice") {
