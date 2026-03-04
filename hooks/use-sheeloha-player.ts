@@ -96,7 +96,7 @@ export function useSheelohaPlayer() {
       if (!isPlayingRef.current) return;
       try {
         const clap = createAudioPlayer(CLAP_ASSET);
-        clap.volume = 0.15;
+        clap.volume = 0.25;
         clap.play();
         playersRef.current.push(clap);
         setTimeout(() => {
