@@ -10,18 +10,13 @@ import type { AvatarType } from "@/lib/user-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { AVATAR_OPTIONS, getAvatarSourceById } from "@/lib/avatars";
 import { trpc } from "@/lib/trpc";
+
+// Firebase - React Native
 import auth from '@react-native-firebase/auth';
 
 const welcomeBackground = require("@/assets/images/welcome-background.png");
 
-const STORAGE_KEYS = {
-  USER_UUID: 'user_uuid',
-  USER_NAME: 'user_name',
-  USER_AVATAR: 'user_avatar',
-  USER_PHONE: 'user_phone',
-  TERMS_ACCEPTED: 'terms_accepted',
-};
-
+// قائمة مفاتيح الدول الشائعة
 const COUNTRY_CODES = [
   { code: "+966", flag: "🇸🇦", name: "السعودية" },
   { code: "+971", flag: "🇦🇪", name: "الإمارات" },
@@ -49,335 +44,633 @@ const COUNTRY_CODES = [
   { code: "+91", flag: "🇮🇳", name: "الهند" },
 ];
 
-type Screen = "choice" | "register" | "recover" | "otp";
+type Screen = "choice" | "login" | "register" | "otp";
 
 export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
+  const colors = useColors();
   const { loginAsGuest } = useUser();
+  const scrollViewRef = useRef<ScrollView>(null);
   const trpcUtils = trpc.useUtils();
   const upsertUserByPhone = trpc.auth.upsertUserByPhone.useMutation();
 
+  // الشاشة الحالية
   const [screen, setScreen] = useState<Screen>("choice");
-  const [isCheckingUUID, setIsCheckingUUID] = useState(true);
   const previousScreenRef = useRef<Screen>("choice");
 
+  // بيانات التسجيل
   const [name, setName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState<AvatarType | null>(null);
   const [customAvatarUri, setCustomAvatarUri] = useState<string | null>(null);
+
+  // بيانات الجوال
   const [selectedCountry, setSelectedCountry] = useState(COUNTRY_CODES[0]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [showCountryPicker, setShowCountryPicker] = useState(false);
+
+  // OTP
   const [otp, setOtp] = useState("");
+  const [verificationId, setVerificationId] = useState<string | null>(null);
   const confirmResultRef = useRef<any>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const autoVerifiedRef = useRef(false);
+  const otpSentTimestampRef = useRef<number>(0);
 
-  const doNavigate = () => {
-    if (redirect) router.replace(redirect as any);
-    else router.replace("/(tabs)");
-  };
-
-  // فحص UUID عند فتح التطبيق
+  // تسجيل خروج من أي session قديمة عند فتح الشاشة
   useEffect(() => {
-    const checkAutoLogin = async () => {
+    auth().signOut().catch(() => {});
+  }, []);
+
+  // Terms
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [isCheckingUUID, setIsCheckingUUID] = useState(true);
+
+  useEffect(() => {
+    const checkTerms = async () => {
+      // فحص UUID أولاً — إذا موجود ادخل مباشرة
       try {
-        const accepted = await AsyncStorage.getItem(STORAGE_KEYS.TERMS_ACCEPTED);
-        if (accepted !== 'true') {
-          setShowTermsModal(true);
-          setIsCheckingUUID(false);
-          return;
-        }
-        const uuid = await AsyncStorage.getItem(STORAGE_KEYS.USER_UUID);
-        const savedName = await AsyncStorage.getItem(STORAGE_KEYS.USER_NAME);
-        const savedAvatar = await AsyncStorage.getItem(STORAGE_KEYS.USER_AVATAR);
+        const uuid = await AsyncStorage.getItem('user_uuid');
+        const savedName = await AsyncStorage.getItem('user_name');
+        const savedAvatar = await AsyncStorage.getItem('user_avatar');
         if (uuid && savedName && savedAvatar) {
           await loginAsGuest(savedName, savedAvatar as AvatarType);
-          doNavigate();
+          if (redirect) router.replace(redirect as any);
+          else router.replace("/(tabs)");
           return;
         }
-      } catch (e) {
-        console.error("[Welcome] Auto-login error:", e);
-      }
+      } catch (e) {}
       setIsCheckingUUID(false);
+
+      const accepted = await AsyncStorage.getItem('terms_accepted');
+      if (accepted === 'true') {
+        setTermsAccepted(true);
+      } else {
+        setShowTermsModal(true);
+      }
     };
-    checkAutoLogin();
+    checkTerms();
   }, []);
 
   const handleAcceptTerms = async () => {
-    await AsyncStorage.setItem(STORAGE_KEYS.TERMS_ACCEPTED, 'true');
+    await AsyncStorage.setItem('terms_accepted', 'true');
+    setTermsAccepted(true);
     setShowTermsModal(false);
   };
 
   const handlePickImage = async () => {
     try {
-      const { granted } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!granted) { Alert.alert("خطأ", "يجب السماح بالوصول إلى الصور"); return; }
-      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-      if (!result.canceled && result.assets[0]) {
-        setCustomAvatarUri(result.assets[0].uri);
-        setSelectedAvatar(result.assets[0].uri as AvatarType);
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("خطأ", "يجب السماح بالوصول إلى الصور");
+        return;
       }
-    } catch { Alert.alert("خطأ", "حدث خطأ أثناء اختيار الصورة"); }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets[0]) {
+        const uri = result.assets[0].uri;
+        setCustomAvatarUri(uri);
+        setSelectedAvatar(uri);
+      }
+    } catch (error) {
+      Alert.alert("خطأ", "حدث خطأ أثناء اختيار الصورة");
+    }
   };
 
-  const validateName = (text: string) => {
-    const t = text.trim();
-    if (!t.length) return { valid: false, message: "يرجى إدخال اسم" };
-    const letters = (t.match(/[\u0600-\u06FFa-zA-Z]/g) || []).length;
-    if (letters < 3) return { valid: false, message: "يجب أن يحتوي الاسم على 3 حروف على الأقل" };
-    if (t.length > 20) return { valid: false, message: "يجب أن لا يزيد الاسم عن 20 حرف" };
+  const validateName = (text: string): { valid: boolean; message: string } => {
+    const trimmed = text.trim();
+    if (trimmed.length === 0) return { valid: false, message: "يرجى إدخال اسم" };
+    const arabicLetters = (trimmed.match(/[\u0600-\u06FF]/g) || []).length;
+    const englishLetters = (trimmed.match(/[a-zA-Z]/g) || []).length;
+    const totalLetters = arabicLetters + englishLetters;
+    if (totalLetters < 3) return { valid: false, message: "يجب أن يحتوي الاسم على 3 حروف على الأقل" };
+    if (trimmed.length > 20) return { valid: false, message: "يجب أن لا يزيد الاسم عن 20 حرف" };
     return { valid: true, message: "" };
   };
 
-  const validatePhone = () => {
-    const d = phoneNumber.replace(/\D/g, '');
-    return d.length >= 7 && d.length <= 15;
+  const validatePhone = (): boolean => {
+    const digits = phoneNumber.replace(/\D/g, '');
+    return digits.length >= 7 && digits.length <= 15;
   };
 
+  // إرسال كود OTP
   const handleSendOTP = async () => {
-    if (!validatePhone()) { Alert.alert("خطأ", "يرجى إدخال رقم جوال صحيح"); return; }
-    if (screen === "register") {
-      const v = validateName(name);
-      if (!v.valid) { Alert.alert("خطأ", v.message); return; }
-      if (!selectedAvatar) { Alert.alert("خطأ", "يجب اختيار صورة شخصية"); return; }
+    if (!validatePhone()) {
+      Alert.alert("خطأ", "يرجى إدخال رقم جوال صحيح");
+      return;
     }
+
+    if (screen === "register") {
+      const nameValidation = validateName(name);
+      if (!nameValidation.valid) {
+        Alert.alert("خطأ", nameValidation.message);
+        return;
+      }
+      if (!selectedAvatar) {
+        Alert.alert("خطأ", "يجب اختيار صورة شخصية");
+        return;
+      }
+    }
+
     setIsLoading(true);
     try {
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
-      if (screen === "recover") {
-        const existing = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-        if (!existing) { Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً."); return; }
+      
+      // التحقق عند الدخول إن الرقم مسجّل
+      if (previousScreenRef.current === "login") {
+        try {
+          const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+          if (!existingUser) {
+            Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً.");
+            setIsLoading(false);
+            return;
+          }
+        } catch (e) {
+          Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً.");
+          setIsLoading(false);
+          return;
+        }
       }
-      auth().signOut().catch(() => {});
+
+      console.log("[OTP] Sending to:", fullPhone);
+      autoVerifiedRef.current = false;
+      otpSentTimestampRef.current = Date.now();
       const confirmation = await auth().signInWithPhoneNumber(fullPhone);
+      setVerificationId(confirmation.verificationId);
       confirmResultRef.current = confirmation;
-      previousScreenRef.current = screen;
+      setOtpSent(true);
+      previousScreenRef.current = screen as Screen;
       setScreen("otp");
       Alert.alert("تم الإرسال", `تم إرسال كود التحقق إلى ${fullPhone}`);
     } catch (error: any) {
-      const code = error?.code || '';
-      let msg = `فشل إرسال كود التحقق: ${code || error?.message}`;
-      if (code === 'auth/too-many-requests') msg = 'محاولات كثيرة. انتظر قليلاً.';
-      Alert.alert("خطأ", msg);
-    } finally { setIsLoading(false); }
+      console.error("[OTP] Send error:", error?.code, error?.message);
+      Alert.alert("خطأ", `فشل إرسال كود التحقق: ${error?.code || error?.message}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  // التحقق من الكود
   const handleVerifyOTP = async () => {
-    if (!confirmResultRef.current) { Alert.alert("خطأ", "يرجى إعادة إرسال الكود"); return; }
-    if (otp.length < 6) { Alert.alert("خطأ", "يرجى إدخال الكود المكون من 6 أرقام"); return; }
+    if (!confirmResultRef.current) {
+      Alert.alert("خطأ", "يرجى إعادة إرسال الكود");
+      return;
+    }
+    if (otp.length < 6) {
+      Alert.alert("خطأ", "يرجى إدخال الكود المكون من 6 أرقام");
+      return;
+    }
+
     setIsLoading(true);
     try {
+      // استخدام confirm() مباشرة — الطريقة الصحيحة
       const result = await confirmResultRef.current.confirm(otp);
-      if (!result?.user) { Alert.alert("خطأ", "فشل التحقق. حاول مرة أخرى."); return; }
+      
+      if (!result || !result.user) {
+        Alert.alert("خطأ", "فشل التحقق. حاول مرة أخرى.");
+        return;
+      }
+      
       const firebaseUid = result.user.uid;
+
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
 
-      if (previousScreenRef.current === "recover") {
-        const existing = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-        if (!existing) { Alert.alert("خطأ", "لم يتم العثور على الحساب."); return; }
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_UUID, firebaseUid);
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, existing.name || "مستخدم");
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_AVATAR, existing.avatar || "male");
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, fullPhone);
-        await loginAsGuest(existing.name || "مستخدم", (existing.avatar || "male") as AvatarType);
+      if (previousScreenRef.current === "login") {
+        // دخول — ابحث عن الحساب برقم الجوال
+        const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+
+        if (existingUser) {
+          // حساب موجود → ادخل بنفس البيانات
+          await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
+          // حفظ UUID للدخول التلقائي المرة القادمة
+          await AsyncStorage.setItem('user_uuid', firebaseUid);
+          await AsyncStorage.setItem('user_name', existingUser.name || "مستخدم");
+          await AsyncStorage.setItem('user_avatar', existingUser.avatar || "male");
+        } else {
+          // لا يوجد حساب → أنشئ واحداً جديداً
+          const displayName = `مستخدم`;
+          await loginAsGuest(displayName, "male");
+          await upsertUserByPhone.mutateAsync({
+            phoneNumber: fullPhone,
+            name: displayName,
+            avatar: "male",
+            openId: firebaseUid,
+          });
+          await AsyncStorage.setItem('user_uuid', firebaseUid);
+          await AsyncStorage.setItem('user_name', displayName);
+          await AsyncStorage.setItem('user_avatar', "male");
+        }
       } else {
+        // تسجيل جديد أو تحديث → احفظ/حدّث الحساب
         const displayName = name.trim() || "مستخدم";
-        const avatar = (selectedAvatar || "male") as string;
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_UUID, firebaseUid);
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, displayName);
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_AVATAR, avatar);
-        await AsyncStorage.setItem(STORAGE_KEYS.USER_PHONE, fullPhone);
+        const avatar = selectedAvatar || "male";
         await loginAsGuest(displayName, avatar as AvatarType);
-        await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar, openId: firebaseUid });
+        await upsertUserByPhone.mutateAsync({
+          phoneNumber: fullPhone,
+          name: displayName,
+          avatar: avatar as string,
+          openId: firebaseUid,
+        });
+        // حفظ UUID للدخول التلقائي المرة القادمة
+        await AsyncStorage.setItem('user_uuid', firebaseUid);
+        await AsyncStorage.setItem('user_name', displayName);
+        await AsyncStorage.setItem('user_avatar', avatar as string);
       }
-      doNavigate();
+
+      if (redirect) {
+        router.replace(redirect as any);
+      } else {
+        router.replace("/(tabs)");
+      }
     } catch (error: any) {
-      const code = error?.code || '';
-      let msg = code === 'auth/invalid-verification-code' ? 'كود التحقق غير صحيح.'
-        : code === 'auth/session-expired' ? 'انتهت صلاحية الكود. أعد الإرسال.'
-        : code === 'auth/too-many-requests' ? 'محاولات كثيرة. انتظر قليلاً.'
-        : `خطأ: ${code || error?.message}`;
-      Alert.alert("خطأ", msg);
-    } finally { setIsLoading(false); }
+      console.error("[OTP] Verify error:", error?.code, error?.message, JSON.stringify(error));
+      const errorCode = error?.code || '';
+      
+      // لو session-expired أو invalid-code، يمكن Firebase سوى auto-verify
+      if (errorCode === 'auth/session-expired' || errorCode === 'auth/invalid-verification-code') {
+        const currentUser = auth().currentUser;
+        if (currentUser) {
+          // المستخدم متحقق تلقائياً — نكمل الدخول
+          console.log("[OTP] User already auto-verified, proceeding...");
+          try {
+            const firebaseUid = currentUser.uid;
+            const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
+
+            if (previousScreenRef.current === "login") {
+              const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
+              if (existingUser) {
+                await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
+              } else {
+                await loginAsGuest("مستخدم", "male");
+                await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: "مستخدم", avatar: "male", openId: firebaseUid });
+              }
+            } else {
+              const displayName = name.trim() || "مستخدم";
+              const avatar = selectedAvatar || "male";
+              await loginAsGuest(displayName, avatar as AvatarType);
+              await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
+            }
+
+            if (redirect) {
+              router.replace(redirect as any);
+            } else {
+              router.replace("/(tabs)");
+            }
+            return;
+          } catch (e2: any) {
+            console.error("[OTP] Auto-verify fallback error:", e2);
+          }
+        }
+      }
+      
+      let errorMsg = '';
+      if (errorCode === 'auth/invalid-verification-code') {
+        errorMsg = 'كود التحقق غير صحيح. تأكد من الكود وحاول مرة أخرى.';
+      } else if (errorCode === 'auth/session-expired') {
+        errorMsg = 'انتهت صلاحية الكود. اضغط إعادة إرسال الكود.';
+      } else if (errorCode === 'auth/too-many-requests') {
+        errorMsg = 'محاولات كثيرة. انتظر قليلاً وحاول مرة أخرى.';
+      } else {
+        errorMsg = `خطأ: ${error?.code || ''} - ${error?.message || 'خطأ غير معروف'}`;
+      }
+      Alert.alert("خطأ", errorMsg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const isRegisterValid = name.trim().length >= 3 && !!selectedAvatar && validatePhone();
   const fullPhoneDisplay = `${selectedCountry.code} ${phoneNumber}`;
+  const isRegisterValid = name.trim().length >= 3 && !!selectedAvatar && validatePhone();
+  const isLoginValid = validatePhone();
 
-  const goldBtn = (label: string, onPress: () => void, disabled = false) => (
-    <TouchableOpacity onPress={onPress} disabled={disabled}
-      style={{ backgroundColor: disabled ? 'rgba(200,134,10,0.3)' : '#c8860a', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 12 }}>
-      <Text style={{ color: '#1c1208', fontSize: 18, fontWeight: '900' }}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  const outlineBtn = (label: string, onPress: () => void) => (
-    <TouchableOpacity onPress={onPress}
-      style={{ borderWidth: 1.5, borderColor: '#c8860a', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}>
-      <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: '900' }}>{label}</Text>
-    </TouchableOpacity>
-  );
-
-  const phoneInput = () => (
-    <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
-      <TextInput value={phoneNumber} onChangeText={setPhoneNumber} placeholder="رقم الجوال"
-        placeholderTextColor="rgba(212,175,55,0.3)" keyboardType="phone-pad"
-        style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 14, color: '#d4af37', fontSize: 16, textAlign: 'right' }} />
-      <TouchableOpacity onPress={() => setShowCountryPicker(true)}
-        style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 14, justifyContent: 'center', alignItems: 'center', minWidth: 80 }}>
-        <Text style={{ fontSize: 20 }}>{selectedCountry.flag}</Text>
-        <Text style={{ color: '#d4af37', fontSize: 12 }}>{selectedCountry.code}</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
+  // ══ شاشة الاختيار ══
   if (isCheckingUUID) {
-    return <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1c1208' }}><ActivityIndicator size="large" color="#c8860a" /></View>;
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1c1208' }}>
+        <ActivityIndicator size="large" color="#c8860a" />
+      </View>
+    );
   }
 
-  return (
-    <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
-      {/* Modal الشروط */}
-      <Modal visible={showTermsModal} transparent animationType="fade">
-        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.8)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <View style={{ backgroundColor: '#2d1f0e', borderRadius: 16, padding: 24, width: '100%', borderWidth: 1, borderColor: '#c8860a' }}>
-            <Text style={{ color: '#d4af37', fontSize: 20, fontWeight: '900', textAlign: 'center', marginBottom: 16 }}>إقرار وتعهد</Text>
-            <ScrollView style={{ maxHeight: 250, marginBottom: 16 }}>
-              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 13, lineHeight: 22, textAlign: 'right' }}>
-                بالدخول إلى هذا التطبيق، أقر وأتعهد بما يلي:{'\n\n'}
-                • الالتزام بآداب المحاورة الشعرية والاحترام المتبادل{'\n'}
-                • عدم استخدام ألفاظ نابية أو مسيئة{'\n'}
-                • احترام الثقافة والتراث الشعري العربي{'\n'}
-                • عدم نشر أي محتوى مخالف للأنظمة والقوانين{'\n'}
-                • الالتزام بقواعد المنصة وسياسات الاستخدام
-              </Text>
-            </ScrollView>
-            <TouchableOpacity onPress={handleAcceptTerms}
-              style={{ backgroundColor: '#c8860a', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: '#1c1208', fontSize: 16, fontWeight: '900' }}>أوافق وأتعهد</Text>
+  if (screen === "choice") {
+    return (
+      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+        <ScreenContainer>
+          <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <Text style={{ fontSize: 32, fontWeight: '900', color: '#d4af37', marginBottom: 8, textAlign: 'center' }}>
+              طواريق
+            </Text>
+            <Text style={{ fontSize: 14, color: 'rgba(212,175,55,0.7)', marginBottom: 48, textAlign: 'center' }}>
+              منصة تفاعلية للمحاورة الشعرية
+            </Text>
+
+            <TouchableOpacity
+              onPress={() => setScreen("register")}
+              style={{
+                backgroundColor: '#c8860a',
+                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 40,
+                width: '100%',
+                alignItems: 'center',
+                marginBottom: 16,
+                shadowColor: '#c8860a',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.4,
+                shadowRadius: 8,
+                elevation: 6,
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>تسجيل / تحديث</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>حساب جديد أو تحديث بياناتك</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setScreen("login")}
+              style={{
+                backgroundColor: '#2d1f0e',
+                borderRadius: 14,
+                paddingVertical: 16,
+                paddingHorizontal: 40,
+                width: '100%',
+                alignItems: 'center',
+                borderWidth: 2,
+                borderColor: '#c8860a',
+              }}
+            >
+              <Text style={{ color: '#d4af37', fontWeight: '900', fontSize: 18 }}>دخول</Text>
+              <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 12, marginTop: 2 }}>لديك حساب مسبق</Text>
             </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
 
-      {/* Country Picker */}
-      <Modal visible={showCountryPicker} transparent animationType="slide">
-        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }} onPress={() => setShowCountryPicker(false)}>
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#2d1f0e', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
-            <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: '900', textAlign: 'center', padding: 16 }}>اختر الدولة</Text>
-            <FlatList data={COUNTRY_CODES} keyExtractor={i => i.code} renderItem={({ item }) => (
-              <TouchableOpacity onPress={() => { setSelectedCountry(item); setShowCountryPicker(false); }}
-                style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(200,134,10,0.2)' }}>
-                <Text style={{ fontSize: 24, marginRight: 12 }}>{item.flag}</Text>
-                <Text style={{ color: '#d4af37', fontSize: 16, flex: 1, textAlign: 'right' }}>{item.name}</Text>
-                <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14, marginLeft: 8 }}>{item.code}</Text>
-              </TouchableOpacity>
-            )} />
-          </View>
-        </Pressable>
-      </Modal>
-
-      <ScreenContainer>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-
-          {/* ══ شاشة الاختيار ══ */}
-          {screen === "choice" && (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-              <Text style={{ fontSize: 36, fontWeight: '900', color: '#d4af37', marginBottom: 8, textAlign: 'center' }}>طواريق</Text>
-              <Text style={{ fontSize: 14, color: 'rgba(212,175,55,0.7)', marginBottom: 56, textAlign: 'center' }}>منصة تفاعلية للمحاورة الشعرية</Text>
-              <View style={{ width: '100%' }}>
-                {goldBtn("تسجيل جديد", () => setScreen("register"))}
-                {outlineBtn("استعادة حساب", () => setScreen("recover"))}
-              </View>
-              <Text style={{ color: 'rgba(212,175,55,0.35)', fontSize: 11, marginTop: 24, textAlign: 'center' }}>
-                استعادة الحساب: إذا غيرت جهازك أو حذفت التطبيق
-              </Text>
-            </View>
-          )}
-
-          {/* ══ شاشة التسجيل ══ */}
-          {screen === "register" && (
-            <ScrollView contentContainerStyle={{ padding: 24 }} showsVerticalScrollIndicator={false}>
-              <TouchableOpacity onPress={() => setScreen("choice")} style={{ marginBottom: 16 }}>
-                <Text style={{ color: '#c8860a', fontSize: 14 }}>→ رجوع</Text>
-              </TouchableOpacity>
-              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 24 }}>تسجيل جديد</Text>
-
-              {/* الافتار */}
-              <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 13, textAlign: 'center', marginBottom: 12 }}>اختر صورتك الشخصية</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-                <View style={{ flexDirection: 'row', gap: 10, paddingHorizontal: 4 }}>
-                  {AVATAR_OPTIONS.map((avatar) => (
-                    <TouchableOpacity key={avatar.id} onPress={() => { setSelectedAvatar(avatar.id as AvatarType); setCustomAvatarUri(null); }}
-                      style={{ width: 70, height: 70, borderRadius: 35, borderWidth: selectedAvatar === avatar.id ? 3 : 1, borderColor: selectedAvatar === avatar.id ? '#c8860a' : 'rgba(200,134,10,0.3)', overflow: 'hidden' }}>
-                      <Image source={getAvatarSourceById(avatar.id)} style={{ width: '100%', height: '100%' }} />
-                    </TouchableOpacity>
-                  ))}
-                  <TouchableOpacity onPress={handlePickImage}
-                    style={{ width: 70, height: 70, borderRadius: 35, borderWidth: customAvatarUri ? 3 : 1, borderColor: customAvatarUri ? '#c8860a' : 'rgba(200,134,10,0.3)', justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(200,134,10,0.1)', overflow: 'hidden' }}>
-                    {customAvatarUri ? <Image source={{ uri: customAvatarUri }} style={{ width: '100%', height: '100%' }} /> : <MaterialCommunityIcons name="camera-plus" size={28} color="rgba(212,175,55,0.6)" />}
-                  </TouchableOpacity>
+          {/* Terms Modal */}
+          <Modal visible={showTermsModal} transparent animationType="fade" onRequestClose={() => {}}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+              <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 20, width: '100%', maxWidth: 400, borderWidth: 3, borderColor: '#DC2626' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+                  <Pressable
+                    onPress={() => setTermsChecked(!termsChecked)}
+                    style={{ width: 24, height: 24, borderWidth: 2, borderColor: '#DC2626', borderRadius: 4, marginLeft: 10, marginTop: 2, justifyContent: 'center', alignItems: 'center', backgroundColor: termsChecked ? '#EF4444' : 'transparent' }}
+                  >
+                    {termsChecked && <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>✓</Text>}
+                  </Pressable>
+                  <Text style={{ flex: 1, color: '#000', fontSize: 15, lineHeight: 26, textAlign: 'left' }}>
+                    أقر وأتعهد عند استخدامي لتطبيق / منصة طواريق بالالتزام التام بقواعد الذوق العام وتجنب أي طرح يسبب الفرقة او يسيء للنظام العام او القيم الدينية او يسيء لأي مكون من مكونات المجتمع وان لا أقوم بأي فعل من افعال الجرائم المعلوماتية، وأتحمل المسؤولية الكاملة عن كل ما يصدر من حسابي من رسائل أو وسائط، وأقر بأن إدارة المنصة لها الحق في تزويد الجهات المعنية ببياناتي عند حدوث أي مخالفة نظامية.
+                  </Text>
                 </View>
-              </ScrollView>
+                <TouchableOpacity
+                  onPress={handleAcceptTerms}
+                  disabled={!termsChecked}
+                  style={{ backgroundColor: termsChecked ? '#22C55E' : '#9CA3AF', borderRadius: 8, paddingVertical: 12, marginTop: 16, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>موافق</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        </ScreenContainer>
+      </ImageBackground>
+    );
+  }
 
-              {/* الاسم */}
-              <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 13, textAlign: 'right', marginBottom: 8 }}>الاسم</Text>
-              <TextInput value={name} onChangeText={setName} placeholder="أدخل اسمك (3-20 حرف)"
-                placeholderTextColor="rgba(212,175,55,0.3)"
-                style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 14, color: '#d4af37', fontSize: 16, textAlign: 'right', marginBottom: 16 }}
-                maxLength={20} />
+  // ══ شاشة تسجيل جديد ══
+  if (screen === "register") {
+    return (
+      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+        <ScreenContainer>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+            <ScrollView ref={scrollViewRef} contentContainerStyle={{ padding: 20 }} keyboardShouldPersistTaps="handled">
 
-              {/* الجوال */}
-              <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 13, textAlign: 'right', marginBottom: 8 }}>رقم الجوال</Text>
-              {phoneInput()}
-
-              <TouchableOpacity onPress={handleSendOTP} disabled={!isRegisterValid || isLoading}
-                style={{ backgroundColor: isRegisterValid && !isLoading ? '#c8860a' : 'rgba(200,134,10,0.3)', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}>
-                {isLoading ? <ActivityIndicator color="#1c1208" /> : <Text style={{ color: '#1c1208', fontSize: 18, fontWeight: '900' }}>إرسال كود التحقق</Text>}
+              {/* Back */}
+              <TouchableOpacity onPress={() => setScreen("choice")} style={{ marginBottom: 16 }}>
+                <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
               </TouchableOpacity>
+
+              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 24 }}>تسجيل / تحديث</Text>
+
+              {/* Avatar */}
+              <Text style={{ color: 'rgba(212,175,55,0.8)', textAlign: 'center', marginBottom: 12 }}>اختر صورتك الشخصية</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 20 }}>
+                {AVATAR_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.id}
+                    onPress={() => { setSelectedAvatar(opt.id); setCustomAvatarUri(null); }}
+                    style={{ borderWidth: 3, borderColor: selectedAvatar === opt.id ? '#c8860a' : 'transparent', borderRadius: 35, padding: 2 }}
+                  >
+                    <Image source={opt.source} style={{ width: 60, height: 60, borderRadius: 30 }} />
+                  </TouchableOpacity>
+                ))}
+                <TouchableOpacity
+                  onPress={handlePickImage}
+                  style={{ borderWidth: 3, borderColor: customAvatarUri ? '#c8860a' : '#444', borderRadius: 35, padding: 2, width: 66, height: 66, justifyContent: 'center', alignItems: 'center', backgroundColor: '#2d1f0e' }}
+                >
+                  {customAvatarUri ? (
+                    <Image source={{ uri: customAvatarUri }} style={{ width: 60, height: 60, borderRadius: 30 }} />
+                  ) : (
+                    <MaterialCommunityIcons name="camera-plus" size={28} color="#c8860a" />
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Name */}
+              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>الاسم</Text>
+              <TextInput
+                style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'right', marginBottom: 16 }}
+                placeholder="اسمك هنا"
+                placeholderTextColor="rgba(212,175,55,0.4)"
+                value={name}
+                onChangeText={setName}
+                maxLength={20}
+              />
+
+              {/* Phone */}
+              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>رقم الجوال</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+                <TextInput
+                  style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'left' }}
+                  placeholder="5XXXXXXXX"
+                  placeholderTextColor="rgba(212,175,55,0.4)"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowCountryPicker(true)}
+                  style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center', minWidth: 80 }}
+                >
+                  <Text style={{ color: '#d4af37', fontSize: 18 }}>{selectedCountry.flag}</Text>
+                  <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 12 }}>{selectedCountry.code}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleSendOTP}
+                disabled={isLoading || !isRegisterValid}
+                style={{ backgroundColor: isRegisterValid ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+              >
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>إرسال كود التحقق</Text>}
+              </TouchableOpacity>
+
+              <View style={{ height: 100 }} />
             </ScrollView>
-          )}
+          </KeyboardAvoidingView>
 
-          {/* ══ شاشة الاستعادة ══ */}
-          {screen === "recover" && (
+          {/* Country Picker Modal */}
+          <Modal visible={showCountryPicker} transparent animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#1c1208', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#c8860a' }}>
+                  <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                    <Text style={{ color: '#c8860a', fontSize: 16 }}>إغلاق</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 16 }}>اختر الدولة</Text>
+                </View>
+                <FlatList
+                  data={COUNTRY_CODES}
+                  keyExtractor={(item) => item.code}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => { setSelectedCountry(item); setShowCountryPicker(false); }}
+                      style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}
+                    >
+                      <Text style={{ fontSize: 24, marginRight: 12 }}>{item.flag}</Text>
+                      <Text style={{ flex: 1, color: '#d4af37', fontSize: 16 }}>{item.name}</Text>
+                      <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14 }}>{item.code}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
+            </View>
+          </Modal>
+        </ScreenContainer>
+      </ImageBackground>
+    );
+  }
+
+  // ══ شاشة دخول ══
+  if (screen === "login") {
+    return (
+      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+        <ScreenContainer>
+          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
             <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+
               <TouchableOpacity onPress={() => setScreen("choice")} style={{ marginBottom: 24 }}>
-                <Text style={{ color: '#c8860a', fontSize: 14 }}>→ رجوع</Text>
+                <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
               </TouchableOpacity>
-              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 8 }}>استعادة حساب</Text>
-              <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 32 }}>أدخل رقم الجوال المسجّل</Text>
-              {phoneInput()}
-              <TouchableOpacity onPress={handleSendOTP} disabled={!validatePhone() || isLoading}
-                style={{ backgroundColor: validatePhone() && !isLoading ? '#c8860a' : 'rgba(200,134,10,0.3)', borderRadius: 14, paddingVertical: 16, alignItems: 'center' }}>
-                {isLoading ? <ActivityIndicator color="#1c1208" /> : <Text style={{ color: '#1c1208', fontSize: 18, fontWeight: '900' }}>إرسال كود التحقق</Text>}
+
+              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 32 }}>دخول</Text>
+
+              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>رقم الجوال</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+                <TextInput
+                  style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'left' }}
+                  placeholder="5XXXXXXXX"
+                  placeholderTextColor="rgba(212,175,55,0.4)"
+                  value={phoneNumber}
+                  onChangeText={setPhoneNumber}
+                  keyboardType="phone-pad"
+                  maxLength={15}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowCountryPicker(true)}
+                  style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center', minWidth: 80 }}
+                >
+                  <Text style={{ fontSize: 24 }}>{selectedCountry.flag}</Text>
+                  <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 12 }}>{selectedCountry.code}</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleSendOTP}
+                disabled={isLoading || !isLoginValid}
+                style={{ backgroundColor: isLoginValid ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
+              >
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>إرسال كود التحقق</Text>}
               </TouchableOpacity>
             </View>
-          )}
+          </KeyboardAvoidingView>
 
-          {/* ══ شاشة OTP ══ */}
-          {screen === "otp" && (
-            <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
-              <TouchableOpacity onPress={() => setScreen(previousScreenRef.current)} style={{ marginBottom: 24 }}>
-                <Text style={{ color: '#c8860a', fontSize: 14 }}>→ رجوع</Text>
-              </TouchableOpacity>
-              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 8 }}>كود التحقق</Text>
-              <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 13, textAlign: 'center', marginBottom: 32 }}>
-                أرسل كود مكون من 6 أرقام إلى{'\n'}{fullPhoneDisplay}
-              </Text>
-              <TextInput value={otp} onChangeText={setOtp} placeholder="------"
-                placeholderTextColor="rgba(212,175,55,0.3)" keyboardType="number-pad" maxLength={6}
-                style={{ backgroundColor: '#2d1f0e', borderWidth: 1.5, borderColor: '#c8860a', borderRadius: 12, padding: 16, color: '#d4af37', fontSize: 28, textAlign: 'center', letterSpacing: 8, marginBottom: 24 }} />
-              <TouchableOpacity onPress={handleVerifyOTP} disabled={otp.length < 6 || isLoading}
-                style={{ backgroundColor: otp.length >= 6 && !isLoading ? '#c8860a' : 'rgba(200,134,10,0.3)', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginBottom: 16 }}>
-                {isLoading ? <ActivityIndicator color="#1c1208" /> : <Text style={{ color: '#1c1208', fontSize: 18, fontWeight: '900' }}>تحقق وادخل</Text>}
-              </TouchableOpacity>
-              <TouchableOpacity onPress={handleSendOTP} disabled={isLoading}>
-                <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14, textAlign: 'center' }}>إعادة إرسال الكود</Text>
-              </TouchableOpacity>
+          {/* Country Picker Modal */}
+          <Modal visible={showCountryPicker} transparent animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
+            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+              <View style={{ backgroundColor: '#1c1208', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#c8860a' }}>
+                  <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
+                    <Text style={{ color: '#c8860a', fontSize: 16 }}>إغلاق</Text>
+                  </TouchableOpacity>
+                  <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 16 }}>اختر الدولة</Text>
+                </View>
+                <FlatList
+                  data={COUNTRY_CODES}
+                  keyExtractor={(item) => item.code}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity
+                      onPress={() => { setSelectedCountry(item); setShowCountryPicker(false); }}
+                      style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}
+                    >
+                      <Text style={{ fontSize: 24, marginRight: 12 }}>{item.flag}</Text>
+                      <Text style={{ flex: 1, color: '#d4af37', fontSize: 16 }}>{item.name}</Text>
+                      <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14 }}>{item.code}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </View>
             </View>
-          )}
+          </Modal>
+        </ScreenContainer>
+      </ImageBackground>
+    );
+  }
 
-        </KeyboardAvoidingView>
+  // ══ شاشة إدخال OTP ══
+  return (
+    <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
+      <ScreenContainer>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
+
+          <TouchableOpacity onPress={() => setScreen(screen === "otp" ? "login" : screen)} style={{ marginBottom: 24 }}>
+            <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
+          </TouchableOpacity>
+
+          <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 8 }}>كود التحقق</Text>
+          <Text style={{ color: 'rgba(212,175,55,0.6)', textAlign: 'center', marginBottom: 32 }}>
+            أُرسل كود مكون من 6 أرقام إلى{'\n'}{fullPhoneDisplay}
+          </Text>
+
+          <TextInput
+            style={{ backgroundColor: '#2d1f0e', borderWidth: 2, borderColor: '#c8860a', borderRadius: 14, padding: 16, color: '#d4af37', fontSize: 28, textAlign: 'center', letterSpacing: 8, marginBottom: 24 }}
+            placeholder="------"
+            placeholderTextColor="rgba(212,175,55,0.3)"
+            value={otp}
+            onChangeText={setOtp}
+            keyboardType="number-pad"
+            maxLength={6}
+          />
+
+          <TouchableOpacity
+            onPress={handleVerifyOTP}
+            disabled={isLoading || otp.length < 6}
+            style={{ backgroundColor: otp.length >= 6 ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 16 }}
+          >
+            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>تحقق وادخل</Text>}
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleSendOTP} disabled={isLoading}>
+            <Text style={{ color: 'rgba(212,175,55,0.6)', textAlign: 'center', fontSize: 14 }}>إعادة إرسال الكود</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* div مخفي للـ reCAPTCHA */}
+        <View nativeID="recaptcha-container" />
+
       </ScreenContainer>
     </ImageBackground>
   );
