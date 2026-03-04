@@ -821,7 +821,7 @@ export default function RoomScreen() {
       try {
         const finalClapAsset = require("@/assets/sounds/sheeloha-claps.mp3");
         const finalClapPlayer = createAudioPlayer(finalClapAsset);
-        finalClapPlayer.volume = 0.10;
+        finalClapPlayer.volume = 0.18;
         finalClapPlayer.loop = false;
         finalClapPlayer.play();
       } catch (_) {}
@@ -2385,7 +2385,7 @@ export default function RoomScreen() {
                     // تشغيل التصفيق الختامي
                     const finalClapAsset = require("@/assets/sounds/sheeloha-claps.mp3");
                     const finalClapPlayer = createAudioPlayer(finalClapAsset);
-                    finalClapPlayer.volume = 0.10;
+                    finalClapPlayer.volume = 0.18;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
                     
