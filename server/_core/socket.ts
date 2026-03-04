@@ -167,6 +167,9 @@ export interface ClientToServerEvents {
   // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
   joinUserChannel: (userId: string) => void;
   leaveUserChannel: (userId: string) => void;
+
+  // بث أمر تشغيل الشيلوها لجميع المشاركين
+  playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration: number; userId: string; username: string; }) => void;
 }
 
 export interface InterServerEvents {
@@ -312,6 +315,17 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       }
       // حذف الساحة يتم عبر نظام الفحص الدوري في room-cleanup.ts
       // الذي يتحقق من جميع قنوات Socket قبل الحذف
+    });
+
+    // استقبال أمر تشغيل الشيلوها من العميل وبثه لجميع المشاركين
+    socket.on("playSheeloha", (data: { roomId: number; sheelohaUrl: string; taroukDuration: number; userId: string; username: string; }) => {
+      io!.to(`room:${data.roomId}`).emit("playSheeloha", {
+        roomId: data.roomId,
+        sheelohaUrl: data.sheelohaUrl,
+        taroukDuration: data.taroukDuration,
+        userId: data.userId,
+        username: data.username,
+      });
     });
   });
 
