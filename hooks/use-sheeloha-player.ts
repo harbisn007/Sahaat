@@ -16,9 +16,9 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 4 أصوات بجرسات مختلفة وتأخيرات صغيرة = تبدو كأشخاص مختلفين بدون صدى
+// 4 أصوات مختلفة الجرس — لا أحد منها يشبه الصوت الأصلي
 const CROWD = [
-  { delay: 0,  volume: 0.65, rate: 1.00 }, // الشاعر نفسه
+  { delay: 0,  volume: 0.65, rate: 0.91 }, // صوت عميق مختلف
   { delay: 8,  volume: 0.60, rate: 0.88 }, // صوت عميق
   { delay: 12, volume: 0.58, rate: 1.15 }, // صوت خفيف
   { delay: 18, volume: 0.55, rate: 0.93 }, // صوت متوسط
