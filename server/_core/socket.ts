@@ -1,6 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
-import { getUserActiveRoom } from "../db";
+import { getUserActiveRoom, removeParticipant, getRoomById } from "../db";
 import { deleteRoomCompletely } from "./room-cleanup";
 
 // نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
@@ -293,6 +293,23 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
       // بث عدد المتواجدين عند قطع الاتصال
       broadcastOnlineCount();
+      
+      // حذف المشارك غير المنشئ من الساحة عند قطع الاتصال
+      const { userId, currentRoomId } = socket.data;
+      if (userId && currentRoomId) {
+        try {
+          const room = await getRoomById(currentRoomId);
+          // إذا لم يكن المستخدم هو منشئ الساحة → احذفه
+          if (room && room.creatorId !== userId) {
+            console.log(`[Socket.io] Auto-removing non-creator ${userId} from room ${currentRoomId} on disconnect`);
+            await removeParticipant(currentRoomId, userId);
+            emitParticipantLeft(currentRoomId, userId);
+            emitRoomUpdated(currentRoomId);
+          }
+        } catch (e) {
+          console.error(`[Socket.io] Failed to auto-remove participant on disconnect:`, e);
+        }
+      }
       // حذف الساحة يتم عبر نظام الفحص الدوري في room-cleanup.ts
       // الذي يتحقق من جميع قنوات Socket قبل الحذف
     });
