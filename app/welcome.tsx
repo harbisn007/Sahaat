@@ -52,6 +52,7 @@ export default function WelcomeScreen() {
   const { loginAsGuest } = useUser();
   const scrollViewRef = useRef<ScrollView>(null);
   const trpcUtils = trpc.useUtils();
+  const upsertUserByPhone = trpc.auth.upsertUserByPhone.useMutation();
 
   // الشاشة الحالية
   const [screen, setScreen] = useState<Screen>("choice");
@@ -80,61 +81,6 @@ export default function WelcomeScreen() {
   useEffect(() => {
     auth().signOut().catch(() => {});
   }, []);
-
-  // مراقبة حالة المصادقة — يكتشف auto-verify فقط أثناء عملية تحقق حالية
-  useEffect(() => {
-    const unsubscribe = auth().onAuthStateChanged(async (user) => {
-      // شروط الأمان: لازم يكون فيه OTP مرسل + ما مر أكثر من 5 دقائق + ما تم auto-verify قبل
-      const timeSinceOtp = Date.now() - otpSentTimestampRef.current;
-      const isRecentOtp = otpSentTimestampRef.current > 0 && timeSinceOtp < 5 * 60 * 1000; // 5 دقائق
-      
-      if (user && otpSent && isRecentOtp && !autoVerifiedRef.current) {
-        autoVerifiedRef.current = true;
-        console.log("[AUTH] Auto-verified! UID:", user.uid);
-        
-        const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
-        const firebaseUid = user.uid;
-
-        try {
-          if (previousScreenRef.current === "login") {
-            const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-            if (existingUser) {
-              await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
-            } else {
-              const displayName = `مستخدم`;
-              await loginAsGuest(displayName, "male");
-              await trpcUtils.auth.upsertUserByPhone.fetch({
-                phoneNumber: fullPhone,
-                name: displayName,
-                avatar: "male",
-                openId: firebaseUid,
-              });
-            }
-          } else {
-            const displayName = name.trim() || "مستخدم";
-            const avatar = selectedAvatar || "male";
-            await loginAsGuest(displayName, avatar as AvatarType);
-            await trpcUtils.auth.upsertUserByPhone.fetch({
-              phoneNumber: fullPhone,
-              name: displayName,
-              avatar: avatar as string,
-              openId: firebaseUid,
-            });
-          }
-
-          if (redirect) {
-            router.replace(redirect as any);
-          } else {
-            router.replace("/(tabs)");
-          }
-        } catch (e: any) {
-          console.error("[AUTH] Auto-verify login error:", e);
-          Alert.alert("خطأ", `تم التحقق لكن حدث خطأ: ${e?.message || JSON.stringify(e)}`);
-        }
-      }
-    });
-    return () => unsubscribe();
-  }, [otpSent, phoneNumber, selectedCountry, name, selectedAvatar]);
 
   // Terms
   const [showTermsModal, setShowTermsModal] = useState(false);
@@ -291,7 +237,7 @@ export default function WelcomeScreen() {
           // لا يوجد حساب → أنشئ واحداً جديداً
           const displayName = `مستخدم`;
           await loginAsGuest(displayName, "male");
-          await trpcUtils.auth.upsertUserByPhone.fetch({
+          await upsertUserByPhone.mutateAsync({
             phoneNumber: fullPhone,
             name: displayName,
             avatar: "male",
@@ -303,7 +249,7 @@ export default function WelcomeScreen() {
         const displayName = name.trim() || "مستخدم";
         const avatar = selectedAvatar || "male";
         await loginAsGuest(displayName, avatar as AvatarType);
-        await trpcUtils.auth.upsertUserByPhone.fetch({
+        await upsertUserByPhone.mutateAsync({
           phoneNumber: fullPhone,
           name: displayName,
           avatar: avatar as string,
@@ -336,13 +282,13 @@ export default function WelcomeScreen() {
                 await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
               } else {
                 await loginAsGuest("مستخدم", "male");
-                await trpcUtils.auth.upsertUserByPhone.fetch({ phoneNumber: fullPhone, name: "مستخدم", avatar: "male", openId: firebaseUid });
+                await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: "مستخدم", avatar: "male", openId: firebaseUid });
               }
             } else {
               const displayName = name.trim() || "مستخدم";
               const avatar = selectedAvatar || "male";
               await loginAsGuest(displayName, avatar as AvatarType);
-              await trpcUtils.auth.upsertUserByPhone.fetch({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
+              await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
             }
 
             if (redirect) {
