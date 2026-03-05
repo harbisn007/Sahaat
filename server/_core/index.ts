@@ -43,6 +43,48 @@ async function startServer() {
 
   registerOAuthRoutes(app);
 
+  // مسار صفحة الدعوة - يفتح التطبيق أو يعرض صفحة ويب
+  app.get("/invite/:id", (req, res) => {
+    const { id } = req.params;
+    const inviter = req.query.inviter as string || '';
+    const appScheme = 'manus20260120123613';
+    const deepLink = `${appScheme}://invite/${id}?inviter=${encodeURIComponent(inviter)}`;
+    const storeLink = 'https://play.google.com/store/apps/details?id=space.manus.sahaat.muhawara.t20260120123613';
+    
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(`<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>دعوة - طواريق</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #1c1208; color: #d4af37; font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+    .card { background: #2d1f0e; border: 2px solid #c8860a; border-radius: 20px; padding: 32px 24px; max-width: 400px; width: 100%; text-align: center; }
+    h1 { font-size: 28px; font-weight: 900; margin-bottom: 8px; }
+    .sub { color: rgba(212,175,55,0.6); font-size: 14px; margin-bottom: 32px; }
+    .inviter { font-size: 16px; margin-bottom: 24px; color: rgba(212,175,55,0.8); }
+    .btn { display: block; background: #c8860a; color: #fff; font-size: 18px; font-weight: 900; padding: 16px; border-radius: 14px; text-decoration: none; margin-bottom: 16px; }
+    .btn-outline { display: block; background: transparent; color: #d4af37; font-size: 14px; padding: 12px; border-radius: 14px; text-decoration: none; border: 2px solid #c8860a; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🎙️ طواريق</h1>
+    <p class="sub">منصة تفاعلية للمحاورة الشعرية</p>
+    ${inviter ? `<p class="inviter">دعاك <strong>${inviter}</strong> للانضمام</p>` : ''}
+    <a href="${deepLink}" class="btn">افتح في التطبيق</a>
+    <a href="${storeLink}" class="btn-outline">حمّل التطبيق من Google Play</a>
+  </div>
+  <script>
+    // محاولة فتح التطبيق تلقائياً
+    setTimeout(() => { window.location.href = '${deepLink}'; }, 500);
+  </script>
+</body>
+</html>`);
+  });
+
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
   });

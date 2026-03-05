@@ -44,7 +44,7 @@ const COUNTRY_CODES = [
   { code: "+91", flag: "🇮🇳", name: "الهند" },
 ];
 
-type Screen = "choice" | "login" | "register" | "otp";
+type Screen = "choice" | "register" | "otp";
 
 export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
@@ -56,7 +56,6 @@ export default function WelcomeScreen() {
 
   // الشاشة الحالية
   const [screen, setScreen] = useState<Screen>("choice");
-  const previousScreenRef = useRef<Screen>("choice");
 
   // بيانات التسجيل
   const [name, setName] = useState("");
@@ -181,22 +180,6 @@ export default function WelcomeScreen() {
     setIsLoading(true);
     try {
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
-      
-      // التحقق عند الدخول إن الرقم مسجّل
-      if (previousScreenRef.current === "login") {
-        try {
-          const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-          if (!existingUser) {
-            Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً.");
-            setIsLoading(false);
-            return;
-          }
-        } catch (e) {
-          Alert.alert("خطأ", "هذا الرقم غير مسجّل. سجّل حساب جديد أولاً.");
-          setIsLoading(false);
-          return;
-        }
-      }
 
       console.log("[OTP] Sending to:", fullPhone);
       autoVerifiedRef.current = false;
@@ -205,7 +188,6 @@ export default function WelcomeScreen() {
       setVerificationId(confirmation.verificationId);
       confirmResultRef.current = confirmation;
       setOtpSent(true);
-      previousScreenRef.current = screen as Screen;
       setScreen("otp");
       Alert.alert("تم الإرسال", `تم إرسال كود التحقق إلى ${fullPhone}`);
     } catch (error: any) {
@@ -238,45 +220,21 @@ export default function WelcomeScreen() {
       }
       
       const firebaseUid = result.user.uid;
-
       const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
 
-      if (previousScreenRef.current === "login") {
-        // دخول — ابحث عن الحساب برقم الجوال
-        const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-
-        if (existingUser) {
-          // حساب موجود → ادخل بنفس البيانات
-          await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
-          await AsyncStorage.setItem('user_uuid', firebaseUid);
-          await AsyncStorage.setItem('user_name', existingUser.name || "مستخدم");
-          await AsyncStorage.setItem('user_avatar', existingUser.avatar || "male");
-        } else {
-          // لا يوجد حساب → أنشئ واحداً جديداً
-          const displayName = `مستخدم`;
-          await loginAsGuest(displayName, "male");
-          await upsertUserByPhone.mutateAsync({
-            phoneNumber: fullPhone,
-            name: displayName,
-            avatar: "male",
-            openId: firebaseUid,
-          });
-        }
-      } else {
-        // تسجيل جديد أو تحديث → احفظ/حدّث الحساب
-        const displayName = name.trim() || "مستخدم";
-        const avatar = selectedAvatar || "male";
-        await loginAsGuest(displayName, avatar as AvatarType);
-        await upsertUserByPhone.mutateAsync({
-          phoneNumber: fullPhone,
-          name: displayName,
-          avatar: avatar as string,
-          openId: firebaseUid,
-        });
-        await AsyncStorage.setItem('user_uuid', firebaseUid);
-        await AsyncStorage.setItem('user_name', displayName);
-        await AsyncStorage.setItem('user_avatar', avatar as string);
-      }
+      // تسجيل جديد أو تحديث → احفظ/حدّث الحساب
+      const displayName = name.trim() || "مستخدم";
+      const avatar = selectedAvatar || "male";
+      await loginAsGuest(displayName, avatar as AvatarType);
+      await upsertUserByPhone.mutateAsync({
+        phoneNumber: fullPhone,
+        name: displayName,
+        avatar: avatar as string,
+        openId: firebaseUid,
+      });
+      await AsyncStorage.setItem('user_uuid', firebaseUid);
+      await AsyncStorage.setItem('user_name', displayName);
+      await AsyncStorage.setItem('user_avatar', avatar as string);
 
       if (redirect) {
         router.replace(redirect as any);
@@ -296,22 +254,13 @@ export default function WelcomeScreen() {
           try {
             const firebaseUid = currentUser.uid;
             const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
-
-            if (previousScreenRef.current === "login") {
-              const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
-              if (existingUser) {
-                await loginAsGuest(existingUser.name || "مستخدم", (existingUser.avatar || "male") as AvatarType);
-              } else {
-                await loginAsGuest("مستخدم", "male");
-                await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: "مستخدم", avatar: "male", openId: firebaseUid });
-              }
-            } else {
-              const displayName = name.trim() || "مستخدم";
-              const avatar = selectedAvatar || "male";
-              await loginAsGuest(displayName, avatar as AvatarType);
-              await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
-            }
-
+            const displayName = name.trim() || "مستخدم";
+            const avatar = selectedAvatar || "male";
+            await loginAsGuest(displayName, avatar as AvatarType);
+            await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
+            await AsyncStorage.setItem('user_uuid', firebaseUid);
+            await AsyncStorage.setItem('user_name', displayName);
+            await AsyncStorage.setItem('user_avatar', avatar as string);
             if (redirect) {
               router.replace(redirect as any);
             } else {
@@ -342,13 +291,13 @@ export default function WelcomeScreen() {
 
   const fullPhoneDisplay = `${selectedCountry.code} ${phoneNumber}`;
   const isRegisterValid = name.trim().length >= 3 && !!selectedAvatar && validatePhone();
-  const isLoginValid = validatePhone();
 
-  // ══ شاشة الاختيار ══
+  // ══ شاشة التحميل ══
   if (isCheckingUUID) {
     return <View style={{ flex: 1, backgroundColor: '#1c1208', justifyContent: 'center', alignItems: 'center' }}><ActivityIndicator size="large" color="#c8860a" /></View>;
   }
 
+  // ══ شاشة الاختيار ══
   if (screen === "choice") {
     return (
       <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
@@ -370,7 +319,6 @@ export default function WelcomeScreen() {
                 paddingHorizontal: 40,
                 width: '100%',
                 alignItems: 'center',
-                marginBottom: 16,
                 shadowColor: '#c8860a',
                 shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.4,
@@ -380,23 +328,6 @@ export default function WelcomeScreen() {
             >
               <Text style={{ color: '#fff', fontWeight: '900', fontSize: 18 }}>تسجيل / تحديث</Text>
               <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>حساب جديد أو تحديث بياناتك</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => setScreen("login")}
-              style={{
-                backgroundColor: '#2d1f0e',
-                borderRadius: 14,
-                paddingVertical: 16,
-                paddingHorizontal: 40,
-                width: '100%',
-                alignItems: 'center',
-                borderWidth: 2,
-                borderColor: '#c8860a',
-              }}
-            >
-              <Text style={{ color: '#d4af37', fontWeight: '900', fontSize: 18 }}>دخول</Text>
-              <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 12, marginTop: 2 }}>لديك حساب مسبق</Text>
             </TouchableOpacity>
           </View>
 
@@ -430,7 +361,7 @@ export default function WelcomeScreen() {
     );
   }
 
-  // ══ شاشة تسجيل جديد ══
+  // ══ شاشة تسجيل جديد / تحديث ══
   if (screen === "register") {
     return (
       <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
@@ -545,89 +476,13 @@ export default function WelcomeScreen() {
     );
   }
 
-  // ══ شاشة دخول ══
-  if (screen === "login") {
-    return (
-      <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
-        <ScreenContainer>
-          <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
-            <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
-
-              <TouchableOpacity onPress={() => setScreen("choice")} style={{ marginBottom: 24 }}>
-                <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
-              </TouchableOpacity>
-
-              <Text style={{ fontSize: 24, fontWeight: '900', color: '#d4af37', textAlign: 'center', marginBottom: 32 }}>دخول</Text>
-
-              <Text style={{ color: 'rgba(212,175,55,0.8)', marginBottom: 6, textAlign: 'right' }}>رقم الجوال</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
-                <TextInput
-                  style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, color: '#d4af37', fontSize: 16, textAlign: 'left' }}
-                  placeholder="5XXXXXXXX"
-                  placeholderTextColor="rgba(212,175,55,0.4)"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                  maxLength={15}
-                />
-                <TouchableOpacity
-                  onPress={() => setShowCountryPicker(true)}
-                  style={{ backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', borderRadius: 12, padding: 12, alignItems: 'center', justifyContent: 'center', minWidth: 80 }}
-                >
-                  <Text style={{ fontSize: 24 }}>{selectedCountry.flag}</Text>
-                  <Text style={{ color: 'rgba(212,175,55,0.7)', fontSize: 12 }}>{selectedCountry.code}</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                onPress={handleSendOTP}
-                disabled={isLoading || !isLoginValid}
-                style={{ backgroundColor: isLoginValid ? '#c8860a' : '#444', borderRadius: 12, paddingVertical: 14, alignItems: 'center' }}
-              >
-                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '900', fontSize: 16 }}>إرسال كود التحقق</Text>}
-              </TouchableOpacity>
-            </View>
-          </KeyboardAvoidingView>
-
-          {/* Country Picker Modal */}
-          <Modal visible={showCountryPicker} transparent animationType="slide" onRequestClose={() => setShowCountryPicker(false)}>
-            <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
-              <View style={{ backgroundColor: '#1c1208', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '70%' }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#c8860a' }}>
-                  <TouchableOpacity onPress={() => setShowCountryPicker(false)}>
-                    <Text style={{ color: '#c8860a', fontSize: 16 }}>إغلاق</Text>
-                  </TouchableOpacity>
-                  <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 16 }}>اختر الدولة</Text>
-                </View>
-                <FlatList
-                  data={COUNTRY_CODES}
-                  keyExtractor={(item) => item.code}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      onPress={() => { setSelectedCountry(item); setShowCountryPicker(false); }}
-                      style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}
-                    >
-                      <Text style={{ fontSize: 24, marginRight: 12 }}>{item.flag}</Text>
-                      <Text style={{ flex: 1, color: '#d4af37', fontSize: 16 }}>{item.name}</Text>
-                      <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 14 }}>{item.code}</Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </View>
-            </View>
-          </Modal>
-        </ScreenContainer>
-      </ImageBackground>
-    );
-  }
-
   // ══ شاشة إدخال OTP ══
   return (
     <ImageBackground source={welcomeBackground} style={{ flex: 1 }} imageStyle={{ opacity: 0.15 }}>
       <ScreenContainer>
         <View style={{ flex: 1, justifyContent: 'center', padding: 24 }}>
 
-          <TouchableOpacity onPress={() => setScreen(screen === "otp" ? "login" : screen)} style={{ marginBottom: 24 }}>
+          <TouchableOpacity onPress={() => setScreen("register")} style={{ marginBottom: 24 }}>
             <Text style={{ color: '#c8860a', fontSize: 16 }}>→ رجوع</Text>
           </TouchableOpacity>
 

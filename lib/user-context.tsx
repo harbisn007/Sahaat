@@ -250,6 +250,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_ACCOUNT_TYPE_KEY);
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
+      // مفاتيح welcome.tsx (Firebase phone auth)
+      await AsyncStorage.removeItem('user_uuid');
+      await AsyncStorage.removeItem('user_name');
+      await AsyncStorage.removeItem('user_avatar');
       
       setUsernameState(null);
       setUserIdState("");
