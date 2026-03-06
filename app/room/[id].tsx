@@ -563,13 +563,23 @@ export default function RoomScreen() {
 
         console.log(`[RoomScreen] Playing audio (elapsed: ${elapsed.toFixed(1)}s, type: ${data.messageType})`);
 
+        // لا نشغّل الأصوات أثناء التسجيل
+        if (isRecordingRef.current) {
+          console.log("[RoomScreen] Skipping audio play - recording in progress");
+          return;
+        }
+
         if (data.messageType === "comment") {
           // التعليق: يشتغل بالتوازي مع أي صوت آخر
           try {
             const commentPlayer = createAudioPlayer(data.audioUrl);
             commentPlayer.volume = 1.0;
             commentPlayer.play();
-            setTimeout(() => { try { commentPlayer.release(); } catch (_) {} }, 120000);
+            activePlayersRef.current.push(commentPlayer);
+            setTimeout(() => {
+              try { commentPlayer.release(); } catch (_) {}
+              activePlayersRef.current = activePlayersRef.current.filter(p => p !== commentPlayer);
+            }, 120000);
           } catch (e) {
             console.error("[RoomScreen] Failed to play comment:", e);
           }
@@ -580,7 +590,11 @@ export default function RoomScreen() {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
-            setTimeout(() => { try { taroukPlayer.release(); } catch (_) {} }, 120000);
+            activePlayersRef.current.push(taroukPlayer);
+            setTimeout(() => {
+              try { taroukPlayer.release(); } catch (_) {}
+              activePlayersRef.current = activePlayersRef.current.filter(p => p !== taroukPlayer);
+            }, 120000);
           } catch (e) {
             console.error("[RoomScreen] Failed to play tarouk:", e);
           }
@@ -590,9 +604,8 @@ export default function RoomScreen() {
       // استقبال أمر الشيلوها
       onPlaySheeloha: (data: SheelohaPayload) => {
         console.log("[RoomScreen] Sheeloha command received:", data);
-        // الضاغط يشغّل محلياً فقط — نتجاهل الـ broadcast عنده
         if (data.userId === userId) return;
-        // إذا شيلوها تعمل، نوقفها أولاً ونبدأ الجديدة
+        if (isRecordingRef.current) return; // لا شيلوها أثناء التسجيل
         sheelohaPlayerRef.current.stop();
         sheelohaPlayerRef.current.play({
           taroukUrl: data.sheelohaUrl,
@@ -821,7 +834,7 @@ export default function RoomScreen() {
       try {
         const finalClapAsset = require("@/assets/sounds/sheeloha-claps.m4a");
         const finalClapPlayer = createAudioPlayer(finalClapAsset);
-        finalClapPlayer.volume = 0.18;
+        finalClapPlayer.volume = 0.225;
         finalClapPlayer.loop = false;
         finalClapPlayer.play();
       } catch (_) {}
@@ -1301,6 +1314,8 @@ export default function RoomScreen() {
 
   // Ref to track if recording was cancelled
   const recordingCancelledRef = useRef(false);
+  const isRecordingRef = useRef(false); // يمنع تشغيل الأصوات أثناء التسجيل
+  const activePlayersRef = useRef<any[]>([]); // تتبع كل الـ players النشطة
 
   const handleStartRecording = async (type: "comment" | "tarouk") => {
     console.log("[RoomScreen] handleStartRecording called with type:", type);
@@ -1338,8 +1353,26 @@ export default function RoomScreen() {
     
     // كتم جميع الأصوات المشغلة أثناء التسجيل
     console.log("[RoomScreen] Stopping all audio before recording...");
-    stop(); // إيقاف تشغيل الرسائل الصوتية
+    isRecordingRef.current = true; // منع تشغيل الأصوات الجديدة
+    stop();
+    // إيقاف كل الـ players النشطة
+    activePlayersRef.current.forEach(p => { try { p.pause(); p.release(); } catch (_) {} });
+    activePlayersRef.current = [];
+    sheelohaPlayerRef.current.stop(); // إيقاف تشغيل الرسائل الصوتية
     // stopTarouk() محذوف - كان يسبب "Cannot use shared object that was already released"
+    
+    // تحويل مخرج الصوت إلى سماعة الأذن أثناء التسجيل (لمنع التقاط المايك للأصوات)
+    if (Platform.OS !== "web") {
+      try {
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: true,
+          playsInSilentMode: true,
+        });
+        console.log("[RoomScreen] Audio output switched to earpiece for recording");
+      } catch (e) {
+        console.log("[RoomScreen] Could not switch audio output:", e);
+      }
+    }
     
     try {
       console.log("[RoomScreen] Calling startRecording...");
@@ -1458,6 +1491,20 @@ export default function RoomScreen() {
     if (userId) {
       clearRecordingStatusMutation.mutate({ roomId, userId });
       // Socket.io يحدث تلقائياً
+    }
+    
+    // إعادة مخرج الصوت إلى مكبر الصوت بعد انتهاء التسجيل
+    isRecordingRef.current = false; // السماح بتشغيل الأصوات مجدداً
+    if (Platform.OS !== "web") {
+      try {
+        await AudioModule.setAudioModeAsync({
+          allowsRecording: false,
+          playsInSilentMode: true,
+        });
+        console.log("[RoomScreen] Audio output restored to speaker after recording");
+      } catch (e) {
+        console.log("[RoomScreen] Could not restore audio output:", e);
+      }
     }
     
     try {
@@ -2385,7 +2432,7 @@ export default function RoomScreen() {
                     // تشغيل التصفيق الختامي
                     const finalClapAsset = require("@/assets/sounds/sheeloha-claps.m4a");
                     const finalClapPlayer = createAudioPlayer(finalClapAsset);
-                    finalClapPlayer.volume = 0.18;
+                    finalClapPlayer.volume = 0.225;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
                     
@@ -2438,8 +2485,37 @@ export default function RoomScreen() {
           </View>
         )}
 
-        {/* Viewer: Request to Join as Player */}
+        {/* Viewer: Reactions + Request to Join as Player */}
         <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 12, width: '100%' }}>
+
+          {/* زر التفاعلات للمستمع */}
+          {isViewer && (
+            <View style={{ alignItems: 'center' }}>
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#2d1f0e",
+                  width: 55,
+                  height: 55,
+                  borderRadius: 28,
+                  borderWidth: 1,
+                  borderColor: '#c8860a',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#c8860a',
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.5,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+                onPress={() => setIsReactionsPickerOpen(true)}
+              >
+                <MaterialIcons name="emoji-emotions" size={25} color="#FFD700" />
+              </TouchableOpacity>
+              <Text style={{ color: 'rgba(212,175,55,0.85)', fontSize: 9, fontWeight: '900', textAlign: 'center', marginTop: 4 }}>
+                تفاعلات
+              </Text>
+            </View>
+          )}
 
           {/* Viewer: Request to Join as Player */}
           {isViewer && (
