@@ -192,14 +192,14 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
         <Image source={getAvatarSourceById(invite.creatorAvatar)} style={{ width: 28, height: 28, borderRadius: 14, marginLeft: 6, borderWidth: 1, borderColor: '#c8860a' }} />
         <Text style={{ fontSize: 11, color: '#d4af37', fontWeight: '700', flex: 1 }} numberOfLines={1}>{invite.creatorName}</Text>
       </View>
-      <Text style={{ fontSize: 9, color: 'rgba(212,175,55,0.6)', textAlign: 'center', marginBottom: 6 }} numberOfLines={1}>{invite.roomName}</Text>
+      <Text style={{ fontSize: 10, color: 'rgba(212,175,55,0.6)', textAlign: 'center', marginBottom: 6 }} numberOfLines={1}>{invite.roomName}</Text>
       {isOwnInvite ? (
         <View style={{ backgroundColor: '#2d1f0e', borderRadius: 6, paddingVertical: 5, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(200,134,10,0.3)' }}>
-          <Text style={{ color: 'rgba(212,175,55,0.4)', fontWeight: 'bold', fontSize: 9 }}>{invite.message || 'دعوتك'}</Text>
+          <Text style={{ color: 'rgba(212,175,55,0.4)', fontWeight: 'bold', fontSize: 10 }}>دعوتك</Text>
         </View>
       ) : (
         <TouchableOpacity style={{ backgroundColor: '#2d1f0e', borderRadius: 6, paddingVertical: 5, alignItems: 'center', borderWidth: 1, borderColor: '#c8860a' }} onPress={onJoin}>
-          <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 9 }}>{invite.message || 'انضم'}</Text>
+          <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 10 }}>{invite.message || 'انضم'}</Text>
         </TouchableOpacity>
       )}
     </View>
