@@ -1151,7 +1151,7 @@ export default function RoomScreen() {
 
   // حالة نافذة الدعوة العامة
   const [showPublicInviteModal, setShowPublicInviteModal] = useState(false);
-  const [publicInviteText, setPublicInviteText] = useState('مطلوب شاعر');
+  const [publicInviteText, setPublicInviteText] = useState('');
 
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {
@@ -1162,7 +1162,7 @@ export default function RoomScreen() {
 
   // دالة تأكيد إرسال الدعوة
   const confirmSendPublicInvite = async () => {
-    const limitedText = publicInviteText?.substring(0, 18) || 'مطلوب شاعر';
+    const limitedText = publicInviteText?.substring(0, 60) || 'اكتب دعوة او بيت شعر';
     setShowPublicInviteModal(false);
     setIsSendingPublicInvite(true);
     try {
@@ -1967,16 +1967,16 @@ export default function RoomScreen() {
             </Text>
             <TextInput
               value={publicInviteText}
-              onChangeText={(t) => setPublicInviteText(t.substring(0, 25))}
-              maxLength={25}
-              placeholder="مطلوب شاعر"
+              onChangeText={(t) => setPublicInviteText(t.substring(0, 60))}
+              maxLength={60}
+              placeholder="اكتب دعوة او بيت شعر"
               placeholderTextColor="#999"
               style={{
                 borderWidth: 1,
                 borderColor: '#ddd',
                 borderRadius: 10,
                 padding: 12,
-                fontSize: 16,
+                fontSize: 10,
                 textAlign: 'center',
                 marginBottom: 20,
                 color: '#000',
