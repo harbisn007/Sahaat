@@ -36,7 +36,6 @@ export function RoomCard({
   const isCreator = room.creatorId === currentUserId;
   const hasGoldStar = showGoldStar || room.hasGoldStar === "true";
 
-  // تحديد صورة الأفاتار
   const getAvatarSource = () => getAvatarSourceById(room.creatorAvatar);
 
   // If creator, make the whole card clickable
@@ -48,7 +47,7 @@ export function RoomCard({
         onPress={onDirectEnter}
         activeOpacity={0.7}
       >
-        {/* Rank Badge */}
+        {/* Rank Badge - top right */}
         {rank && (
           <View style={{ 
             position: 'absolute', 
@@ -60,28 +59,37 @@ export function RoomCard({
             height: 20,
             alignItems: 'center',
             justifyContent: 'center',
+            zIndex: 1,
           }}>
             <Text style={{ fontSize: 10, fontWeight: 'bold', color: rank <= 3 ? '#1F2937' : '#fff' }}>
               {rank}
             </Text>
           </View>
         )}
+
+        {/* Avatar - top left */}
+        <View style={{
+          position: 'absolute',
+          top: -6,
+          left: -6,
+          borderRadius: 10,
+          width: 20,
+          height: 20,
+          overflow: 'hidden',
+          borderWidth: 1,
+          borderColor: colors.primary,
+          zIndex: 1,
+        }}>
+          <Image source={getAvatarSource()} style={{ width: 20, height: 20 }} />
+        </View>
         
         {/* Room Info */}
         <View className="mb-2">
           <View className="flex-row items-center gap-1 mb-1">
             {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
             <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
-            <Text className="text-xs">👑</Text>
           </View>
-          {/* صورة المنشئ واسمه */}
-          <View className="flex-row items-center gap-1">
-            <Image 
-              source={getAvatarSource()} 
-              style={{ width: 18, height: 18, borderRadius: 9 }} 
-            />
-            <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
-          </View>
+          <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
         </View>
 
         {/* Stats */}
@@ -103,7 +111,7 @@ export function RoomCard({
   // For non-creators, show the buttons
   return (
     <View className="bg-surface rounded-xl p-3 border border-border shadow-sm" style={{ flex: 1 }}>
-      {/* Rank Badge */}
+      {/* Rank Badge - top right */}
       {rank && (
         <View style={{ 
           position: 'absolute', 
@@ -122,6 +130,22 @@ export function RoomCard({
           </Text>
         </View>
       )}
+
+      {/* Avatar - top left */}
+      <View style={{
+        position: 'absolute',
+        top: -6,
+        left: -6,
+        borderRadius: 10,
+        width: 20,
+        height: 20,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: colors.border,
+        zIndex: 1,
+      }}>
+        <Image source={getAvatarSource()} style={{ width: 20, height: 20 }} />
+      </View>
       
       {/* Room Info */}
       <View className="mb-2">
@@ -129,14 +153,7 @@ export function RoomCard({
           {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
           <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
         </View>
-        {/* صورة المنشئ واسمه */}
-        <View className="flex-row items-center gap-1">
-          <Image 
-            source={getAvatarSource()} 
-            style={{ width: 18, height: 18, borderRadius: 9 }} 
-          />
-          <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
-        </View>
+        <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
       </View>
 
       {/* Stats */}
@@ -152,7 +169,7 @@ export function RoomCard({
         </View>
       </View>
 
-      {/* Action Button - Dخول */}
+      {/* Action Button */}
       <TouchableOpacity
         className="rounded-lg py-1.5 items-center"
         style={{ backgroundColor: '#EF4444' }}

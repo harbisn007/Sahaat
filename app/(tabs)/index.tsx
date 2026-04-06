@@ -203,12 +203,12 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
         width: 50,
       }}>
         <Image source={getAvatarSourceById(invite.creatorAvatar)} style={{
-          width: 28,
-          height: 28,
-          borderRadius: 14,
+          width: 25,
+          height: 25,
+          borderRadius: 12.5,
           borderWidth: 1,
           borderColor: '#c8860a',
-          marginBottom: 4,
+          marginBottom: 2,
         }} />
         <Text style={{
           fontSize: 10,
@@ -222,7 +222,7 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
           fontSize: 9,
           color: 'rgba(212,175,55,0.6)',
           textAlign: 'center',
-          marginTop: 2,
+          marginTop: 1,
         }} numberOfLines={2}>
           {invite.roomName}
         </Text>
