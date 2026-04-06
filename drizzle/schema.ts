@@ -163,7 +163,7 @@ export const publicInvitations = mysqlTable("public_invitations", {
   creatorName: varchar("creatorName", { length: 50 }).notNull(),
   creatorAvatar: varchar("creatorAvatar", { length: 500 }).default("male").notNull(),
   roomName: varchar("roomName", { length: 100 }).notNull(),
-  message: varchar("message", { length: 50 }).default("وين الشعّار؟"), // رسالة الدعوة المخصصة (12 حرف كحد أقصى)
+  message: varchar("message", { length: 70 }).default("حياكم الله.."), // رسالة الدعوة المخصصة (70 حرف كحد أقصى)
   status: mysqlEnum("status", ["pending", "displayed", "expired"]).default("pending").notNull(),
   displayedAt: timestamp("displayedAt"), // When the invite started being displayed in top 10
   createdAt: timestamp("createdAt").defaultNow().notNull(),

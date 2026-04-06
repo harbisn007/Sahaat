@@ -890,7 +890,7 @@ export const appRouter = router({
           creatorName: z.string(),
           creatorAvatar: z.string(),
           roomName: z.string(),
-          message: z.string().max(60).optional(),
+          message: z.string().max(70).optional(),
         })
       )
       .mutation(async ({ input }) => {

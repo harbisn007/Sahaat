@@ -1162,7 +1162,7 @@ export default function RoomScreen() {
 
   // دالة تأكيد إرسال الدعوة
   const confirmSendPublicInvite = async (_text?: string) => {
-    const limitedText = (_text || publicInviteText || '').trim().substring(0, 60) || 'حياكم الله..';
+    const limitedText = (_text || publicInviteText || '').trim().substring(0, 70) || 'حياكم الله..';
     setShowPublicInviteModal(false);
     setIsSendingPublicInvite(true);
     try {
@@ -1967,8 +1967,8 @@ export default function RoomScreen() {
             </Text>
             <TextInput
               value={publicInviteText}
-              onChangeText={(t) => setPublicInviteText(t.substring(0, 60))}
-              maxLength={60}
+              onChangeText={(t) => setPublicInviteText(t.substring(0, 70))}
+              maxLength={70}
               placeholder="حياكم الله.."
               placeholderTextColor="#999"
               style={{
