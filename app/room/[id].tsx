@@ -1156,7 +1156,7 @@ export default function RoomScreen() {
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {
     if (!canSendPublicInvite || isSendingPublicInvite) return;
-    setPublicInviteText('مطلوب شاعر');
+    setPublicInviteText('');
     setShowPublicInviteModal(true);
   };
 
