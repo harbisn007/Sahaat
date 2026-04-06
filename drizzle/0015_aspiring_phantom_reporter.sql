@@ -1,0 +1,1 @@
+ALTER TABLE `public_invitations` MODIFY COLUMN `message` varchar(70) DEFAULT 'حياكم الله..';
