@@ -187,19 +187,83 @@ function CountdownTimer({ expiresAt }: { expiresAt: Date }) {
 function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInvitation; onJoin: () => void; currentUserId: string; }) {
   const isOwnInvite = invite.creatorId === currentUserId;
   return (
-    <View style={{ backgroundColor: '#1c1208', borderRadius: 10, padding: 8, marginBottom: 8, borderWidth: 1, borderColor: '#c8860a' }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-        <Image source={getAvatarSourceById(invite.creatorAvatar)} style={{ width: 28, height: 28, borderRadius: 14, marginLeft: 6, borderWidth: 1, borderColor: '#c8860a' }} />
-        <Text style={{ fontSize: 11, color: '#d4af37', fontWeight: '700', flex: 1 }} numberOfLines={1}>{invite.creatorName}</Text>
+    <View style={{
+      backgroundColor: '#1c1208',
+      borderRadius: 10,
+      padding: 8,
+      marginBottom: 8,
+      borderWidth: 1,
+      borderColor: '#c8860a',
+      flexDirection: 'row-reverse',
+    }}>
+      {/* يمين: صورة + اسم + ساحة */}
+      <View style={{
+        alignItems: 'center',
+        marginLeft: 8,
+        width: 50,
+      }}>
+        <Image source={getAvatarSourceById(invite.creatorAvatar)} style={{
+          width: 28,
+          height: 28,
+          borderRadius: 14,
+          borderWidth: 1,
+          borderColor: '#c8860a',
+          marginBottom: 4,
+        }} />
+        <Text style={{
+          fontSize: 10,
+          color: '#d4af37',
+          fontWeight: '700',
+          textAlign: 'center',
+        }} numberOfLines={2}>
+          {invite.creatorName}
+        </Text>
+        <Text style={{
+          fontSize: 9,
+          color: 'rgba(212,175,55,0.6)',
+          textAlign: 'center',
+          marginTop: 2,
+        }} numberOfLines={2}>
+          {invite.roomName}
+        </Text>
       </View>
-      <Text style={{ fontSize: 9, color: 'rgba(212,175,55,0.6)', textAlign: 'center', marginBottom: 6 }} numberOfLines={1}>{invite.roomName}</Text>
+
+      {/* يسار: نص الدعوة كامل */}
       {isOwnInvite ? (
-        <View style={{ backgroundColor: '#2d1f0e', borderRadius: 6, paddingVertical: 5, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(200,134,10,0.3)' }}>
-          <Text style={{ color: 'rgba(212,175,55,0.4)', fontWeight: 'bold', fontSize: 9 }}>{invite.message || 'دعوتك'}</Text>
+        <View style={{
+          flex: 1,
+          backgroundColor: '#2d1f0e',
+          borderRadius: 6,
+          padding: 8,
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: 'rgba(200,134,10,0.3)',
+        }}>
+          <Text style={{
+            color: 'rgba(212,175,55,0.4)',
+            fontSize: 11,
+            textAlign: 'center',
+          }}>
+            {invite.message || 'حياكم الله..'}
+          </Text>
         </View>
       ) : (
-        <TouchableOpacity style={{ backgroundColor: '#2d1f0e', borderRadius: 6, paddingVertical: 5, alignItems: 'center', borderWidth: 1, borderColor: '#c8860a' }} onPress={onJoin}>
-          <Text style={{ color: '#d4af37', fontWeight: 'bold', fontSize: 9 }}>{invite.message || 'انضم'}</Text>
+        <TouchableOpacity style={{
+          flex: 1,
+          backgroundColor: '#2d1f0e',
+          borderRadius: 6,
+          padding: 8,
+          justifyContent: 'center',
+          borderWidth: 1,
+          borderColor: '#c8860a',
+        }} onPress={onJoin}>
+          <Text style={{
+            color: '#d4af37',
+            fontSize: 11,
+            textAlign: 'center',
+          }}>
+            {invite.message || 'حياكم الله..'}
+          </Text>
         </TouchableOpacity>
       )}
     </View>
