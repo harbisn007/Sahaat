@@ -327,7 +327,7 @@ export default function HomeScreen() {
             setExpiredInviteIds(prev => new Set(prev).add(invite.id));
             await expireInviteMutation.mutateAsync({ invitationId: invite.id });
           } catch {}
-        }, 15000);
+        }, 20000);
       });
     }
   }, [displayedInvites]);
@@ -388,7 +388,7 @@ export default function HomeScreen() {
   if (!username) return null;
 
   const screenWidth = Dimensions.get('window').width;
-  const leftColumnWidth = screenWidth * 0.37;
+  const leftColumnWidth = (screenWidth - 18) / 2;
 
   return (
     <ScreenContainer>
@@ -456,7 +456,7 @@ export default function HomeScreen() {
         <View style={{ flex: 1, flexDirection: 'row', paddingHorizontal: 8 }}>
 
           {/* العمود الأيسر - الدعوات العامة */}
-          <View style={{ width: leftColumnWidth - 8, paddingHorizontal: 4 }}>
+          <View style={{ flex: 1, paddingHorizontal: 4 }}>
             <View style={{ alignItems: 'center', marginBottom: 8, marginTop: 6 }}>
               <BlinkingTitle text="الدعوات العامة" color="#c8860a" />
             </View>

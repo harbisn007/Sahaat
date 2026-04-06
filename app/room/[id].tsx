@@ -1161,8 +1161,8 @@ export default function RoomScreen() {
   };
 
   // دالة تأكيد إرسال الدعوة
-  const confirmSendPublicInvite = async () => {
-    const limitedText = publicInviteText?.substring(0, 60) || 'اكتب دعوة او بيت شعر';
+  const confirmSendPublicInvite = async (_text?: string) => {
+    const limitedText = (_text || publicInviteText || '').trim().substring(0, 60) || 'حياكم الله..';
     setShowPublicInviteModal(false);
     setIsSendingPublicInvite(true);
     try {
@@ -1963,20 +1963,20 @@ export default function RoomScreen() {
               دعوة عامة
             </Text>
             <Text style={{ fontSize: 13, textAlign: 'center', marginBottom: 16, color: colors.muted }}>
-              أضف رسالة للدعوة (25 حرف كحد أقصى)
+              اكتب العبارة أو بيت الشعر الذي تريد أن يظهر في بطاقة الدعوة
             </Text>
             <TextInput
               value={publicInviteText}
               onChangeText={(t) => setPublicInviteText(t.substring(0, 60))}
               maxLength={60}
-              placeholder="اكتب دعوة او بيت شعر"
+              placeholder="حياكم الله.."
               placeholderTextColor="#999"
               style={{
                 borderWidth: 1,
                 borderColor: '#ddd',
                 borderRadius: 10,
                 padding: 12,
-                fontSize: 10,
+                fontSize: 12,
                 textAlign: 'center',
                 marginBottom: 20,
                 color: '#000',
@@ -2006,7 +2006,7 @@ export default function RoomScreen() {
                   borderRadius: 10,
                   alignItems: 'center',
                 }}
-                onPress={confirmSendPublicInvite}
+                onPress={() => confirmSendPublicInvite(publicInviteText || 'حياكم الله..')}
               >
                 <Text style={{ color: '#fff', fontWeight: '600', fontSize: 15 }}>إرسال</Text>
               </TouchableOpacity>
