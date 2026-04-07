@@ -1,4 +1,5 @@
-import { Modal, View, Text, TouchableOpacity, FlatList, ActivityIndicator } from "react-native";
+import { Modal, View, Text, TouchableOpacity, FlatList, ActivityIndicator, Alert } from "react-native";
+import { useState } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
 import { Image } from "react-native";
@@ -20,21 +21,60 @@ interface FollowListModalProps {
   isLoading: boolean;
   onJoinRoom?: (roomId: number) => void;
   /** إذا كانت قائمة "تتابعهم" نمرر دالة إلغاء المتابعة */
-  onUnfollow?: (userId: string) => void;
+  onUnfollow?: (userId: string) => Promise<void> | void;
 }
 
 export function FollowListModal({ visible, onClose, title, users, isLoading, onJoinRoom, onUnfollow }: FollowListModalProps) {
+  // قائمة محلية للتحديث الفوري بعد إلغاء المتابعة
+  const [localUsers, setLocalUsers] = useState<FollowUser[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  // مزامنة القائمة المحلية مع القائمة الواردة عند فتح المودال
+  const displayUsers = localUsers.length > 0 ? localUsers : users;
+
+  const handleUnfollow = (user: FollowUser) => {
+    Alert.alert(
+      'إلغاء المتابعة',
+      `هل تريد إلغاء متابعة ${user.username}؟`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: 'نعم، إلغِ المتابعة',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingId(user.userId);
+            try {
+              await onUnfollow?.(user.userId);
+              // تحديث فوري للقائمة المحلية بدون إغلاق المودال
+              const updated = (localUsers.length > 0 ? localUsers : users).filter(u => u.userId !== user.userId);
+              setLocalUsers(updated);
+            } finally {
+              setRemovingId(null);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  // إعادة تعيين القائمة المحلية عند إغلاق المودال
+  const handleClose = () => {
+    setLocalUsers([]);
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       <TouchableOpacity
         style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
         activeOpacity={1}
-        onPress={onClose}
+        onPress={handleClose}
       >
         <TouchableOpacity
           activeOpacity={1}
@@ -59,7 +99,7 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
             borderBottomColor: '#c8860a44',
           }}>
             <Text style={{ color: '#d4af37', fontSize: 16, fontWeight: 'bold' }}>{title}</Text>
-            <TouchableOpacity onPress={onClose} style={{ padding: 4 }}>
+            <TouchableOpacity onPress={handleClose} style={{ padding: 4 }}>
               <Text style={{ color: '#c8860a', fontSize: 20, fontWeight: 'bold' }}>✕</Text>
             </TouchableOpacity>
           </View>
@@ -69,19 +109,20 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
             <View style={{ padding: 40, alignItems: 'center' }}>
               <ActivityIndicator color="#c8860a" size="large" />
             </View>
-          ) : users.length === 0 ? (
+          ) : displayUsers.length === 0 ? (
             <View style={{ padding: 40, alignItems: 'center' }}>
               <Text style={{ color: '#9BA1A6', fontSize: 14 }}>لا يوجد أحد هنا بعد</Text>
             </View>
           ) : (
             <FlatList
-              data={users}
+              data={displayUsers}
               keyExtractor={(item) => item.userId}
               contentContainerStyle={{ paddingVertical: 8 }}
               renderItem={({ item }) => {
                 const avatarSource = item.avatar && item.avatar !== 'male' && item.avatar !== 'female'
                   ? { uri: item.avatar }
                   : getAvatarSourceById(item.avatar || 'male');
+                const isRemoving = removingId === item.userId;
                 return (
                   <View style={{
                     flexDirection: 'row',
@@ -90,6 +131,7 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                     paddingVertical: 10,
                     borderBottomWidth: 0.5,
                     borderBottomColor: '#c8860a22',
+                    opacity: isRemoving ? 0.4 : 1,
                   }}>
                     {/* صورة المستخدم */}
                     <View style={{ position: 'relative', marginLeft: 12 }}>
@@ -120,7 +162,7 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                         <TouchableOpacity
                           onPress={() => {
                             onJoinRoom?.(item.currentRoomId!);
-                            onClose();
+                            handleClose();
                           }}
                           style={{ alignSelf: 'flex-start' }}
                         >
@@ -138,7 +180,8 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                     {/* زر إلغاء المتابعة (فقط في قائمة تتابعهم) */}
                     {onUnfollow && (
                       <TouchableOpacity
-                        onPress={() => onUnfollow(item.userId)}
+                        onPress={() => !isRemoving && handleUnfollow(item)}
+                        disabled={isRemoving}
                         style={{
                           padding: 6,
                           backgroundColor: '#3d1a1a',
@@ -148,7 +191,10 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                           marginRight: 4,
                         }}
                       >
-                        <MaterialIcons name="person-remove" size={16} color="#EF4444" />
+                        {isRemoving
+                          ? <ActivityIndicator size={16} color="#EF4444" />
+                          : <MaterialIcons name="person-remove" size={16} color="#EF4444" />
+                        }
                       </TouchableOpacity>
                     )}
                   </View>
