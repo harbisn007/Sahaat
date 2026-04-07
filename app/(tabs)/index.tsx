@@ -287,6 +287,7 @@ export default function HomeScreen() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [lastSeenFollowersCount, setLastSeenFollowersCount] = useState<number | null>(null);
   const isConnected = useSocketConnection();
   const socketRef = useRef<Socket | null>(null);
   const creatorSocketRef = useRef<Socket | null>(null);
@@ -347,11 +348,14 @@ export default function HomeScreen() {
   );
   const followingCount = followingCountData?.length ?? 0;
   const followersCount = followersCountData?.length ?? 0;
+  // badge: متابعون جدد لم يُشاهَدوا بعد
+  const hasNewFollowers = lastSeenFollowersCount !== null && followersCount > lastSeenFollowersCount;
   const heartbeatMutation = trpc.stats.heartbeat.useMutation();
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery({ creatorId: userId }, { refetchInterval: 3000 });
   const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery({ limit: 50 }, { refetchInterval: 2000 });
   const { data: displayedInvitesData } = trpc.publicInvitations.getDisplayed.useQuery({ limit: 10 }, { refetchInterval: 1000 });
   const createRoomMutation = trpc.rooms.create.useMutation();
+  const unfollowMutation = trpc.interactions.toggle.useMutation();
   const joinAsPlayerMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
   const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation();
@@ -493,30 +497,46 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           {/* وسط الهيدر: أيقونات المتابعين + عداد المتواجدين */}
-          <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-            {/* أيقونتا المتابعين/المتابَعين */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            {/* الصف الأول: أيقونتا المتابعين يميناً ويساراً */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
               {/* يتابعونك - يسار */}
               <TouchableOpacity
-                onPress={() => setShowFollowersModal(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}
+                onPress={() => { setShowFollowersModal(true); setLastSeenFollowersCount(followersCount); }}
+                style={{ alignItems: 'center' }}
               >
-                <MaterialIcons name="person" size={14} color="#c8860a" />
-                <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followersCount}</Text>
+                <View style={{ position: 'relative' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}>
+                    <MaterialIcons name="person" size={14} color="#c8860a" />
+                    <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followersCount}</Text>
+                  </View>
+                  {/* badge متابعون جدد */}
+                  {hasNewFollowers && (
+                    <View style={{ position: 'absolute', top: -4, right: -4, width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', borderWidth: 1.5, borderColor: '#1c1208' }} />
+                  )}
+                </View>
+                <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>يتابعونك</Text>
               </TouchableOpacity>
-              {/* عداد المتواجدين */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
-                <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>{onlineCount}</Text>
-                <Text style={{ color: '#22C55E', fontSize: 9 }}>متواجدون</Text>
+
+              {/* عداد المتواجدين في الوسط */}
+              <View style={{ alignItems: 'center' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
+                  <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: 'bold' }}>{onlineCount}</Text>
+                </View>
+                <Text style={{ color: '#22C55E', fontSize: 8, marginTop: 1 }}>متواجدون الآن</Text>
               </View>
+
               {/* تتابعهم - يمين */}
               <TouchableOpacity
                 onPress={() => setShowFollowingModal(true)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}
+                style={{ alignItems: 'center' }}
               >
-                <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
-                <MaterialIcons name="person-add" size={14} color="#c8860a" />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}>
+                  <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
+                  <MaterialIcons name="person-add" size={14} color="#c8860a" />
+                </View>
+                <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>تتابعهم</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -637,6 +657,14 @@ export default function HomeScreen() {
         users={followingData || []}
         isLoading={followingLoading}
         onJoinRoom={(roomId) => handleJoinAsViewer(roomId)}
+        onUnfollow={(targetUserId) => {
+          if (!userId) return;
+          unfollowMutation.mutate({
+            fromUserId: userId,
+            toUserId: targetUserId,
+            type: 'follow',
+          });
+        }}
       />
 
       {/* Modal قائمة من يتابعونك */}

@@ -1,4 +1,5 @@
 import { Modal, View, Text, TouchableOpacity, FlatList, ActivityIndicator } from "react-native";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
 import { Image } from "react-native";
 
@@ -18,9 +19,11 @@ interface FollowListModalProps {
   users: FollowUser[];
   isLoading: boolean;
   onJoinRoom?: (roomId: number) => void;
+  /** إذا كانت قائمة "تتابعهم" نمرر دالة إلغاء المتابعة */
+  onUnfollow?: (userId: string) => void;
 }
 
-export function FollowListModal({ visible, onClose, title, users, isLoading, onJoinRoom }: FollowListModalProps) {
+export function FollowListModal({ visible, onClose, title, users, isLoading, onJoinRoom, onUnfollow }: FollowListModalProps) {
   return (
     <Modal
       visible={visible}
@@ -131,6 +134,23 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                         </Text>
                       )}
                     </View>
+
+                    {/* زر إلغاء المتابعة (فقط في قائمة تتابعهم) */}
+                    {onUnfollow && (
+                      <TouchableOpacity
+                        onPress={() => onUnfollow(item.userId)}
+                        style={{
+                          padding: 6,
+                          backgroundColor: '#3d1a1a',
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: '#EF444444',
+                          marginRight: 4,
+                        }}
+                      >
+                        <MaterialIcons name="person-remove" size={16} color="#EF4444" />
+                      </TouchableOpacity>
+                    )}
                   </View>
                 );
               }}
