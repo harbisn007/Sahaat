@@ -24,6 +24,8 @@ import {
   emitPlayAudioMessage,
   emitPlaySheeloha,
   emitCreatorJoinRequest,
+  getOnlineUserIds,
+  getUserCurrentRoomId,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -1009,6 +1011,50 @@ export const appRouter = router({
       .input(z.object({ userId: z.string() }))
       .query(async ({ input }) => {
         return db.getFollowers(input.userId);
+      }),
+    // جلب قائمة المتابَعين مع بياناتهم الكاملة (اسم + حالة اتصال + ساحة حالية)
+    getFollowingDetails: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ input }) => {
+        const following = await db.getFollowing(input.userId);
+        const onlineIds = getOnlineUserIds();
+        const rooms = await db.getAllRooms();
+        const roomMap = new Map(rooms.map((r: any) => [r.id, r.name]));
+        return following.map((f: any) => {
+          const isOnline = onlineIds.has(f.toUserId);
+          const currentRoomId = getUserCurrentRoomId(f.toUserId);
+          const currentRoomName = currentRoomId ? (roomMap.get(currentRoomId) || 'ساحات الطواريق') : 'ساحات الطواريق';
+          return {
+            userId: f.toUserId,
+            username: f.toUsername || f.toUserId,
+            avatar: f.toAvatar || null,
+            isOnline,
+            currentRoomId,
+            currentRoomName,
+          };
+        });
+      }),
+    // جلب قائمة المتابِعين مع بياناتهم الكاملة
+    getFollowersDetails: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ input }) => {
+        const followers = await db.getFollowers(input.userId);
+        const onlineIds = getOnlineUserIds();
+        const rooms = await db.getAllRooms();
+        const roomMap = new Map(rooms.map((r: any) => [r.id, r.name]));
+        return followers.map((f: any) => {
+          const isOnline = onlineIds.has(f.fromUserId);
+          const currentRoomId = getUserCurrentRoomId(f.fromUserId);
+          const currentRoomName = currentRoomId ? (roomMap.get(currentRoomId) || 'ساحات الطواريق') : 'ساحات الطواريق';
+          return {
+            userId: f.fromUserId,
+            username: f.fromUsername || f.fromUserId,
+            avatar: f.fromAvatar || null,
+            isOnline,
+            currentRoomId,
+            currentRoomName,
+          };
+        });
       }),
   }),
 });

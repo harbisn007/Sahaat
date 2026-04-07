@@ -13,6 +13,7 @@ import { useSocketConnection } from "@/hooks/use-socket";
 import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
 import { getAvatarSourceById } from "@/lib/avatars";
+import { FollowListModal } from "@/components/follow-list-modal";
 
 interface PublicInvitation {
   id: number; roomId: number; creatorId: string; creatorName: string;
@@ -284,6 +285,8 @@ function getServerUrl(): string {
 export default function HomeScreen() {
   const { username, userId, avatar, accountType, isLoading: userLoading, logout, clearAllData } = useUser();
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
   const isConnected = useSocketConnection();
   const socketRef = useRef<Socket | null>(null);
   const creatorSocketRef = useRef<Socket | null>(null);
@@ -325,6 +328,25 @@ export default function HomeScreen() {
   const rooms = top10Rooms || [];
   const { data: onlineCountData } = trpc.stats.onlineCount.useQuery(undefined, { refetchInterval: 3000 });
   const onlineCount = onlineCountData?.count ?? 0;
+  const { data: followingData, isLoading: followingLoading } = trpc.interactions.getFollowingDetails.useQuery(
+    { userId: userId || '' },
+    { enabled: !!userId && showFollowingModal, refetchInterval: showFollowingModal ? 5000 : false }
+  );
+  const { data: followersData, isLoading: followersLoading } = trpc.interactions.getFollowersDetails.useQuery(
+    { userId: userId || '' },
+    { enabled: !!userId && showFollowersModal, refetchInterval: showFollowersModal ? 5000 : false }
+  );
+  // عدد المتابعين/المتابَعين (query خفيف دائماً)
+  const { data: followingCountData } = trpc.interactions.getFollowing.useQuery(
+    { userId: userId || '' },
+    { enabled: !!userId, refetchInterval: 10000 }
+  );
+  const { data: followersCountData } = trpc.interactions.getFollowers.useQuery(
+    { userId: userId || '' },
+    { enabled: !!userId, refetchInterval: 10000 }
+  );
+  const followingCount = followingCountData?.length ?? 0;
+  const followersCount = followersCountData?.length ?? 0;
   const heartbeatMutation = trpc.stats.heartbeat.useMutation();
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery({ creatorId: userId }, { refetchInterval: 3000 });
   const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery({ limit: 50 }, { refetchInterval: 2000 });
@@ -470,11 +492,31 @@ export default function HomeScreen() {
             <MaterialIcons name="logout" size={22} color="#c8860a" />
           </TouchableOpacity>
 
-          {/* عداد المتواجدين فقط - العنوان انتقل للبنر */}
-          <View style={{ flex: 1, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: '#22C55E', marginLeft: 5 }} />
-              <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: 'bold' }}>({onlineCount}) المتواجدون الآن</Text>
+          {/* وسط الهيدر: أيقونات المتابعين + عداد المتواجدين */}
+          <View style={{ flex: 1, alignItems: 'center', gap: 4 }}>
+            {/* أيقونتا المتابعين/المتابَعين */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {/* يتابعونك - يسار */}
+              <TouchableOpacity
+                onPress={() => setShowFollowersModal(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}
+              >
+                <MaterialIcons name="person" size={14} color="#c8860a" />
+                <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followersCount}</Text>
+              </TouchableOpacity>
+              {/* عداد المتواجدين */}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginLeft: 4 }} />
+                <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>{onlineCount}</Text>
+              </View>
+              {/* تتابعهم - يمين */}
+              <TouchableOpacity
+                onPress={() => setShowFollowingModal(true)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}
+              >
+                <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
+                <MaterialIcons name="person-add" size={14} color="#c8860a" />
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -585,6 +627,24 @@ export default function HomeScreen() {
       </ImageBackground>
 
       <CreateRoomModal visible={showCreateModal} onClose={() => setShowCreateModal(false)} onSubmit={handleCreateRoom} />
+
+      {/* Modal قائمة من تتابعهم */}
+      <FollowListModal
+        visible={showFollowingModal}
+        onClose={() => setShowFollowingModal(false)}
+        title="تتابعهم"
+        users={followingData || []}
+        isLoading={followingLoading}
+      />
+
+      {/* Modal قائمة من يتابعونك */}
+      <FollowListModal
+        visible={showFollowersModal}
+        onClose={() => setShowFollowersModal(false)}
+        title="يتابعونك"
+        users={followersData || []}
+        isLoading={followersLoading}
+      />
     </ScreenContainer>
   );
 }

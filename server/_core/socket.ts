@@ -531,6 +531,33 @@ export function getOnlineUsersCount(): number {
   return io.sockets.sockets.size;
 }
 
+/**
+ * الحصول على قائمة userId للمستخدمين المتصلين حالياً
+ */
+export function getOnlineUserIds(): Set<string> {
+  if (!io) return new Set();
+  const onlineIds = new Set<string>();
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.userId) {
+      onlineIds.add(socket.data.userId);
+    }
+  }
+  return onlineIds;
+}
+
+/**
+ * الحصول على roomId الذي يتواجد فيه المستخدم حالياً
+ */
+export function getUserCurrentRoomId(userId: string): number | null {
+  if (!io) return null;
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.userId === userId && socket.data.currentRoomId) {
+      return socket.data.currentRoomId;
+    }
+  }
+  return null;
+}
+
 
 /**
  * بث تحديث صوت الصفوف (Choir Effect)

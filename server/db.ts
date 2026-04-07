@@ -1383,22 +1383,61 @@ export async function getUserInteractionStats(toUserId: string, fromUserId: stri
   };
 }
 
-// جلب قائمة من يتابعهم المستخدم
+// جلب قائمة من يتابعهم المستخدم مع بياناتهم
 export async function getFollowing(userId: string) {
   const db = await getDb();
   if (!db) return [];
-  return db
+  // جلب IDs المتابَعين
+  const following = await db
     .select({ toUserId: userInteractions.toUserId })
     .from(userInteractions)
     .where(and(eq(userInteractions.fromUserId, userId), eq(userInteractions.type, "follow")));
+  if (following.length === 0) return [];
+  // جلب أحدث بيانات لكل مستخدم من جدول المشاركين
+  const targetIds = following.map(f => f.toUserId);
+  const participants = await db
+    .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
+    .from(roomParticipants)
+    .where(inArray(roomParticipants.userId, targetIds));
+  // بناء Map لأحدث بيانات لكل userId
+  const userMap = new Map<string, { username: string; avatar: string | null }>();
+  for (const p of participants) {
+    if (!userMap.has(p.userId)) {
+      userMap.set(p.userId, { username: p.username, avatar: p.avatar || null });
+    }
+  }
+  return following.map(f => ({
+    toUserId: f.toUserId,
+    toUsername: userMap.get(f.toUserId)?.username || f.toUserId,
+    toAvatar: userMap.get(f.toUserId)?.avatar || null,
+  }));
 }
 
-// جلب قائمة من يتابعون المستخدم
+// جلب قائمة من يتابعون المستخدم مع بياناتهم
 export async function getFollowers(userId: string) {
   const db = await getDb();
   if (!db) return [];
-  return db
+  // جلب IDs المتابِعين
+  const followers = await db
     .select({ fromUserId: userInteractions.fromUserId })
     .from(userInteractions)
     .where(and(eq(userInteractions.toUserId, userId), eq(userInteractions.type, "follow")));
+  if (followers.length === 0) return [];
+  // جلب أحدث بيانات لكل مستخدم
+  const sourceIds = followers.map(f => f.fromUserId);
+  const participants = await db
+    .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
+    .from(roomParticipants)
+    .where(inArray(roomParticipants.userId, sourceIds));
+  const userMap = new Map<string, { username: string; avatar: string | null }>();
+  for (const p of participants) {
+    if (!userMap.has(p.userId)) {
+      userMap.set(p.userId, { username: p.username, avatar: p.avatar || null });
+    }
+  }
+  return followers.map(f => ({
+    fromUserId: f.fromUserId,
+    fromUsername: userMap.get(f.fromUserId)?.username || f.fromUserId,
+    fromAvatar: userMap.get(f.fromUserId)?.avatar || null,
+  }));
 }
