@@ -285,6 +285,26 @@ export async function deleteRoom(roomId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
+  // جلب معرف الساحة لتصفير like/dislike للمشاركين
+  const room = await db.select({ creatorId: rooms.creatorId }).from(rooms).where(eq(rooms.id, roomId)).limit(1);
+  if (room.length > 0) {
+    // جلب جميع المشاركين في الساحة
+    const participants = await db
+      .select({ userId: roomParticipants.userId })
+      .from(roomParticipants)
+      .where(eq(roomParticipants.roomId, roomId));
+    const participantIds = participants.map(p => p.userId);
+    // حذف جميع like/dislike لهؤلاء المشاركين (ليس follow)
+    if (participantIds.length > 0) {
+      await db.delete(userInteractions).where(
+        and(
+          inArray(userInteractions.toUserId, participantIds),
+          sql`${userInteractions.type} IN ('like', 'dislike')`
+        )
+      );
+    }
+  }
+
   // Delete all related data in order (foreign key constraints)
   // 1. Delete reactions
   await db.delete(reactions).where(eq(reactions.roomId, roomId));
@@ -303,6 +323,16 @@ export async function deleteRoom(roomId: number) {
   
   // 6. Delete the room itself
   await db.delete(rooms).where(eq(rooms.id, roomId));
+}
+
+// إضافة إعجاب أو عدم إعجاب بدون قيود (toggle) - كل ضغطة تضيف +1
+export async function addLikeDislike(fromUserId: string, toUserId: string, type: "like" | "dislike") {
+  const db = await getDb();
+  if (!db) return { action: "added" };
+  // لا يستطيع الشخص الضغط على نفسه
+  if (fromUserId === toUserId) return { action: "self" };
+  await db.insert(userInteractions).values({ fromUserId, toUserId, type });
+  return { action: "added" };
 }
 
 // ============ Room Participants ============

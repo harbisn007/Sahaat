@@ -979,6 +979,16 @@ export const appRouter = router({
   // User interactions router (like / follow / dislike)
   interactions: router({
     // تبديل تفاعل (إضافة أو إلغاء)
+    // إضافة إعجاب أو عدم إعجاب بدون قيود (كل ضغطة +1)
+    addLikeDislike: publicProcedure
+      .input(z.object({
+        fromUserId: z.string(),
+        toUserId: z.string(),
+        type: z.enum(["like", "dislike"]),
+      }))
+      .mutation(async ({ input }) => {
+        return db.addLikeDislike(input.fromUserId, input.toUserId, input.type);
+      }),
     toggle: publicProcedure
       .input(z.object({
         fromUserId: z.string(),
