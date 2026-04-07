@@ -87,7 +87,7 @@ export function RoomCard({
         <View className="mb-2">
           <View className="flex-row items-center gap-1 mb-1">
             {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
-            <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
+            <Text className="text-sm font-bold text-foreground" numberOfLines={2} style={{ flex: 1 }}>{room.name}</Text>
           </View>
           <Text className="text-xs" style={{ color: colors.primary }}>ساحتك</Text>
         </View>
@@ -151,7 +151,7 @@ export function RoomCard({
       <View className="mb-2">
         <View className="flex-row items-center gap-1 mb-1">
           {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
-          <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
+          <Text className="text-sm font-bold text-foreground" numberOfLines={2} style={{ flex: 1 }}>{room.name}</Text>
         </View>
         <Text className="text-xs text-muted" numberOfLines={1}>{room.creatorName}</Text>
       </View>

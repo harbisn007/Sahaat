@@ -2632,3 +2632,13 @@
 - [x] تنزيل موضع كلمة "طواريق" في الأيقونة بمقدار أكبر (ضعف المقدار السابق)
 - [x] تثيت Firebase و Firebase Auth في المشروع
 - [x] استبدال ملف app/welcome.tsx بالنسخة الجديدة من المستخدم
+
+## أيقونات التفاعل على صور المشاركين داخل الساحة
+- [x] إنشاء جدول user_interactions في قاعدة البيانات
+- [x] إضافة دوال التفاعل في server/db.ts (toggle, getStats, getFollowing, getFollowers)
+- [x] إضافة API endpoints في server/routers.ts (interactions router)
+- [x] بناء مكون InteractionButtons (إعجاب/متابعة/عدم إعجاب)
+- [x] تكامل InteractionButtons على صورة المنشئ في شاشة الساحة
+- [x] تكامل InteractionButtons على صورة Player1 في شاشة الساحة
+- [x] تكامل InteractionButtons على صورة Player2 في شاشة الساحة
+- [ ] إضافة أيقونات المتابعين/المتابَعين في الصفحة الرئيسية مع قوائم الأسماء وحالة الاتصال

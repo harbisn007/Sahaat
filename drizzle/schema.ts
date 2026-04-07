@@ -171,3 +171,14 @@ export const publicInvitations = mysqlTable("public_invitations", {
 
 export type PublicInvitation = typeof publicInvitations.$inferSelect;
 export type InsertPublicInvitation = typeof publicInvitations.$inferInsert;
+
+// جدول التفاعلات بين المستخدمين (إعجاب / متابعة / عدم إعجاب)
+export const userInteractions = mysqlTable("user_interactions", {
+  id: int("id").autoincrement().primaryKey(),
+  fromUserId: varchar("fromUserId", { length: 100 }).notNull(), // من ضغط
+  toUserId: varchar("toUserId", { length: 100 }).notNull(),     // على من ضغط
+  type: mysqlEnum("type", ["like", "follow", "dislike"]).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type UserInteraction = typeof userInteractions.$inferSelect;
+export type InsertUserInteraction = typeof userInteractions.$inferInsert;

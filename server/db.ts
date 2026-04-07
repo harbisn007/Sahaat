@@ -1,7 +1,7 @@
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, userInteractions } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1313,4 +1313,92 @@ export async function getRoomControlState(roomId: number) {
     taroukController: result[0].taroukController,
     clappingDelay: parseFloat(result[0].clappingDelay || "0.80"),
   };
+}
+
+// ===== دوال التفاعل بين المستخدمين =====
+
+// تبديل التفاعل (إضافة أو حذف)
+export async function toggleUserInteraction(fromUserId: string, toUserId: string, type: "like" | "follow" | "dislike") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // تحقق هل التفاعل موجود
+  const existing = await db
+    .select()
+    .from(userInteractions)
+    .where(and(
+      eq(userInteractions.fromUserId, fromUserId),
+      eq(userInteractions.toUserId, toUserId),
+      eq(userInteractions.type, type)
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    // إلغاء التفاعل
+    await db.delete(userInteractions).where(
+      and(
+        eq(userInteractions.fromUserId, fromUserId),
+        eq(userInteractions.toUserId, toUserId),
+        eq(userInteractions.type, type)
+      )
+    );
+    return { action: "removed" };
+  } else {
+    // إضافة التفاعل
+    await db.insert(userInteractions).values({ fromUserId, toUserId, type });
+    return { action: "added" };
+  }
+}
+
+// جلب عدد التفاعلات لمستخدم معين + هل المستخدم الحالي فعّلها
+export async function getUserInteractionStats(toUserId: string, fromUserId: string) {
+  const db = await getDb();
+  if (!db) return { likes: 0, follows: 0, dislikes: 0, myLike: false, myFollow: false, myDislike: false };
+
+  const [counts] = await db.execute(sql`
+    SELECT
+      SUM(type = 'like') as likes,
+      SUM(type = 'follow') as follows,
+      SUM(type = 'dislike') as dislikes
+    FROM user_interactions
+    WHERE toUserId = ${toUserId}
+  `);
+
+  const myInteractions = await db
+    .select()
+    .from(userInteractions)
+    .where(and(
+      eq(userInteractions.fromUserId, fromUserId),
+      eq(userInteractions.toUserId, toUserId)
+    ));
+
+  const row = (counts as any[])[0] || {};
+  return {
+    likes: Number(row.likes || 0),
+    follows: Number(row.follows || 0),
+    dislikes: Number(row.dislikes || 0),
+    myLike: myInteractions.some(i => i.type === "like"),
+    myFollow: myInteractions.some(i => i.type === "follow"),
+    myDislike: myInteractions.some(i => i.type === "dislike"),
+  };
+}
+
+// جلب قائمة من يتابعهم المستخدم
+export async function getFollowing(userId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ toUserId: userInteractions.toUserId })
+    .from(userInteractions)
+    .where(and(eq(userInteractions.fromUserId, userId), eq(userInteractions.type, "follow")));
+}
+
+// جلب قائمة من يتابعون المستخدم
+export async function getFollowers(userId: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ fromUserId: userInteractions.fromUserId })
+    .from(userInteractions)
+    .where(and(eq(userInteractions.toUserId, userId), eq(userInteractions.type, "follow")));
 }

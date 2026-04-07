@@ -964,7 +964,7 @@ export const appRouter = router({
       }),
   }),
 
-  // Gold star router
+   // Gold star router
   goldStar: router({
     // Check and award gold star if room has > 20 viewers
     check: publicProcedure
@@ -974,6 +974,42 @@ export const appRouter = router({
         return { awarded };
       }),
   }),
+  // User interactions router (like / follow / dislike)
+  interactions: router({
+    // تبديل تفاعل (إضافة أو إلغاء)
+    toggle: publicProcedure
+      .input(z.object({
+        fromUserId: z.string(),
+        toUserId: z.string(),
+        type: z.enum(["like", "follow", "dislike"]),
+      }))
+      .mutation(async ({ input }) => {
+        if (input.fromUserId === input.toUserId) {
+          throw new Error("لا يمكنك التفاعل مع نفسك");
+        }
+        return db.toggleUserInteraction(input.fromUserId, input.toUserId, input.type);
+      }),
+    // جلب إحصائيات التفاعل لمستخدم معين
+    getStats: publicProcedure
+      .input(z.object({
+        toUserId: z.string(),
+        fromUserId: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return db.getUserInteractionStats(input.toUserId, input.fromUserId);
+      }),
+    // جلب قائمة المتابَعين
+    getFollowing: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ input }) => {
+        return db.getFollowing(input.userId);
+      }),
+    // جلب قائمة المتابِعين
+    getFollowers: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ input }) => {
+        return db.getFollowers(input.userId);
+      }),
+  }),
 });
-
 export type AppRouter = typeof appRouter;

@@ -30,6 +30,7 @@ import { EditProfileModal } from "@/components/edit-profile-modal";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
+import { InteractionButtons } from "@/components/interaction-buttons";
 
 export default function RoomScreen() {
   const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
@@ -2103,22 +2104,25 @@ export default function RoomScreen() {
                   isVisible={!!isPlayer1Recording} 
                   recordingType={player1RecordingType || "tarouk"} 
                 />
-                <TouchableOpacity
-                  onPress={() => userRole === "creator" && handleKickPlayer(player1.userId, player1.username)}
-                  disabled={userRole !== "creator"}
-                  activeOpacity={userRole === "creator" ? 0.7 : 1}
-                >
-                  <Image
-                    source={getAvatarSource(player1.avatar)}
-                    style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
-                  />
-                  {userRole === "creator" && (
-                    <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-                      <MaterialIcons name="close" size={14} color="white" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <View style={{ position: 'relative' }}>
+                  <TouchableOpacity
+                    onPress={() => userRole === "creator" && handleKickPlayer(player1.userId, player1.username)}
+                    disabled={userRole !== "creator"}
+                    activeOpacity={userRole === "creator" ? 0.7 : 1}
+                  >
+                    <Image
+                      source={getAvatarSource(player1.avatar)}
+                      style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
+                    />
+                    {userRole === "creator" && (
+                      <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+                        <MaterialIcons name="close" size={14} color="white" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <InteractionButtons targetUserId={player1.userId} currentUserId={userId || ''} avatarSize={60} />
+                </View>
+                <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player1.username}
                 </Text>
               </View>
@@ -2143,11 +2147,14 @@ export default function RoomScreen() {
                   isVisible={!!isCreatorRecording} 
                   recordingType={creatorRecordingType || "tarouk"} 
                 />
-                <Image
-                  source={getAvatarSource(roomData?.creatorAvatar)}
-                  style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: isCreatorRecording ? '#DC2626' : colors.primary }}
-                />
-                <Text className="text-sm font-bold mt-1 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <View style={{ position: 'relative' }}>
+                  <Image
+                    source={getAvatarSource(roomData?.creatorAvatar)}
+                    style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: isCreatorRecording ? '#DC2626' : colors.primary }}
+                  />
+                  <InteractionButtons targetUserId={roomData?.creatorId || ''} currentUserId={userId || ''} avatarSize={80} />
+                </View>
+                <Text className="text-sm font-bold mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {roomData?.creatorName}
                 </Text>
               </View>
@@ -2175,22 +2182,25 @@ export default function RoomScreen() {
                   isVisible={!!isPlayer2Recording} 
                   recordingType={player2RecordingType || "tarouk"} 
                 />
-                <TouchableOpacity
-                  onPress={() => userRole === "creator" && handleKickPlayer(player2.userId, player2.username)}
-                  disabled={userRole !== "creator"}
-                  activeOpacity={userRole === "creator" ? 0.7 : 1}
-                >
-                  <Image
-                    source={getAvatarSource(player2.avatar)}
-                    style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
-                  />
-                  {userRole === "creator" && (
-                    <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-                      <MaterialIcons name="close" size={14} color="white" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-                <Text className="text-xs mt-1 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <View style={{ position: 'relative' }}>
+                  <TouchableOpacity
+                    onPress={() => userRole === "creator" && handleKickPlayer(player2.userId, player2.username)}
+                    disabled={userRole !== "creator"}
+                    activeOpacity={userRole === "creator" ? 0.7 : 1}
+                  >
+                    <Image
+                      source={getAvatarSource(player2.avatar)}
+                      style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
+                    />
+                    {userRole === "creator" && (
+                      <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
+                        <MaterialIcons name="close" size={14} color="white" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  <InteractionButtons targetUserId={player2.userId} currentUserId={userId || ''} avatarSize={60} />
+                </View>
+                <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player2.username}
                 </Text>
               </View>
