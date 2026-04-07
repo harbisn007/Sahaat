@@ -10,6 +10,7 @@ interface InteractionButtonsProps {
   currentUserId: string;  // المستخدم الحالي
   avatarSize: number;     // حجم الصورة (لحساب موضع الأيقونات)
   roomId: number;         // معرف الساحة للـ Socket
+  avatarBorderColor?: string; // لون إطار الصورة لمطابقة إطار الأيقونات
 }
 
 // اختصار الأرقام الكبيرة
@@ -19,7 +20,7 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-export function InteractionButtons({ targetUserId, currentUserId, avatarSize, roomId }: InteractionButtonsProps) {
+export function InteractionButtons({ targetUserId, currentUserId, avatarSize, roomId, avatarBorderColor = '#c8860a' }: InteractionButtonsProps) {
   const isSelf = targetUserId === currentUserId;
 
   // جلب الإحصائيات الأولية
@@ -130,8 +131,8 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
               width: btnSize,
               height: btnSize,
               borderRadius: btnSize / 2,
-              backgroundColor: localStats.myFollow ? "#FFD700" : "#fff",
-              borderColor: localStats.myFollow ? "#FFD700" : "rgba(255,255,255,0.6)",
+              backgroundColor: localStats.myFollow ? avatarBorderColor : "#fff",
+              borderColor: avatarBorderColor,
             },
           ]}
         >
@@ -162,7 +163,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
               height: btnSize,
               borderRadius: btnSize / 2,
               backgroundColor: "#fff",
-              borderColor: "rgba(255,255,255,0.6)",
+              borderColor: avatarBorderColor,
             },
           ]}
         >
@@ -186,7 +187,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
               height: btnSize,
               borderRadius: btnSize / 2,
               backgroundColor: "#fff",
-              borderColor: "rgba(255,255,255,0.6)",
+              borderColor: avatarBorderColor,
             },
           ]}
         >
@@ -219,7 +220,7 @@ const styles = StyleSheet.create({
   },
   bottomRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: 10,
     alignItems: "center",
     marginBottom: -10,
   },

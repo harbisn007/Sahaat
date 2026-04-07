@@ -2120,7 +2120,7 @@ export default function RoomScreen() {
                       </View>
                     )}
                   </TouchableOpacity>
-                  <InteractionButtons targetUserId={player1.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} />
+                  <InteractionButtons targetUserId={player1.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer1Recording ? '#DC2626' : colors.success} />
                 </View>
                 <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player1.username}
@@ -2152,7 +2152,7 @@ export default function RoomScreen() {
                     source={getAvatarSource(roomData?.creatorAvatar)}
                     style={{ width: 80, height: 80, borderRadius: 40, borderWidth: 3, borderColor: isCreatorRecording ? '#DC2626' : colors.primary }}
                   />
-                  <InteractionButtons targetUserId={roomData?.creatorId || ''} currentUserId={userId || ''} avatarSize={80} roomId={roomId} />
+                  <InteractionButtons targetUserId={roomData?.creatorId || ''} currentUserId={userId || ''} avatarSize={80} roomId={roomId} avatarBorderColor={isCreatorRecording ? '#DC2626' : colors.primary} />
                 </View>
                 <Text className="text-sm font-bold mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {roomData?.creatorName}
@@ -2198,7 +2198,7 @@ export default function RoomScreen() {
                       </View>
                     )}
                   </TouchableOpacity>
-                  <InteractionButtons targetUserId={player2.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} />
+                  <InteractionButtons targetUserId={player2.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer2Recording ? '#DC2626' : colors.success} />
                 </View>
                 <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player2.username}
