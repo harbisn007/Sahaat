@@ -17,9 +17,10 @@ interface FollowListModalProps {
   title: string;
   users: FollowUser[];
   isLoading: boolean;
+  onJoinRoom?: (roomId: number) => void;
 }
 
-export function FollowListModal({ visible, onClose, title, users, isLoading }: FollowListModalProps) {
+export function FollowListModal({ visible, onClose, title, users, isLoading, onJoinRoom }: FollowListModalProps) {
   return (
     <Modal
       visible={visible}
@@ -112,9 +113,23 @@ export function FollowListModal({ visible, onClose, title, users, isLoading }: F
                       <Text style={{ color: '#ECEDEE', fontSize: 14, fontWeight: '600' }}>
                         {item.username}
                       </Text>
-                      <Text style={{ color: item.isOnline ? '#c8860a' : '#687076', fontSize: 11, marginTop: 2 }}>
-                        {item.isOnline ? item.currentRoomName : 'غير متصل'}
-                      </Text>
+                      {item.isOnline && item.currentRoomId ? (
+                        <TouchableOpacity
+                          onPress={() => {
+                            onJoinRoom?.(item.currentRoomId!);
+                            onClose();
+                          }}
+                          style={{ alignSelf: 'flex-start' }}
+                        >
+                          <Text style={{ color: '#c8860a', fontSize: 11, marginTop: 2, textDecorationLine: 'underline' }}>
+                            {item.currentRoomName}
+                          </Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={{ color: item.isOnline ? '#c8860a' : '#687076', fontSize: 11, marginTop: 2 }}>
+                          {item.isOnline ? 'ساحات الطواريق' : 'غير متصل'}
+                        </Text>
+                      )}
                     </View>
                   </View>
                 );

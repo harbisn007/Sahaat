@@ -84,6 +84,12 @@ interface ServerToClientEvents {
     requesterId: string;
     requesterName: string;
   }) => void;
+  // حدث تحديث عدادات التفاعل
+  interactionUpdated: (data: { toUserId: string; likes: number; dislikes: number; follows: number }) => void;
+  // حدث تحديث عدد المتواجدين
+  onlineCountUpdated: (data: { count: number }) => void;
+  publicInviteCreated: (data: { invitationId: number; roomId: number; creatorId: string; creatorName: string; creatorAvatar: string; roomName: string; }) => void;
+  publicInviteExpired: (data: { invitationId: number }) => void;
 }
 
 interface ClientToServerEvents {
@@ -95,7 +101,7 @@ interface ClientToServerEvents {
   leaveUserChannel: (userId: string) => void;
   joinCreatorChannel: (userId: string) => void;
   leaveCreatorChannel: (userId: string) => void;
-  playSheeloha: (data: { roomId: number; sheelohaUrl: string; userId: string; username: string }) => void;
+  playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration?: number; userId: string; username: string }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;

@@ -96,6 +96,9 @@ export interface ServerToClientEvents {
   // حدث تحديث عدد المتواجدين
   onlineCountUpdated: (data: { count: number }) => void;
   
+  // حدث تحديث عدادات التفاعلات
+  interactionUpdated: (data: { toUserId: string; likes: number; dislikes: number; follows: number }) => void;
+  
   // حدث تغيير المتحكم بالطاروق
   taroukControllerChanged: (data: { 
     roomId: number; 
@@ -341,6 +344,14 @@ export function getIO(): Server<ClientToServerEvents, ServerToClientEvents, Inte
 }
 
 // ============ دوال البث للأحداث ============
+
+/**
+ * بث تحديث عدادات التفاعلات لجميع مشاركي الساحة
+ */
+export function emitInteractionUpdated(roomId: number, toUserId: string, likes: number, dislikes: number, follows: number): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("interactionUpdated", { toUserId, likes, dislikes, follows });
+}
 
 /**
  * بث تحديث الساحة لجميع المشاركين

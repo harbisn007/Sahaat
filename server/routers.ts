@@ -26,6 +26,7 @@ import {
   emitCreatorJoinRequest,
   getOnlineUserIds,
   getUserCurrentRoomId,
+  emitInteractionUpdated,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -985,21 +986,35 @@ export const appRouter = router({
         fromUserId: z.string(),
         toUserId: z.string(),
         type: z.enum(["like", "dislike"]),
+        roomId: z.number().optional(), // لإرسال socket event
       }))
       .mutation(async ({ input }) => {
-        return db.addLikeDislike(input.fromUserId, input.toUserId, input.type);
+        const result = await db.addLikeDislike(input.fromUserId, input.toUserId, input.type);
+        // بث socket event فوري لتحديث العدادات
+        if (input.roomId) {
+          const stats = await db.getUserInteractionStats(input.toUserId, input.fromUserId);
+          emitInteractionUpdated(input.roomId, input.toUserId, stats.likes, stats.dislikes, stats.follows);
+        }
+        return result;
       }),
     toggle: publicProcedure
       .input(z.object({
         fromUserId: z.string(),
         toUserId: z.string(),
         type: z.enum(["like", "follow", "dislike"]),
+        roomId: z.number().optional(), // لإرسال socket event
       }))
       .mutation(async ({ input }) => {
         if (input.fromUserId === input.toUserId) {
           throw new Error("لا يمكنك التفاعل مع نفسك");
         }
-        return db.toggleUserInteraction(input.fromUserId, input.toUserId, input.type);
+        const result = await db.toggleUserInteraction(input.fromUserId, input.toUserId, input.type);
+        // بث socket event فوري لتحديث العدادات
+        if (input.roomId) {
+          const stats = await db.getUserInteractionStats(input.toUserId, input.fromUserId);
+          emitInteractionUpdated(input.roomId, input.toUserId, stats.likes, stats.dislikes, stats.follows);
+        }
+        return result;
       }),
     // جلب إحصائيات التفاعل لمستخدم معين
     getStats: publicProcedure

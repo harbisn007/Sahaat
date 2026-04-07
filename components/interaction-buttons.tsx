@@ -1,11 +1,15 @@
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, StyleSheet, Platform } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
 import { trpc } from "@/lib/trpc";
+import { useEffect, useState } from "react";
+import * as Haptics from "expo-haptics";
+import { getSocket } from "@/hooks/use-socket";
 
 interface InteractionButtonsProps {
   targetUserId: string;   // المستخدم الذي تُعرض عليه الأيقونات
   currentUserId: string;  // المستخدم الحالي
   avatarSize: number;     // حجم الصورة (لحساب موضع الأيقونات)
+  roomId: number;         // معرف الساحة للـ Socket
 }
 
 // اختصار الأرقام الكبيرة
@@ -15,14 +19,54 @@ function formatCount(n: number): string {
   return String(n);
 }
 
-export function InteractionButtons({ targetUserId, currentUserId, avatarSize }: InteractionButtonsProps) {
+export function InteractionButtons({ targetUserId, currentUserId, avatarSize, roomId }: InteractionButtonsProps) {
   const isSelf = targetUserId === currentUserId;
 
-  // جلب الإحصائيات
+  // جلب الإحصائيات الأولية
   const { data: stats, refetch } = trpc.interactions.getStats.useQuery(
     { toUserId: targetUserId, fromUserId: currentUserId },
-    { enabled: !!targetUserId && !!currentUserId, refetchInterval: 3000 }
+    { enabled: !!targetUserId && !!currentUserId }
   );
+
+  // state محلي للعدادات (يُحدَّث فوراً عبر socket)
+  const [localStats, setLocalStats] = useState({
+    likes: 0, dislikes: 0, follows: 0,
+    myFollow: false,
+  });
+
+  // مزامنة البيانات الأولية من الـ query
+  useEffect(() => {
+    if (stats) {
+      setLocalStats({
+        likes: stats.likes,
+        dislikes: stats.dislikes,
+        follows: stats.follows,
+        myFollow: stats.myFollow,
+      });
+    }
+  }, [stats]);
+
+  // الاستماع لـ socket event لتحديث العدادات فوراً
+  useEffect(() => {
+    let socketRef: any = null;
+    const handleInteractionUpdated = (data: { toUserId: string; likes: number; dislikes: number; follows: number }) => {
+      if (data.toUserId === targetUserId) {
+        setLocalStats(prev => ({
+          ...prev,
+          likes: data.likes,
+          dislikes: data.dislikes,
+          follows: data.follows,
+        }));
+      }
+    };
+    getSocket().then(s => {
+      socketRef = s;
+      s.on("interactionUpdated", handleInteractionUpdated);
+    }).catch(() => {});
+    return () => {
+      if (socketRef) socketRef.off("interactionUpdated", handleInteractionUpdated);
+    };
+  }, [targetUserId]);
 
   // mutation للمتابعة (toggle)
   const toggleMutation = trpc.interactions.toggle.useMutation({
@@ -34,25 +78,39 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize }: 
     onSuccess: () => refetch(),
   });
 
+  const triggerHaptic = () => {
+    if (Platform.OS !== "web") {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  };
+
   const handleFollow = () => {
     if (isSelf) return;
-    toggleMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "follow" });
+    triggerHaptic();
+    // تحديث محلي فوري
+    setLocalStats(prev => ({
+      ...prev,
+      follows: prev.myFollow ? prev.follows - 1 : prev.follows + 1,
+      myFollow: !prev.myFollow,
+    }));
+    toggleMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "follow", roomId });
   };
 
   const handleLike = () => {
     if (isSelf) return;
-    addLikeDislikeMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "like" });
+    triggerHaptic();
+    // تحديث محلي فوري
+    setLocalStats(prev => ({ ...prev, likes: prev.likes + 1 }));
+    addLikeDislikeMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "like", roomId });
   };
 
   const handleDislike = () => {
     if (isSelf) return;
-    addLikeDislikeMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "dislike" });
+    triggerHaptic();
+    // تحديث محلي فوري
+    setLocalStats(prev => ({ ...prev, dislikes: prev.dislikes + 1 }));
+    addLikeDislikeMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "dislike", roomId });
   };
-
-  const followCount = stats?.follows ?? 0;
-  const likeCount = stats?.likes ?? 0;
-  const dislikeCount = stats?.dislikes ?? 0;
-  const isFollowing = stats?.myFollow ?? false;
 
   const btnSize = 24;
   const iconSize = 13;
@@ -72,19 +130,19 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize }: 
               width: btnSize,
               height: btnSize,
               borderRadius: btnSize / 2,
-              backgroundColor: isFollowing ? "#FFD700" : "#fff",
-              borderColor: isFollowing ? "#FFD700" : "rgba(255,255,255,0.6)",
+              backgroundColor: localStats.myFollow ? "#FFD700" : "#fff",
+              borderColor: localStats.myFollow ? "#FFD700" : "rgba(255,255,255,0.6)",
             },
           ]}
         >
           <MaterialIcons
-            name={isFollowing ? "person-remove" : "person-add"}
+            name={localStats.myFollow ? "person-remove" : "person-add"}
             size={iconSize}
-            color={isFollowing ? "#1c1208" : "#555"}
+            color={localStats.myFollow ? "#1c1208" : "#555"}
           />
-          {followCount > 0 && (
+          {localStats.follows > 0 && (
             <Text style={[styles.countLabel, { color: "#FFD700" }]}>
-              {formatCount(followCount)}
+              {formatCount(localStats.follows)}
             </Text>
           )}
         </TouchableOpacity>
@@ -109,9 +167,9 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize }: 
           ]}
         >
           <MaterialIcons name="thumb-up" size={iconSize} color="#555" />
-          {likeCount > 0 && (
+          {localStats.likes > 0 && (
             <Text style={[styles.countLabel, { color: "#22C55E" }]}>
-              {formatCount(likeCount)}
+              {formatCount(localStats.likes)}
             </Text>
           )}
         </TouchableOpacity>
@@ -133,9 +191,9 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize }: 
           ]}
         >
           <MaterialIcons name="thumb-down" size={iconSize} color="#555" />
-          {dislikeCount > 0 && (
+          {localStats.dislikes > 0 && (
             <Text style={[styles.countLabel, { color: "#EF4444" }]}>
-              {formatCount(dislikeCount)}
+              {formatCount(localStats.dislikes)}
             </Text>
           )}
         </TouchableOpacity>
@@ -157,14 +215,12 @@ const styles = StyleSheet.create({
   },
   topRow: {
     alignItems: "center",
-    // يجلس على الحافة العلوية للصورة
     marginTop: -10,
   },
   bottomRow: {
     flexDirection: "row",
     gap: 4,
     alignItems: "center",
-    // يجلس على الحافة السفلية للصورة
     marginBottom: -10,
   },
   btn: {

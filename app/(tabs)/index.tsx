@@ -635,6 +635,7 @@ export default function HomeScreen() {
         title="تتابعهم"
         users={followingData || []}
         isLoading={followingLoading}
+        onJoinRoom={(roomId) => handleJoinAsViewer(roomId)}
       />
 
       {/* Modal قائمة من يتابعونك */}
@@ -644,6 +645,7 @@ export default function HomeScreen() {
         title="يتابعونك"
         users={followersData || []}
         isLoading={followersLoading}
+        onJoinRoom={(roomId) => handleJoinAsViewer(roomId)}
       />
     </ScreenContainer>
   );

@@ -1,4 +1,4 @@
-import { eq, inArray, and, sql } from "drizzle-orm";
+import { eq, inArray, and, asc, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { InsertUser, users, userInteractions } from "../drizzle/schema";
@@ -14,7 +14,7 @@ export async function getDb() {
         uri: process.env.DATABASE_URL,
         ssl: { rejectUnauthorized: true },
       });
-      _db = drizzle(connection);
+      _db = drizzle(connection) as any;
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -128,8 +128,6 @@ export async function upsertUserByPhone(data: {
 }
 
 // ============ Rooms ============
-
-import { and, asc, desc } from "drizzle-orm";
 import {
   rooms,
   roomParticipants,
@@ -1402,7 +1400,7 @@ export async function getUserInteractionStats(toUserId: string, fromUserId: stri
       eq(userInteractions.toUserId, toUserId)
     ));
 
-  const row = (counts as any[])[0] || {};
+  const row = (counts as unknown as any[])[0] || {};
   return {
     likes: Number(row.likes || 0),
     follows: Number(row.follows || 0),
