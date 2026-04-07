@@ -505,9 +505,10 @@ export default function HomeScreen() {
                 <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followersCount}</Text>
               </TouchableOpacity>
               {/* عداد المتواجدين */}
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E', marginLeft: 4 }} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
                 <Text style={{ color: '#22C55E', fontSize: 10, fontWeight: 'bold' }}>{onlineCount}</Text>
+                <Text style={{ color: '#22C55E', fontSize: 9 }}>متواجدون</Text>
               </View>
               {/* تتابعهم - يمين */}
               <TouchableOpacity
