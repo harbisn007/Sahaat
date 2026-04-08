@@ -518,7 +518,19 @@ export default function HomeScreen() {
                 <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>يتابعونك</Text>
               </TouchableOpacity>
 
-              {/* عداد المتواجدين في الوسط - محاط بخطين عموديين ذهبيين */}
+              {/* تتابعهم - وسط */}
+              <TouchableOpacity
+                onPress={() => setShowFollowingModal(true)}
+                style={{ alignItems: 'center' }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}>
+                  <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
+                  <MaterialIcons name="person-add" size={14} color="#c8860a" />
+                </View>
+                <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>تتابعهم</Text>
+              </TouchableOpacity>
+
+              {/* عداد المتواجدين - يمين - محاط بخطين عموديين ذهبيين */}
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 {/* خط عمودي يسار */}
                 <View style={{ width: 1, height: 28, backgroundColor: '#c8860a66', marginRight: 10 }} />
@@ -532,18 +544,6 @@ export default function HomeScreen() {
                 {/* خط عمودي يمين */}
                 <View style={{ width: 1, height: 28, backgroundColor: '#c8860a66', marginLeft: 10 }} />
               </View>
-
-              {/* تتابعهم - يمين */}
-              <TouchableOpacity
-                onPress={() => setShowFollowingModal(true)}
-                style={{ alignItems: 'center' }}
-              >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}>
-                  <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
-                  <MaterialIcons name="person-add" size={14} color="#c8860a" />
-                </View>
-                <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>تتابعهم</Text>
-              </TouchableOpacity>
             </View>
           </View>
 
