@@ -498,8 +498,8 @@ export default function HomeScreen() {
 
           {/* وسط الهيدر: أيقونات المتابعين + عداد المتواجدين */}
           <View style={{ flex: 1, alignItems: 'center' }}>
-            {/* الصف الأول: أيقونتا المتابعين يميناً ويساراً */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+            {/* الصف الأول: أيقونتا المتابعين + عداد المتواجدين */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
               {/* يتابعونك - يسار */}
               <TouchableOpacity
                 onPress={() => { setShowFollowersModal(true); setLastSeenFollowersCount(followersCount); }}
@@ -518,13 +518,19 @@ export default function HomeScreen() {
                 <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>يتابعونك</Text>
               </TouchableOpacity>
 
-              {/* عداد المتواجدين في الوسط */}
-              <View style={{ alignItems: 'center' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
-                  <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: 'bold' }}>{onlineCount}</Text>
+              {/* عداد المتواجدين في الوسط - محاط بخطين عموديين ذهبيين */}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {/* خط عمودي يسار */}
+                <View style={{ width: 1, height: 28, backgroundColor: '#c8860a66', marginRight: 10 }} />
+                <View style={{ alignItems: 'center' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#22C55E' }} />
+                    <Text style={{ color: '#22C55E', fontSize: 11, fontWeight: 'bold' }}>{onlineCount}</Text>
+                  </View>
+                  <Text style={{ color: '#22C55E', fontSize: 8, marginTop: 1 }}>متواجدون الآن</Text>
                 </View>
-                <Text style={{ color: '#22C55E', fontSize: 8, marginTop: 1 }}>متواجدون الآن</Text>
+                {/* خط عمودي يمين */}
+                <View style={{ width: 1, height: 28, backgroundColor: '#c8860a66', marginLeft: 10 }} />
               </View>
 
               {/* تتابعهم - يمين */}
