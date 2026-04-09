@@ -1423,13 +1423,17 @@ export async function getFollowing(userId: string) {
   if (following.length === 0) return [];
   // جلب بيانات المستخدمين من جدول users
   const targetIds = following.map(f => f.toUserId);
-  const usersData = await db
-    .select({ openId: users.openId, name: users.name, avatar: users.avatar })
-    .from(users)
-    .where(inArray(users.openId, targetIds));
+  // جلب آخر سجل لكل مستخدم من roomParticipants (يحتوي الاسم الحقيقي لجميع أنواع المستخدمين)
+  const participantsData = await db
+    .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
+    .from(roomParticipants)
+    .where(inArray(roomParticipants.userId, targetIds))
+    .orderBy(desc(roomParticipants.id));
   const userMap = new Map<string, { username: string; avatar: string | null }>();
-  for (const u of usersData) {
-    userMap.set(u.openId, { username: u.name || u.openId, avatar: u.avatar || null });
+  for (const p of participantsData) {
+    if (!userMap.has(p.userId)) {
+      userMap.set(p.userId, { username: p.username || p.userId, avatar: p.avatar || null });
+    }
   }
   return following.map(f => ({
     toUserId: f.toUserId,
@@ -1450,13 +1454,17 @@ export async function getFollowers(userId: string) {
   if (followers.length === 0) return [];
   // جلب بيانات المستخدمين من جدول users
   const sourceIds = followers.map(f => f.fromUserId);
-  const usersData = await db
-    .select({ openId: users.openId, name: users.name, avatar: users.avatar })
-    .from(users)
-    .where(inArray(users.openId, sourceIds));
+  // جلب آخر سجل لكل مستخدم من roomParticipants (يحتوي الاسم الحقيقي لجميع أنواع المستخدمين)
+  const participantsData = await db
+    .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
+    .from(roomParticipants)
+    .where(inArray(roomParticipants.userId, sourceIds))
+    .orderBy(desc(roomParticipants.id));
   const userMap = new Map<string, { username: string; avatar: string | null }>();
-  for (const u of usersData) {
-    userMap.set(u.openId, { username: u.name || u.openId, avatar: u.avatar || null });
+  for (const p of participantsData) {
+    if (!userMap.has(p.userId)) {
+      userMap.set(p.userId, { username: p.username || p.userId, avatar: p.avatar || null });
+    }
   }
   return followers.map(f => ({
     fromUserId: f.fromUserId,
