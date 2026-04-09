@@ -226,11 +226,13 @@ export default function WelcomeScreen() {
       const displayName = name.trim() || "مستخدم";
       const avatar = selectedAvatar || "male";
       await loginAsGuest(displayName, avatar as AvatarType);
+      const guestUserId = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
       await upsertUserByPhone.mutateAsync({
         phoneNumber: fullPhone,
         name: displayName,
         avatar: avatar as string,
         openId: firebaseUid,
+        appUserId: guestUserId,
       });
       await AsyncStorage.setItem('user_uuid', firebaseUid);
       await AsyncStorage.setItem('user_name', displayName);
@@ -257,7 +259,8 @@ export default function WelcomeScreen() {
             const displayName = name.trim() || "مستخدم";
             const avatar = selectedAvatar || "male";
             await loginAsGuest(displayName, avatar as AvatarType);
-            await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid });
+            const guestUserId2 = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
+            await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid, appUserId: guestUserId2 });
             await AsyncStorage.setItem('user_uuid', firebaseUid);
             await AsyncStorage.setItem('user_name', displayName);
             await AsyncStorage.setItem('user_avatar', avatar as string);

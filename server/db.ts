@@ -107,21 +107,23 @@ export async function upsertUserByPhone(data: {
   name: string;
   avatar: string;
   openId: string;
+  appUserId?: string;
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-
   await db.insert(users).values({
     openId: data.openId,
     phoneNumber: data.phoneNumber,
     name: data.name,
     avatar: data.avatar,
+    appUserId: data.appUserId || null,
     loginMethod: "phone",
     lastSignedIn: new Date(),
   }).onDuplicateKeyUpdate({
     set: {
       name: data.name,
       avatar: data.avatar,
+      appUserId: data.appUserId || null,
       lastSignedIn: new Date(),
     }
   });
@@ -1423,16 +1425,28 @@ export async function getFollowing(userId: string) {
   if (following.length === 0) return [];
   // جلب بيانات المستخدمين من جدول users
   const targetIds = following.map(f => f.toUserId);
-  // جلب آخر سجل لكل مستخدم من roomParticipants (يحتوي الاسم الحقيقي لجميع أنواع المستخدمين)
-  const participantsData = await db
-    .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
-    .from(roomParticipants)
-    .where(inArray(roomParticipants.userId, targetIds))
-    .orderBy(desc(roomParticipants.id));
-  const userMap = new Map<string, { username: string; avatar: string | null }>();
-  for (const p of participantsData) {
-    if (!userMap.has(p.userId)) {
-      userMap.set(p.userId, { username: p.username || p.userId, avatar: p.avatar || null });
+  // جلب الاسم من users.appUserId أولاً، ثم roomParticipants كـ fallback
+  const usersData = await db
+    .select({ appUserId: users.appUserId, name: users.name, avatar: users.avatar })
+    .from(users)
+    .where(inArray(users.appUserId, targetIds));
+  const userMapFromUsers = new Map<string, { username: string; avatar: string | null }>();
+  for (const u of usersData) {
+    if (u.appUserId) userMapFromUsers.set(u.appUserId, { username: u.name || u.appUserId, avatar: u.avatar || null });
+  }
+  // جلب من roomParticipants للمستخدمين الذين ليس لهم سجل في users
+  const missingIds = targetIds.filter(id => !userMapFromUsers.has(id));
+  const userMap = new Map<string, { username: string; avatar: string | null }>(userMapFromUsers);
+  if (missingIds.length > 0) {
+    const participantsData = await db
+      .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
+      .from(roomParticipants)
+      .where(inArray(roomParticipants.userId, missingIds))
+      .orderBy(desc(roomParticipants.id));
+    for (const p of participantsData) {
+      if (!userMap.has(p.userId)) {
+        userMap.set(p.userId, { username: p.username || p.userId, avatar: p.avatar || null });
+      }
     }
   }
   return following.map(f => ({
@@ -1454,16 +1468,28 @@ export async function getFollowers(userId: string) {
   if (followers.length === 0) return [];
   // جلب بيانات المستخدمين من جدول users
   const sourceIds = followers.map(f => f.fromUserId);
-  // جلب آخر سجل لكل مستخدم من roomParticipants (يحتوي الاسم الحقيقي لجميع أنواع المستخدمين)
-  const participantsData = await db
-    .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
-    .from(roomParticipants)
-    .where(inArray(roomParticipants.userId, sourceIds))
-    .orderBy(desc(roomParticipants.id));
-  const userMap = new Map<string, { username: string; avatar: string | null }>();
-  for (const p of participantsData) {
-    if (!userMap.has(p.userId)) {
-      userMap.set(p.userId, { username: p.username || p.userId, avatar: p.avatar || null });
+  // جلب الاسم من users.appUserId أولاً، ثم roomParticipants كـ fallback
+  const usersData = await db
+    .select({ appUserId: users.appUserId, name: users.name, avatar: users.avatar })
+    .from(users)
+    .where(inArray(users.appUserId, sourceIds));
+  const userMapFromUsers = new Map<string, { username: string; avatar: string | null }>();
+  for (const u of usersData) {
+    if (u.appUserId) userMapFromUsers.set(u.appUserId, { username: u.name || u.appUserId, avatar: u.avatar || null });
+  }
+  // جلب من roomParticipants للمستخدمين الذين ليس لهم سجل في users
+  const missingIds = sourceIds.filter(id => !userMapFromUsers.has(id));
+  const userMap = new Map<string, { username: string; avatar: string | null }>(userMapFromUsers);
+  if (missingIds.length > 0) {
+    const participantsData = await db
+      .select({ userId: roomParticipants.userId, username: roomParticipants.username, avatar: roomParticipants.avatar })
+      .from(roomParticipants)
+      .where(inArray(roomParticipants.userId, missingIds))
+      .orderBy(desc(roomParticipants.id));
+    for (const p of participantsData) {
+      if (!userMap.has(p.userId)) {
+        userMap.set(p.userId, { username: p.username || p.userId, avatar: p.avatar || null });
+      }
     }
   }
   return followers.map(f => ({
