@@ -1005,6 +1005,7 @@ export const appRouter = router({
         roomId: z.number().optional(), // لإرسال socket event
       }))
       .mutation(async ({ input }) => {
+        console.log('[INTERACTION] toggle called', input);
         if (input.fromUserId === input.toUserId) {
           throw new Error("لا يمكنك التفاعل مع نفسك");
         }
