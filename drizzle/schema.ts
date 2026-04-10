@@ -183,3 +183,13 @@ export const userInteractions = mysqlTable("user_interactions", {
 });
 export type UserInteraction = typeof userInteractions.$inferSelect;
 export type InsertUserInteraction = typeof userInteractions.$inferInsert;
+
+// جدول الحجب - يُخفي موقع المستخدم عن المحجوب
+export const blockedUsers = mysqlTable("blocked_users", {
+  id: int("id").autoincrement().primaryKey(),
+  blockerId: varchar("blockerId", { length: 100 }).notNull(), // من قام بالحجب
+  blockedId: varchar("blockedId", { length: 100 }).notNull(), // من تم حجبه
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type BlockedUser = typeof blockedUsers.$inferSelect;
+export type InsertBlockedUser = typeof blockedUsers.$inferInsert;

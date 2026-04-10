@@ -1,7 +1,7 @@
 import { eq, inArray, and, asc, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, userInteractions } from "../drizzle/schema";
+import { InsertUser, users, userInteractions, blockedUsers } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1497,4 +1497,50 @@ export async function getFollowers(userId: string) {
     fromUsername: userMap.get(f.fromUserId)?.username || f.fromUserId,
     fromAvatar: userMap.get(f.fromUserId)?.avatar || null,
   }));
+}
+
+// ============ Blocked Users ============
+
+// toggle الحجب: إذا موجود يحذفه، إذا غير موجود يضيفه
+export async function toggleBlock(blockerId: string, blockedId: string): Promise<{ action: "blocked" | "unblocked" }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(blockedUsers)
+    .where(and(eq(blockedUsers.blockerId, blockerId), eq(blockedUsers.blockedId, blockedId)))
+    .limit(1);
+  if (existing.length > 0) {
+    await db.delete(blockedUsers).where(and(eq(blockedUsers.blockerId, blockerId), eq(blockedUsers.blockedId, blockedId)));
+    return { action: "unblocked" };
+  } else {
+    await db.insert(blockedUsers).values({ blockerId, blockedId });
+    return { action: "blocked" };
+  }
+}
+
+// هل حجب blockerId شخصاً معيناً؟
+export async function isBlocked(blockerId: string, blockedId: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select({ id: blockedUsers.id }).from(blockedUsers)
+    .where(and(eq(blockedUsers.blockerId, blockerId), eq(blockedUsers.blockedId, blockedId)))
+    .limit(1);
+  return result.length > 0;
+}
+
+// جلب قائمة IDs المحجوبين من قِبَل مستخدم معين
+export async function getBlockedIds(blockerId: string): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const result = await db.select({ blockedId: blockedUsers.blockedId }).from(blockedUsers)
+    .where(eq(blockedUsers.blockerId, blockerId));
+  return result.map(r => r.blockedId);
+}
+
+// جلب IDs الذين حجبوا مستخدماً معيناً (أي من قام بحجب userId)
+export async function getBlockedByIds(userId: string): Promise<string[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const result = await db.select({ blockerId: blockedUsers.blockerId }).from(blockedUsers)
+    .where(eq(blockedUsers.blockedId, userId));
+  return result.map(r => r.blockerId);
 }

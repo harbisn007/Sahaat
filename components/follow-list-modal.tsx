@@ -22,14 +22,26 @@ interface FollowListModalProps {
   onJoinRoom?: (roomId: number) => void;
   /** إذا كانت قائمة "تتابعهم" نمرر دالة إلغاء المتابعة */
   onUnfollow?: (userId: string) => Promise<void> | void;
+  /** إذا كانت قائمة "يتابعونك" نمرر هذه الدوال */
+  onFollowBack?: (userId: string) => Promise<void> | void;
+  onBlock?: (userId: string) => Promise<void> | void;
+  /** قائمة IDs المحجوبين الحاليين */
+  blockedIds?: string[];
+  /** قائمة IDs الذين تتابعهم */
+  followingIds?: string[];
+  /** نوع القائمة */
+  listType?: "followers" | "following";
 }
 
-export function FollowListModal({ visible, onClose, title, users, isLoading, onJoinRoom, onUnfollow }: FollowListModalProps) {
-  // قائمة محلية للتحديث الفوري بعد إلغاء المتابعة
+export function FollowListModal({
+  visible, onClose, title, users, isLoading, onJoinRoom,
+  onUnfollow, onFollowBack, onBlock, blockedIds = [], followingIds = [], listType = "following"
+}: FollowListModalProps) {
   const [localUsers, setLocalUsers] = useState<FollowUser[]>([]);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [localBlockedIds, setLocalBlockedIds] = useState<string[]>(blockedIds);
+  const [localFollowingIds, setLocalFollowingIds] = useState<string[]>(followingIds);
 
-  // مزامنة القائمة المحلية مع القائمة الواردة عند فتح المودال
   const displayUsers = localUsers.length > 0 ? localUsers : users;
 
   const handleUnfollow = (user: FollowUser) => {
@@ -45,7 +57,6 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
             setRemovingId(user.userId);
             try {
               await onUnfollow?.(user.userId);
-              // تحديث فوري للقائمة المحلية بدون إغلاق المودال
               const updated = (localUsers.length > 0 ? localUsers : users).filter(u => u.userId !== user.userId);
               setLocalUsers(updated);
             } finally {
@@ -58,9 +69,52 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
     );
   };
 
-  // إعادة تعيين القائمة المحلية عند إغلاق المودال
+  const handleFollowBack = async (user: FollowUser) => {
+    const isFollowing = localFollowingIds.includes(user.userId);
+    if (isFollowing) {
+      Alert.alert('إلغاء المتابعة', `هل تريد إلغاء متابعة ${user.username}؟`, [
+        { text: 'إلغاء', style: 'cancel' },
+        { text: 'نعم', style: 'destructive', onPress: async () => {
+          await onFollowBack?.(user.userId);
+          setLocalFollowingIds(prev => prev.filter(id => id !== user.userId));
+        }},
+      ]);
+    } else {
+      await onFollowBack?.(user.userId);
+      setLocalFollowingIds(prev => [...prev, user.userId]);
+    }
+  };
+
+  const handleBlock = async (user: FollowUser) => {
+    const isBlocked = localBlockedIds.includes(user.userId);
+    Alert.alert(
+      isBlocked ? 'إلغاء الحجب' : 'حجب المستخدم',
+      isBlocked
+        ? `هل تريد إلغاء حجب ${user.username}؟ سيتمكن من رؤية ساحتك مجدداً.`
+        : `هل تريد حجب ${user.username}؟ لن يرى الساحة التي تتواجد بها.`,
+      [
+        { text: 'إلغاء', style: 'cancel' },
+        {
+          text: isBlocked ? 'نعم، إلغِ الحجب' : 'نعم، احجب',
+          style: 'destructive',
+          onPress: async () => {
+            await onBlock?.(user.userId);
+            if (isBlocked) {
+              setLocalBlockedIds(prev => prev.filter(id => id !== user.userId));
+            } else {
+              setLocalBlockedIds(prev => [...prev, user.userId]);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   const handleClose = () => {
     setLocalUsers([]);
+    setLocalBlockedIds(blockedIds);
+    setLocalFollowingIds(followingIds);
     onClose();
   };
 
@@ -123,6 +177,9 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                   ? { uri: item.avatar }
                   : getAvatarSourceById(item.avatar || 'male');
                 const isRemoving = removingId === item.userId;
+                const isBlocked = localBlockedIds.includes(item.userId);
+                const isFollowing = localFollowingIds.includes(item.userId);
+
                 return (
                   <View style={{
                     flexDirection: 'row',
@@ -139,7 +196,6 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                         source={avatarSource}
                         style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1.5, borderColor: '#c8860a' }}
                       />
-                      {/* دائرة حالة الاتصال */}
                       <View style={{
                         position: 'absolute',
                         bottom: 1,
@@ -153,32 +209,78 @@ export function FollowListModal({ visible, onClose, title, users, isLoading, onJ
                       }} />
                     </View>
 
-                    {/* الاسم والساحة */}
+                    {/* الاسم */}
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: '#ECEDEE', fontSize: 14, fontWeight: '600' }}>
                         {item.username}
                       </Text>
-                      {item.isOnline && item.currentRoomId ? (
-                        <TouchableOpacity
-                          onPress={() => {
-                            onJoinRoom?.(item.currentRoomId!);
-                            handleClose();
-                          }}
-                          style={{ alignSelf: 'flex-start' }}
-                        >
-                          <Text style={{ color: '#c8860a', fontSize: 11, marginTop: 2, textDecorationLine: 'underline' }}>
-                            {item.currentRoomName}
+                      {/* في قائمة تتابعهم: أظهر الساحة. في يتابعونك: لا تظهر الساحة */}
+                      {listType === "following" && (
+                        item.isOnline && item.currentRoomId ? (
+                          <TouchableOpacity
+                            onPress={() => { onJoinRoom?.(item.currentRoomId!); handleClose(); }}
+                            style={{ alignSelf: 'flex-start' }}
+                          >
+                            <Text style={{ color: '#c8860a', fontSize: 11, marginTop: 2, textDecorationLine: 'underline' }}>
+                              {item.currentRoomName}
+                            </Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <Text style={{ color: item.isOnline ? '#c8860a' : '#687076', fontSize: 11, marginTop: 2 }}>
+                            {item.isOnline ? 'ساحات الطواريق' : 'غير متصل'}
                           </Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <Text style={{ color: item.isOnline ? '#c8860a' : '#687076', fontSize: 11, marginTop: 2 }}>
-                          {item.isOnline ? 'ساحات الطواريق' : 'غير متصل'}
+                        )
+                      )}
+                      {listType === "followers" && (
+                        <Text style={{ color: item.isOnline ? '#22C55E' : '#687076', fontSize: 11, marginTop: 2 }}>
+                          {item.isOnline ? 'متواجد' : 'غير متصل'}
                         </Text>
                       )}
                     </View>
 
+                    {/* أيقونات قائمة يتابعونك: متابعة + حجب */}
+                    {listType === "followers" && (
+                      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                        {/* أيقونة متابعة بالمقابل */}
+                        <TouchableOpacity
+                          onPress={() => handleFollowBack(item)}
+                          style={{
+                            padding: 6,
+                            backgroundColor: isFollowing ? '#1a3d1a' : '#2d1f0e',
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: isFollowing ? '#22C55E44' : '#c8860a44',
+                          }}
+                        >
+                          <MaterialIcons
+                            name={isFollowing ? "person-remove" : "person-add"}
+                            size={16}
+                            color={isFollowing ? '#22C55E' : '#c8860a'}
+                          />
+                        </TouchableOpacity>
+
+                        {/* أيقونة الحجب */}
+                        <TouchableOpacity
+                          onPress={() => handleBlock(item)}
+                          style={{
+                            padding: 6,
+                            backgroundColor: isBlocked ? '#3d1a1a' : '#2d1f0e',
+                            borderRadius: 8,
+                            borderWidth: 1,
+                            borderColor: isBlocked ? '#EF444466' : '#c8860a22',
+                          }}
+                        >
+                          <MaterialIcons
+                            name="block"
+                            size={16}
+                            color={isBlocked ? '#EF4444' : '#687076'}
+                          />
+                        </TouchableOpacity>
+                      </View>
+                    )}
+
                     {/* زر إلغاء المتابعة (فقط في قائمة تتابعهم) */}
-                    {onUnfollow && (
+                    {listType === "following" && onUnfollow && (
                       <TouchableOpacity
                         onPress={() => !isRemoving && handleUnfollow(item)}
                         disabled={isRemoving}

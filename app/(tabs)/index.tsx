@@ -356,6 +356,12 @@ export default function HomeScreen() {
   const { data: displayedInvitesData } = trpc.publicInvitations.getDisplayed.useQuery({ limit: 10 }, { refetchInterval: 1000 });
   const createRoomMutation = trpc.rooms.create.useMutation();
   const unfollowMutation = trpc.interactions.toggle.useMutation();
+  const blockMutation = trpc.blocking.toggle.useMutation();
+  const followBackMutation = trpc.interactions.toggle.useMutation();
+  const { data: blockedIdsData } = trpc.blocking.getBlockedIds.useQuery(
+    { blockerId: userId || '' },
+    { enabled: !!userId && showFollowersModal }
+  );
   const joinAsPlayerMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
   const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation();
@@ -681,6 +687,17 @@ export default function HomeScreen() {
         users={followersData || []}
         isLoading={followersLoading}
         onJoinRoom={(roomId) => handleJoinAsViewer(roomId)}
+        listType="followers"
+        blockedIds={blockedIdsData || []}
+        followingIds={(followingData || []).map((u: any) => u.userId)}
+        onFollowBack={(targetUserId) => {
+          if (!userId) return;
+          followBackMutation.mutate({ fromUserId: userId, toUserId: targetUserId, type: 'follow' });
+        }}
+        onBlock={(targetUserId) => {
+          if (!userId) return;
+          blockMutation.mutate({ blockerId: userId, blockedId: targetUserId });
+        }}
       />
     </ScreenContainer>
   );

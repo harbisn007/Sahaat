@@ -1047,9 +1047,14 @@ export const appRouter = router({
         const onlineIds = getOnlineUserIds();
         const rooms = await db.getAllRooms();
         const roomMap = new Map(rooms.map((r: any) => [r.id, r.name]));
+        // جلب IDs الذين حجبوا المستخدم الحالي (أي حجبوا input.userId)
+        const blockedByIds = await db.getBlockedByIds(input.userId);
+        const blockedBySet = new Set(blockedByIds);
         return following.map((f: any) => {
           const isOnline = onlineIds.has(f.toUserId);
-          const currentRoomId = getUserCurrentRoomId(f.toUserId);
+          // إذا حجب هذا الشخص المستخدمَ الحالي → أخفِ الساحة
+          const isBlockedByThem = blockedBySet.has(f.toUserId);
+          const currentRoomId = isBlockedByThem ? null : getUserCurrentRoomId(f.toUserId);
           const currentRoomName = currentRoomId ? (roomMap.get(currentRoomId) || 'ساحات الطواريق') : 'ساحات الطواريق';
           return {
             userId: f.toUserId,
@@ -1082,6 +1087,29 @@ export const appRouter = router({
             currentRoomName,
           };
         });
+      }),
+  }),
+
+  // Blocking router
+  blocking: router({
+    toggle: publicProcedure
+      .input(z.object({ blockerId: z.string(), blockedId: z.string() }))
+      .mutation(async ({ input }) => {
+        if (input.blockerId === input.blockedId) throw new Error("لا يمكنك حجب نفسك");
+        return db.toggleBlock(input.blockerId, input.blockedId);
+      }),
+
+    isBlocked: publicProcedure
+      .input(z.object({ blockerId: z.string(), blockedId: z.string() }))
+      .query(async ({ input }) => {
+        const blocked = await db.isBlocked(input.blockerId, input.blockedId);
+        return { blocked };
+      }),
+
+    getBlockedIds: publicProcedure
+      .input(z.object({ blockerId: z.string() }))
+      .query(async ({ input }) => {
+        return db.getBlockedIds(input.blockerId);
       }),
   }),
 });
