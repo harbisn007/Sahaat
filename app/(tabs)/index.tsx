@@ -304,13 +304,14 @@ export default function HomeScreen() {
 
   const handleLogout = () => {
     const isGuest = accountType === 'guest';
-    const message = isGuest ? "هل تريد تسجيل الخروج؟\n\nتنبيه: سيتم حذف جميع بياناتك بما فيها الساحات التي أنشأتها." : "هل تريد تسجيل الخروج؟";
+    const message = "هل تريد تسجيل الخروج؟";
     Alert.alert("تسجيل الخروج", message, [
       { text: "إلغاء", style: "cancel" },
       { text: "خروج", style: "destructive", onPress: async () => {
         try {
           if (activeRoom) await deleteRoomMutation.mutateAsync({ roomId: activeRoom.id });
-          if (isGuest) await clearAllData(); else await logout();
+          // نستخدم logout() دائماً للحفاظ على الـ UUID (المتابعين والمتابَعين)
+          await logout();
           router.replace("/welcome");
         } catch { router.replace("/welcome"); }
       }},
