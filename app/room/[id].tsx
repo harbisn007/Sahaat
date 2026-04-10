@@ -201,6 +201,8 @@ export default function RoomScreen() {
   // يدمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
   const [displayedRequests, setDisplayedRequests] = useState<any[]>([]);
   const [queuedRequests, setQueuedRequests] = useState<any[]>([]);
+  // تتبع الطلبات التي تم التعامل معها (قبول/رفض) لمنع إعادة ظهورها
+  const handledRequestIdsRef = useRef<Set<string>>(new Set());
   
   // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
@@ -1011,10 +1013,15 @@ export default function RoomScreen() {
     }
     
     // إضافة الطلبات الجديدة للطابور (مع منع التكرار بناء على userId + requestType)
-    const newRequests = allRequests.filter((req: any) => 
-      !displayedRequests.some(d => (d.id === req.id || d.requesterId === req.requesterId) && d.requestType === req.requestType) && 
-      !queuedRequests.some(q => (q.id === req.id || q.requesterId === req.requesterId) && q.requestType === req.requestType)
-    );
+    const newRequests = allRequests.filter((req: any) => {
+      const key = `${req.requestType}-${req.id}`;
+      // تجاهل الطلبات التي تم التعامل معها سابقاً
+      if (handledRequestIdsRef.current.has(key)) return false;
+      return (
+        !displayedRequests.some(d => (d.id === req.id || d.requesterId === req.requesterId) && d.requestType === req.requestType) && 
+        !queuedRequests.some(q => (q.id === req.id || q.requesterId === req.requesterId) && q.requestType === req.requestType)
+      );
+    });
     
     if (newRequests.length > 0) {
       // إذا كان هناك مكان في العرض (أقل من 2)
@@ -2037,6 +2044,8 @@ export default function RoomScreen() {
                   className="px-4 py-2 rounded-lg"
                   style={{ backgroundColor: '#22C55E' }}
                   onPress={() => {
+                    const key = `${request.requestType}-${request.id}`;
+                    handledRequestIdsRef.current.add(key);
                     if (request.requestType === 'viewer') {
                       handleRespondToJoinRequest(request.id, request.userId, true);
                     } else {
@@ -2052,6 +2061,8 @@ export default function RoomScreen() {
                   className="px-4 py-2 rounded-lg"
                   style={{ backgroundColor: '#EF4444' }}
                   onPress={() => {
+                    const key = `${request.requestType}-${request.id}`;
+                    handledRequestIdsRef.current.add(key);
                     if (request.requestType === 'viewer') {
                       handleRespondToJoinRequest(request.id, request.userId, false);
                     } else {

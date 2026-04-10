@@ -288,6 +288,12 @@ export default function HomeScreen() {
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [lastSeenFollowersCount, setLastSeenFollowersCount] = useState<number | null>(null);
+  // Optimistic local states للتحديث الفوري
+  const [localFollowingCount, setLocalFollowingCount] = useState<number | null>(null);
+  const [localFollowersCount, setLocalFollowersCount] = useState<number | null>(null);
+  const [localFollowingData, setLocalFollowingData] = useState<any[] | null>(null);
+  const [localFollowersData, setLocalFollowersData] = useState<any[] | null>(null);
+  const [localBlockedIds, setLocalBlockedIds] = useState<string[] | null>(null);
   const isConnected = useSocketConnection();
   const socketRef = useRef<Socket | null>(null);
   const creatorSocketRef = useRef<Socket | null>(null);
@@ -346,8 +352,9 @@ export default function HomeScreen() {
     { userId: userId || '' },
     { enabled: !!userId, refetchInterval: 10000 }
   );
-  const followingCount = followingCountData?.length ?? 0;
-  const followersCount = followersCountData?.length ?? 0;
+  // استخدم القيمة المحلية الفورية إذا وُجدت، وإلا القيمة من الـ server
+  const followingCount = localFollowingCount !== null ? localFollowingCount : (followingCountData?.length ?? 0);
+  const followersCount = localFollowersCount !== null ? localFollowersCount : (followersCountData?.length ?? 0);
   // badge: متابعون جدد لم يُشاهَدوا بعد
   const hasNewFollowers = lastSeenFollowersCount !== null && followersCount > lastSeenFollowersCount;
   const heartbeatMutation = trpc.stats.heartbeat.useMutation();
@@ -355,9 +362,24 @@ export default function HomeScreen() {
   const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery({ limit: 50 }, { refetchInterval: 2000 });
   const { data: displayedInvitesData } = trpc.publicInvitations.getDisplayed.useQuery({ limit: 10 }, { refetchInterval: 1000 });
   const createRoomMutation = trpc.rooms.create.useMutation();
-  const unfollowMutation = trpc.interactions.toggle.useMutation();
-  const blockMutation = trpc.blocking.toggle.useMutation();
-  const followBackMutation = trpc.interactions.toggle.useMutation();
+  const unfollowMutation = trpc.interactions.toggle.useMutation({
+    onSuccess: () => {
+      // تحديث الـ server في الخلفية بعد نجاح العملية
+      setTimeout(() => setLocalFollowingCount(null), 3000);
+      setTimeout(() => setLocalFollowingData(null), 3000);
+    }
+  });
+  const blockMutation = trpc.blocking.toggle.useMutation({
+    onSuccess: () => {
+      setTimeout(() => setLocalBlockedIds(null), 3000);
+    }
+  });
+  const followBackMutation = trpc.interactions.toggle.useMutation({
+    onSuccess: () => {
+      setTimeout(() => setLocalFollowingCount(null), 3000);
+      setTimeout(() => setLocalFollowingData(null), 3000);
+    }
+  });
   const { data: blockedIdsData } = trpc.blocking.getBlockedIds.useQuery(
     { blockerId: userId || '' },
     { enabled: !!userId && showFollowersModal }
@@ -666,16 +688,16 @@ export default function HomeScreen() {
         visible={showFollowingModal}
         onClose={() => setShowFollowingModal(false)}
         title="تتابعهم"
-        users={followingData || []}
-        isLoading={followingLoading}
+        users={localFollowingData !== null ? localFollowingData : (followingData || [])}
+        isLoading={followingLoading && localFollowingData === null}
         onJoinRoom={(roomId) => handleJoinAsViewer(roomId)}
         onUnfollow={(targetUserId) => {
           if (!userId) return;
-          unfollowMutation.mutate({
-            fromUserId: userId,
-            toUserId: targetUserId,
-            type: 'follow',
-          });
+          // Optimistic: أزل فوراً من القائمة ونقص العداد
+          const currentData = localFollowingData !== null ? localFollowingData : (followingData || []);
+          setLocalFollowingData(currentData.filter((u: any) => u.userId !== targetUserId));
+          setLocalFollowingCount(Math.max(0, followingCount - 1));
+          unfollowMutation.mutate({ fromUserId: userId, toUserId: targetUserId, type: 'follow' });
         }}
       />
 
@@ -684,18 +706,39 @@ export default function HomeScreen() {
         visible={showFollowersModal}
         onClose={() => setShowFollowersModal(false)}
         title="يتابعونك"
-        users={followersData || []}
-        isLoading={followersLoading}
+        users={localFollowersData !== null ? localFollowersData : (followersData || [])}
+        isLoading={followersLoading && localFollowersData === null}
         onJoinRoom={(roomId) => handleJoinAsViewer(roomId)}
         listType="followers"
-        blockedIds={blockedIdsData || []}
-        followingIds={(followingData || []).map((u: any) => u.userId)}
+        blockedIds={localBlockedIds !== null ? localBlockedIds : (blockedIdsData || [])}
+        followingIds={(localFollowingData !== null ? localFollowingData : (followingData || [])).map((u: any) => u.userId)}
         onFollowBack={(targetUserId) => {
           if (!userId) return;
+          // Optimistic: أضف فوراً للمتابعين وزد العداد
+          const currentFollowing = localFollowingData !== null ? localFollowingData : (followingData || []);
+          const alreadyFollowing = currentFollowing.some((u: any) => u.userId === targetUserId);
+          if (!alreadyFollowing) {
+            const follower = (localFollowersData !== null ? localFollowersData : (followersData || [])).find((u: any) => u.userId === targetUserId);
+            if (follower) {
+              setLocalFollowingData([...currentFollowing, { ...follower }]);
+              setLocalFollowingCount(followingCount + 1);
+            }
+          } else {
+            setLocalFollowingData(currentFollowing.filter((u: any) => u.userId !== targetUserId));
+            setLocalFollowingCount(Math.max(0, followingCount - 1));
+          }
           followBackMutation.mutate({ fromUserId: userId, toUserId: targetUserId, type: 'follow' });
         }}
         onBlock={(targetUserId) => {
           if (!userId) return;
+          // Optimistic: حدّث قائمة المحجوبين فوراً
+          const currentBlocked = localBlockedIds !== null ? localBlockedIds : (blockedIdsData || []);
+          const isBlocked = currentBlocked.includes(targetUserId);
+          if (isBlocked) {
+            setLocalBlockedIds(currentBlocked.filter((id: string) => id !== targetUserId));
+          } else {
+            setLocalBlockedIds([...currentBlocked, targetUserId]);
+          }
           blockMutation.mutate({ blockerId: userId, blockedId: targetUserId });
         }}
       />
