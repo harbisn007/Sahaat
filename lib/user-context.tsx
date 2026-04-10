@@ -127,20 +127,24 @@ export function UserProvider({ children }: { children: ReactNode }) {
     console.log("[UserContext] loginAsGuest called with:", { name, avatar: newAvatar });
     
     try {
-      // Generate new UUID for guest
-      let newUserId: string;
-      try {
-        // توليد UUID بسيط بدون مكتبات خارجية
-        newUserId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-          const r = (Math.random() * 16) | 0;
-          const v = c === 'x' ? r : (r & 0x3) | 0x8;
-          return v.toString(16);
-        });
-        console.log("[UserContext] Generated UUID:", newUserId);
-      } catch (uuidError) {
-        console.error("[UserContext] UUID generation failed, using fallback:", uuidError);
-        // Fallback: generate a simple unique ID
-        newUserId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // تحقق من UUID القديم أولاً للحفاظ على المتابعين والمتابَعين
+      let newUserId = await AsyncStorage.getItem(USER_ID_STORAGE_KEY);
+      
+      if (!newUserId) {
+        // لا يوجد UUID سابق → ولّد جديداً
+        try {
+          newUserId = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+            const r = (Math.random() * 16) | 0;
+            const v = c === 'x' ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          });
+          console.log("[UserContext] Generated new UUID:", newUserId);
+        } catch (uuidError) {
+          console.error("[UserContext] UUID generation failed, using fallback:", uuidError);
+          newUserId = `guest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        }
+      } else {
+        console.log("[UserContext] Reusing existing UUID:", newUserId);
       }
       
       console.log("[UserContext] Saving to AsyncStorage...");
