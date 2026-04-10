@@ -141,11 +141,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
             size={iconSize}
             color={localStats.myFollow ? "#1c1208" : "#555"}
           />
-          {localStats.follows > 0 && (
-            <Text style={[styles.countLabel, { color: "#FFD700" }]}>
-              {formatCount(localStats.follows)}
-            </Text>
-          )}
+
         </TouchableOpacity>
       </View>
 
@@ -236,8 +232,8 @@ const styles = StyleSheet.create({
   },
   countLabel: {
     position: "absolute",
-    bottom: -11,
-    fontSize: 8,
+    bottom: -13,
+    fontSize: 11,
     fontWeight: "bold",
     textShadowColor: "#000",
     textShadowOffset: { width: 0, height: 1 },
