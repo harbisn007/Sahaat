@@ -12,7 +12,6 @@ import {
   emitJoinRequestCreated,
   emitJoinRequestResponded,
   emitAudioMessageCreated,
-  emitReactionCreated,
   emitRecordingStatusChanged,
   emitKhaloohaCommand,
   emitPublicInviteCreated,
@@ -27,6 +26,10 @@ import {
   getOnlineUserIds,
   getUserCurrentRoomId,
   emitInteractionUpdated,
+  addRoomLikeDislike,
+  getRoomLikeDislike,
+  clearRoomLikes,
+  emitReactionCreated,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -342,6 +345,8 @@ export const appRouter = router({
         
         // بث حذف الساحة لجميع المشاركين قبل الحذف
         emitRoomDeleted(input.roomId, roomName);
+        // حذف بيانات الإعجاب من الذاكرة عند إغلاق الساحة
+        clearRoomLikes(input.roomId);
         
         await db.deleteRoom(input.roomId);
         return { success: true, roomName };
@@ -987,16 +992,16 @@ export const appRouter = router({
         fromUserId: z.string(),
         toUserId: z.string(),
         type: z.enum(["like", "dislike"]),
-        roomId: z.number().optional(), // لإرسال socket event
+        roomId: z.number().optional(),
       }))
       .mutation(async ({ input }) => {
-        const result = await db.addLikeDislike(input.fromUserId, input.toUserId, input.type);
-        // بث socket event فوري لتحديث العدادات
-        if (input.roomId) {
-          const stats = await db.getUserInteractionStats(input.toUserId, input.fromUserId);
-          emitInteractionUpdated(input.roomId, input.toUserId, stats.likes, stats.dislikes, stats.follows);
-        }
-        return result;
+        // لا نكتب في قاعدة البيانات - نحدّث in-memory فقط
+        if (!input.roomId) return { success: true };
+        const counts = addRoomLikeDislike(input.roomId, input.toUserId, input.type);
+        // جلب عدد المتابعين من قاعدة البيانات (فقط follows)
+        const stats = await db.getUserInteractionStats(input.toUserId, input.fromUserId);
+        emitInteractionUpdated(input.roomId, input.toUserId, counts.likes, counts.dislikes, stats.follows);
+        return { success: true };
       }),
     toggle: publicProcedure
       .input(z.object({

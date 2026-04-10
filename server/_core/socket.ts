@@ -5,6 +5,47 @@ import { deleteRoomCompletely } from "./room-cleanup";
 
 // نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
 const activeUsers = new Map<string, number>(); // userId -> lastActivityTimestamp
+
+// ============ In-Memory Store للإعجاب وعدم الإعجاب ============
+// roomLikes: roomId -> (toUserId -> { likes, dislikes })
+const roomLikes = new Map<number, Map<string, { likes: number; dislikes: number }>>();
+
+export function addRoomLikeDislike(roomId: number, toUserId: string, type: "like" | "dislike"): { likes: number; dislikes: number } {
+  if (!roomLikes.has(roomId)) {
+    roomLikes.set(roomId, new Map());
+  }
+  const roomMap = roomLikes.get(roomId)!;
+  if (!roomMap.has(toUserId)) {
+    roomMap.set(toUserId, { likes: 0, dislikes: 0 });
+  }
+  const counts = roomMap.get(toUserId)!;
+  if (type === "like") {
+    counts.likes += 1;
+  } else {
+    counts.dislikes += 1;
+  }
+  return { ...counts };
+}
+
+export function getRoomLikeDislike(roomId: number, toUserId: string): { likes: number; dislikes: number } {
+  const roomMap = roomLikes.get(roomId);
+  if (!roomMap) return { likes: 0, dislikes: 0 };
+  return roomMap.get(toUserId) ?? { likes: 0, dislikes: 0 };
+}
+
+export function clearRoomLikes(roomId: number): void {
+  roomLikes.delete(roomId);
+  console.log(`[RoomLikes] Cleared likes for room ${roomId}`);
+}
+
+export function clearUserRoomLikes(roomId: number, userId: string): void {
+  const roomMap = roomLikes.get(roomId);
+  if (roomMap) {
+    roomMap.delete(userId);
+    console.log(`[RoomLikes] Cleared likes for user ${userId} in room ${roomId}`);
+  }
+}
+
 const ACTIVE_TIMEOUT = 60 * 1000; // 60 ثانية
 
 // تسجيل نشاط مستخدم
@@ -230,6 +271,10 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     socket.on("leaveRoom", (roomId: number) => {
       const roomName = `room:${roomId}`;
       socket.leave(roomName);
+      // حذف بيانات الإعجاب لهذا المستخدم من الغرفة
+      if (socket.data.userId) {
+        clearUserRoomLikes(roomId, socket.data.userId);
+      }
       if (socket.data.currentRoomId === roomId) {
         socket.data.currentRoomId = undefined;
       }
@@ -302,6 +347,10 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       
       // حذف المشارك غير المنشئ من الساحة عند قطع الاتصال
       const { userId, currentRoomId } = socket.data;
+      // حذف بيانات الإعجاب عند قطع الاتصال
+      if (userId && currentRoomId) {
+        clearUserRoomLikes(currentRoomId, userId);
+      }
       if (userId && currentRoomId) {
         try {
           const room = await getRoomById(currentRoomId);

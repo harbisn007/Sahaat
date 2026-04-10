@@ -222,20 +222,25 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     try {
-      const currentAccountType = accountType;
+      // احذف بيانات الجلسة فقط وأبقِ على USER_ID_STORAGE_KEY (الـ UUID) دائماً
+      await AsyncStorage.removeItem(USER_STORAGE_KEY);
+      await AsyncStorage.removeItem(USER_AVATAR_STORAGE_KEY);
+      await AsyncStorage.removeItem(USER_ACCOUNT_TYPE_KEY);
+      await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
+      await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
+      // مفاتيح welcome.tsx (Firebase phone auth) - بدون user_uuid
+      await AsyncStorage.removeItem('user_name');
+      await AsyncStorage.removeItem('user_avatar');
+      // لا نحذف USER_ID_STORAGE_KEY ولا 'user_uuid' لأنهما الـ app_user_id
       
-      if (currentAccountType === "guest") {
-        // For guests, clear ALL data including userId
-        await clearAllData();
-      } else {
-        // For Google/Apple users, just clear session but keep the IDs
-        await AsyncStorage.removeItem(USER_STORAGE_KEY);
-        await AsyncStorage.removeItem(USER_AVATAR_STORAGE_KEY);
-        setUsernameState(null);
-        setAvatarState(null);
-      }
+      setUsernameState(null);
+      setAvatarState(null);
+      setAccountTypeState("guest");
+      setGoogleIdState(null);
+      setAppleIdState(null);
+      // لا نصفّر userId لأنه يبقى محفوظاً
       
-      console.log("[UserContext] Logged out, accountType was:", currentAccountType);
+      console.log("[UserContext] Logged out - session cleared, userId preserved:", userId);
     } catch (error) {
       console.error("Failed to logout:", error);
       throw error;

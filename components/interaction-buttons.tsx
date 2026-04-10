@@ -74,10 +74,8 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
     onSuccess: () => refetch(),
   });
 
-  // mutation للإعجاب/عدم الإعجاب (كل ضغطة +1)
-  const addLikeDislikeMutation = trpc.interactions.addLikeDislike.useMutation({
-    onSuccess: () => refetch(),
-  });
+  // mutation للإعجاب/عدم الإعجاب (كل ضغطة +1 - in-memory فقط)
+  const addLikeDislikeMutation = trpc.interactions.addLikeDislike.useMutation();
 
   const triggerHaptic = () => {
     if (Platform.OS !== "web") {
