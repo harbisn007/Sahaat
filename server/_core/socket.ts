@@ -184,6 +184,8 @@ export interface ServerToClientEvents {
     requesterId: string;
     requesterName: string;
   }) => void;
+  // حدث حظر المستخدم من الإدارة
+  userBanned: (data: { userId: string; banType: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -723,4 +725,13 @@ export function emitCreatorJoinRequest(
     requesterName,
   });
   console.log(`[Socket.io] Creator join request notification sent to creator:${creatorId} (type: ${requestType}, requester: ${requesterName})`);
+}
+
+/**
+ * إرسال حدث حظر للمستخدم المحظور مباشرة
+ */
+export function emitUserBanned(userId: string, banType: string): void {
+  if (!io) return;
+  io.to(`user:${userId}`).emit("userBanned", { userId, banType });
+  console.log(`[Socket.io] userBanned sent to user:${userId} (type: ${banType})`);
 }

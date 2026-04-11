@@ -615,6 +615,17 @@ export default function RoomScreen() {
           taroukDuration: data.taroukDuration,
         });
       },
+      // حدث حظر المستخدم - إخراجه فوراً من الساحة
+      onUserBanned: (data: { userId: string; banType: string }) => {
+        if (data.userId === userId) {
+          const msg = data.banType === 'permanent'
+            ? 'تم حظرك بشكل دائم.'
+            : 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
+          Alert.alert('تم حظرك', msg, [
+            { text: 'حسناً', onPress: () => router.replace('/(tabs)') }
+          ]);
+        }
+      },
     });
   }, [roomId, setCallbacks]);
 
@@ -2251,6 +2262,10 @@ export default function RoomScreen() {
                     isPlaying={currentUri === item.audioUrl && isPlaying}
                     onPlay={() => handlePlayAudio(item.audioUrl || "")}
                     audioUrl={item.audioUrl}
+                    audioMessageId={item.id}
+                    senderUserId={item.userId}
+                    currentUserId={userId}
+                    currentUsername={username}
                   />
                 );
               } else {

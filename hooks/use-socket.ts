@@ -86,6 +86,8 @@ interface ServerToClientEvents {
   }) => void;
   // حدث تحديث عدادات التفاعل
   interactionUpdated: (data: { toUserId: string; likes: number; dislikes: number; follows: number }) => void;
+  // حدث حظر المستخدم
+  userBanned: (data: { userId: string; banType: string }) => void;
   // حدث تحديث عدد المتواجدين
   onlineCountUpdated: (data: { count: number }) => void;
   publicInviteCreated: (data: { invitationId: number; roomId: number; creatorId: string; creatorName: string; creatorAvatar: string; roomName: string; }) => void;
@@ -304,6 +306,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       userId: string;
       username: string;
     }) => void;
+    onUserBanned?: (data: { userId: string; banType: string }) => void;
   }>({});
 
   // تتبع roomId السابق لمغادرته عند التغيير
@@ -474,6 +477,11 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
+        // حدث حظر المستخدم
+        socket.on("userBanned", (data) => {
+          callbacksRef.current.onUserBanned?.(data);
+        });
+
         // مراقبة حالة الاتصال وإعادة الانضمام للغرفة عند الاتصال/إعادة الاتصال
         socket.on("connect", () => {
           console.log("[Socket.io] ========== SOCKET CONNECTED ==========");
@@ -516,6 +524,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("sufoofSoundUpdated");
         socketRef.current.off("playAudioMessage");
         socketRef.current.off("playSheeloha");
+        socketRef.current.off("userBanned");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         

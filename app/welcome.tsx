@@ -50,6 +50,7 @@ export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const colors = useColors();
   const { loginAsGuest } = useUser();
+  const checkBanQuery = trpc.reports.checkBan;
   const scrollViewRef = useRef<ScrollView>(null);
   const trpcUtils = trpc.useUtils();
   const upsertUserByPhone = trpc.auth.upsertUserByPhone.useMutation();
@@ -95,6 +96,18 @@ export default function WelcomeScreen() {
         const savedName = await AsyncStorage.getItem('user_name');
         const savedAvatar = await AsyncStorage.getItem('user_avatar');
         if (uuid && savedName && savedAvatar) {
+          // التحقق من الحظر قبل الدخول
+          try {
+            const ban = await trpc.reports.checkBan.query({ userId: uuid });
+            if (ban && ban.isActive === 'true') {
+              setIsCheckingUUID(false);
+              const msg = ban.banType === 'permanent'
+                ? 'تم حظر حسابك بشكل دائم.'
+                : 'تم حظر حسابك مؤقتاً. العملية تحت المراجعة.';
+              Alert.alert('الحساب محظور', msg);
+              return;
+            }
+          } catch (_) {}
           await loginAsGuest(savedName, savedAvatar as AvatarType);
           if (redirect) router.replace(redirect as any);
           else router.replace("/(tabs)");

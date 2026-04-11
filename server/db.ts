@@ -1,7 +1,7 @@
 import { eq, inArray, and, asc, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { InsertUser, users, userInteractions, blockedUsers } from "../drizzle/schema";
+import { InsertUser, users, userInteractions, blockedUsers, reports, adminBans } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1543,4 +1543,89 @@ export async function getBlockedByIds(userId: string): Promise<string[]> {
   const result = await db.select({ blockerId: blockedUsers.blockerId }).from(blockedUsers)
     .where(eq(blockedUsers.blockedId, userId));
   return result.map(r => r.blockerId);
+}
+
+// ============ Reports ============
+export async function submitReport(input: {
+  reporterUserId: string;
+  reporterName: string;
+  reportedUserId: string;
+  reportedName: string;
+  audioMessageId?: number;
+  audioUrl: string;
+  messageType: "comment" | "tarouk";
+  reason: "offensive_content" | "bad_behavior";
+}): Promise<{ id: number }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(reports).values({
+    reporterUserId: input.reporterUserId,
+    reporterName: input.reporterName,
+    reportedUserId: input.reportedUserId,
+    reportedName: input.reportedName,
+    audioMessageId: input.audioMessageId ?? null,
+    audioUrl: input.audioUrl,
+    messageType: input.messageType,
+    reason: input.reason,
+    status: "pending",
+  });
+  return { id: Number((result as any)[0]?.insertId ?? 0) };
+}
+
+export async function getAllReports() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(reports).orderBy(desc(reports.createdAt));
+}
+
+export async function deleteReport(reportId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(reports).where(eq(reports.id, reportId));
+}
+
+// ============ Admin Bans ============
+export async function banUser(
+  userId: string,
+  username: string,
+  banType: "1h" | "24h" | "permanent"
+): Promise<{ id: number }> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // إلغاء أي حظر سابق لنفس المستخدم
+  await db.update(adminBans)
+    .set({ isActive: "false" })
+    .where(and(eq(adminBans.userId, userId), eq(adminBans.isActive, "true")));
+  // حساب وقت الانتهاء
+  let expiresAt: Date | null = null;
+  if (banType === "1h") {
+    expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+  } else if (banType === "24h") {
+    expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+  }
+  const result = await db.insert(adminBans).values({
+    userId,
+    username,
+    banType,
+    expiresAt,
+    isActive: "true",
+  });
+  return { id: Number((result as any)[0]?.insertId ?? 0) };
+}
+
+export async function checkActiveBan(userId: string): Promise<{ isBanned: boolean; banType?: string; expiresAt?: Date | null }> {
+  const db = await getDb();
+  if (!db) return { isBanned: false };
+  const bans = await db.select().from(adminBans)
+    .where(and(eq(adminBans.userId, userId), eq(adminBans.isActive, "true")))
+    .orderBy(desc(adminBans.createdAt))
+    .limit(1);
+  if (bans.length === 0) return { isBanned: false };
+  const ban = bans[0];
+  // التحقق من انتهاء الحظر المؤقت
+  if (ban.expiresAt && new Date() > ban.expiresAt) {
+    await db.update(adminBans).set({ isActive: "false" }).where(eq(adminBans.id, ban.id));
+    return { isBanned: false };
+  }
+  return { isBanned: true, banType: ban.banType, expiresAt: ban.expiresAt };
 }

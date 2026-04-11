@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { MaterialIcons } from "@expo/vector-icons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { ReportModal } from "@/components/report-modal";
 
 interface MessageBubbleProps {
   type: "audio" | "reaction";
@@ -18,6 +19,11 @@ interface MessageBubbleProps {
   // For reactions
   reactionType?: string;
   reactionEmoji?: string;
+  // For reporting
+  audioMessageId?: number;
+  senderUserId?: string;
+  currentUserId?: string;
+  currentUsername?: string;
 }
 
 // تحديث الأيقونات لتتوافق مع الـ 15 أيقونة في ReactionsPicker
@@ -51,7 +57,12 @@ export function MessageBubble({
   audioUrl,
   reactionType,
   reactionEmoji,
+  audioMessageId,
+  senderUserId,
+  currentUserId,
+  currentUsername,
 }: MessageBubbleProps) {
+  const [reportVisible, setReportVisible] = useState(false);
   const colors = useColors();
   const [localPlaying, setLocalPlaying] = useState(false);
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -177,6 +188,9 @@ export function MessageBubble({
     );
   }
 
+  // هل يمكن الإبلاغ? (ليس عن رسائله هو)
+  const canReport = currentUserId && senderUserId && currentUserId !== senderUserId && audioUrl;
+
   // Audio message bubble
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -187,46 +201,73 @@ export function MessageBubble({
   // #10: أيقونة مايكروفون بدلاً من النص
 
   return (
-    <View className="px-2 py-0.5 items-start">
-      <View 
-        className="rounded-lg px-2 py-1 max-w-[75%]"
-        style={{ backgroundColor: colors.surface }}
-      >
-        <View className="flex-row items-center gap-1.5">
-          {/* زر تشغيل/إيقاف محلي - #7 و #9 */}
-          {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
+    <>
+      {canReport && (
+        <ReportModal
+          visible={reportVisible}
+          onClose={() => setReportVisible(false)}
+          reporterUserId={currentUserId!}
+          reporterName={currentUsername || ''}
+          reportedUserId={senderUserId!}
+          reportedName={username}
+          audioMessageId={audioMessageId}
+          audioUrl={audioUrl!}
+          messageType={messageType as "comment" | "tarouk"}
+        />
+      )}
+      <View className="px-2 py-0.5 items-start">
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+          {/* أيقونة التبليغ - مثلث أصفر */}
+          {canReport && (
             <TouchableOpacity
-              onPress={handleLocalPlay}
+              onPress={() => setReportVisible(true)}
               style={{ padding: 2 }}
               activeOpacity={0.6}
             >
-              <MaterialIcons 
-                name={localPlaying ? "pause-circle-filled" : "play-circle-filled"} 
-                size={20} 
-                color={messageType === "tarouk" ? colors.success : colors.primary} 
-              />
+              <Text style={{ fontSize: 13 }}>⚠️</Text>
             </TouchableOpacity>
           )}
-          
-          {/* Duration */}
-          <Text className="text-[10px] text-muted font-mono">
-            {formatDuration(duration || 0)}
-          </Text>
-          
-          {/* Message Type Icon - أيقونة فقط بدون نص */}
-          {messageType === "tarouk" && (
-            <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 14, height: 14 }} resizeMode="contain" />
-          )}
-          {messageType === "comment" && (
-            <MaterialIcons name="mic" size={14} color={colors.primary} />
-          )}
-          
-          {/* Username */}
-          <Text className="text-[11px] font-bold text-foreground flex-shrink">
-            {username}
-          </Text>
+          <View 
+            className="rounded-lg px-2 py-1 max-w-[75%]"
+            style={{ backgroundColor: colors.surface }}
+          >
+            <View className="flex-row items-center gap-1.5">
+              {/* زر تشغيل/إيقاف محلي */}
+              {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
+                <TouchableOpacity
+                  onPress={handleLocalPlay}
+                  style={{ padding: 2 }}
+                  activeOpacity={0.6}
+                >
+                  <MaterialIcons 
+                    name={localPlaying ? "pause-circle-filled" : "play-circle-filled"} 
+                    size={20} 
+                    color={messageType === "tarouk" ? colors.success : colors.primary} 
+                  />
+                </TouchableOpacity>
+              )}
+              
+              {/* Duration */}
+              <Text className="text-[10px] text-muted font-mono">
+                {formatDuration(duration || 0)}
+              </Text>
+              
+              {/* Message Type Icon */}
+              {messageType === "tarouk" && (
+                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 14, height: 14 }} resizeMode="contain" />
+              )}
+              {messageType === "comment" && (
+                <MaterialIcons name="mic" size={14} color={colors.primary} />
+              )}
+              
+              {/* Username */}
+              <Text className="text-[11px] font-bold text-foreground flex-shrink">
+                {username}
+              </Text>
+            </View>
+          </View>
         </View>
       </View>
-    </View>
+    </>
   );
 }

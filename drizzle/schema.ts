@@ -193,3 +193,39 @@ export const blockedUsers = mysqlTable("blocked_users", {
 });
 export type BlockedUser = typeof blockedUsers.$inferSelect;
 export type InsertBlockedUser = typeof blockedUsers.$inferInsert;
+
+// جدول البلاغات
+export const reports = mysqlTable("reports", {
+  id: int("id").autoincrement().primaryKey(),
+  // من أرسل البلاغ
+  reporterUserId: varchar("reporterUserId", { length: 100 }).notNull(),
+  reporterName: varchar("reporterName", { length: 100 }).notNull(),
+  // المُبلَّغ عنه (مرسل الرسالة الصوتية)
+  reportedUserId: varchar("reportedUserId", { length: 100 }).notNull(),
+  reportedName: varchar("reportedName", { length: 100 }).notNull(),
+  // تفاصيل الرسالة الصوتية
+  audioMessageId: int("audioMessageId"),
+  audioUrl: text("audioUrl").notNull(),
+  messageType: mysqlEnum("messageType", ["comment", "tarouk"]).notNull(),
+  // نوع البلاغ
+  reason: mysqlEnum("reason", ["offensive_content", "bad_behavior"]).notNull(),
+  // حالة البلاغ
+  status: mysqlEnum("status", ["pending", "reviewed", "dismissed"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Report = typeof reports.$inferSelect;
+export type InsertReport = typeof reports.$inferInsert;
+
+// جدول الحظر من الإدارة
+export const adminBans = mysqlTable("admin_bans", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: varchar("userId", { length: 100 }).notNull(),
+  username: varchar("username", { length: 100 }).notNull(),
+  banType: mysqlEnum("banType", ["1h", "24h", "permanent"]).notNull(),
+  expiresAt: timestamp("expiresAt"), // null = دائم
+  bannedBy: varchar("bannedBy", { length: 100 }).default("admin").notNull(),
+  isActive: mysqlEnum("isActive", ["true", "false"]).default("true").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type AdminBan = typeof adminBans.$inferSelect;
+export type InsertAdminBan = typeof adminBans.$inferInsert;

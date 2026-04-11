@@ -30,6 +30,7 @@ import {
   getRoomLikeDislike,
   clearRoomLikes,
   emitReactionCreated,
+  emitUserBanned,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -1095,6 +1096,53 @@ export const appRouter = router({
       }),
   }),
 
+  // Reports & Bans router
+  reports: router({
+    // إرسال بلاغ
+    submit: publicProcedure
+      .input(z.object({
+        reporterUserId: z.string(),
+        reporterName: z.string(),
+        reportedUserId: z.string(),
+        reportedName: z.string(),
+        audioMessageId: z.number().optional(),
+        audioUrl: z.string(),
+        messageType: z.enum(["comment", "tarouk"]),
+        reason: z.enum(["offensive_content", "bad_behavior"]),
+      }))
+      .mutation(async ({ input }) => {
+        return db.submitReport(input);
+      }),
+    // جلب كل البلاغات (للإدارة)
+    getAll: publicProcedure
+      .query(async () => {
+        return db.getAllReports();
+      }),
+    // حذف بلاغ
+    delete: publicProcedure
+      .input(z.object({ reportId: z.number() }))
+      .mutation(async ({ input }) => {
+        return db.deleteReport(input.reportId);
+      }),
+    // حظر مستخدم
+    banUser: publicProcedure
+      .input(z.object({
+        userId: z.string(),
+        username: z.string(),
+        banType: z.enum(["1h", "24h", "permanent"]),
+      }))
+      .mutation(async ({ input }) => {
+        const ban = await db.banUser(input.userId, input.username, input.banType);
+        emitUserBanned(input.userId, input.banType);
+        return ban;
+      }),
+    // التحقق من حظر مستخدم
+    checkBan: publicProcedure
+      .input(z.object({ userId: z.string() }))
+      .query(async ({ input }) => {
+        return db.checkActiveBan(input.userId);
+      }),
+  }),
   // Blocking router
   blocking: router({
     toggle: publicProcedure
