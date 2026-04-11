@@ -1629,3 +1629,11 @@ export async function checkActiveBan(userId: string): Promise<{ isBanned: boolea
   }
   return { isBanned: true, banType: ban.banType, expiresAt: ban.expiresAt };
 }
+
+export async function liftBan(userId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(adminBans)
+    .set({ isActive: "false" })
+    .where(and(eq(adminBans.userId, userId), eq(adminBans.isActive, "true")));
+}

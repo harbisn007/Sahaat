@@ -118,6 +118,18 @@ router.post("/api/ban", async (req: Request, res: Response) => {
   }
 });
 
+// ── API: إلغاء حظر مستخدم ──────────────────────────────────────────────────
+router.post("/api/unban", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: "Missing userId" });
+    await db.liftBan(userId);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
 // ── API: بيانات JSON للمستخدمين ─────────────────────────────────────────────
 router.get("/api/users", async (req: Request, res: Response) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
@@ -308,6 +320,7 @@ function dashboardPage(data: {
     <button class="ban-option" onclick="executeBan('1h')">⏱️ حظر ساعة واحدة</button>
     <button class="ban-option" onclick="executeBan('24h')">🕐 حظر 24 ساعة</button>
     <button class="ban-option permanent" onclick="executeBan('permanent')">🚫 حظر دائم</button>
+    <button class="ban-option" onclick="executeUnban()" style="background:#1a2d1a;color:#22C55E;border-color:#22C55E44">✅ إلغاء الحظر</button>
     <button class="ban-cancel" onclick="closeBanMenu()">إلغاء</button>
   </div>
 
@@ -482,6 +495,23 @@ function dashboardPage(data: {
         } else {
           const err = await res.json();
           alert('فشل الحظر: ' + (err.error || 'خطأ غير معروف'));
+        }
+      } catch(e) { alert('خطأ: ' + e); }
+    }
+    async function executeUnban() {
+      if (!confirm('هل تريد إلغاء حظر ' + _banUsername + '؟')) return;
+      try {
+        const res = await fetch('/admin/api/unban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: _banUserId })
+        });
+        if (res.ok) {
+          closeBanMenu();
+          alert('تم إلغاء حظر ' + _banUsername + ' بنجاح');
+        } else {
+          const err = await res.json();
+          alert('فشل إلغاء الحظر: ' + (err.error || 'خطأ غير معروف'));
         }
       } catch(e) { alert('خطأ: ' + e); }
     }
