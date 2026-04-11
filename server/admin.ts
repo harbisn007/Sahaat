@@ -91,7 +91,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       .select()
       .from(adminBans)
       .where(eq(adminBans.isActive, "true"))
-      .orderBy(desc(adminBans.bannedAt))
+      .orderBy(desc(adminBans.createdAt))
       .limit(200);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
