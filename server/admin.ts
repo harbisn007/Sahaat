@@ -8,7 +8,7 @@ import { emitUserBanned } from "./_core/socket";
 const router = Router();
 
 // كلمة مرور الإدارة — تُقرأ من متغير البيئة أو قيمة افتراضية
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "tawari9_admin_2026";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Pa22w@rd_2026";
 // مفتاح الجلسة البسيط (in-memory)
 const activeSessions = new Set<string>();
 
