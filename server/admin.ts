@@ -1,9 +1,9 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "./db";
 import { users, rooms, reports, adminBans } from "../drizzle/schema";
-import { desc, count, eq, and } from "drizzle-orm";
+import { desc, count, eq, and, gte } from "drizzle-orm";
 import * as db from "./db";
-import { emitUserBanned } from "./_core/socket";
+import { emitUserBanned, getActiveUserIds } from "./_core/socket";
 
 const router = Router();
 
@@ -61,16 +61,24 @@ router.get("/dashboard", async (req: Request, res: Response) => {
 
     // إحصائيات سريعة
     const [totalUsers] = await dbConn.select({ count: count() }).from(users);
-    const [totalRooms] = await dbConn.select({ count: count() }).from(rooms);
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const [rooms24h] = await dbConn.select({ count: count() }).from(rooms).where(gte(rooms.createdAt, since24h));
     const [activeRooms] = await dbConn.select({ count: count() }).from(rooms).where(eq(rooms.isActive, "true"));
     const [totalReports] = await dbConn.select({ count: count() }).from(reports);
 
-    // آخر 50 مستخدم
-    const latestUsers = await dbConn
-      .select({ id: users.id, name: users.name, email: users.email, avatar: users.avatar, loginMethod: users.loginMethod, role: users.role, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn, appUserId: users.appUserId })
+    // جلب جميع المستخدمين (حتى 500) مع رقم الجوال
+    const allUsersRaw = await dbConn
+      .select({ id: users.id, name: users.name, phoneNumber: users.phoneNumber, avatar: users.avatar, loginMethod: users.loginMethod, role: users.role, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn, appUserId: users.appUserId })
       .from(users)
-      .orderBy(desc(users.createdAt))
-      .limit(50);
+      .orderBy(desc(users.lastSignedIn))
+      .limit(500);
+    // المتصلون حالياً (نشطون خلال 60 ثانية)
+    const activeIds = getActiveUserIds();
+    // ترتيب: المتصلون أولاً ثم الباقي
+    const latestUsers = [
+      ...allUsersRaw.filter(u => activeIds.has(u.appUserId || '')),
+      ...allUsersRaw.filter(u => !activeIds.has(u.appUserId || '')),
+    ];
 
     // آخر 50 ساحة
     const latestRooms = await dbConn
@@ -95,7 +103,7 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       .limit(200);
 
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(dashboardPage({ totalUsers: totalUsers.count, totalRooms: totalRooms.count, activeRooms: activeRooms.count, totalReports: totalReports.count, latestUsers, latestRooms, allReports, activeBans }));
+    res.send(dashboardPage({ totalUsers: totalUsers.count, rooms24h: rooms24h.count, activeRooms: activeRooms.count, totalReports: totalReports.count, latestUsers, latestRooms, allReports, activeBans, activeIds }));
   } catch (err) {
     res.status(500).send(`<pre>خطأ: ${err}</pre>`);
   }
@@ -204,26 +212,30 @@ function loginPage(error?: string): string {
 
 function dashboardPage(data: {
   totalUsers: number;
-  totalRooms: number;
+  rooms24h: number;
   activeRooms: number;
   totalReports: number;
   latestUsers: any[];
   latestRooms: any[];
   allReports: any[];
   activeBans: any[];
+  activeIds: Set<string>;
 }): string {
-  const { totalUsers, totalRooms, activeRooms, totalReports, latestUsers, latestRooms, allReports, activeBans } = data;
+  const { totalUsers, rooms24h, activeRooms, totalReports, latestUsers, latestRooms, allReports, activeBans, activeIds } = data;
 
-  const usersRows = latestUsers.map(u => `
-    <tr>
+  const usersRows = latestUsers.map(u => {
+    const isOnline = activeIds.has(u.appUserId || '');
+    return `
+    <tr style="${isOnline ? 'background:#1a2d1a22;' : ''}">
       <td>${u.id}</td>
-      <td>${u.name || "—"}</td>
-      <td>${u.email || "—"}</td>
-      <td>${u.loginMethod || "ضيف"}</td>
-      <td><span class="badge ${u.role === "admin" ? "badge-admin" : "badge-user"}">${u.role === "admin" ? "مدير" : "مستخدم"}</span></td>
+      <td>${isOnline ? '<span style="display:inline-block;width:8px;height:8px;background:#22C55E;border-radius:50%;margin-left:6px"></span>' : ''}<span style="${isOnline ? 'color:#22C55E;font-weight:700' : ''}">${u.name || '—'}</span></td>
+      <td>${u.phoneNumber || '—'}</td>
+      <td>${u.loginMethod || 'ضيف'}</td>
+      <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role === 'admin' ? 'مدير' : 'مستخدم'}</span></td>
       <td>${formatDate(u.lastSignedIn)}</td>
       <td>${formatDate(u.createdAt)}</td>
-    </tr>`).join("");
+    </tr>`;
+  }).join("");
 
   const roomsRows = latestRooms.map(r => `
     <tr>
@@ -365,8 +377,8 @@ function dashboardPage(data: {
         <div class="lbl">إجمالي المستخدمين</div>
       </div>
       <div class="stat-card">
-        <div class="num">${totalRooms}</div>
-        <div class="lbl">إجمالي الساحات</div>
+        <div class="num">${rooms24h.count}</div>
+        <div class="lbl">ساحات خلال 24ساعة</div>
       </div>
       <div class="stat-card">
         <div class="num" style="color:#22C55E">${activeRooms}</div>
@@ -393,17 +405,17 @@ function dashboardPage(data: {
     <!-- تبويب المستخدمين -->
     <div class="panel active" id="panel-users">
       <div class="section-header">
-        <h2>آخر ${latestUsers.length} مستخدم</h2>
+        <h2>${latestUsers.length} مستخدم • <span style="color:#22C55E">${activeIds.size} متصل</span></h2>
         <button class="refresh-btn" onclick="location.reload()">تحديث</button>
       </div>
-      <input class="search-bar" type="text" placeholder="بحث بالاسم أو الإيميل..." oninput="filterTable('users-table', this.value)" />
+      <input class="search-bar" type="text" placeholder="بحث بالاسم أو رقم الجوال..." oninput="filterTable('users-table', this.value)" />
       <div class="table-wrap">
         <table id="users-table">
           <thead>
             <tr>
               <th>#</th>
               <th>الاسم</th>
-              <th>الإيميل</th>
+              <th>رقم الجوال</th>
               <th>طريقة الدخول</th>
               <th>الدور</th>
               <th>آخر دخول</th>

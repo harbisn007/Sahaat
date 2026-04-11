@@ -53,6 +53,20 @@ export function recordUserActivity(userId: string): void {
   activeUsers.set(userId, Date.now());
 }
 
+// الحصول على قائمة IDs المستخدمين النشطين (خلال 60 ثانية)
+export function getActiveUserIds(): Set<string> {
+  const now = Date.now();
+  const active = new Set<string>();
+  for (const [userId, lastActivity] of activeUsers.entries()) {
+    if (now - lastActivity > ACTIVE_TIMEOUT) {
+      activeUsers.delete(userId);
+    } else {
+      active.add(userId);
+    }
+  }
+  return active;
+}
+
 // حساب عدد المستخدمين النشطين
 export function getActiveUsersCount(): number {
   const now = Date.now();
