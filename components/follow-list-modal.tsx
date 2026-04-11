@@ -44,7 +44,13 @@ export function FollowListModal({
   const [localFollowingIds, setLocalFollowingIds] = useState<string[]>(followingIds);
   const insets = useSafeAreaInsets();
 
-  const displayUsers = localUsers.length > 0 ? localUsers : users;
+  // ترتيب: المتواجدون في ساحة أولاً ثم المتصلون ثم غير المتصلين
+  const sortUsers = (list: FollowUser[]) => [
+    ...list.filter(u => u.isOnline && u.currentRoomId),   // في ساحة
+    ...list.filter(u => u.isOnline && !u.currentRoomId),  // متصل بدون ساحة
+    ...list.filter(u => !u.isOnline),                     // غير متصل
+  ];
+  const displayUsers = sortUsers(localUsers.length > 0 ? localUsers : users);
 
   const handleUnfollow = (user: FollowUser) => {
     Alert.alert(

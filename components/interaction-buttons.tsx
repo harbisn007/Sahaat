@@ -117,30 +117,30 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
   return (
     <View style={[styles.wrapper, { width: avatarSize + 20 }]}>
 
-      {/* ── أيقونة المتابعة في الأعلى ── */}
+      {/* ── أيقونة المتابعة في الأعلى — تُخفى عن صاحبها ── */}
       <View style={styles.topRow}>
-        <TouchableOpacity
-          onPress={handleFollow}
-          disabled={isSelf}
-          activeOpacity={isSelf ? 1 : 0.7}
-          style={[
-            styles.btn,
-            {
-              width: btnSize,
-              height: btnSize,
-              borderRadius: btnSize / 2,
-              backgroundColor: localStats.myFollow ? avatarBorderColor : "#fff",
-              borderColor: avatarBorderColor,
-            },
-          ]}
-        >
-          <MaterialIcons
-            name={localStats.myFollow ? "person-remove" : "person-add"}
-            size={iconSize}
-            color={localStats.myFollow ? "#1c1208" : "#555"}
-          />
-
-        </TouchableOpacity>
+        {!isSelf && (
+          <TouchableOpacity
+            onPress={handleFollow}
+            activeOpacity={0.7}
+            style={[
+              styles.btn,
+              {
+                width: btnSize,
+                height: btnSize,
+                borderRadius: btnSize / 2,
+                backgroundColor: localStats.myFollow ? avatarBorderColor : "#fff",
+                borderColor: avatarBorderColor,
+              },
+            ]}
+          >
+            <MaterialIcons
+              name={localStats.myFollow ? "person-remove" : "person-add"}
+              size={iconSize}
+              color={localStats.myFollow ? "#1c1208" : "#555"}
+            />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* ── أيقونتا الإعجاب وعدم الإعجاب في الأسفل ── */}
