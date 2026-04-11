@@ -736,6 +736,7 @@ export default function RoomScreen() {
     id: string;
     timestamp: Date;
     username: string;
+    userId?: string;
     messageType?: string;
     audioUrl?: string;
     duration?: number;
@@ -759,6 +760,7 @@ export default function RoomScreen() {
         id: `audio-${msg.id}`,
         timestamp: msg.createdAt,
         username: msg.username,
+        userId: msg.userId,
         messageType: msg.messageType,
         audioUrl: msg.audioUrl,
         duration: msg.duration,
