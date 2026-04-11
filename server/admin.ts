@@ -66,12 +66,11 @@ router.get("/dashboard", async (req: Request, res: Response) => {
     const [activeRooms] = await dbConn.select({ count: count() }).from(rooms).where(eq(rooms.isActive, "true"));
     const [totalReports] = await dbConn.select({ count: count() }).from(reports);
 
-    // جلب جميع المستخدمين (حتى 500) مع رقم الجوال
+    // جلب جميع المستخدمين بدون حد مع رقم الجوال
     const allUsersRaw = await dbConn
       .select({ id: users.id, name: users.name, phoneNumber: users.phoneNumber, avatar: users.avatar, loginMethod: users.loginMethod, role: users.role, createdAt: users.createdAt, lastSignedIn: users.lastSignedIn, appUserId: users.appUserId })
       .from(users)
-      .orderBy(desc(users.lastSignedIn))
-      .limit(500);
+      .orderBy(desc(users.lastSignedIn));
     // المتصلون حالياً (نشطون خلال 60 ثانية)
     const activeIds = getActiveUserIds();
     // ترتيب: المتصلون أولاً ثم الباقي
