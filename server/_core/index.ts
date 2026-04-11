@@ -1,5 +1,6 @@
 import "dotenv/config";
 import express from "express";
+import cookieParser from "cookie-parser";
 import { createServer } from "http";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -7,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { initializeSocketIO } from "./socket";
 import { startRoomCleanupService } from "./room-cleanup";
+import { adminRouter } from "../admin";
 
 
 
@@ -40,6 +42,10 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(cookieParser());
+
+  // لوحة الإدارة — محمية بكلمة مرور
+  app.use("/admin", adminRouter);
 
   registerOAuthRoutes(app);
 
