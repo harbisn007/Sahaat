@@ -101,13 +101,13 @@ async function cleanupExpiredExtensions(): Promise<void> {
 /**
  * حساب نقطة بداية عداد الـ 15 دقيقة
  * 
- * المنطق: متى كان آخر انضمام شاعر؟
- * - إذا انضم شاعر سابقاً → نقطة البداية = lastPlayerJoinAt
+ * المنطق: متى غادر آخر شاعر؟
+ * - إذا غادر شاعر سابقاً → نقطة البداية = lastPlayerLeftAt
  * - إذا لم ينضم أي شاعر أبداً → نقطة البداية = createdAt (وقت إنشاء الساحة)
  */
 function getTimerStartPoint(room: typeof rooms.$inferSelect): Date {
-  if (room.lastPlayerJoinAt) {
-    return new Date(room.lastPlayerJoinAt);
+  if (room.lastPlayerLeftAt) {
+    return new Date(room.lastPlayerLeftAt);
   }
   return new Date(room.createdAt);
 }
@@ -189,7 +189,7 @@ async function checkAndCleanupRooms(): Promise<void> {
 
       if (elapsedMinutes >= NO_PLAYER_JOIN_TIMEOUT_MINUTES) {
         // مر 15 دقيقة بدون انضمام شاعر → حذف الساحة
-        const lastEvent = room.lastPlayerJoinAt ? "آخر انضمام شاعر" : "إنشاء الساحة";
+        const lastEvent = room.lastPlayerLeftAt ? "مغادرة آخر شاعر" : "إنشاء الساحة";
         console.log(`[RoomCleanup] Room ${roomId}: ${Math.round(elapsedMinutes)} min since ${lastEvent} (>= ${NO_PLAYER_JOIN_TIMEOUT_MINUTES} min). Deleting.`);
         await deleteRoomCompletely(roomId);
       } else {
