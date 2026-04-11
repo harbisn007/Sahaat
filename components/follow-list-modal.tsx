@@ -3,6 +3,7 @@ import { useState } from "react";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
 import { Image } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface FollowUser {
   userId: string;
@@ -41,6 +42,7 @@ export function FollowListModal({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [localBlockedIds, setLocalBlockedIds] = useState<string[]>(blockedIds);
   const [localFollowingIds, setLocalFollowingIds] = useState<string[]>(followingIds);
+  const insets = useSafeAreaInsets();
 
   const displayUsers = localUsers.length > 0 ? localUsers : users;
 
@@ -138,8 +140,10 @@ export function FollowListModal({
             borderTopRightRadius: 20,
             borderTopWidth: 2,
             borderTopColor: '#c8860a',
-            maxHeight: '70%',
+            maxHeight: '75%',
             minHeight: 200,
+            // padding سفلي يأخذ في الحسبان أزرار التنقل وشريط الجوال
+            paddingBottom: Math.max(insets.bottom, 16),
           }}
         >
           {/* Header */}
@@ -172,6 +176,8 @@ export function FollowListModal({
               data={displayUsers}
               keyExtractor={(item) => item.userId}
               contentContainerStyle={{ paddingVertical: 8 }}
+              showsVerticalScrollIndicator={true}
+              indicatorStyle="white"
               renderItem={({ item }) => {
                 const avatarSource = item.avatar && item.avatar !== 'male' && item.avatar !== 'female'
                   ? { uri: item.avatar }
