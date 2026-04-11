@@ -86,8 +86,16 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       .orderBy(desc(reports.createdAt))
       .limit(100);
 
+    // المحظورون النشطون
+    const activeBans = await dbConn
+      .select()
+      .from(adminBans)
+      .where(eq(adminBans.isActive, "true"))
+      .orderBy(desc(adminBans.bannedAt))
+      .limit(200);
+
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(dashboardPage({ totalUsers: totalUsers.count, totalRooms: totalRooms.count, activeRooms: activeRooms.count, totalReports: totalReports.count, latestUsers, latestRooms, allReports }));
+    res.send(dashboardPage({ totalUsers: totalUsers.count, totalRooms: totalRooms.count, activeRooms: activeRooms.count, totalReports: totalReports.count, latestUsers, latestRooms, allReports, activeBans }));
   } catch (err) {
     res.status(500).send(`<pre>خطأ: ${err}</pre>`);
   }
@@ -130,6 +138,7 @@ router.post("/api/unban", async (req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
 // ── API: بيانات JSON للمستخدمين ─────────────────────────────────────────────
 router.get("/api/users", async (req: Request, res: Response) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
@@ -201,8 +210,9 @@ function dashboardPage(data: {
   latestUsers: any[];
   latestRooms: any[];
   allReports: any[];
+  activeBans: any[];
 }): string {
-  const { totalUsers, totalRooms, activeRooms, totalReports, latestUsers, latestRooms, allReports } = data;
+  const { totalUsers, totalRooms, activeRooms, totalReports, latestUsers, latestRooms, allReports, activeBans } = data;
 
   const usersRows = latestUsers.map(u => `
     <tr>
@@ -249,6 +259,23 @@ function dashboardPage(data: {
       </td>
     </tr>`).join("");
 
+  const banTypeLabel = (t: string) => {
+    if (t === "1h") return '<span class="badge badge-ban-temp">ساعة واحدة</span>';
+    if (t === "24h") return '<span class="badge badge-ban-temp">24 ساعة</span>';
+    return '<span class="badge badge-ban-perm">دائم</span>';
+  };
+
+  const bansRows = activeBans.map(b => `
+    <tr id="ban-row-${b.id}">
+      <td>${b.username || b.userId}</td>
+      <td>${banTypeLabel(b.banType)}</td>
+      <td>${formatDate(b.bannedAt)}</td>
+      <td>${b.expiresAt ? formatDate(b.expiresAt) : '<span style="color:#EF4444">دائم</span>'}</td>
+      <td>
+        <button class="unban-btn" onclick="unbanUser('${b.userId}', '${(b.username || b.userId).replace(/'/g, "\\'")}', ${b.id})">رفع الحظر</button>
+      </td>
+    </tr>`).join("");
+
   return `<!DOCTYPE html>
 <html dir="rtl" lang="ar">
 <head>
@@ -267,7 +294,7 @@ function dashboardPage(data: {
     .stat-card { background: #1c1208; border: 1.5px solid #c8860a44; border-radius: 14px; padding: 20px; text-align: center; }
     .stat-card .num { font-size: 36px; font-weight: 900; color: #c8860a; }
     .stat-card .lbl { font-size: 13px; color: rgba(212,175,55,0.6); margin-top: 4px; }
-    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1.5px solid #c8860a33; padding-bottom: 0; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; border-bottom: 1.5px solid #c8860a33; padding-bottom: 0; flex-wrap: wrap; }
     .tab { padding: 10px 20px; cursor: pointer; font-size: 14px; font-weight: 600; color: rgba(212,175,55,0.5); border-bottom: 2.5px solid transparent; margin-bottom: -1.5px; transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none; }
     .tab.active { color: #c8860a; border-bottom-color: #c8860a; }
     .tab:hover { color: #d4af37; }
@@ -287,12 +314,18 @@ function dashboardPage(data: {
     .badge-active { background: #1a2d1a; color: #22C55E; border: 1px solid #22C55E44; }
     .badge-inactive { background: #2d1a1a; color: #EF4444; border: 1px solid #EF444444; }
     .badge-reason { background: #2d1a1a; color: #F59E0B; border: 1px solid #F59E0B44; }
+    .badge-ban-temp { background: #2d1f0e; color: #F59E0B; border: 1px solid #F59E0B44; }
+    .badge-ban-perm { background: #3d1a1a; color: #EF4444; border: 1px solid #EF444444; }
     .refresh-btn { background: #2d1f0e; color: #c8860a; border: 1.5px solid #c8860a55; border-radius: 8px; padding: 7px 16px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
     .refresh-btn:hover { background: #c8860a; color: #fff; }
     .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
     .section-header h2 { font-size: 15px; color: rgba(212,175,55,0.7); }
     .del-btn { background: none; border: none; cursor: pointer; font-size: 16px; padding: 2px 6px; border-radius: 6px; transition: background 0.2s; }
     .del-btn:hover { background: #3d1a1a; }
+    .unban-btn { background: #1a2d1a; color: #22C55E; border: 1.5px solid #22C55E44; border-radius: 8px; padding: 5px 14px; font-size: 12px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
+    .unban-btn:hover { background: #22C55E; color: #fff; border-color: #22C55E; }
+    .empty-state { text-align:center; padding:60px 20px; color:rgba(212,175,55,0.4); }
+    .empty-state .icon { font-size:48px; margin-bottom:12px; }
     /* Ban Menu Popup */
     #ban-menu { display:none; position:fixed; background:#1c1208; border:2px solid #c8860a; border-radius:14px; padding:16px; z-index:999; min-width:200px; box-shadow:0 8px 32px rgba(0,0,0,0.7); }
     #ban-menu h3 { font-size:13px; color:rgba(212,175,55,0.7); margin-bottom:12px; }
@@ -343,6 +376,10 @@ function dashboardPage(data: {
         <div class="num" style="color:#EF4444">${totalReports}</div>
         <div class="lbl">البلاغات</div>
       </div>
+      <div class="stat-card">
+        <div class="num" style="color:#F59E0B">${activeBans.length}</div>
+        <div class="lbl">المحظورون</div>
+      </div>
     </div>
 
     <!-- تبويبات -->
@@ -350,6 +387,7 @@ function dashboardPage(data: {
       <button class="tab active" onclick="switchTab('users', this)">المستخدمون</button>
       <button class="tab" onclick="switchTab('rooms', this)">الساحات</button>
       <button class="tab" onclick="switchTab('reports', this)">البلاغات <span id="reports-count" style="background:#EF4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:4px">${totalReports}</span></button>
+      <button class="tab" onclick="switchTab('bans', this)">المحظورون <span id="bans-count" style="background:#F59E0B;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:4px">${activeBans.length}</span></button>
     </div>
 
     <!-- تبويب المستخدمين -->
@@ -407,7 +445,7 @@ function dashboardPage(data: {
         <h2>${allReports.length} بلاغ</h2>
         <button class="refresh-btn" onclick="location.reload()">تحديث</button>
       </div>
-      ${allReports.length === 0 ? `<div style="text-align:center;padding:60px 20px;color:rgba(212,175,55,0.4)"><div style="font-size:48px;margin-bottom:12px">🚩</div><p>لا توجد بلاغات حتى الآن</p></div>` : `
+      ${allReports.length === 0 ? `<div class="empty-state"><div class="icon">🚩</div><p>لا توجد بلاغات حتى الآن</p></div>` : `
       <div class="table-wrap">
         <table id="reports-table">
           <thead>
@@ -421,6 +459,30 @@ function dashboardPage(data: {
             </tr>
           </thead>
           <tbody>${reportsRows}</tbody>
+        </table>
+      </div>`}
+    </div>
+
+    <!-- تبويب المحظورين -->
+    <div class="panel" id="panel-bans">
+      <div class="section-header">
+        <h2>${activeBans.length} محظور نشط</h2>
+        <button class="refresh-btn" onclick="location.reload()">تحديث</button>
+      </div>
+      ${activeBans.length === 0 ? `<div class="empty-state"><div class="icon">🔓</div><p>لا يوجد محظورون حالياً</p></div>` : `
+      <input class="search-bar" type="text" placeholder="بحث بالاسم..." oninput="filterTable('bans-table', this.value)" />
+      <div class="table-wrap">
+        <table id="bans-table">
+          <thead>
+            <tr>
+              <th>المستخدم</th>
+              <th>نوع الحظر</th>
+              <th>تاريخ الحظر</th>
+              <th>ينتهي في</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody>${bansRows}</tbody>
         </table>
       </div>`}
     </div>
@@ -450,7 +512,6 @@ function dashboardPage(data: {
         if (res.ok) {
           const row = document.getElementById('report-row-' + id);
           if (row) row.remove();
-          // تحديث العداد
           const cnt = document.querySelectorAll('#reports-table tbody tr').length;
           const badge = document.getElementById('reports-count');
           if (badge) badge.textContent = cnt;
@@ -460,7 +521,31 @@ function dashboardPage(data: {
       } catch(e) { alert('خطأ: ' + e); }
     }
 
-    // ── قائمة الحظر ──
+    // ── رفع الحظر مباشرة من تبويب المحظورين ──
+    async function unbanUser(userId, username, rowId) {
+      if (!confirm('هل تريد رفع الحظر عن ' + username + '؟')) return;
+      try {
+        const res = await fetch('/admin/api/unban', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId })
+        });
+        if (res.ok) {
+          const row = document.getElementById('ban-row-' + rowId);
+          if (row) row.remove();
+          // تحديث العداد
+          const cnt = document.querySelectorAll('#bans-table tbody tr').length;
+          const badge = document.getElementById('bans-count');
+          if (badge) badge.textContent = cnt;
+          alert('تم رفع الحظر عن ' + username + ' بنجاح');
+        } else {
+          const err = await res.json();
+          alert('فشل رفع الحظر: ' + (err.error || 'خطأ غير معروف'));
+        }
+      } catch(e) { alert('خطأ: ' + e); }
+    }
+
+    // ── قائمة الحظر (من تبويب البلاغات) ──
     let _banUserId = '', _banUsername = '';
     function showBanMenu(userId, username, el) {
       _banUserId = userId;
@@ -468,7 +553,6 @@ function dashboardPage(data: {
       document.getElementById('ban-target-name').textContent = username || userId;
       const menu = document.getElementById('ban-menu');
       const overlay = document.getElementById('ban-overlay');
-      // تحديد موضع القائمة
       const rect = el.getBoundingClientRect();
       menu.style.top = (rect.bottom + window.scrollY + 6) + 'px';
       menu.style.right = (window.innerWidth - rect.right) + 'px';
@@ -492,6 +576,7 @@ function dashboardPage(data: {
         if (res.ok) {
           closeBanMenu();
           alert('تم حظر ' + _banUsername + ' بنجاح');
+          location.reload();
         } else {
           const err = await res.json();
           alert('فشل الحظر: ' + (err.error || 'خطأ غير معروف'));
@@ -509,6 +594,7 @@ function dashboardPage(data: {
         if (res.ok) {
           closeBanMenu();
           alert('تم إلغاء حظر ' + _banUsername + ' بنجاح');
+          location.reload();
         } else {
           const err = await res.json();
           alert('فشل إلغاء الحظر: ' + (err.error || 'خطأ غير معروف'));
