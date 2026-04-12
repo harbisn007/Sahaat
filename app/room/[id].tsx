@@ -2264,7 +2264,7 @@ export default function RoomScreen() {
                     isPlaying={currentUri === item.audioUrl && isPlaying}
                     onPlay={() => handlePlayAudio(item.audioUrl || "")}
                     audioUrl={item.audioUrl}
-                    audioMessageId={item.id}
+                    audioMessageId={item.id.replace('audio-', '')}
                     senderUserId={item.userId}
                     currentUserId={userId}
                     currentUsername={username}
