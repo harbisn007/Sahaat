@@ -1388,6 +1388,7 @@ export default function RoomScreen() {
         await AudioModule.setAudioModeAsync({
           allowsRecording: true,
           playsInSilentMode: true,
+          playThroughEarpieceAndroid: true,
         });
         console.log("[RoomScreen] Audio output switched to earpiece for recording");
       } catch (e) {
@@ -1521,6 +1522,7 @@ export default function RoomScreen() {
         await AudioModule.setAudioModeAsync({
           allowsRecording: false,
           playsInSilentMode: true,
+          playThroughEarpieceAndroid: false,
         });
         console.log("[RoomScreen] Audio output restored to speaker after recording");
       } catch (e) {
