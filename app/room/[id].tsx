@@ -1593,7 +1593,11 @@ export default function RoomScreen() {
           const player = createAudioPlayer(url);
           player.volume = 1.0;
           player.play();
-          setTimeout(() => { try { player.release(); } catch (_) {} }, 120000);
+          activePlayersRef.current.push(player);
+          setTimeout(() => {
+            try { player.release(); } catch (_) {}
+            activePlayersRef.current = activePlayersRef.current.filter(p => p !== player);
+          }, 120000);
           console.log(`[RoomScreen] ${currentRecordingType} playing locally for sender`);
         } catch (e) {
           console.error(`[RoomScreen] Failed to play local ${currentRecordingType}:`, e);
