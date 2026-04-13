@@ -589,8 +589,8 @@ export async function getRoomAudioMessages(roomId: number) {
 export async function addAudioMessage(data: InsertAudioMessage) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-
   const result = await db.insert(audioMessages).values(data);
+  console.log('[audio.create] Saved to DB, id:', result[0].insertId);
   return Number(result[0].insertId);
 }
 
