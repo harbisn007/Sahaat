@@ -35,8 +35,9 @@ export function ReportModal({
       Alert.alert("تم الإرسال", "تم إرسال بلاغك بنجاح. شكراً لمساعدتنا في الحفاظ على بيئة آمنة.");
       handleClose();
     },
-    onError: () => {
-      Alert.alert("خطأ", "حدث خطأ أثناء إرسال البلاغ. حاول مرة أخرى.");
+    onError: (error) => {
+      console.error('[Report Error]', error);
+      Alert.alert('خطأ', error.message || 'حدث خطأ أثناء إرسال البلاغ. حاول مرة أخرى.');
     },
   });
 
