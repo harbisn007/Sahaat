@@ -1102,16 +1102,20 @@ export const appRouter = router({
     submit: publicProcedure
       .input(z.object({
         reporterUserId: z.string(),
-        reporterName: z.string(),
         reportedUserId: z.string(),
-        reportedName: z.string(),
         audioMessageId: z.number().optional(),
         audioUrl: z.string(),
         messageType: z.enum(["comment", "tarouk"]),
         reason: z.enum(["offensive_content", "bad_behavior"]),
       }))
       .mutation(async ({ input }) => {
-        return db.submitReport(input);
+        const reporterUser = await db.getUserByAppUserId(input.reporterUserId);
+        const reporterName = reporterUser?.name || input.reporterUserId;
+
+        const reportedUser = await db.getUserByAppUserId(input.reportedUserId);
+        const reportedName = reportedUser?.name || input.reportedUserId;
+
+        return db.submitReport({ ...input, reporterName, reportedName });
       }),
     // جلب كل البلاغات (للإدارة)
     getAll: publicProcedure

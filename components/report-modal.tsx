@@ -7,9 +7,7 @@ interface ReportModalProps {
   visible: boolean;
   onClose: () => void;
   reporterUserId: string;
-  reporterName: string;
   reportedUserId: string;
-  reportedName: string;
   audioMessageId?: number;
   audioUrl: string;
   messageType: "comment" | "tarouk";
@@ -19,9 +17,7 @@ export function ReportModal({
   visible,
   onClose,
   reporterUserId,
-  reporterName,
   reportedUserId,
-  reportedName,
   audioMessageId,
   audioUrl,
   messageType,
@@ -56,9 +52,7 @@ export function ReportModal({
     if (!selectedReason) return;
     submitMutation.mutate({
       reporterUserId,
-      reporterName,
       reportedUserId,
-      reportedName,
       audioMessageId,
       audioUrl,
       messageType,

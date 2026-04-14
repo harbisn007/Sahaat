@@ -207,9 +207,7 @@ export function MessageBubble({
           visible={reportVisible}
           onClose={() => setReportVisible(false)}
           reporterUserId={currentUserId!}
-          reporterName={currentUsername || ''}
           reportedUserId={senderUserId!}
-          reportedName={username}
           audioMessageId={audioMessageId}
           audioUrl={audioUrl!}
           messageType={messageType as "comment" | "tarouk"}

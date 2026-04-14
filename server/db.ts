@@ -102,6 +102,13 @@ export async function getUserByPhone(phoneNumber: string) {
   return result.length > 0 ? result[0] : null;
 }
 
+export async function getUserByAppUserId(appUserId: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(users).where(eq(users.appUserId, appUserId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
 export async function upsertUserByPhone(data: {
   phoneNumber: string;
   name: string;
@@ -1548,9 +1555,9 @@ export async function getBlockedByIds(userId: string): Promise<string[]> {
 // ============ Reports ============
 export async function submitReport(input: {
   reporterUserId: string;
-  reporterName: string;
+  reporterName?: string;
   reportedUserId: string;
-  reportedName: string;
+  reportedName?: string;
   audioMessageId?: number;
   audioUrl: string;
   messageType: "comment" | "tarouk";
@@ -1560,9 +1567,9 @@ export async function submitReport(input: {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(reports).values({
     reporterUserId: input.reporterUserId,
-    reporterName: input.reporterName,
+    reporterName: input.reporterName ?? input.reporterUserId,
     reportedUserId: input.reportedUserId,
-    reportedName: input.reportedName,
+    reportedName: input.reportedName ?? input.reportedUserId,
     audioMessageId: input.audioMessageId ?? null,
     audioUrl: input.audioUrl,
     messageType: input.messageType,
