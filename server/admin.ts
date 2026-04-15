@@ -376,7 +376,7 @@ function dashboardPage(data: {
         <div class="lbl">إجمالي المستخدمين</div>
       </div>
       <div class="stat-card">
-        <div class="num">${rooms24h.count}</div>
+        <div class="num">${rooms24h}</div>
         <div class="lbl">ساحات خلال 24ساعة</div>
       </div>
       <div class="stat-card">
