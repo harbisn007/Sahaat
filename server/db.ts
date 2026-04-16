@@ -1633,6 +1633,7 @@ export async function banUser(
     username,
     banType,
     expiresAt,
+    bannedBy: "admin",
     isActive: "true",
   });
   return { id: Number((result as any)[0]?.insertId ?? 0) };

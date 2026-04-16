@@ -253,9 +253,7 @@ function dashboardPage(data: {
     <tr id="report-row-${r.id}">
       <td>${formatDate(r.createdAt)}</td>
       <td>
-        <audio controls style="height:28px;max-width:160px;vertical-align:middle">
-          <source src="${r.audioUrl}" type="audio/mpeg">
-        </audio>
+        <button onclick="playAudio('${r.audioUrl}', this)" style="background:#2d1f0e;border:1.5px solid #c8860a55;color:#d4af37;border-radius:8px;padding:5px 12px;cursor:pointer;font-size:13px" title="تشغيل">▶ تشغيل</button>
         <span style="font-size:11px;color:#c8860a;margin-right:4px">${typeLabel(r.messageType)}</span>
       </td>
       <td><span class="badge badge-reason">${reasonLabel(r.reason)}</span></td>
@@ -516,6 +514,20 @@ function dashboardPage(data: {
     }
 
     // ── حذف بلاغ ──
+    let _currentAudio = null;
+    function playAudio(url, btn) {
+      if (_currentAudio) {
+        _currentAudio.pause();
+        _currentAudio = null;
+        document.querySelectorAll('.play-btn-active').forEach(b => { b.textContent = '▶ تشغيل'; b.classList.remove('play-btn-active'); });
+      }
+      const audio = new Audio(url);
+      _currentAudio = audio;
+      btn.textContent = '⏸ إيقاف';
+      btn.classList.add('play-btn-active');
+      audio.play().catch(e => { btn.textContent = '▶ تشغيل'; console.error(e); });
+      audio.onended = () => { btn.textContent = '▶ تشغيل'; btn.classList.remove('play-btn-active'); _currentAudio = null; };
+    }
     async function deleteReport(id) {
       if (!confirm('هل تريد حذف هذا البلاغ نهائياً؟')) return;
       try {
