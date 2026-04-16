@@ -1,4 +1,4 @@
-import { eq, inArray, and, asc, desc, sql } from "drizzle-orm";
+import { eq, inArray, notInArray, and, asc, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
 import { InsertUser, users, userInteractions, blockedUsers, reports, adminBans } from "../drizzle/schema";
@@ -316,8 +316,26 @@ export async function deleteRoom(roomId: number) {
   // 1. Delete reactions
   await db.delete(reactions).where(eq(reactions.roomId, roomId));
   
-  // 2. Delete audio messages
-  await db.delete(audioMessages).where(eq(audioMessages.roomId, roomId));
+  // 2. Delete audio messages (احذف فقط الرسائل التي ليس عليها بلاغات)
+  const roomAudioIds = await db
+    .select({ id: audioMessages.id })
+    .from(audioMessages)
+    .where(eq(audioMessages.roomId, roomId));
+  const allAudioIds = roomAudioIds.map(r => r.id);
+  if (allAudioIds.length > 0) {
+    const reportedRows = await db
+      .select({ audioMessageId: reports.audioMessageId })
+      .from(reports)
+      .where(inArray(reports.audioMessageId, allAudioIds));
+    const reportedIds = reportedRows.map(r => r.audioMessageId).filter((id): id is number => id !== null);
+    if (reportedIds.length > 0) {
+      await db.delete(audioMessages).where(
+        and(eq(audioMessages.roomId, roomId), notInArray(audioMessages.id, reportedIds))
+      );
+    } else {
+      await db.delete(audioMessages).where(eq(audioMessages.roomId, roomId));
+    }
+  }
   
   // 3. Delete sheeloha broadcasts
   await db.delete(sheelohaBroadcasts).where(eq(sheelohaBroadcasts.roomId, roomId));

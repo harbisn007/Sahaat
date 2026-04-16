@@ -15,8 +15,8 @@
  */
 
 import { getDb, removeGoldStar, removeExtension } from "../db";
-import { rooms, roomParticipants, audioMessages, reactions, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations } from "../../drizzle/schema";
-import { eq, and, lt } from "drizzle-orm";
+import { rooms, roomParticipants, audioMessages, reactions, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations, reports } from "../../drizzle/schema";
+import { eq, and, lt, inArray, notInArray } from "drizzle-orm";
 import { broadcastRoomDeleted } from "./socket";
 
 // الفترة الزمنية بالدقائق قبل حذف الساحة بدون انضمام شاعر
@@ -124,7 +124,26 @@ export async function deleteRoomCompletely(roomId: number): Promise<void> {
   try {
     // حذف جميع البيانات المرتبطة بالترتيب
     await db.delete(reactions).where(eq(reactions.roomId, roomId));
-    await db.delete(audioMessages).where(eq(audioMessages.roomId, roomId));
+    // احذف فقط الرسائل الصوتية التي ليس عليها بلاغات
+    const roomAudioIds = await db
+      .select({ id: audioMessages.id })
+      .from(audioMessages)
+      .where(eq(audioMessages.roomId, roomId));
+    const allAudioIds = roomAudioIds.map(r => r.id);
+    if (allAudioIds.length > 0) {
+      const reportedRows = await db
+        .select({ audioMessageId: reports.audioMessageId })
+        .from(reports)
+        .where(inArray(reports.audioMessageId, allAudioIds));
+      const reportedIds = reportedRows.map(r => r.audioMessageId).filter((id): id is number => id !== null);
+      if (reportedIds.length > 0) {
+        await db.delete(audioMessages).where(
+          and(eq(audioMessages.roomId, roomId), notInArray(audioMessages.id, reportedIds))
+        );
+      } else {
+        await db.delete(audioMessages).where(eq(audioMessages.roomId, roomId));
+      }
+    }
     await db.delete(sheelohaBroadcasts).where(eq(sheelohaBroadcasts.roomId, roomId));
     await db.delete(khaloohaCommands).where(eq(khaloohaCommands.roomId, roomId));
     await db.delete(recordingStatus).where(eq(recordingStatus.roomId, roomId));
