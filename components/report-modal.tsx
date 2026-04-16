@@ -28,7 +28,7 @@ export function ReportModal({
 
   const submitMutation = trpc.reports.submit.useMutation({
     onSuccess: () => {
-      Alert.alert("تم الإرسال", "تم إرسال بلاغك بنجاح. شكراً لمساعدتنا في الحفاظ على بيئة آمنة.");
+      Alert.alert("تم الإرسال", "تم إرسال بلاغك بنجاح .");
       handleClose();
     },
     onError: (error) => {
