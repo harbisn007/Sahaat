@@ -565,7 +565,21 @@ function dashboardPage(data: {
       const menu = document.getElementById('ban-menu');
       const overlay = document.getElementById('ban-overlay');
       const rect = el.getBoundingClientRect();
-      menu.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+      // عرض مؤقت لحساب الارتفاع
+      menu.style.visibility = 'hidden';
+      menu.style.display = 'block';
+      const menuH = menu.offsetHeight;
+      menu.style.display = 'none';
+      menu.style.visibility = '';
+      const spaceBelow = window.innerHeight - rect.bottom;
+      let topPos;
+      if (spaceBelow < menuH + 20) {
+        // لا توجد مساحة كافية أسفل → اعرض فوق العنصر
+        topPos = Math.max(window.scrollY + 8, rect.top + window.scrollY - menuH - 6);
+      } else {
+        topPos = rect.bottom + window.scrollY + 6;
+      }
+      menu.style.top = topPos + 'px';
       menu.style.right = (window.innerWidth - rect.right) + 'px';
       menu.style.left = 'auto';
       menu.style.display = 'block';
