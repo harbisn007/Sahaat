@@ -2149,8 +2149,8 @@ export default function RoomScreen() {
             <MaterialIcons name="push-pin" size={18} color="#FFD700" />
           </TouchableOpacity>
         )}
-        {/* النص المثبت يظهر للجميع فوق صور اللاعبين */}
-        {pinnedText !== "" && (
+        {/* النص المثبت يظهر للجميع فوق صور اللاعبين — لا يحجز مساحة عند الفراغ */}
+        {pinnedText.trim().length > 0 && (
           <View style={{ backgroundColor: 'rgba(28,18,8,0.85)', borderWidth: 1, borderColor: '#c8860a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, marginBottom: 8, marginHorizontal: 4 }}>
             <Text style={{ color: '#FFD700', fontSize: 14, fontWeight: 'bold', textAlign: 'center', lineHeight: 22 }}>{pinnedText}</Text>
           </View>
