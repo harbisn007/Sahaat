@@ -651,9 +651,12 @@ export default function RoomScreen() {
       onPinnedTextUpdated: (data: { roomId: number; text: string }) => {
         setPinnedText(data.text);
       },
-      // استقبال رسالة كتابية جديدة
-      onTextMessageCreated: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => {
-        setTextMessages(prev => [data, ...prev].slice(0, 100));
+      // استقبال رسالة كتابية جديدة (مع منع التكرار)
+      onTextMessage: (data: any) => {
+        setTextMessages(prev => {
+          if (prev.some(m => m.id === data.id)) return prev;
+          return [{ ...data, type: "text" }, ...prev];
+        });
       },
     });
   }, [roomId, setCallbacks]);

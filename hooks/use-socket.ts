@@ -313,6 +313,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
     onUserBanned?: (data: { userId: string; banType: string }) => void;
     onPinnedTextUpdated?: (data: { roomId: number; text: string }) => void;
     onTextMessageCreated?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
+    onTextMessage?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
   }>({});
 
   // تتبع roomId السابق لمغادرته عند التغيير
@@ -499,6 +500,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socket.on("textMessageCreated", (data) => {
           if (data.roomId === roomId) {
             callbacksRef.current.onTextMessageCreated?.(data);
+            callbacksRef.current.onTextMessage?.(data);
           }
         });
 
