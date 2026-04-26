@@ -1,6 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
-import { getUserActiveRoom, removeParticipant, getRoomById } from "../db";
+import { getUserActiveRoom, removeParticipant, getRoomById, addTextMessage } from "../db";
 import { deleteRoomCompletely } from "./room-cleanup";
 
 // نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
@@ -413,17 +413,23 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       });
     });
 
-    // استقبال رسالة كتابية وبثها لجميع مشاركي الساحة
-    socket.on("textMessage", (data: { roomId: number; userId: string; username: string; text: string }) => {
+    // استقبال رسالة كتابية وحفظها في قاعدة البيانات وبثها لجميع مشاركي الساحة
+    socket.on("textMessage", async (data: { roomId: number; userId: string; username: string; text: string }) => {
+      const { roomId, userId, username, text } = data;
+      try {
+        await addTextMessage({ roomId, userId, username, text });
+        console.log(`[Socket.io] textMessage saved in room ${roomId} from ${username}`);
+      } catch (err) {
+        console.error("[Socket.io] textMessage DB error:", err);
+      }
       const id = Date.now();
       const createdAt = new Date().toISOString();
-      console.log(`[Socket.io] textMessage in room ${data.roomId} from ${data.username}`);
-      io!.to(`room:${data.roomId}`).emit("textMessageCreated", {
-        roomId: data.roomId,
+      io!.to(`room:${roomId}`).emit("textMessageCreated", {
+        roomId,
         id,
-        userId: data.userId,
-        username: data.username,
-        text: data.text,
+        userId,
+        username,
+        text,
         createdAt,
       });
     });
