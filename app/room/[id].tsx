@@ -479,26 +479,6 @@ export default function RoomScreen() {
   const updateProfileMutation = trpc.profile.update.useMutation();
   const createTextMessageMutation = trpc.text.create.useMutation();
 
-  const handleSendTextMessage = useCallback(() => {
-    if (!textMessage.trim()) return;
-    const socket = getSocket();
-    if (socket) {
-      const msg = {
-        roomId,
-        userId,
-        username: username || "",
-        text: textMessage.trim(),
-      };
-      socket.emit("textMessage", msg);
-      setTextMessages(prev => [{
-        id: `text-${Date.now()}`,
-        ...msg,
-        createdAt: new Date().toISOString(),
-      }, ...prev]);
-    }
-    setTextMessage("");
-  }, [textMessage, roomId, userId, username]);
-
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
     useAudioRecorder();
 
@@ -814,13 +794,6 @@ export default function RoomScreen() {
     return [...serverMessages, ...uniqueLocalMessages]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [filteredAudioMessages, filteredReactions, localMessages]);
-
-  // فصل البيانات: صوتي فقط | كتابي + تفاعلات
-  const audioFeed = useMemo(() => combinedFeed.filter(item => item.type === "audio"), [combinedFeed]);
-  const textAndReactionsFeed = useMemo(() => [
-    ...textMessages.map(m => ({ ...m, id: String(m.id), type: "text" as const })),
-    ...combinedFeed.filter(item => item.type === "reaction"),
-  ].sort((a, b) => new Date(b.createdAt ?? (b as any).timestamp ?? 0).getTime() - new Date(a.createdAt ?? (a as any).timestamp ?? 0).getTime()), [textMessages, combinedFeed]);
 
   // Reactions picker state
   const [isReactionsPickerOpen, setIsReactionsPickerOpen] = useState(false);
@@ -1219,6 +1192,37 @@ export default function RoomScreen() {
   // حالة الرسائل الكتابية
   const [textMessage, setTextMessage] = useState("");
   const [textMessages, setTextMessages] = useState<{id: number; userId: string; username: string; text: string; createdAt: string}[]>([]);
+
+  // فصل البيانات: صوتي فقط | كتابي + تفاعلات
+  const audioFeed = useMemo(() => combinedFeed.filter(item => item.type === "audio"), [combinedFeed]);
+  const textAndReactionsFeed = useMemo(() => [
+    ...textMessages.map(m => ({ ...m, id: String(m.id), type: "text" as const })),
+    ...combinedFeed.filter(item => item.type === "reaction"),
+  ].sort((a, b) => new Date(b.createdAt ?? (b as any).timestamp ?? 0).getTime() - new Date(a.createdAt ?? (a as any).timestamp ?? 0).getTime()), [textMessages, combinedFeed]);
+
+  const handleSendTextMessage = useCallback(async () => {
+    if (!textMessage.trim()) return;
+    try {
+      const socket = await getSocket();
+      if (socket) {
+        const msg = {
+          roomId,
+          userId,
+          username: username || "",
+          text: textMessage.trim(),
+        };
+        socket.emit("textMessage", msg);
+        setTextMessages(prev => [{
+          id: Date.now(),
+          ...msg,
+          createdAt: new Date().toISOString(),
+        }, ...prev]);
+      }
+    } catch (err) {
+      console.error("[handleSendTextMessage] error:", err);
+    }
+    setTextMessage("");
+  }, [textMessage, roomId, userId, username]);
 
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {

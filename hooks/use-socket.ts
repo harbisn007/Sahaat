@@ -108,6 +108,8 @@ interface ClientToServerEvents {
   playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration?: number; userId: string; username: string }) => void;
   // تثبيت نص في الساحة (من المنشئ)
   pinText: (data: { roomId: number; text: string }) => void;
+  // إرسال رسالة كتابية
+  textMessage: (data: { roomId: number; userId: string; username: string; text: string }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
