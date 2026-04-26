@@ -312,6 +312,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
     }) => void;
     onUserBanned?: (data: { userId: string; banType: string }) => void;
     onPinnedTextUpdated?: (data: { roomId: number; text: string }) => void;
+    onTextMessageCreated?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
   }>({});
 
   // تتبع roomId السابق لمغادرته عند التغيير
@@ -494,6 +495,13 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
+        // حدث رسالة كتابية جديدة
+        socket.on("textMessageCreated", (data) => {
+          if (data.roomId === roomId) {
+            callbacksRef.current.onTextMessageCreated?.(data);
+          }
+        });
+
         // مراقبة حالة الاتصال وإعادة الانضمام للغرفة عند الاتصال/إعادة الاتصال
         socket.on("connect", () => {
           console.log("[Socket.io] ========== SOCKET CONNECTED ==========");
@@ -538,6 +546,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("playSheeloha");
         socketRef.current.off("userBanned");
         socketRef.current.off("pinnedTextUpdated");
+        socketRef.current.off("textMessageCreated");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         

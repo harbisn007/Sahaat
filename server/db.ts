@@ -145,6 +145,7 @@ import {
   sheelohaBroadcasts,
   khaloohaCommands,
   recordingStatus,
+  textMessages,
   type InsertRoom,
   type InsertRoomParticipant,
   type InsertAudioMessage,
@@ -152,6 +153,7 @@ import {
   type InsertSheelohaBroadcast,
   type InsertKhaloohaCommand,
   type InsertRecordingStatus,
+  type InsertTextMessage,
 } from "../drizzle/schema";
 
 export async function getAllRooms() {
@@ -616,6 +618,26 @@ export async function addAudioMessage(data: InsertAudioMessage) {
   if (!db) throw new Error("Database not available");
   const result = await db.insert(audioMessages).values(data);
   console.log('[audio.create] Saved to DB, id:', result[0].insertId);
+  return Number(result[0].insertId);
+}
+
+// ============ Text Messages ============
+
+export async function listTextMessages(roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(textMessages)
+    .where(eq(textMessages.roomId, roomId))
+    .orderBy(desc(textMessages.createdAt))
+    .limit(100);
+}
+
+export async function addTextMessage(data: InsertTextMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(textMessages).values(data);
   return Number(result[0].insertId);
 }
 

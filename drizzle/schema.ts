@@ -229,3 +229,15 @@ export const adminBans = mysqlTable("admin_bans", {
 });
 export type AdminBan = typeof adminBans.$inferSelect;
 export type InsertAdminBan = typeof adminBans.$inferInsert;
+
+// جدول الرسائل الكتابية في الساحات
+export const textMessages = mysqlTable("text_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  roomId: int("roomId").notNull(),
+  userId: varchar("userId", { length: 100 }).notNull(),
+  username: varchar("username", { length: 50 }).notNull(),
+  text: varchar("text", { length: 300 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type TextMessage = typeof textMessages.$inferSelect;
+export type InsertTextMessage = typeof textMessages.$inferInsert;

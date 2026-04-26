@@ -477,6 +477,18 @@ export default function RoomScreen() {
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
   const generateSheelohaMutation = trpc.audio.generateSheeloha.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
+  const createTextMessageMutation = trpc.text.create.useMutation();
+
+  const handleSendTextMessage = async () => {
+    const trimmed = textMessage.trim();
+    if (!trimmed || !userId || !username) return;
+    setTextMessage("");
+    try {
+      await createTextMessageMutation.mutateAsync({ roomId, userId, username, text: trimmed });
+    } catch (e) {
+      console.error("[TextMessage] Failed to send:", e);
+    }
+  };
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
     useAudioRecorder();
@@ -629,6 +641,10 @@ export default function RoomScreen() {
       // استقبال النص المثبت من الخادم وتحديثه للجميع
       onPinnedTextUpdated: (data: { roomId: number; text: string }) => {
         setPinnedText(data.text);
+      },
+      // استقبال رسالة كتابية جديدة
+      onTextMessageCreated: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => {
+        setTextMessages(prev => [data, ...prev].slice(0, 100));
       },
     });
   }, [roomId, setCallbacks]);
@@ -1181,6 +1197,9 @@ export default function RoomScreen() {
   const [pinnedText, setPinnedText] = useState<string>("");
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinInput, setPinInput] = useState("");
+  // حالة الرسائل الكتابية
+  const [textMessage, setTextMessage] = useState("");
+  const [textMessages, setTextMessages] = useState<{id: number; userId: string; username: string; text: string; createdAt: string}[]>([]);
 
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {
@@ -2263,61 +2282,98 @@ export default function RoomScreen() {
           })()}
         </View>
 
-        {/* Messages FlatList - مثل الواتساب للأداء العالي */}
-        {combinedFeed.length > 0 ? (
-          <FlatList
-            ref={flatListRef}
-            data={combinedFeed}
-            keyExtractor={(item) => item.id}
-            className="flex-1"
-            showsVerticalScrollIndicator={true}
-            contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 8 }}
-            // تحسينات الأداء - Virtualization
-            initialNumToRender={15}
-            maxToRenderPerBatch={10}
-            windowSize={10}
-            removeClippedSubviews={Platform.OS !== "web"}
-            getItemLayout={(data, index) => ({
-              length: 60, // ارتفاع تقريبي لكل رسالة
-              offset: 60 * index,
-              index,
-            })}
-            renderItem={({ item }) => {
-              if (item.type === "audio") {
-                return (
-                  <MessageBubble
-                    type="audio"
-                    username={item.username}
-                    messageType={item.messageType}
-                    duration={item.duration}
-                    isPlaying={currentUri === item.audioUrl && isPlaying}
-                    onPlay={() => handlePlayAudio(item.audioUrl || "")}
-                    audioUrl={item.audioUrl}
-                    audioMessageId={parseInt(item.id.replace(/[^0-9]/g, ''), 10)}
-                    senderUserId={item.userId}
-                    currentUserId={userId}
-                    currentUsername={username}
-                  />
-                );
-              } else {
-                return (
-                  <ReactionMessage
-                    username={item.username}
-                    reactionType={item.reactionType || ""}
-                    createdAt={item.createdAt}
-                    isOwnMessage={item.username === username}
-                  />
-                );
-              }
-            }}
-          />
-        ) : (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-muted text-center">
-              💬 لم يتم إرسال رسائل بعد
-            </Text>
+        {/* تقسيم عمودين: صوتي (يسار) + كتابي (يمين) */}
+        <View style={{ flex: 1, flexDirection: 'row', borderWidth: 2, borderColor: '#FFD700', borderRadius: 8, marginHorizontal: 16, marginBottom: 8, overflow: 'hidden' }}>
+          {/* عمود يسار — رسائل صوتية (⅓) */}
+          <View style={{ flex: 1, borderRightWidth: 1, borderRightColor: '#c8860a' }}>
+            {combinedFeed.length > 0 ? (
+              <FlatList
+                ref={flatListRef}
+                data={combinedFeed}
+                keyExtractor={(item) => item.id}
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 4 }}
+                initialNumToRender={10}
+                maxToRenderPerBatch={8}
+                windowSize={8}
+                removeClippedSubviews={Platform.OS !== "web"}
+                renderItem={({ item }) => {
+                  if (item.type === "audio") {
+                    return (
+                      <MessageBubble
+                        type="audio"
+                        username={item.username}
+                        messageType={item.messageType}
+                        duration={item.duration}
+                        isPlaying={currentUri === item.audioUrl && isPlaying}
+                        onPlay={() => handlePlayAudio(item.audioUrl || "")}
+                        audioUrl={item.audioUrl}
+                        audioMessageId={parseInt(item.id.replace(/[^0-9]/g, ''), 10)}
+                        senderUserId={item.userId}
+                        currentUserId={userId}
+                        currentUsername={username}
+                      />
+                    );
+                  } else {
+                    return (
+                      <ReactionMessage
+                        username={item.username}
+                        reactionType={item.reactionType || ""}
+                        createdAt={item.createdAt}
+                        isOwnMessage={item.username === username}
+                      />
+                    );
+                  }
+                }}
+              />
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#888', fontSize: 11, textAlign: 'center', paddingHorizontal: 4 }}>🎤 لا رسائل</Text>
+              </View>
+            )}
           </View>
-        )}
+          {/* عمود يمين — رسائل كتابية + حقل الكتابة (⅞) */}
+          <View style={{ flex: 2, flexDirection: 'column' }}>
+            {textMessages.length > 0 ? (
+              <FlatList
+                data={textMessages}
+                keyExtractor={(item) => String(item.id)}
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ paddingBottom: 4, paddingHorizontal: 6 }}
+                initialNumToRender={10}
+                maxToRenderPerBatch={8}
+                windowSize={8}
+                removeClippedSubviews={Platform.OS !== "web"}
+                renderItem={({ item }) => (
+                  <View style={{ paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}>
+                    <Text style={{ color: '#c8860a', fontSize: 11, fontWeight: 'bold', textAlign: 'right' }}>{item.username}</Text>
+                    <Text style={{ color: '#FFD700', fontSize: 13, textAlign: 'right', lineHeight: 18 }}>{item.text}</Text>
+                  </View>
+                )}
+              />
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#888', fontSize: 11, textAlign: 'center', paddingHorizontal: 4 }}>💬 لا رسائل</Text>
+              </View>
+            )}
+            {/* حقل الكتابة */}
+            <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#c8860a', padding: 6 }}>
+              <TextInput
+                style={{ flex: 1, color: '#FFD700', borderWidth: 1, borderColor: '#c8860a', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, fontSize: 13, textAlign: 'right', backgroundColor: 'rgba(200,134,10,0.08)' }}
+                placeholder="اكتب رسالة..."
+                placeholderTextColor="#888"
+                value={textMessage}
+                onChangeText={setTextMessage}
+                returnKeyType="send"
+                onSubmitEditing={handleSendTextMessage}
+                maxLength={300}
+              />
+              <TouchableOpacity onPress={handleSendTextMessage} style={{ marginLeft: 6, justifyContent: 'center', paddingHorizontal: 4 }}>
+                <MaterialIcons name="send" size={22} color="#FFD700" style={{ transform: [{ scaleX: -1 }] }} />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       </View>
 
       {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}

@@ -134,6 +134,13 @@
       "when": 1775919729361,
       "tag": "0018_foamy_wendigo",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1777228284715,
+      "tag": "0019_mean_joseph",
+      "breakpoints": true
     }
   ]
 }

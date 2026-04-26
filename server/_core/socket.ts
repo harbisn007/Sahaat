@@ -202,6 +202,8 @@ export interface ServerToClientEvents {
   userBanned: (data: { userId: string; banType: string }) => void;
   // حدث تحديث النص المثبت في الساحة
   pinnedTextUpdated: (data: { roomId: number; text: string }) => void;
+  // حدث رسالة كتابية جديدة
+  textMessageCreated: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -754,6 +756,27 @@ export function emitCreatorJoinRequest(
   console.log(`[Socket.io] Creator join request notification sent to creator:${creatorId} (type: ${requestType}, requester: ${requesterName})`);
 }
 
+/**
+ * بث رسالة كتابية جديدة لجميع المشاركين في الساحة
+ */
+export function emitTextMessageCreated(
+  roomId: number,
+  id: number,
+  userId: string,
+  username: string,
+  text: string,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("textMessageCreated", {
+    roomId,
+    id,
+    userId,
+    username,
+    text,
+    createdAt: createdAt.toISOString(),
+  });
+}
 /**
  * إرسال حدث حظر للمستخدم المحظور مباشرة
  */

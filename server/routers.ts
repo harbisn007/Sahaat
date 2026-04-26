@@ -31,6 +31,7 @@ import {
   clearRoomLikes,
   emitReactionCreated,
   emitUserBanned,
+  emitTextMessageCreated,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -1167,6 +1168,27 @@ export const appRouter = router({
       .input(z.object({ blockerId: z.string() }))
       .query(async ({ input }) => {
         return db.getBlockedIds(input.blockerId);
+      }),
+  }),
+  // Text Messages router
+  text: router({
+    list: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(async ({ input }) => {
+        return db.listTextMessages(input.roomId);
+      }),
+    create: publicProcedure
+      .input(z.object({
+        roomId: z.number(),
+        userId: z.string(),
+        username: z.string(),
+        text: z.string().min(1).max(300),
+      }))
+      .mutation(async ({ input }) => {
+        const id = await db.addTextMessage(input);
+        const now = new Date();
+        emitTextMessageCreated(input.roomId, id, input.userId, input.username, input.text, now);
+        return { id };
       }),
   }),
 });
