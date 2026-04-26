@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, KeyboardAvoidingView } from "react-native";
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -2156,8 +2156,13 @@ export default function RoomScreen() {
       )}
 
       {/* Messages Feed - Takes most of the screen */}
+      <KeyboardAvoidingView
+        style={{ flex: 1, marginHorizontal: 16, marginBottom: 8 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
       <View 
-        className="flex-1 px-1 pt-2 mx-4 mb-2 rounded-lg"
+        className="flex-1 px-1 pt-2 rounded-lg"
         style={{
           borderWidth: 2,
           borderColor: "#FFD700", // ذهبي
@@ -2306,12 +2311,13 @@ export default function RoomScreen() {
         </View>
 
         {/* Messages Area - عمودين بدون حدود */}
-        <View style={{ flex: 1, flexDirection: 'row' }}>
-          {/* عمود يسار — رسائل صوتية (⅓) */}
-          <View style={{ flex: 1 }}>
+        <View style={{ flex: 1, flexDirection: 'row', gap: 0 }}>
+          {/* عمود يسار — رسائل صوتية (40%) */}
+          <View style={{ flex: 2 }}>
             {audioFeed.length > 0 ? (
               <FlatList
-                data={audioFeed}
+                data={[...audioFeed].reverse()}
+                inverted={true}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
@@ -2341,11 +2347,11 @@ export default function RoomScreen() {
               </View>
             )}
           </View>
-
-          {/* عمود يمين — رسائل كتابية + تفاعلات (⅞) */}
-          <View style={{ flex: 2 }}>
+          {/* عمود يمين — رسائل كتابية + تفاعلات (60%) */}
+          <View style={{ flex: 3 }}>
             <FlatList
-              data={textAndReactionsFeed}
+              data={[...textAndReactionsFeed].reverse()}
+              inverted={true}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
@@ -2359,19 +2365,17 @@ export default function RoomScreen() {
                   return (
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
                       <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
-                        <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
-                        <Text style={{ color: '#e8d5a3', fontSize: 13 }}>{item.text}</Text>
+                        <Text style={{ color: '#000000', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
+                        <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
                       </View>
                     </View>
                   );
                 } else {
                   return (
-                    <ReactionMessage
-                      username={item.username}
-                      reactionType={item.reactionType || ""}
-                      createdAt={item.createdAt}
-                      isOwnMessage={item.username === username}
-                    />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingHorizontal: 2 }}>
+                      <Text style={{ fontSize: 20 }}>{item.reactionType}</Text>
+                      <Text style={{ color: '#000000', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }}>{item.username}</Text>
+                    </View>
                   );
                 }
               }}
@@ -2399,6 +2403,7 @@ export default function RoomScreen() {
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
 
       {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
