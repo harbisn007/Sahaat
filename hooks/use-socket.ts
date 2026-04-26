@@ -90,6 +90,8 @@ interface ServerToClientEvents {
   userBanned: (data: { userId: string; banType: string }) => void;
   // حدث تحديث عدد المتواجدين
   onlineCountUpdated: (data: { count: number }) => void;
+  // حدث تحديث النص المثبت في الساحة
+  pinnedTextUpdated: (data: { roomId: number; text: string }) => void;
   publicInviteCreated: (data: { invitationId: number; roomId: number; creatorId: string; creatorName: string; creatorAvatar: string; roomName: string; }) => void;
   publicInviteExpired: (data: { invitationId: number }) => void;
 }
@@ -104,6 +106,8 @@ interface ClientToServerEvents {
   joinCreatorChannel: (userId: string) => void;
   leaveCreatorChannel: (userId: string) => void;
   playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration?: number; userId: string; username: string }) => void;
+  // تثبيت نص في الساحة (من المنشئ)
+  pinText: (data: { roomId: number; text: string }) => void;
 }
 
 type SocketType = Socket<ServerToClientEvents, ClientToServerEvents>;
@@ -307,6 +311,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       username: string;
     }) => void;
     onUserBanned?: (data: { userId: string; banType: string }) => void;
+    onPinnedTextUpdated?: (data: { roomId: number; text: string }) => void;
   }>({});
 
   // تتبع roomId السابق لمغادرته عند التغيير
@@ -482,6 +487,13 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           callbacksRef.current.onUserBanned?.(data);
         });
 
+        // حدث تحديث النص المثبت
+        socket.on("pinnedTextUpdated", (data) => {
+          if (data.roomId === roomId) {
+            callbacksRef.current.onPinnedTextUpdated?.(data);
+          }
+        });
+
         // مراقبة حالة الاتصال وإعادة الانضمام للغرفة عند الاتصال/إعادة الاتصال
         socket.on("connect", () => {
           console.log("[Socket.io] ========== SOCKET CONNECTED ==========");
@@ -525,6 +537,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("playAudioMessage");
         socketRef.current.off("playSheeloha");
         socketRef.current.off("userBanned");
+        socketRef.current.off("pinnedTextUpdated");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         

@@ -200,6 +200,8 @@ export interface ServerToClientEvents {
   }) => void;
   // حدث حظر المستخدم من الإدارة
   userBanned: (data: { userId: string; banType: string }) => void;
+  // حدث تحديث النص المثبت في الساحة
+  pinnedTextUpdated: (data: { roomId: number; text: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -230,6 +232,8 @@ export interface ClientToServerEvents {
 
   // بث أمر تشغيل الشيلوها لجميع المشاركين
   playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration: number; userId: string; username: string; }) => void;
+  // تثبيت نص في الساحة (من المنشئ)
+  pinText: (data: { roomId: number; text: string }) => void;
 }
 
 export interface InterServerEvents {
@@ -393,6 +397,15 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
         taroukDuration: data.taroukDuration,
         userId: data.userId,
         username: data.username,
+      });
+    });
+
+    // استقبال تثبيت نص من المنشئ وبثه لجميع مشاركي الساحة
+    socket.on("pinText", (data: { roomId: number; text: string }) => {
+      console.log(`[Socket.io] pinText in room ${data.roomId}: "${data.text}"`);
+      io!.to(`room:${data.roomId}`).emit("pinnedTextUpdated", {
+        roomId: data.roomId,
+        text: data.text,
       });
     });
   });

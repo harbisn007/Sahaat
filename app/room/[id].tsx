@@ -626,6 +626,10 @@ export default function RoomScreen() {
           ]);
         }
       },
+      // استقبال النص المثبت من الخادم وتحديثه للجميع
+      onPinnedTextUpdated: (data: { roomId: number; text: string }) => {
+        setPinnedText(data.text);
+      },
     });
   }, [roomId, setCallbacks]);
 
@@ -1173,6 +1177,10 @@ export default function RoomScreen() {
   // حالة نافذة الدعوة العامة
   const [showPublicInviteModal, setShowPublicInviteModal] = useState(false);
   const [publicInviteText, setPublicInviteText] = useState('');
+  // حالة تثبيت النص
+  const [pinnedText, setPinnedText] = useState<string>("");
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinInput, setPinInput] = useState("");
 
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {
@@ -2113,6 +2121,21 @@ export default function RoomScreen() {
           borderColor: "#FFD700", // ذهبي
         }}
       >
+        {/* أيقونة التثبيت للمنشئ فقط */}
+        {isCreator && (
+          <TouchableOpacity
+            onPress={() => { setPinInput(pinnedText); setShowPinModal(true); }}
+            style={{ position: 'absolute', top: 8, left: 8, zIndex: 10, backgroundColor: 'rgba(28,18,8,0.8)', borderRadius: 15, width: 30, height: 30, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#c8860a' }}
+          >
+            <MaterialIcons name="push-pin" size={18} color="#FFD700" />
+          </TouchableOpacity>
+        )}
+        {/* النص المثبت يظهر للجميع فوق صور اللاعبين */}
+        {pinnedText !== "" && (
+          <View style={{ backgroundColor: 'rgba(28,18,8,0.85)', borderWidth: 1, borderColor: '#c8860a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, marginBottom: 8, marginHorizontal: 4 }}>
+            <Text style={{ color: '#FFD700', fontSize: 14, fontWeight: 'bold', textAlign: 'center', lineHeight: 22 }}>{pinnedText}</Text>
+          </View>
+        )}
         {/* Players Display - Creator in center, Players on sides */}
         <View className="flex-row items-center justify-center mb-4" style={{ gap: 16 }}>
           {/* Player 1 (Right side) */}
@@ -2605,6 +2628,47 @@ export default function RoomScreen() {
         currentName={username || ""}
         currentAvatar={avatar}
       />
+
+      {/* Pin Text Modal */}
+      <Modal visible={showPinModal} transparent animationType="fade" onRequestClose={() => setShowPinModal(false)}>
+        <Pressable style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }} onPress={() => setShowPinModal(false)}>
+          <Pressable style={{ backgroundColor: '#1c1208', borderWidth: 2, borderColor: '#c8860a', borderRadius: 16, padding: 20, width: '85%', maxWidth: 340 }} onPress={() => {}}>
+            <Text style={{ color: '#FFD700', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginBottom: 12 }}>تثبيت نص</Text>
+            <TextInput
+              value={pinInput}
+              onChangeText={setPinInput}
+              placeholder="اكتب النص المراد تثبيته..."
+              placeholderTextColor="#888"
+              multiline
+              maxLength={100}
+              style={{ borderWidth: 1, borderColor: '#c8860a', borderRadius: 10, padding: 12, fontSize: 14, textAlign: 'right', color: '#FFD700', backgroundColor: 'rgba(200,134,10,0.1)', minHeight: 60 }}
+            />
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#3d0a0a', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                onPress={() => {
+                  setPinnedText("");
+                  setShowPinModal(false);
+                  getSocket().then(socket => socket.emit('pinText', { roomId, text: '' }));
+                }}
+              >
+                <Text style={{ color: '#ff6b6b', fontWeight: '600' }}>إزالة</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
+                onPress={() => {
+                  const trimmed = pinInput.trim();
+                  setPinnedText(trimmed);
+                  setShowPinModal(false);
+                  getSocket().then(socket => socket.emit('pinText', { roomId, text: trimmed }));
+                }}
+              >
+                <Text style={{ color: '#FFD700', fontWeight: '600' }}>تثبيت</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScreenContainer>
     </ImageBackground>
   );
