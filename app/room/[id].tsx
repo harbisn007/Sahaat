@@ -479,16 +479,25 @@ export default function RoomScreen() {
   const updateProfileMutation = trpc.profile.update.useMutation();
   const createTextMessageMutation = trpc.text.create.useMutation();
 
-  const handleSendTextMessage = async () => {
-    const trimmed = textMessage.trim();
-    if (!trimmed || !userId || !username) return;
-    setTextMessage("");
-    try {
-      await createTextMessageMutation.mutateAsync({ roomId, userId, username, text: trimmed });
-    } catch (e) {
-      console.error("[TextMessage] Failed to send:", e);
+  const handleSendTextMessage = useCallback(() => {
+    if (!textMessage.trim()) return;
+    const socket = getSocket();
+    if (socket) {
+      const msg = {
+        roomId,
+        userId,
+        username: username || "",
+        text: textMessage.trim(),
+      };
+      socket.emit("textMessage", msg);
+      setTextMessages(prev => [{
+        id: `text-${Date.now()}`,
+        ...msg,
+        createdAt: new Date().toISOString(),
+      }, ...prev]);
     }
-  };
+    setTextMessage("");
+  }, [textMessage, roomId, userId, username]);
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
     useAudioRecorder();
@@ -802,6 +811,13 @@ export default function RoomScreen() {
     return [...serverMessages, ...uniqueLocalMessages]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [filteredAudioMessages, filteredReactions, localMessages]);
+
+  // فصل البيانات: صوتي فقط | كتابي + تفاعلات
+  const audioFeed = useMemo(() => combinedFeed.filter(item => item.type === "audio"), [combinedFeed]);
+  const textAndReactionsFeed = useMemo(() => [
+    ...textMessages.map(m => ({ ...m, id: String(m.id), type: "text" as const })),
+    ...combinedFeed.filter(item => item.type === "reaction"),
+  ].sort((a, b) => new Date(b.createdAt ?? (b as any).timestamp ?? 0).getTime() - new Date(a.createdAt ?? (a as any).timestamp ?? 0).getTime()), [textMessages, combinedFeed]);
 
   // Reactions picker state
   const [isReactionsPickerOpen, setIsReactionsPickerOpen] = useState(false);
@@ -2134,7 +2150,7 @@ export default function RoomScreen() {
 
       {/* Messages Feed - Takes most of the screen */}
       <View 
-        className="flex-1 px-4 pt-4 mx-4 mb-2 rounded-lg"
+        className="flex-1 px-1 pt-2 mx-4 mb-2 rounded-lg"
         style={{
           borderWidth: 2,
           borderColor: "#FFD700", // ذهبي
@@ -2282,95 +2298,96 @@ export default function RoomScreen() {
           })()}
         </View>
 
-        {/* تقسيم عمودين: صوتي (يسار) + كتابي (يمين) */}
-        <View style={{ flex: 1, flexDirection: 'row', borderWidth: 2, borderColor: '#FFD700', borderRadius: 8, marginHorizontal: 16, marginBottom: 8, overflow: 'hidden' }}>
+        {/* Messages Area - عمودين بدون حدود */}
+        <View style={{ flex: 1, flexDirection: 'row' }}>
           {/* عمود يسار — رسائل صوتية (⅓) */}
-          <View style={{ flex: 1, borderRightWidth: 1, borderRightColor: '#c8860a' }}>
-            {combinedFeed.length > 0 ? (
+          <View style={{ flex: 1 }}>
+            {audioFeed.length > 0 ? (
               <FlatList
-                ref={flatListRef}
-                data={combinedFeed}
+                data={audioFeed}
                 keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={true}
-                contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 4 }}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
                 initialNumToRender={10}
-                maxToRenderPerBatch={8}
-                windowSize={8}
-                removeClippedSubviews={Platform.OS !== "web"}
-                renderItem={({ item }) => {
-                  if (item.type === "audio") {
-                    return (
-                      <MessageBubble
-                        type="audio"
-                        username={item.username}
-                        messageType={item.messageType}
-                        duration={item.duration}
-                        isPlaying={currentUri === item.audioUrl && isPlaying}
-                        onPlay={() => handlePlayAudio(item.audioUrl || "")}
-                        audioUrl={item.audioUrl}
-                        audioMessageId={parseInt(item.id.replace(/[^0-9]/g, ''), 10)}
-                        senderUserId={item.userId}
-                        currentUserId={userId}
-                        currentUsername={username}
-                      />
-                    );
-                  } else {
-                    return (
-                      <ReactionMessage
-                        username={item.username}
-                        reactionType={item.reactionType || ""}
-                        createdAt={item.createdAt}
-                        isOwnMessage={item.username === username}
-                      />
-                    );
-                  }
-                }}
-              />
-            ) : (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#888', fontSize: 11, textAlign: 'center', paddingHorizontal: 4 }}>🎤 لا رسائل</Text>
-              </View>
-            )}
-          </View>
-          {/* عمود يمين — رسائل كتابية + حقل الكتابة (⅞) */}
-          <View style={{ flex: 2, flexDirection: 'column' }}>
-            {textMessages.length > 0 ? (
-              <FlatList
-                data={textMessages}
-                keyExtractor={(item) => String(item.id)}
-                showsVerticalScrollIndicator={true}
-                contentContainerStyle={{ paddingBottom: 4, paddingHorizontal: 6 }}
-                initialNumToRender={10}
-                maxToRenderPerBatch={8}
+                maxToRenderPerBatch={5}
                 windowSize={8}
                 removeClippedSubviews={Platform.OS !== "web"}
                 renderItem={({ item }) => (
-                  <View style={{ paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: 'rgba(200,134,10,0.2)' }}>
-                    <Text style={{ color: '#c8860a', fontSize: 11, fontWeight: 'bold', textAlign: 'right' }}>{item.username}</Text>
-                    <Text style={{ color: '#FFD700', fontSize: 13, textAlign: 'right', lineHeight: 18 }}>{item.text}</Text>
-                  </View>
+                  <MessageBubble
+                    type="audio"
+                    username={item.username}
+                    messageType={item.messageType}
+                    duration={item.duration}
+                    isPlaying={currentUri === item.audioUrl && isPlaying}
+                    onPlay={() => handlePlayAudio(item.audioUrl || "")}
+                    audioUrl={item.audioUrl}
+                    audioMessageId={parseInt(item.id.replace(/[^0-9]/g, ''), 10)}
+                    senderUserId={item.userId}
+                    currentUserId={userId}
+                    currentUsername={username}
+                  />
                 )}
               />
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: '#888', fontSize: 11, textAlign: 'center', paddingHorizontal: 4 }}>💬 لا رسائل</Text>
+                <Text style={{ color: 'rgba(212,175,55,0.4)', fontSize: 11, textAlign: 'center' }}>💬 لا رسائل</Text>
               </View>
             )}
-            {/* حقل الكتابة */}
-            <View style={{ flexDirection: 'row', borderTopWidth: 1, borderTopColor: '#c8860a', padding: 6 }}>
+          </View>
+
+          {/* عمود يمين — رسائل كتابية + تفاعلات (⅞) */}
+          <View style={{ flex: 2 }}>
+            <FlatList
+              data={textAndReactionsFeed}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
+              initialNumToRender={10}
+              maxToRenderPerBatch={5}
+              windowSize={8}
+              removeClippedSubviews={Platform.OS !== "web"}
+              style={{ flex: 1 }}
+              renderItem={({ item }) => {
+                if (item.type === "text") {
+                  return (
+                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
+                      <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
+                        <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
+                        <Text style={{ color: '#e8d5a3', fontSize: 13 }}>{item.text}</Text>
+                      </View>
+                    </View>
+                  );
+                } else {
+                  return (
+                    <ReactionMessage
+                      username={item.username}
+                      reactionType={item.reactionType || ""}
+                      createdAt={item.createdAt}
+                      isOwnMessage={item.username === username}
+                    />
+                  );
+                }
+              }}
+              ListEmptyComponent={
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 20 }}>
+                  <Text style={{ color: 'rgba(212,175,55,0.4)', fontSize: 11 }}>💬</Text>
+                </View>
+              }
+            />
+            {/* حقل كتابة الرسالة */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 4 }}>
+              <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 4 }}>
+                <MaterialIcons name="send" size={20} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
+              </TouchableOpacity>
               <TextInput
-                style={{ flex: 1, color: '#FFD700', borderWidth: 1, borderColor: '#c8860a', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, fontSize: 13, textAlign: 'right', backgroundColor: 'rgba(200,134,10,0.08)' }}
-                placeholder="اكتب رسالة..."
-                placeholderTextColor="#888"
                 value={textMessage}
                 onChangeText={setTextMessage}
+                placeholder="اكتب رسالة..."
+                placeholderTextColor="rgba(212,175,55,0.3)"
+                style={{ flex: 1, color: '#e8d5a3', fontSize: 13, borderWidth: 1, borderColor: 'rgba(200,134,10,0.3)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, textAlign: 'right' }}
                 returnKeyType="send"
                 onSubmitEditing={handleSendTextMessage}
-                maxLength={300}
               />
-              <TouchableOpacity onPress={handleSendTextMessage} style={{ marginLeft: 6, justifyContent: 'center', paddingHorizontal: 4 }}>
-                <MaterialIcons name="send" size={22} color="#FFD700" style={{ transform: [{ scaleX: -1 }] }} />
-              </TouchableOpacity>
             </View>
           </View>
         </View>

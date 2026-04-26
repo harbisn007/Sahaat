@@ -236,6 +236,8 @@ export interface ClientToServerEvents {
   playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration: number; userId: string; username: string; }) => void;
   // تثبيت نص في الساحة (من المنشئ)
   pinText: (data: { roomId: number; text: string }) => void;
+  // إرسال رسالة كتابية
+  textMessage: (data: { roomId: number; userId: string; username: string; text: string }) => void;
 }
 
 export interface InterServerEvents {
@@ -408,6 +410,21 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       io!.to(`room:${data.roomId}`).emit("pinnedTextUpdated", {
         roomId: data.roomId,
         text: data.text,
+      });
+    });
+
+    // استقبال رسالة كتابية وبثها لجميع مشاركي الساحة
+    socket.on("textMessage", (data: { roomId: number; userId: string; username: string; text: string }) => {
+      const id = Date.now();
+      const createdAt = new Date().toISOString();
+      console.log(`[Socket.io] textMessage in room ${data.roomId} from ${data.username}`);
+      io!.to(`room:${data.roomId}`).emit("textMessageCreated", {
+        roomId: data.roomId,
+        id,
+        userId: data.userId,
+        username: data.username,
+        text: data.text,
+        createdAt,
       });
     });
   });
