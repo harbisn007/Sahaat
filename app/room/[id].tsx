@@ -1231,12 +1231,19 @@ export default function RoomScreen() {
   const [textMessages, setTextMessages] = useState<{id: number; userId: string; username: string; text: string; createdAt: string}[]>([]);
   // حالة لوحة المفاتيح
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, () => setKeyboardVisible(true));
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardVisible(false));
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => {
+      setKeyboardVisible(false);
+      setKeyboardHeight(0);
+    });
     return () => { showSub.remove(); hideSub.remove(); };
   }, []);
 
@@ -2447,7 +2454,7 @@ export default function RoomScreen() {
         </View>
       </View>
       {/* حقل كتابة الرسالة — مستقل دائماً، لا يختفي عند فتح لوحة المفاتيح */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1c1208' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1c1208', marginBottom: keyboardVisible ? keyboardHeight : 0 }}>
         <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
           <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
