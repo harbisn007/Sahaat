@@ -51,7 +51,7 @@ function TextMessageWithReport({ item, userId }: { item: any; userId: string | n
         />
       )}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
-        <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
+        <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '97%' }}>
           <TouchableOpacity
             onLongPress={canReport ? () => setReportVisible(true) : undefined}
             delayLongPress={500}
@@ -2231,7 +2231,7 @@ export default function RoomScreen() {
 
       {/* Messages Feed + حقل الكتابة + الأزرار — مُحاطة بـ KeyboardAvoidingView */}
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#1c1208' }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
       >
