@@ -1198,7 +1198,23 @@ export default function RoomScreen() {
   const textAndReactionsFeed = useMemo(() => [
     ...textMessages.map(m => ({ ...m, id: String(m.id), type: "text" as const })),
     ...combinedFeed.filter(item => item.type === "reaction"),
-  ].sort((a, b) => new Date(b.createdAt ?? (b as any).timestamp ?? 0).getTime() - new Date(a.createdAt ?? (a as any).timestamp ?? 0).getTime()), [textMessages, combinedFeed]);
+  ].sort((a, b) => new Date(a.createdAt ?? (a as any).timestamp ?? 0).getTime() - new Date(b.createdAt ?? (b as any).timestamp ?? 0).getTime()), [textMessages, combinedFeed]);
+
+  const emojiMap: Record<string, string> = {
+    'clap': '👏',
+    'fire': '🔥',
+    'heart': '❤️',
+    'laugh': '😂',
+    'thumbsup': '👍',
+    'thumbsdown': '👎',
+    'star': '⭐',
+    'angry': '😡',
+    'thinking': '🤔',
+    'muscle': '💪',
+    'sad': '😢',
+    'surprised': '😮',
+  };
+  const getEmoji = (type: string) => emojiMap[type] || type;
 
   const handleSendTextMessage = useCallback(async () => {
     if (!textMessage.trim()) return;
@@ -1841,6 +1857,11 @@ export default function RoomScreen() {
       style={{ flex: 1 }} 
       resizeMode="cover"
     >
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20}
+    >
     <ScreenContainer 
       className="p-0" 
       containerClassName="bg-transparent"
@@ -2156,11 +2177,6 @@ export default function RoomScreen() {
       )}
 
       {/* Messages Feed - Takes most of the screen */}
-      <KeyboardAvoidingView
-        style={{ flex: 1, marginHorizontal: 16, marginBottom: 8 }}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-      >
       <View 
         className="flex-1 px-1 pt-2 rounded-lg"
         style={{
@@ -2350,8 +2366,8 @@ export default function RoomScreen() {
           {/* عمود يمين — رسائل كتابية + تفاعلات (60%) */}
           <View style={{ flex: 3 }}>
             <FlatList
-              data={[...textAndReactionsFeed].reverse()}
-              inverted={true}
+              data={textAndReactionsFeed}
+              inverted={false}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
@@ -2373,8 +2389,8 @@ export default function RoomScreen() {
                 } else {
                   return (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingHorizontal: 2 }}>
-                      <Text style={{ fontSize: 20 }}>{item.reactionType}</Text>
-                      <Text style={{ color: '#000000', fontSize: 11, fontWeight: 'bold', marginLeft: 4 }}>{item.username}</Text>
+                      <Text style={{ color: '#000000', fontSize: 11, fontWeight: 'bold', marginRight: 4 }}>{item.username}</Text>
+                      <Text style={{ fontSize: 20 }}>{getEmoji(item.reactionType ?? '')}</Text>
                     </View>
                   );
                 }
@@ -2403,8 +2419,6 @@ export default function RoomScreen() {
           </View>
         </View>
       </View>
-      </KeyboardAvoidingView>
-
       {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
       {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
@@ -2755,6 +2769,7 @@ export default function RoomScreen() {
         </Pressable>
       </Modal>
     </ScreenContainer>
+    </KeyboardAvoidingView>
     </ImageBackground>
   );
 }
