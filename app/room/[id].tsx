@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Keyboard } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Keyboard, KeyboardAvoidingView } from "react-native";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
@@ -2229,13 +2229,17 @@ export default function RoomScreen() {
         </View>
       )}
 
+      {/* Messages Feed + حقل الكتابة + الأزرار — مُحاطة بـ KeyboardAvoidingView */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
       {/* Messages Feed - Takes most of the screen */}
       <View 
         className="flex-1 px-1 pt-2 rounded-lg"
         style={{
           borderWidth: 2,
           borderColor: "#FFD700", // ذهبي
-
         }}
       >
         {/* أيقونة التثبيت للمنشئ فقط */}
@@ -2765,8 +2769,8 @@ export default function RoomScreen() {
           )}
         </View>
       </View>
-      )}
-
+       )}
+      </KeyboardAvoidingView>
       {/* Reactions Picker Modal */}
       <ReactionsPicker
         visible={isReactionsPickerOpen}
