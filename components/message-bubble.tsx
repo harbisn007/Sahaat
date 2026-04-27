@@ -3,6 +3,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { createAudioPlayer, AudioModule, AudioPlayer } from "expo-audio";
 import { MaterialIcons } from "@expo/vector-icons";
+import { ReportModal } from "@/components/report-modal";
 
 interface MessageBubbleProps {
   type: "audio" | "reaction";
@@ -22,7 +23,14 @@ interface MessageBubbleProps {
   senderUserId?: string;
   currentUserId?: string;
   currentUsername?: string;
-  onReport?: () => void;
+  // بيانات البلاغ الجاهزة — إذا مُرِّرت تُفتح نافذة البلاغ عند الضغط المطوّل
+  reportData?: {
+    reporterUserId: string;
+    reportedUserId: string;
+    audioMessageId?: number;
+    audioUrl: string;
+    messageType: "comment" | "tarouk";
+  };
 }
 
 // تحديث الأيقونات لتتوافق مع الـ 15 أيقونة في ReactionsPicker
@@ -60,8 +68,9 @@ export function MessageBubble({
   senderUserId,
   currentUserId,
   currentUsername,
-  onReport,
+  reportData,
 }: MessageBubbleProps) {
+  const [reportVisible, setReportVisible] = useState(false);
   const colors = useColors();
   const [localPlaying, setLocalPlaying] = useState(false);
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -84,7 +93,6 @@ export function MessageBubble({
     };
   }, []);
 
-  // تنظيف player الحالي
   const cleanupPlayer = useCallback(() => {
     if (Platform.OS === "web") {
       if (webAudioRef.current) {
@@ -99,7 +107,6 @@ export function MessageBubble({
     }
   }, []);
 
-  // تشغيل/إيقاف محلي
   const handleLocalPlay = useCallback(async () => {
     if (!audioUrl) return;
     
@@ -116,22 +123,13 @@ export function MessageBubble({
         const audio = new Audio(audioUrl);
         audio.volume = 1.0;
         webAudioRef.current = audio;
-        audio.onended = () => {
-          setLocalPlaying(false);
-          webAudioRef.current = null;
-        };
-        audio.onerror = () => {
-          setLocalPlaying(false);
-          webAudioRef.current = null;
-        };
+        audio.onended = () => { setLocalPlaying(false); webAudioRef.current = null; };
+        audio.onerror = () => { setLocalPlaying(false); webAudioRef.current = null; };
         await audio.play();
         setLocalPlaying(true);
       } else {
         try {
-          await AudioModule.setAudioModeAsync({
-            playsInSilentMode: true,
-            allowsRecording: false,
-          });
+          await AudioModule.setAudioModeAsync({ playsInSilentMode: true, allowsRecording: false });
         } catch (e) {
           console.warn("[MessageBubble] Failed to set audio mode:", e);
         }
@@ -154,11 +152,7 @@ export function MessageBubble({
         });
 
         await new Promise(r => setTimeout(r, 300));
-        
-        if (playerRef.current) {
-          player.play();
-          setLocalPlaying(true);
-        }
+        if (playerRef.current) { player.play(); setLocalPlaying(true); }
       }
     } catch (err) {
       console.error("[MessageBubble] Local play error:", err);
@@ -168,13 +162,9 @@ export function MessageBubble({
 
   if (type === "reaction") {
     const emoji = reactionEmoji || (reactionType ? REACTION_EMOJIS[reactionType] : "❓");
-    
     return (
       <View className="px-4 py-2 items-center">
-        <View 
-          className="flex-row items-center gap-2 px-4 py-2 rounded-full"
-          style={{ backgroundColor: colors.surface }}
-        >
+        <View className="flex-row items-center gap-2 px-4 py-2 rounded-full" style={{ backgroundColor: colors.surface }}>
           <Text className="text-sm text-muted">{username}</Text>
           <Text className="text-2xl">{emoji}</Text>
         </View>
@@ -182,7 +172,6 @@ export function MessageBubble({
     );
   }
 
-  // Audio message bubble
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -190,50 +179,52 @@ export function MessageBubble({
   };
 
   return (
-    <View className="px-2 py-0.5 items-start">
-      <View 
-        className="rounded-lg px-2 py-1 max-w-[90%]"
-        style={{ backgroundColor: colors.surface }}
-      >
-        {/* الاسم فوق مربع التشغيل — ضغط مطوّل للإبلاغ */}
-        <View style={{ alignItems: 'center', marginBottom: 2 }}>
-          <TouchableOpacity
-            onLongPress={() => onReport?.()}
-            delayLongPress={500}
-            activeOpacity={0.7}
-          >
-            <Text style={{ color: '#d4af37', fontSize: 10, fontWeight: 'bold', textAlign: 'center' }} numberOfLines={1}>{username}</Text>
-          </TouchableOpacity>
-          {/* صف المشغّل: أيقونة النوع + المدة + زر التشغيل */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 }}>
-            {/* Message Type Icon */}
-            {messageType === "tarouk" && (
-              <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 14, height: 14 }} resizeMode="contain" />
-            )}
-            {messageType === "comment" && (
-              <MaterialIcons name="mic" size={14} color={colors.primary} />
-            )}
-            {/* Duration */}
-            <Text className="text-[10px] text-muted font-mono">
-              {formatDuration(duration || 0)}
-            </Text>
-            {/* زر تشغيل/إيقاف محلي */}
-            {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
-              <TouchableOpacity
-                onPress={handleLocalPlay}
-                style={{ padding: 2 }}
-                activeOpacity={0.6}
-              >
-                <MaterialIcons 
-                  name={localPlaying ? "pause-circle-filled" : "play-circle-filled"} 
-                  size={20} 
-                  color={messageType === "tarouk" ? colors.success : colors.primary} 
-                />
-              </TouchableOpacity>
-            )}
+    <>
+      {/* نافذة البلاغ — تُفتح عند الضغط المطوّل على الاسم */}
+      {reportData && (
+        <ReportModal
+          visible={reportVisible}
+          onClose={() => setReportVisible(false)}
+          reporterUserId={reportData.reporterUserId}
+          reportedUserId={reportData.reportedUserId}
+          audioMessageId={reportData.audioMessageId}
+          audioUrl={reportData.audioUrl}
+          messageType={reportData.messageType}
+        />
+      )}
+      <View className="px-2 py-0.5 items-start">
+        <View className="rounded-lg px-2 py-1 max-w-[90%]" style={{ backgroundColor: colors.surface }}>
+          <View style={{ alignItems: 'center', marginBottom: 2 }}>
+            {/* الاسم — ضغط مطوّل يفتح نافذة البلاغ */}
+            <TouchableOpacity
+              onLongPress={reportData ? () => setReportVisible(true) : undefined}
+              delayLongPress={500}
+              activeOpacity={0.7}
+            >
+              <Text style={{ color: '#d4af37', fontSize: 10, fontWeight: 'bold', textAlign: 'center' }} numberOfLines={1}>{username}</Text>
+            </TouchableOpacity>
+            {/* صف المشغّل */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 }}>
+              {messageType === "tarouk" && (
+                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 14, height: 14 }} resizeMode="contain" />
+              )}
+              {messageType === "comment" && (
+                <MaterialIcons name="mic" size={14} color={colors.primary} />
+              )}
+              <Text className="text-[10px] text-muted font-mono">{formatDuration(duration || 0)}</Text>
+              {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
+                <TouchableOpacity onPress={handleLocalPlay} style={{ padding: 2 }} activeOpacity={0.6}>
+                  <MaterialIcons
+                    name={localPlaying ? "pause-circle-filled" : "play-circle-filled"}
+                    size={20}
+                    color={messageType === "tarouk" ? colors.success : colors.primary}
+                  />
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         </View>
       </View>
-    </View>
+    </>
   );
 }

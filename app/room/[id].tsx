@@ -32,6 +32,39 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
 import { InteractionButtons } from "@/components/interaction-buttons";
+import { ReportModal } from "@/components/report-modal";
+
+// مكون مستقل للرسائل النصية مع نافذة البلاغ
+function TextMessageWithReport({ item, userId }: { item: any; userId: string | null }) {
+  const [reportVisible, setReportVisible] = useState(false);
+  const canReport = item.userId !== userId;
+  return (
+    <>
+      {canReport && (
+        <ReportModal
+          visible={reportVisible}
+          onClose={() => setReportVisible(false)}
+          reporterUserId={userId || ""}
+          reportedUserId={item.userId}
+          audioUrl={item.text || ""}
+          messageType="comment"
+        />
+      )}
+      <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
+        <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
+          <TouchableOpacity
+            onLongPress={canReport ? () => setReportVisible(true) : undefined}
+            delayLongPress={500}
+            activeOpacity={0.7}
+          >
+            <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
+            <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </>
+  );
+}
 
 export default function RoomScreen() {
   const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
@@ -2365,16 +2398,12 @@ export default function RoomScreen() {
                     senderUserId={item.userId}
                     currentUserId={userId}
                     currentUsername={username}
-                    onReport={item.userId !== userId ? () => {
-                      reportMutation.mutate({
-                        reporterUserId: userId || "",
-                        reportedUserId: item.userId,
-                        audioMessageId: parseInt(item.id.replace(/[^0-9]/g, ''), 10),
-                        audioUrl: item.audioUrl || "",
-                        messageType: (item.messageType === "tarouk" ? "tarouk" : "comment"),
-                        reason: "bad_behavior",
-                      });
-                      Alert.alert("تم", "تم إرسال البلاغ بنجاح");
+                    reportData={item.userId !== userId ? {
+                      reporterUserId: userId || "",
+                      reportedUserId: item.userId,
+                      audioMessageId: parseInt(item.id.replace(/[^0-9]/g, ''), 10),
+                      audioUrl: item.audioUrl || "",
+                      messageType: (item.messageType === "tarouk" ? "tarouk" : "comment"),
                     } : undefined}
                   />
                 )}
@@ -2402,27 +2431,10 @@ export default function RoomScreen() {
               renderItem={({ item }) => {
                 if (item.type === "text") {
                   return (
-                    <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
-                      <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
-                        <TouchableOpacity
-                          onLongPress={item.userId !== userId ? () => {
-                            reportMutation.mutate({
-                              reporterUserId: userId || "",
-                              reportedUserId: item.userId,
-                              audioUrl: item.text || "",
-                              messageType: "comment",
-                              reason: "bad_behavior",
-                            });
-                            Alert.alert("تم", "تم إرسال البلاغ بنجاح");
-                          } : undefined}
-                          delayLongPress={500}
-                          activeOpacity={0.7}
-                        >
-                          <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
-                          <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
+                    <TextMessageWithReport
+                      item={item}
+                      userId={userId}
+                    />
                   );
                 } else {
                   return (
