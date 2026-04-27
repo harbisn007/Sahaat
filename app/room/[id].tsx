@@ -74,7 +74,7 @@ export default function RoomScreen() {
   const getAvatarSource = (avatarValue: string | undefined | null) => getAvatarSourceById(avatarValue);
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const { width: screenWidth } = useWindowDimensions();
   
   // Responsive button sizes for small screens
   // Small screen: width < 360px
@@ -1235,7 +1235,7 @@ export default function RoomScreen() {
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, () => {
+    const showSub = Keyboard.addListener(showEvent, (e) => {
       setKeyboardVisible(true);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
@@ -2235,7 +2235,7 @@ export default function RoomScreen() {
         style={{
           borderWidth: 2,
           borderColor: "#FFD700", // ذهبي
-          ...(keyboardVisible && keyboardHeight > 0 ? { maxHeight: screenHeight - keyboardHeight - 48 - (insets.top + insets.bottom) } : {}),
+
         }}
       >
         {/* أيقونة التثبيت للمنشئ فقط */}
@@ -2454,24 +2454,24 @@ export default function RoomScreen() {
               }}
               ListEmptyComponent={null}
             />
-            {/* حقل كتابة الرسالة — داخل العمود الأيمن */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 4 }}>
-              <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 4 }}>
-                <MaterialIcons name="send" size={20} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
-              </TouchableOpacity>
-              <TextInput
-                value={textMessage}
-                onChangeText={setTextMessage}
-                placeholder="اكتب رسالة..."
-                placeholderTextColor="rgba(150,120,60,0.5)"
-                style={{ flex: 1, color: '#1a1a1a', fontSize: 13, borderWidth: 1, borderColor: 'rgba(200,134,10,0.4)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.85)' }}
-                returnKeyType="send"
-                onSubmitEditing={handleSendTextMessage}
-                blurOnSubmit={true}
-              />
-            </View>
           </View>
         </View>
+      </View>
+      {/* حقل كتابة الرسالة — مستقل بين الإطار الذهبي وأزرار التحكم */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4, backgroundColor: '#1c1208' }}>
+        <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
+          <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
+        </TouchableOpacity>
+        <TextInput
+          value={textMessage}
+          onChangeText={setTextMessage}
+          placeholder="اكتب رسالة..."
+          placeholderTextColor="rgba(150,120,60,0.5)"
+          style={{ flex: 1, color: '#1a1a1a', fontSize: 14, borderWidth: 1, borderColor: 'rgba(200,134,10,0.4)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 4, textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.85)' }}
+          returnKeyType="send"
+          onSubmitEditing={handleSendTextMessage}
+          blurOnSubmit={true}
+        />
       </View>
 
       {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
