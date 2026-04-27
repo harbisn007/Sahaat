@@ -2233,6 +2233,7 @@ export default function RoomScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
       >
       {/* Messages Feed - Takes most of the screen */}
       <View 
@@ -2425,8 +2426,8 @@ export default function RoomScreen() {
               />
             ) : null}
           </View>
-          {/* عمود يمين — رسائل كتابية + تفاعلات (60%) */}
-          <View style={{ flex: 3 }}>
+          {/* عمود يمين — رسائل كتابية + تفاعلات */}
+          <View style={{ flex: 4 }}>
             <FlatList
               ref={textFlatListRef}
               onContentSizeChange={() => textFlatListRef.current?.scrollToEnd({ animated: true })}
@@ -2462,7 +2463,7 @@ export default function RoomScreen() {
         </View>
       </View>
       {/* حقل كتابة الرسالة — مستقل بين الإطار الذهبي وأزرار التحكم */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 4, backgroundColor: '#1c1208' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 2, backgroundColor: '#1c1208' }}>
         <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
           <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
@@ -2482,8 +2483,8 @@ export default function RoomScreen() {
       {!keyboardVisible && (
       <View 
         style={{
-          paddingTop: 14,
-          paddingBottom: Platform.OS === "web" ? 14 : Math.max(insets.bottom + 6, 18),
+          paddingTop: 8,
+          paddingBottom: Platform.OS === "web" ? 8 : Math.max(insets.bottom, 4),
           paddingHorizontal: 16,
           backgroundColor: '#1c1208',
           borderTopWidth: 2,
