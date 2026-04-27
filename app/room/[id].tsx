@@ -2230,12 +2230,8 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Messages Feed + حقل الكتابة + الأزرار — مُحاطة بـ KeyboardAvoidingView */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
-      >
+      {/* Messages Feed + حقل الكتابة + الأزرار */}
+      <View style={{ flex: 1 }}>
       {/* Messages Feed - Takes most of the screen */}
       <View 
         className="flex-1 px-1 pt-2 rounded-lg"
@@ -2774,7 +2770,7 @@ export default function RoomScreen() {
       </View>
        )}
       </View>
-      </KeyboardAvoidingView>
+      </View>
       {/* Reactions Picker Modal */}
       <ReactionsPicker
         visible={isReactionsPickerOpen}
