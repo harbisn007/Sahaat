@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Keyboard } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Keyboard, KeyboardAvoidingView } from "react-native";
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -2414,7 +2414,11 @@ export default function RoomScreen() {
           </View>
         </View>
       </View>
-      {/* حقل كتابة الرسالة — خارج الإطار الذهبي */}
+      {/* حقل كتابة الرسالة + أزرار التحكم — مرفوعة فوق لوحة المفاتيح */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1c1208' }}>
         <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
           <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
@@ -2433,7 +2437,6 @@ export default function RoomScreen() {
       {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
       {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
-      {!keyboardVisible && (
       <View 
         style={{
           paddingTop: 14,
@@ -2723,7 +2726,7 @@ export default function RoomScreen() {
           )}
         </View>
       </View>
-      )}
+      </KeyboardAvoidingView>
 
       {/* Reactions Picker Modal */}
       <ReactionsPicker
