@@ -2397,24 +2397,24 @@ export default function RoomScreen() {
                 </View>
               }
             />
-            {/* حقل كتابة الرسالة */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 4 }}>
-              <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 4 }}>
-                <MaterialIcons name="send" size={20} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
-              </TouchableOpacity>
-              <TextInput
-                value={textMessage}
-                onChangeText={setTextMessage}
-                placeholder="اكتب رسالة..."
-                placeholderTextColor="rgba(212,175,55,0.3)"
-                style={{ flex: 1, color: '#e8d5a3', fontSize: 13, borderWidth: 1, borderColor: 'rgba(200,134,10,0.3)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, textAlign: 'right' }}
-                returnKeyType="send"
-                onSubmitEditing={handleSendTextMessage}
-                blurOnSubmit={true}
-              />
-            </View>
           </View>
         </View>
+      </View>
+      {/* حقل كتابة الرسالة — خارج الإطار الذهبي */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1c1208' }}>
+        <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
+          <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
+        </TouchableOpacity>
+        <TextInput
+          value={textMessage}
+          onChangeText={setTextMessage}
+          placeholder="اكتب رسالة..."
+          placeholderTextColor="rgba(150,120,60,0.5)"
+          style={{ flex: 1, color: '#1a1a1a', fontSize: 14, borderWidth: 1, borderColor: 'rgba(200,134,10,0.4)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.85)' }}
+          returnKeyType="send"
+          onSubmitEditing={handleSendTextMessage}
+          blurOnSubmit={true}
+        />
       </View>
       {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
