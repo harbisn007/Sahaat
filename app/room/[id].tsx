@@ -57,7 +57,7 @@ function TextMessageWithReport({ item, userId }: { item: any; userId: string | n
             delayLongPress={500}
             activeOpacity={0.7}
           >
-            <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
+            <Text style={{ color: '#5c3d1e', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
             <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
           </TouchableOpacity>
         </View>
@@ -2408,11 +2408,7 @@ export default function RoomScreen() {
                   />
                 )}
               />
-            ) : (
-              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: 'rgba(212,175,55,0.4)', fontSize: 11, textAlign: 'center' }}>💬 لا رسائل</Text>
-              </View>
-            )}
+            ) : null}
           </View>
           {/* عمود يمين — رسائل كتابية + تفاعلات (60%) */}
           <View style={{ flex: 3 }}>
@@ -2445,20 +2441,12 @@ export default function RoomScreen() {
                   );
                 }
               }}
-              ListEmptyComponent={
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 20 }}>
-                  <Text style={{ color: 'rgba(212,175,55,0.4)', fontSize: 11 }}>💬</Text>
-                </View>
-              }
+              ListEmptyComponent={null}
             />
           </View>
         </View>
       </View>
-      {/* حقل كتابة الرسالة + أزرار التحكم — مرفوعة فوق لوحة المفاتيح */}
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
+      {/* حقل كتابة الرسالة — مستقل دائماً، لا يختفي عند فتح لوحة المفاتيح */}
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1c1208' }}>
         <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
           <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
@@ -2474,9 +2462,12 @@ export default function RoomScreen() {
           blurOnSubmit={true}
         />
       </View>
-      {/* #11: تم إزالة واجهة بداية الطاروق والاختيارات الثلاثة */}
 
-      {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
+      {/* Bottom Controls - تصميم نحاسي ذهبي فاخر — تختفي عند فتح لوحة المفاتيح */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={0}
+      >
       <View 
         style={{
           paddingTop: 14,
