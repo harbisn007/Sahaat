@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, KeyboardAvoidingView } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Keyboard } from "react-native";
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
 import { Image, ImageBackground, Share } from "react-native";
@@ -1238,6 +1238,7 @@ export default function RoomScreen() {
       console.error("[handleSendTextMessage] error:", err);
     }
     setTextMessage("");
+    Keyboard.dismiss();
   }, [textMessage, roomId, userId, username]);
 
   // دالة إرسال الدعوة العامة
@@ -1857,11 +1858,6 @@ export default function RoomScreen() {
       style={{ flex: 1 }} 
       resizeMode="cover"
     >
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 20}
-    >
     <ScreenContainer 
       className="p-0" 
       containerClassName="bg-transparent"
@@ -2414,6 +2410,7 @@ export default function RoomScreen() {
                 style={{ flex: 1, color: '#e8d5a3', fontSize: 13, borderWidth: 1, borderColor: 'rgba(200,134,10,0.3)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, textAlign: 'right' }}
                 returnKeyType="send"
                 onSubmitEditing={handleSendTextMessage}
+                blurOnSubmit={true}
               />
             </View>
           </View>
@@ -2769,7 +2766,6 @@ export default function RoomScreen() {
         </Pressable>
       </Modal>
     </ScreenContainer>
-    </KeyboardAvoidingView>
     </ImageBackground>
   );
 }

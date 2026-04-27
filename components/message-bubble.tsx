@@ -229,39 +229,37 @@ export function MessageBubble({
             className="rounded-lg px-2 py-1 max-w-[75%]"
             style={{ backgroundColor: colors.surface }}
           >
-            <View className="flex-row items-center gap-1.5">
-              {/* زر تشغيل/إيقاف محلي */}
-              {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
-                <TouchableOpacity
-                  onPress={handleLocalPlay}
-                  style={{ padding: 2 }}
-                  activeOpacity={0.6}
-                >
-                  <MaterialIcons 
-                    name={localPlaying ? "pause-circle-filled" : "play-circle-filled"} 
-                    size={20} 
-                    color={messageType === "tarouk" ? colors.success : colors.primary} 
-                  />
-                </TouchableOpacity>
-              )}
-              
-              {/* Duration */}
-              <Text className="text-[10px] text-muted font-mono">
-                {formatDuration(duration || 0)}
-              </Text>
-              
-              {/* Message Type Icon */}
-              {messageType === "tarouk" && (
-                <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 14, height: 14 }} resizeMode="contain" />
-              )}
-              {messageType === "comment" && (
-                <MaterialIcons name="mic" size={14} color={colors.primary} />
-              )}
-              
-              {/* Username */}
-              <Text className="text-[11px] font-bold text-foreground flex-shrink">
-                {username}
-              </Text>
+            {/* الاسم فوق مربع التشغيل */}
+            <View style={{ alignItems: 'center', marginBottom: 2 }}>
+              <Text style={{ color: '#d4af37', fontSize: 10, fontWeight: 'bold', textAlign: 'center' }} numberOfLines={1}>{username}</Text>
+              {/* صف المشغّل: أيقونة النوع + المدة + زر التشغيل */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2, gap: 4 }}>
+                {/* Message Type Icon */}
+                {messageType === "tarouk" && (
+                  <Image source={{ uri: "https://files.manuscdn.com/user_upload_by_module/session_file/310519663292181877/uURwTXggQbeLjyfZ.png" }} style={{ width: 14, height: 14 }} resizeMode="contain" />
+                )}
+                {messageType === "comment" && (
+                  <MaterialIcons name="mic" size={14} color={colors.primary} />
+                )}
+                {/* Duration */}
+                <Text className="text-[10px] text-muted font-mono">
+                  {formatDuration(duration || 0)}
+                </Text>
+                {/* زر تشغيل/إيقاف محلي */}
+                {audioUrl && (messageType === "comment" || messageType === "tarouk") && (
+                  <TouchableOpacity
+                    onPress={handleLocalPlay}
+                    style={{ padding: 2 }}
+                    activeOpacity={0.6}
+                  >
+                    <MaterialIcons 
+                      name={localPlaying ? "pause-circle-filled" : "play-circle-filled"} 
+                      size={20} 
+                      color={messageType === "tarouk" ? colors.success : colors.primary} 
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
           </View>
         </View>
