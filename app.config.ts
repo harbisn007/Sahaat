@@ -65,6 +65,7 @@ const config: ExpoConfig = {
     versionCode: 2,
     edgeToEdgeEnabled: true,
     softwareKeyboardLayoutMode: "adjustResize",
+    windowSoftInputMode: "adjustResize",
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
     googleServicesFile: "./google-services.json",

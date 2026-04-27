@@ -53,6 +53,8 @@ export default function RoomScreen() {
   
   const roomId = parseInt(id || "0");
   const flatListRef = useRef<FlatList>(null);
+  const audioFlatListRef = useRef<FlatList>(null);
+  const textFlatListRef = useRef<FlatList>(null);
 
   // State
   const [userRole, setUserRole] = useState<"creator" | "player" | "viewer" | null>(null);
@@ -2328,8 +2330,9 @@ export default function RoomScreen() {
           <View style={{ flex: 2 }}>
             {audioFeed.length > 0 ? (
               <FlatList
-                data={[...audioFeed].reverse()}
-                inverted={true}
+                ref={audioFlatListRef}
+                onContentSizeChange={() => audioFlatListRef.current?.scrollToEnd({ animated: true })}
+                data={audioFeed}
                 keyExtractor={(item) => item.id}
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
@@ -2362,8 +2365,9 @@ export default function RoomScreen() {
           {/* عمود يمين — رسائل كتابية + تفاعلات (60%) */}
           <View style={{ flex: 3 }}>
             <FlatList
+              ref={textFlatListRef}
+              onContentSizeChange={() => textFlatListRef.current?.scrollToEnd({ animated: true })}
               data={textAndReactionsFeed}
-              inverted={false}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
@@ -2377,7 +2381,7 @@ export default function RoomScreen() {
                   return (
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
                       <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
-                        <Text style={{ color: '#000000', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
+                        <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
                         <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
                       </View>
                     </View>
