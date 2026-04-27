@@ -21,6 +21,7 @@ import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { GlobalCreatorNotifier } from "@/components/global-creator-notifier";
 import { useCreatorBell } from "@/hooks/use-creator-bell";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 
 // مكون بسيط يستدعي useCreatorBell لتشغيل صوت الجرس عند تغير عداد الطلبات
 function CreatorBellListener() {
@@ -88,6 +89,7 @@ export default function RootLayout() {
   }, [initialInsets, initialFrame]);
 
   const content = (
+    <KeyboardProvider>
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
@@ -104,6 +106,7 @@ export default function RootLayout() {
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
+    </KeyboardProvider>
   );
 
   const shouldOverrideSafeArea = Platform.OS === "web";
