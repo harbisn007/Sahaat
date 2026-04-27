@@ -2231,7 +2231,7 @@ export default function RoomScreen() {
 
       {/* Messages Feed + حقل الكتابة + الأزرار — مُحاطة بـ KeyboardAvoidingView */}
       <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#1c1208' }}
+        style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
       >
@@ -2462,8 +2462,9 @@ export default function RoomScreen() {
           </View>
         </View>
       </View>
-      {/* حقل كتابة الرسالة — مستقل بين الإطار الذهبي وأزرار التحكم */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 2, backgroundColor: '#1c1208' }}>
+      {/* حقل كتابة الرسالة + أزرار التحكم — مُحاطة بـ View بني لتغطية المساحة الفارغة */}
+      <View style={{ backgroundColor: '#1c1208' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 2 }}>
         <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
           <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
@@ -2771,6 +2772,7 @@ export default function RoomScreen() {
         </View>
       </View>
        )}
+      </View>
       </KeyboardAvoidingView>
       {/* Reactions Picker Modal */}
       <ReactionsPicker
