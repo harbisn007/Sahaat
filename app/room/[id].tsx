@@ -1296,6 +1296,7 @@ export default function RoomScreen() {
     }
     setTextMessage("");
     Keyboard.dismiss();
+    setKeyboardVisible(false);
   }, [textMessage, roomId, userId, username]);
 
   // دالة إرسال الدعوة العامة
