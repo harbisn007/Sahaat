@@ -1285,11 +1285,6 @@ export default function RoomScreen() {
           text: textMessage.trim(),
         };
         socket.emit("textMessage", msg);
-        setTextMessages(prev => [{
-          id: Date.now(),
-          ...msg,
-          createdAt: new Date().toISOString(),
-        }, ...prev]);
       }
     } catch (err) {
       console.error("[handleSendTextMessage] error:", err);
