@@ -2800,7 +2800,6 @@ export default function RoomScreen() {
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#3d0a0a', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
                 onPress={() => {
-                  setPinnedText("");
                   setShowPinModal(false);
                   getSocket().then(socket => socket.emit('pinText', { roomId, text: '' }));
                 }}
@@ -2811,7 +2810,6 @@ export default function RoomScreen() {
                 style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
                 onPress={() => {
                   const trimmed = pinInput.trim();
-                  setPinnedText(trimmed);
                   setShowPinModal(false);
                   getSocket().then(socket => socket.emit('pinText', { roomId, text: trimmed }));
                 }}
