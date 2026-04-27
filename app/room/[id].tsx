@@ -481,6 +481,7 @@ export default function RoomScreen() {
   const generateSheelohaMutation = trpc.audio.generateSheeloha.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
   const createTextMessageMutation = trpc.text.create.useMutation();
+  const reportMutation = trpc.reports.submit.useMutation();
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
     useAudioRecorder();
@@ -2364,6 +2365,17 @@ export default function RoomScreen() {
                     senderUserId={item.userId}
                     currentUserId={userId}
                     currentUsername={username}
+                    onReport={item.userId !== userId ? () => {
+                      reportMutation.mutate({
+                        reporterUserId: userId || "",
+                        reportedUserId: item.userId,
+                        audioMessageId: parseInt(item.id.replace(/[^0-9]/g, ''), 10),
+                        audioUrl: item.audioUrl || "",
+                        messageType: (item.messageType === "tarouk" ? "tarouk" : "comment"),
+                        reason: "bad_behavior",
+                      });
+                      Alert.alert("تم", "تم إرسال البلاغ بنجاح");
+                    } : undefined}
                   />
                 )}
               />
@@ -2392,8 +2404,23 @@ export default function RoomScreen() {
                   return (
                     <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
                       <View style={{ backgroundColor: 'rgba(200,134,10,0.15)', borderRadius: 8, padding: 6, maxWidth: '85%' }}>
-                        <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
-                        <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
+                        <TouchableOpacity
+                          onLongPress={item.userId !== userId ? () => {
+                            reportMutation.mutate({
+                              reporterUserId: userId || "",
+                              reportedUserId: item.userId,
+                              audioUrl: item.text || "",
+                              messageType: "comment",
+                              reason: "bad_behavior",
+                            });
+                            Alert.alert("تم", "تم إرسال البلاغ بنجاح");
+                          } : undefined}
+                          delayLongPress={500}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
+                          <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   );
