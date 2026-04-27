@@ -63,7 +63,6 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     versionCode: 2,
-    edgeToEdgeEnabled: true,
     softwareKeyboardLayoutMode: "adjustResize",
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
