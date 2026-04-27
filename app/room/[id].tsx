@@ -1231,24 +1231,21 @@ export default function RoomScreen() {
   const [textMessages, setTextMessages] = useState<{id: number; userId: string; username: string; text: string; createdAt: string}[]>([]);
   // حالة لوحة المفاتيح
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, () => {
+    const showSub = Keyboard.addListener(showEvent, (e) => {
       setKeyboardVisible(true);
+      setKeyboardHeight(e.endCoordinates.height);
     });
     const hideSub = Keyboard.addListener(hideEvent, () => {
       setKeyboardVisible(false);
+      setKeyboardHeight(0);
     });
-     return () => { showSub.remove(); hideSub.remove(); };
+    return () => { showSub.remove(); hideSub.remove(); };
   }, []);
-
-  useEffect(() => {
-    if (keyboardVisible) {
-      setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [keyboardVisible]);
 
   // فصل البيانات: صوتي فقط | كتابي + تفاعلات
   const audioFeed = useMemo(() => combinedFeed.filter(item => item.type === "audio"), [combinedFeed]);
@@ -2428,7 +2425,7 @@ export default function RoomScreen() {
               data={textAndReactionsFeed}
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 50, paddingHorizontal: 2 }}
+              contentContainerStyle={{ paddingBottom: 8, paddingHorizontal: 2 }}
               initialNumToRender={10}
               maxToRenderPerBatch={5}
               windowSize={8}
@@ -2453,28 +2450,27 @@ export default function RoomScreen() {
               }}
               ListEmptyComponent={null}
             />
-            {/* حقل كتابة الرسالة — داخل العمود الأيمن */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 2, paddingVertical: 4 }}>
-              <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 4 }}>
-                <MaterialIcons name="send" size={20} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
-              </TouchableOpacity>
-              <TextInput
-                value={textMessage}
-                onChangeText={setTextMessage}
-                placeholder="اكتب رسالة..."
-                placeholderTextColor="rgba(150,120,60,0.5)"
-                style={{ flex: 1, color: '#1a1a1a', fontSize: 13, borderWidth: 1, borderColor: 'rgba(200,134,10,0.4)', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 4, textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.85)' }}
-                returnKeyType="send"
-                onSubmitEditing={handleSendTextMessage}
-                blurOnSubmit={true}
-              />
-            </View>
           </View>
         </View>
       </View>
+      {/* حقل كتابة الرسالة — مستقل دائماً، لا يختفي عند فتح لوحة المفاتيح */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#1c1208', marginBottom: keyboardVisible ? keyboardHeight : 0 }}>
+        <TouchableOpacity onPress={handleSendTextMessage} style={{ paddingHorizontal: 6 }}>
+          <MaterialIcons name="send" size={22} color="#d4af37" style={{ transform: [{ scaleX: -1 }] }} />
+        </TouchableOpacity>
+        <TextInput
+          value={textMessage}
+          onChangeText={setTextMessage}
+          placeholder="اكتب رسالة..."
+          placeholderTextColor="rgba(150,120,60,0.5)"
+          style={{ flex: 1, color: '#1a1a1a', fontSize: 14, borderWidth: 1, borderColor: 'rgba(200,134,10,0.4)', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, textAlign: 'right', backgroundColor: 'rgba(255,255,255,0.85)' }}
+          returnKeyType="send"
+          onSubmitEditing={handleSendTextMessage}
+          blurOnSubmit={true}
+        />
+      </View>
 
       {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
-      {!keyboardVisible && (
       <View 
         style={{
           paddingTop: 14,
@@ -2764,7 +2760,6 @@ export default function RoomScreen() {
           )}
         </View>
       </View>
-      )}
 
       {/* Reactions Picker Modal */}
       <ReactionsPicker
