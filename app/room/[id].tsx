@@ -672,8 +672,12 @@ export default function RoomScreen() {
       // استقبال رسالة كتابية جديدة (مع منع التكرار)
       onTextMessageCreated: (data: any) => {
         setTextMessages(prev => {
-          if (prev.some(m => m.id === data.id)) return prev;
-          return [...prev, { ...data, type: "text" }];
+          if (prev.some(m =>
+            m.id === String(data.id) ||
+            (m.userId === data.userId && m.text === data.text &&
+              Math.abs(new Date(m.createdAt).getTime() - new Date(data.createdAt).getTime()) < 5000)
+          )) return prev;
+          return [...prev, { ...data, id: String(data.id), type: "text" }];
         });
         setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
       },
@@ -2429,10 +2433,33 @@ export default function RoomScreen() {
                     />
                   );
                 } else {
+                  const REACTION_IMAGES: Record<string, any> = {
+                    clapping: require("@/assets/images/reaction_clapping.png"),
+                    laughing: require("@/assets/images/reaction_laughing.png"),
+                    angry: require("@/assets/images/reaction_angry.png"),
+                    thumbsup: require("@/assets/images/reaction_thumbsup.png"),
+                    salam: require("@/assets/images/reaction_salam.png"),
+                    alaikum: require("@/assets/images/reaction_alaikum.png"),
+                    masaakum: require("@/assets/images/reaction_masaakum.png"),
+                    masa_alnoor: require("@/assets/images/reaction_masa_alnoor.png"),
+                    hayak: require("@/assets/images/reaction_hayak.png"),
+                    abqak: require("@/assets/images/reaction_abqak.png"),
+                    sah_lisanak: require("@/assets/images/reaction_sah_lisanak.png"),
+                    kafo: require("@/assets/images/reaction_kafo.png"),
+                    maalaik_zood: require("@/assets/images/reaction_maalaik_zood.png"),
+                    malak_lowa: require("@/assets/images/reaction_malak_lowa.png"),
+                    latoodha: require("@/assets/images/reaction_latoodha.png"),
+                    eid_karrar: require("@/assets/images/reaction_eid_karrar.png"),
+                  };
+                  const imgSrc = REACTION_IMAGES[item.reactionType ?? ''];
                   return (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingHorizontal: 2 }}>
-                      <Text style={{ color: '#000000', fontSize: 11, fontWeight: 'bold', marginRight: 4 }}>{item.username}</Text>
-                      <Text style={{ fontSize: 20 }}>{getEmoji(item.reactionType ?? '')}</Text>
+                      <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold', marginRight: 4 }}>{item.username}</Text>
+                      {imgSrc ? (
+                        <Image source={imgSrc} style={{ width: 24, height: 24 }} resizeMode="contain" />
+                      ) : (
+                        <Text style={{ fontSize: 20 }}>{getEmoji(item.reactionType ?? '')}</Text>
+                      )}
                     </View>
                   );
                 }
