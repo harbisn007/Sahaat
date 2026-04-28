@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Keyboard, KeyboardAvoidingView } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
@@ -1229,26 +1229,7 @@ export default function RoomScreen() {
   // حالة الرسائل الكتابية
   const [textMessage, setTextMessage] = useState("");
   const [textMessages, setTextMessages] = useState<{id: number; userId: string; username: string; text: string; createdAt: string}[]>([]);
-  // حالة لوحة المفاتيح
-  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
-  useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardVisible(true);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => {
-      setKeyboardVisible(false);
-    });
-     return () => { showSub.remove(); hideSub.remove(); };
-  }, []);
-
-  useEffect(() => {
-    if (keyboardVisible) {
-      setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
-    }
-  }, [keyboardVisible]);
 
   // فصل البيانات: صوتي فقط | كتابي + تفاعلات
   const audioFeed = useMemo(() => combinedFeed.filter(item => item.type === "audio"), [combinedFeed]);
@@ -2223,12 +2204,8 @@ export default function RoomScreen() {
         </View>
       )}
 
-      {/* Messages Feed + حقل الكتابة + الأزرار — مُحاطة بـ KeyboardAvoidingView */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
-      >
+      {/* Messages Feed + حقل الكتابة + الأزرار */}
+      <View style={{ flex: 1 }}>
       {/* Messages Feed - Takes most of the screen */}
       <View 
         className="flex-1 px-1 pt-2 rounded-lg"
@@ -2475,7 +2452,7 @@ export default function RoomScreen() {
       </View>
 
       {/* Bottom Controls - تصميم نحاسي ذهبي فاخر */}
-      {!keyboardVisible && (
+      {(
       <View 
         style={{
           paddingTop: 8,
@@ -2767,7 +2744,7 @@ export default function RoomScreen() {
       </View>
        )}
       </View>
-      </KeyboardAvoidingView>
+      </View>
       {/* Reactions Picker Modal */}
       <ReactionsPicker
         visible={isReactionsPickerOpen}
