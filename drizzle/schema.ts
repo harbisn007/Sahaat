@@ -89,7 +89,12 @@ export const reactions = mysqlTable("reactions", {
   roomId: int("roomId").notNull(),
   userId: varchar("userId", { length: 100 }).notNull(), // Changed from int to varchar for UUID
   username: varchar("username", { length: 50 }).notNull(),
-  reactionType: varchar("reactionType", { length: 20 }).notNull(),
+  reactionType: mysqlEnum("reactionType", [
+    "clapping", "laughing", "angry", "thumbsup",
+    "salam", "alaikum", "masaakum", "masa_alnoor",
+    "hayak", "abqak", "sah_lisanak", "kafo",
+    "maalaik_zood", "malak_lowa", "latoodha", "eid_karrar",
+  ]).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

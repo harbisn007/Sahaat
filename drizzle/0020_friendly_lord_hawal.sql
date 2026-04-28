@@ -1,0 +1,1 @@
+ALTER TABLE `reactions` MODIFY COLUMN `reactionType` enum('clapping','laughing','angry','thumbsup','salam','alaikum','masaakum','masa_alnoor','hayak','abqak','sah_lisanak','kafo','maalaik_zood','malak_lowa','latoodha','eid_karrar') NOT NULL;
