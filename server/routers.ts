@@ -534,26 +534,29 @@ export const appRouter = router({
           userId: z.string(),
           username: z.string(),
           reactionType: z.enum([
-            // الصف الأول - التفاعل الإيجابي
-            "clap",
-            "fire",
-            "heart",
-            "thumbsup",
-            "star",
-            // الصف الثاني - المشاعر
-            "laugh",
-            "wow",
-            "thinking",
-            "sad",
+            // الصف الأول — شخصيات
+            "clapping",
+            "laughing",
             "angry",
-            // الصف الثالث - الموافقة وعدم الموافقة
-            "check",
-            "cross",
-            "thumbsdown",
-            "strong",
-            "celebrate",
+            "thumbsup",
+            // الصف الثاني — نصية
+            "salam",
+            "alaikum",
+            "masaakum",
+            "masa_alnoor",
+            // الصف الثالث — نصية
+            "hayak",
+            "abqak",
+            "sah_lisanak",
+            "kafo",
+            // الصف الرابع — نصية
+            "maalaik_zood",
+            "malak_lowa",
+            "latoodha",
+            "eid_karrar",
             // للتوافق مع القديم
-            "love",
+            "clap", "fire", "heart", "star", "laugh", "wow", "thinking", "sad",
+            "check", "cross", "thumbsdown", "strong", "celebrate", "love",
           ]),
         })
       )
