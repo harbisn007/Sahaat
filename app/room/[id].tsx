@@ -666,15 +666,16 @@ export default function RoomScreen() {
         }
       },
       // استقبال النص المثبت من الخادم وتحديثه للجميع
-      onPinnedTextUpdated: (data: { roomId: number; text: string }) => {
-        setPinnedText(data.text);
+      onPinnedTextUpdated: (data: any) => {
+        setPinnedText(data.text || "");
       },
       // استقبال رسالة كتابية جديدة (مع منع التكرار)
-      onTextMessage: (data: any) => {
+      onTextMessageCreated: (data: any) => {
         setTextMessages(prev => {
           if (prev.some(m => m.id === data.id)) return prev;
-          return [{ ...data, type: "text" }, ...prev];
+          return [...prev, { ...data, type: "text" }];
         });
+        setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
       },
     });
   }, [roomId, setCallbacks]);
@@ -1237,7 +1238,7 @@ export default function RoomScreen() {
   const textAndReactionsFeed = useMemo(() => [
     ...textMessages.map(m => ({ ...m, id: String(m.id), type: "text" as const })),
     ...combinedFeed.filter(item => item.type === "reaction"),
-  ].sort((a, b) => new Date(a.createdAt ?? (a as any).timestamp ?? 0).getTime() - new Date(b.createdAt ?? (b as any).timestamp ?? 0).getTime()), [textMessages, combinedFeed]);
+  ].sort((a, b) => new Date((a as any).createdAt ?? 0).getTime() - new Date((b as any).createdAt ?? 0).getTime()), [textMessages, combinedFeed]);
 
   const emojiMap: Record<string, string> = {
     'clap': '👏',
@@ -1257,19 +1258,22 @@ export default function RoomScreen() {
 
   const handleSendTextMessage = useCallback(async () => {
     if (!textMessage.trim()) return;
-    try {
-      const socket = await getSocket();
-      if (socket) {
-        const msg = {
-          roomId,
-          userId,
-          username: username || "",
-          text: textMessage.trim(),
-        };
-        socket.emit("textMessage", msg);
-      }
-    } catch (err) {
-      console.error("[handleSendTextMessage] error:", err);
+    const socket = await getSocket();
+    if (socket) {
+      const msg = {
+        roomId,
+        userId,
+        username: username || "",
+        text: textMessage.trim(),
+      };
+      socket.emit("textMessage", msg);
+      setTextMessages(prev => [...prev, {
+        id: Date.now(),
+        ...msg,
+        type: "text",
+        createdAt: new Date().toISOString(),
+      }]);
+      setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
     setTextMessage("");
   }, [textMessage, roomId, userId, username]);
@@ -2781,19 +2785,23 @@ export default function RoomScreen() {
             <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#3d0a0a', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
-                onPress={() => {
+                onPress={async () => {
+                  setPinnedText("");
+                  const socket = await getSocket();
+                  if (socket) socket.emit('pinText', { roomId, text: '' });
                   setShowPinModal(false);
-                  getSocket().then(socket => socket.emit('pinText', { roomId, text: '' }));
                 }}
               >
                 <Text style={{ color: '#ff6b6b', fontWeight: '600' }}>إزالة</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={{ flex: 1, backgroundColor: '#2d1f0e', borderWidth: 1, borderColor: '#c8860a', paddingVertical: 12, borderRadius: 10, alignItems: 'center' }}
-                onPress={() => {
-                  const trimmed = pinInput.trim();
+                onPress={async () => {
+                  const newText = pinInput.trim();
+                  setPinnedText(newText);
+                  const socket = await getSocket();
+                  if (socket) socket.emit('pinText', { roomId, text: newText });
                   setShowPinModal(false);
-                  getSocket().then(socket => socket.emit('pinText', { roomId, text: trimmed }));
                 }}
               >
                 <Text style={{ color: '#FFD700', fontWeight: '600' }}>تثبيت</Text>
