@@ -1109,6 +1109,7 @@ export const appRouter = router({
         reportedUserId: z.string(),
         audioMessageId: z.number().optional(),
         audioUrl: z.string(),
+        textContent: z.string().optional(),
         messageType: z.enum(["comment", "tarouk"]),
         reason: z.enum(["offensive_content", "bad_behavior"]),
       }))
@@ -1119,7 +1120,7 @@ export const appRouter = router({
         const reportedUser = await db.getUserByAppUserId(input.reportedUserId);
         const reportedName = reportedUser?.name || input.reportedUserId;
 
-        return db.submitReport({ ...input, reporterName, reportedName });
+        return db.submitReport({ ...input, textContent: input.textContent, reporterName, reportedName });
       }),
     // جلب كل البلاغات (للإدارة)
     getAll: publicProcedure

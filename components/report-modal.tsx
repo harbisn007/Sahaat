@@ -10,7 +10,8 @@ interface ReportModalProps {
   reportedUserId: string;
   audioMessageId?: number;
   audioUrl: string;
-  messageType: "comment" | "tarouk";
+  textContent?: string;
+  messageType: "comment" | "tarouk" | "text";
 }
 
 export function ReportModal({
@@ -20,6 +21,7 @@ export function ReportModal({
   reportedUserId,
   audioMessageId,
   audioUrl,
+  textContent,
   messageType,
 }: ReportModalProps) {
   const colors = useColors();
@@ -54,8 +56,9 @@ export function ReportModal({
       reporterUserId,
       reportedUserId,
       audioMessageId,
-      audioUrl,
-      messageType,
+      audioUrl: messageType === "text" ? "" : audioUrl,
+      textContent: messageType === "text" ? (textContent || "") : undefined,
+      messageType: messageType === "text" ? "comment" : messageType,
       reason: selectedReason,
     });
   };

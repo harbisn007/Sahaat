@@ -1600,18 +1600,21 @@ export async function submitReport(input: {
   reportedName?: string;
   audioMessageId?: number;
   audioUrl: string;
+  textContent?: string;
   messageType: "comment" | "tarouk";
   reason: "offensive_content" | "bad_behavior";
 }): Promise<{ id: number }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  // للرسائل النصية: نحفظ نص الرسالة في حقل audioUrl
+  const storedAudioUrl = input.textContent ? input.textContent : input.audioUrl;
   const result = await db.insert(reports).values({
     reporterUserId: input.reporterUserId,
     reporterName: input.reporterName ?? input.reporterUserId,
     reportedUserId: input.reportedUserId,
     reportedName: input.reportedName ?? input.reportedUserId,
     audioMessageId: input.audioMessageId ?? null,
-    audioUrl: input.audioUrl,
+    audioUrl: storedAudioUrl,
     messageType: input.messageType,
     reason: input.reason,
     status: "pending",

@@ -47,8 +47,9 @@ function TextMessageWithReport({ item, userId }: { item: any; userId: string | n
           onClose={() => setReportVisible(false)}
           reporterUserId={userId || ""}
           reportedUserId={item.userId}
-          audioUrl={item.text || ""}
-          messageType="comment"
+          audioUrl={""}
+          textContent={item.text || ""}
+          messageType="text"
         />
       )}
       <View style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 4, paddingHorizontal: 2 }}>
@@ -2456,7 +2457,7 @@ export default function RoomScreen() {
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingHorizontal: 2 }}>
                       <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold', marginRight: 4 }}>{item.username}</Text>
                       {imgSrc ? (
-                        <Image source={imgSrc} style={{ width: 24, height: 24 }} resizeMode="contain" />
+                        <Image source={imgSrc} style={{ width: 36, height: 36 }} resizeMode="contain" />
                       ) : (
                         <Text style={{ fontSize: 20 }}>{getEmoji(item.reactionType ?? '')}</Text>
                       )}
