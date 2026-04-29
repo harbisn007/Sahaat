@@ -141,6 +141,13 @@
       "when": 1777228284715,
       "tag": "0019_mean_joseph",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1777408190874,
+      "tag": "0020_friendly_lord_hawal",
+      "breakpoints": true
     }
   ]
 }
