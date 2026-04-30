@@ -99,7 +99,7 @@ export default function WelcomeScreen() {
           // التحقق من الحظر قبل الدخول
           try {
             const ban = await trpc.reports.checkBan.query({ userId: uuid });
-            if (ban && ban.isActive === 'true') {
+            if (ban && ban.isBanned) {
               setIsCheckingUUID(false);
               const msg = ban.banType === 'permanent'
                 ? 'تم حظر حسابك بشكل دائم.'
