@@ -460,7 +460,7 @@ function dashboardPage(data: {
           <thead>
             <tr>
               <th>الوقت</th>
-              <th>الرسالة الصوتية</th>
+              <th>المحتوى</th>
               <th>السبب</th>
               <th>بلاغ من</th>
               <th>بلاغ ضد</th>
@@ -646,5 +646,5 @@ function dashboardPage(data: {
 function formatDate(d: Date | string | null): string {
   if (!d) return "—";
   const date = new Date(d);
-  return date.toLocaleString("ar-SA", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return date.toLocaleString("ar-SA", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh" });
 }
