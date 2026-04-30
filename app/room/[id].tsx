@@ -2455,7 +2455,7 @@ export default function RoomScreen() {
                   const imgSrc = REACTION_IMAGES[item.reactionType ?? ''];
                   return (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, paddingHorizontal: 2 }}>
-                      <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold', marginRight: 4 }}>{item.username}</Text>
+                      <Text style={{ color: '#5c3d1e', fontSize: 11, fontWeight: 'bold', marginRight: 4 }}>{item.username}</Text>
                       {imgSrc ? (
                         <Image source={imgSrc} style={{ width: 36, height: 36 }} resizeMode="contain" />
                       ) : (
@@ -2752,19 +2752,24 @@ export default function RoomScreen() {
 
           {/* Viewer: Request to Join as Player */}
           {isViewer && (
-            <View className="flex-1 items-center justify-center">
+            <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
               <TouchableOpacity
-                className="px-6 py-3 rounded-lg"
                 style={{ 
-                  backgroundColor: hasPendingRequest ? '#9CA3AF' : '#22C55E',
+                  backgroundColor: hasPendingRequest ? '#9CA3AF' : '#b87333',
                   opacity: hasPendingRequest ? 0.7 : 1,
+                  paddingHorizontal: 24,
+                  paddingVertical: 12,
+                  borderRadius: 8,
+                  height: 55,
+                  justifyContent: 'center',
+                  alignItems: 'center',
                 }}
                 onPress={handleRequestJoinAsPlayer}
                 disabled={hasPendingRequest || createJoinRequestMutation.isPending}
               >
-                <View className="flex-row items-center gap-2">
-                  <MaterialIcons name="person-add" size={24} color="#fff" />
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <MaterialIcons name="person-add" size={24} color="#3b1a00" />
+                  <Text style={{ color: '#3b1a00', fontWeight: '700', fontSize: 16 }}>
                     {hasPendingRequest ? 'طلبك قيد الانتظار...' : 'طلب الانضمام كشاعر'}
                   </Text>
                 </View>
