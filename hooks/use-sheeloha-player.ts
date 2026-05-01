@@ -111,23 +111,15 @@ export function useSheelohaPlayer() {
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
 
-    // 1b. صوت الإيقاع (sheeloha_beat) كل 0.96 ثانية بجانب التصفيق
-    const playBeat = () => {
-      if (!isPlayingRef.current) return;
-      try {
-        const beat = createAudioPlayer(BEAT_ASSET);
-        beat.volume = 0.5;
-        beat.play();
-        playersRef.current.push(beat);
-        setTimeout(() => {
-          try { beat.release(); } catch (_) {}
-          playersRef.current = playersRef.current.filter(p => p !== beat);
-        }, 500);
-      } catch (_) {}
-    };
-    playBeat();
-    const beatInterval = setInterval(playBeat, CLAP_INTERVAL);
-    intervalsRef.current.push(beatInterval);
+    // 1b. صوت الإيقاع (sheeloha_beat) كخلفية مستمرة في loop
+    try {
+      const beat = createAudioPlayer(BEAT_ASSET);
+      beat.volume = 0.5;
+      beat.loop = true;
+      beat.play();
+      playersRef.current.push(beat);
+    } catch (_) {}
+
 
     // 2. صوت الصفوف في loop
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
