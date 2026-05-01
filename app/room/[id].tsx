@@ -60,7 +60,7 @@ function TextMessageWithReport({ item, userId }: { item: any; userId: string | n
             activeOpacity={0.7}
           >
             <Text style={{ color: '#5c3d1e', fontSize: 11, fontWeight: 'bold' }}>{item.username}</Text>
-            <Text style={{ color: '#000000', fontSize: 13 }}>{item.text}</Text>
+            <Text style={{ color: '#000000', fontSize: 13, fontWeight: 'bold' }}>{item.text}</Text>
           </TouchableOpacity>
         </View>
       </View>

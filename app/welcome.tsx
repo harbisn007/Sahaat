@@ -50,7 +50,6 @@ export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const colors = useColors();
   const { loginAsGuest } = useUser();
-  const checkBanQuery = trpc.reports.checkBan;
   const scrollViewRef = useRef<ScrollView>(null);
   const trpcUtils = trpc.useUtils();
   const upsertUserByPhone = trpc.auth.upsertUserByPhone.useMutation();
@@ -98,7 +97,7 @@ export default function WelcomeScreen() {
         if (uuid && savedName && savedAvatar) {
           // التحقق من الحظر قبل الدخول
           try {
-            const ban = await trpc.reports.checkBan.query({ userId: uuid });
+            const ban = await trpcUtils.reports.checkBan.fetch({ userId: uuid });
             if (ban && ban.isBanned) {
               setIsCheckingUUID(false);
               const msg = ban.banType === 'permanent'

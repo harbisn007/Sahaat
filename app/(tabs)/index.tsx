@@ -284,6 +284,7 @@ function getServerUrl(): string {
 
 export default function HomeScreen() {
   const { username, userId, avatar, accountType, isLoading: userLoading, logout, clearAllData } = useUser();
+  const trpcUtils = trpc.useUtils();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -463,6 +464,13 @@ export default function HomeScreen() {
   const handleCreateRoom = async (roomName: string) => {
     if (!username || !userId) { Alert.alert("خطأ", "يرجى تسجيل الدخول أولاً"); return; }
     try {
+      // فحص الحظر قبل الإنشاء
+      const ban = await trpcUtils.reports.checkBan.fetch({ userId });
+      if (ban && ban.isBanned) {
+        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        Alert.alert('الحساب محظور', msg);
+        return;
+      }
       const result = await createRoomMutation.mutateAsync({ name: roomName, creatorId: userId, creatorName: username, creatorAvatar: avatar || "male" });
       setShowCreateModal(false);
       router.push(`/room/${result.roomId}`);
@@ -478,16 +486,30 @@ export default function HomeScreen() {
   };
 
   const handleJoinAsViewer = async (roomId: number) => {
-    if (!username) return;
+    if (!username || !userId) return;
     try {
+      // فحص الحظر
+      const ban = await trpcUtils.reports.checkBan.fetch({ userId });
+      if (ban && ban.isBanned) {
+        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        Alert.alert('الحساب محظور', msg);
+        return;
+      }
       await joinAsViewerMutation.mutateAsync({ roomId, userId, username, avatar: avatar || "male" });
       router.push(`/room/${roomId}`);
-    } catch { Alert.alert("خطأ", "حدث خطأ أثناء الانضمام"); }
+    } catch (error: any) { Alert.alert("خطأ", error?.message || "حدث خطأ أثناء الانضمام"); }
   };
 
   const handleJoinFromInvite = async (invite: PublicInvitation) => {
     if (!username || !userId) { Alert.alert("خطأ", "يرجى تسجيل الدخول أولاً"); return; }
     try {
+      // فحص الحظر
+      const ban = await trpcUtils.reports.checkBan.fetch({ userId });
+      if (ban && ban.isBanned) {
+        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        Alert.alert('الحساب محظور', msg);
+        return;
+      }
       await createJoinRequestMutation.mutateAsync({ roomId: invite.roomId, userId, username, avatar: avatar || "male" });
       await joinAsViewerMutation.mutateAsync({ roomId: invite.roomId, userId, username, avatar: avatar || "male" });
       router.push(`/room/${invite.roomId}`);

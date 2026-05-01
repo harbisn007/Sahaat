@@ -110,6 +110,11 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // التحقق من الحظر قبل إنشاء الساحة
+        const banCheck = await db.checkActiveBan(input.creatorId);
+        if (banCheck.isBanned) {
+          throw new Error("أنت محظور ولا يمكنك إنشاء ساحة.");
+        }
         // حذف أي ساحة قديمة لنفس المنشئ قبل إنشاء ساحة جديدة
         // هذا يمنع وجود ساحات يتيمة عند حذف التطبيق وإعادة تثبيته
         const existingRoom = await db.getUserActiveRoom(input.creatorId);
@@ -154,6 +159,11 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // التحقق من الحظر
+        const banCheck = await db.checkActiveBan(input.userId);
+        if (banCheck.isBanned) {
+          throw new Error("أنت محظور ولا يمكنك دخول الساحات.");
+        }
         // Remove any existing participant record for this user in this room
         // This ensures returning players start fresh with "pending" status
         await db.removeParticipant(input.roomId, input.userId);
@@ -215,6 +225,11 @@ export const appRouter = router({
         })
       )
       .mutation(async ({ input }) => {
+        // التحقق من الحظر
+        const banCheck = await db.checkActiveBan(input.userId);
+        if (banCheck.isBanned) {
+          throw new Error("أنت محظور ولا يمكنك دخول الساحات.");
+        }
         // التحقق من أن المستخدم ليس منشئ الساحة
         const room = await db.getRoomById(input.roomId);
         if (room && room.creatorId === input.userId) {
@@ -1142,6 +1157,13 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         const ban = await db.banUser(input.userId, input.username, input.banType);
+        // إغلاق ساحة المحظور فوراً إن وُجدت
+        const activeRoom = await db.getUserActiveRoom(input.userId);
+        if (activeRoom) {
+          console.log(`[Ban] Closing room ${activeRoom.id} for banned user ${input.userId}`);
+          emitRoomDeleted(activeRoom.id, activeRoom.name);
+          await db.deleteRoom(activeRoom.id);
+        }
         emitUserBanned(input.userId, input.banType);
         return ban;
       }),
