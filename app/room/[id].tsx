@@ -2239,8 +2239,12 @@ export default function RoomScreen() {
         )}
         {/* النص المثبت يظهر للجميع فوق صور اللاعبين — لا يحجز مساحة عند الفراغ */}
         {pinnedText.trim().length > 0 && (
-          <View style={{ backgroundColor: 'rgba(28,18,8,0.85)', borderWidth: 1, borderColor: '#c8860a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, marginBottom: 8, marginHorizontal: 4 }}>
-            <Text style={{ color: '#FFD700', fontSize: 14, fontWeight: 'bold', textAlign: 'center', lineHeight: 22 }}>{pinnedText}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginHorizontal: 4 }}>
+            {/* مساحة فارغة بعرض الدبوس (30px) + مسافة بسيطة لتجنب التداخل */}
+            {isCreator && <View style={{ width: 38 }} />}
+            <View style={{ flex: 1, backgroundColor: 'rgba(28,18,8,0.85)', borderWidth: 1, borderColor: '#c8860a', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16 }}>
+              <Text style={{ color: '#FFD700', fontSize: 14, fontWeight: 'bold', textAlign: 'center', lineHeight: 22 }}>{pinnedText}</Text>
+            </View>
           </View>
         )}
         {/* Players Display - Creator in center, Players on sides */}

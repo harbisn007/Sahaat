@@ -13,15 +13,17 @@ const { createAudioPlayer, AudioModule } = ExpoAudio;
 type AudioPlayer = ExpoAudio.AudioPlayer;
 
 const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
-const BEAT_ASSET = require("@/assets/sounds/sheeloha_beat.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 3 أصوات بجرس مختلف — بدون pitch correction لتجنب الصدى
+// 6 أصوات بجرس مختلف — بدون pitch correction لتجنب الصدى
 const CROWD = [
-  { delay: 0,  volume: 0.50, rate: 1.05 }, // صوت عميق
-  { delay: 8,  volume: 0.40, rate: 1.07 }, // صوت أعمق
-  { delay: 18, volume: 0.30, rate: 1.06 }, // صوت متوسط
+  { delay: 0,   volume: 0.50, rate: 1.05 }, // صوت 1
+  { delay: 8,   volume: 0.40, rate: 1.07 }, // صوت 2
+  { delay: 18,  volume: 0.30, rate: 1.06 }, // صوت 3
+  { delay: 500, volume: 0.45, rate: 1.06 }, // صوت 4 - يبدأ بعد 0.5ث
+  { delay: 100, volume: 0.37, rate: 1.07 }, // صوت 5 - يبدأ بعد 0.10ث
+  { delay: 900, volume: 0.40, rate: 1.07 }, // صوت 6 - يبدأ بعد 0.9ث
 ];
 
 interface SheelohaData {
@@ -110,16 +112,6 @@ export function useSheelohaPlayer() {
     playClap();
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
-
-    // 1b. صوت الإيقاع (sheeloha_beat) كخلفية مستمرة في loop
-    try {
-      const beat = createAudioPlayer(BEAT_ASSET);
-      beat.volume = 0.5;
-      beat.loop = true;
-      beat.play();
-      playersRef.current.push(beat);
-    } catch (_) {}
-
 
     // 2. صوت الصفوف في loop
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
