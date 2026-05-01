@@ -13,6 +13,7 @@ const { createAudioPlayer, AudioModule } = ExpoAudio;
 type AudioPlayer = ExpoAudio.AudioPlayer;
 
 const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
+const BEAT_ASSET = require("@/assets/sounds/sheeloha_beat.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
@@ -109,6 +110,24 @@ export function useSheelohaPlayer() {
     playClap();
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
+
+    // 1b. صوت الإيقاع (sheeloha_beat) كل 0.96 ثانية بجانب التصفيق
+    const playBeat = () => {
+      if (!isPlayingRef.current) return;
+      try {
+        const beat = createAudioPlayer(BEAT_ASSET);
+        beat.volume = 0.5;
+        beat.play();
+        playersRef.current.push(beat);
+        setTimeout(() => {
+          try { beat.release(); } catch (_) {}
+          playersRef.current = playersRef.current.filter(p => p !== beat);
+        }, 500);
+      } catch (_) {}
+    };
+    playBeat();
+    const beatInterval = setInterval(playBeat, CLAP_INTERVAL);
+    intervalsRef.current.push(beatInterval);
 
     // 2. صوت الصفوف في loop
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
