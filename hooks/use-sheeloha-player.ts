@@ -23,7 +23,7 @@ const CROWD = [
   { delay: 18,  volume: 0.30, rate: 1.06 }, // صوت 3
   { delay: 500, volume: 0.45, rate: 1.06 }, // صوت 4 - يبدأ بعد 0.5ث
   { delay: 100, volume: 0.37, rate: 1.07 }, // صوت 5 - يبدأ بعد 0.10ث
-  { delay: 900, volume: 0.40, rate: 1.07 }, // صوت 6 - يبدأ بعد 0.9ث
+  { delay: 90,  volume: 0.40, rate: 1.07 }, // صوت 6 - يبدأ بعد 0.09ث
 ];
 
 interface SheelohaData {
