@@ -1215,10 +1215,10 @@ export default function RoomScreen() {
       setCanSendPublicInvite(false);
       setLastPublicInviteTime(Date.now());
       Alert.alert("تم", "تم إرسال الدعوة العامة بنجاح");
-      // إعادة تفعيل الزر بعد 5 دقائق
+      // إعادة تفعيل الزر بعد 3 دقائق
       setTimeout(() => {
         setCanSendPublicInvite(true);
-      }, 5 * 60 * 1000);
+      }, 3 * 60 * 1000);
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message || "فشل إرسال الدعوة العامة");

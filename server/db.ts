@@ -317,6 +317,8 @@ export async function deleteRoom(roomId: number) {
   // Delete all related data in order (foreign key constraints)
   // 1. Delete reactions
   await db.delete(reactions).where(eq(reactions.roomId, roomId));
+  // 1b. Delete text messages (مثل التفاعلات تماماً)
+  await db.delete(textMessages).where(eq(textMessages.roomId, roomId));
   
   // 2. Delete audio messages (احذف فقط الرسائل التي ليس عليها بلاغات)
   const roomAudioIds = await db

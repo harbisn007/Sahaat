@@ -447,7 +447,7 @@ export default function HomeScreen() {
             setExpiredInviteIds(prev => new Set(prev).add(invite.id));
             await expireInviteMutation.mutateAsync({ invitationId: invite.id });
           } catch {}
-        }, 20000);
+        }, 35000);
       });
     }
   }, [displayedInvites]);

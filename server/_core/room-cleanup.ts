@@ -15,7 +15,7 @@
  */
 
 import { getDb, removeGoldStar, removeExtension } from "../db";
-import { rooms, roomParticipants, audioMessages, reactions, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations, reports } from "../../drizzle/schema";
+import { rooms, roomParticipants, audioMessages, reactions, textMessages, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations, reports } from "../../drizzle/schema";
 import { eq, and, lt, inArray, notInArray } from "drizzle-orm";
 import { broadcastRoomDeleted } from "./socket";
 
@@ -124,6 +124,8 @@ export async function deleteRoomCompletely(roomId: number): Promise<void> {
   try {
     // حذف جميع البيانات المرتبطة بالترتيب
     await db.delete(reactions).where(eq(reactions.roomId, roomId));
+    // حذف الرسائل النصية (textMessages) مثل التفاعلات تماماً
+    await db.delete(textMessages).where(eq(textMessages.roomId, roomId));
     // احذف فقط الرسائل الصوتية التي ليس عليها بلاغات
     const roomAudioIds = await db
       .select({ id: audioMessages.id })
