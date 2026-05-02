@@ -16,18 +16,13 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 5 أصوات ثابتة بجرس مختلف
+// 4 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
   { delay: 0,   volume: 0.50, rate: 1.05 }, // صوت 1
   { delay: 8,   volume: 0.40, rate: 1.07 }, // صوت 2
   { delay: 18,  volume: 0.30, rate: 1.06 }, // صوت 3
   { delay: 500, volume: 0.45, rate: 1.06 }, // صوت 4 - يبدأ بعد 0.5ث
-  { delay: 100, volume: 0.37, rate: 1.07 }, // صوت 5 - يبدأ بعد 0.10ث
 ];
-
-// الصوت السادس: يبدأ بعد 0.9 ثانية وسرعته تُحسب ديناميكياً ليتزامن مع انتهاء الأصوات الأخرى
-const CROWD_6_DELAY = 900; // 0.9 ثانية
-const CROWD_6_VOLUME = 0.40;
 
 interface SheelohaData {
   taroukUrl: string;
@@ -77,31 +72,6 @@ export function useSheelohaPlayer() {
       }, delay);
       timersRef.current.push(t);
     });
-
-    // الصوت السادس: يبدأ بعد 0.9ث وسرعته تُحسب ديناميكياً لينتهي مع باقي الأصوات
-    // الأصوات 1-5 تنتهي عند: delay_0 + (taroukDuration + 2) ثانية = (taroukDuration + 2) ثانية
-    // الصوت 6 يبدأ بعد 0.9ث فالوقت المتاح له: (taroukDuration + 2 - 0.9) ثانية
-    // السرعة = مدة الملف / الوقت المتاح = (taroukDuration + 2) / (taroukDuration + 2 - 0.9)
-    const totalDuration = taroukDuration + 2;
-    const availableTime = totalDuration - (CROWD_6_DELAY / 1000);
-    const rate6 = availableTime > 0 ? totalDuration / availableTime : 1.07;
-    const t6 = setTimeout(() => {
-      if (!isPlayingRef.current) return;
-      try {
-        const player = createAudioPlayer(taroukUrl);
-        player.volume = CROWD_6_VOLUME;
-        player.setPlaybackRate(rate6);
-        player.play();
-        playersRef.current.push(player);
-        setTimeout(() => {
-          try { player.release(); } catch (_) {}
-          playersRef.current = playersRef.current.filter(p => p !== player);
-        }, availableTime * 1000 + 500);
-      } catch (e) {
-        console.error("[SheelohaPlayer] crowd6 error:", e);
-      }
-    }, CROWD_6_DELAY);
-    timersRef.current.push(t6);
   }, []);
 
   const play = useCallback(async (data: SheelohaData) => {
