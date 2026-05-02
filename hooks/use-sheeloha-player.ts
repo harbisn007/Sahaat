@@ -16,12 +16,13 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 4 أصوات ثابتة بجرس مختلف
+// 5 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
   { delay: 0,   volume: 0.50, rate: 1.05 }, // صوت 1
   { delay: 8,   volume: 0.40, rate: 1.07 }, // صوت 2
-  { delay: 18,  volume: 0.30, rate: 1.06 }, // صوت 3
-  { delay: 500, volume: 0.45, rate: 1.06 }, // صوت 4 - يبدأ بعد 0.5ث
+  { delay: 9,   volume: 0.30, rate: 1.06 }, // صوت 3
+  { delay: 10,  volume: 0.45, rate: 1.06 }, // صوت 4
+  { delay: 11,  volume: 0.38, rate: 1.08 }, // صوت 5
 ];
 
 interface SheelohaData {
