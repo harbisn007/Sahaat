@@ -348,7 +348,7 @@ export default function HomeScreen() {
   // حالة اتصال المتابَعين (query خفيف دائماً لإظهار النقطة)
   const { data: followingOnlineData } = trpc.interactions.getFollowingDetails.useQuery(
     { userId: userId || '' },
-    { enabled: !!userId, refetchInterval: 15000 }
+    { enabled: !!userId, refetchInterval: 5000 }
   );
   const anyFollowingOnline = (followingOnlineData || []).some((u: any) => u.isOnline);
 

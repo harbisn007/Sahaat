@@ -348,6 +348,8 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       // الانضمام لقناة المستخدم الشخصية لاستقبال إشعارات طلبات الانضمام
       if (userId) {
         socket.emit("joinUserChannel", userId);
+        // الانضمام لقناة المنشئ لاستقبال إشعارات دخول الساحة
+        socket.emit("joinCreatorChannel", userId);
       }
       hasJoinedRoom = true;
       console.log("[Socket.io] ========== JOINED ROOM ==========");

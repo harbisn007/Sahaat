@@ -403,11 +403,11 @@ export default function RoomScreen() {
       // refetch فوري لتحديث الدور
       refetch();
       setHasPendingRequest(false);
-      Alert.alert("تم القبول", "تم قبولك كشاعر في الساحة! يمكنك الآن التسجيل والمشاركة.");
+      // لا إشعار عند القبول
     } else {
       console.log("[RoomScreen] Join request REJECTED");
       setHasPendingRequest(false);
-      Alert.alert("تم الرفض", "لم يتم قبول طلبك للانضمام كشاعر.");
+      // لا إشعار عند الرفض
     }
     
     // إعادة ضبط الحالة
@@ -1192,7 +1192,7 @@ export default function RoomScreen() {
         refetch(),
       ]);
       if (variables.accept) {
-        Alert.alert("تم القبول", "تم قبول الشاعر في الساحة");
+        // لا إشعار عند قبول الشاعر
       }
     },
     onError: (error) => {
@@ -1371,7 +1371,7 @@ export default function RoomScreen() {
       });
       await refetch();
       await refetchRequests();
-      Alert.alert("تم القبول", "تم قبول الشاعر بنجاح");
+      // لا إشعار عند قبول الشاعر
     } catch (error) {
       Alert.alert("خطأ", "حدث خطأ أثناء قبول الطلب");
     }
@@ -2807,13 +2807,15 @@ export default function RoomScreen() {
 
           {/* Viewer: Request to Join as Player */}
           {isViewer && (
-            <View style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <TouchableOpacity
                 style={{ 
-                  backgroundColor: hasPendingRequest ? '#9CA3AF' : '#b87333',
+                  backgroundColor: hasPendingRequest ? '#9CA3AF' : '#C8A84B',
+                  borderWidth: hasPendingRequest ? 0 : 1.5,
+                  borderColor: '#F0D060',
                   opacity: hasPendingRequest ? 0.7 : 1,
                   paddingHorizontal: 24,
-                  paddingVertical: 12,
+                  paddingVertical: 0,
                   borderRadius: 8,
                   height: 55,
                   justifyContent: 'center',
@@ -2823,8 +2825,8 @@ export default function RoomScreen() {
                 disabled={hasPendingRequest || createJoinRequestMutation.isPending}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <MaterialIcons name="person-add" size={24} color="#3b1a00" />
-                  <Text style={{ color: '#3b1a00', fontWeight: '700', fontSize: 16 }}>
+                  <MaterialIcons name="person-add" size={24} color="#2a1500" />
+                  <Text style={{ color: '#2a1500', fontWeight: '700', fontSize: 16 }}>
                     {hasPendingRequest ? 'طلبك قيد الانتظار...' : 'طلب الانضمام كشاعر'}
                   </Text>
                 </View>
