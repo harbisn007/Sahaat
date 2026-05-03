@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
@@ -88,6 +88,30 @@ export default function RoomScreen() {
   const fontSize = isSmallScreen ? 7 : 9;
   
   const roomId = parseInt(id || "0");
+
+  // إشعار دخول مستخدم جديد (للمنشئ فقط)
+  const [joinNotif, setJoinNotif] = useState<{ name: string } | null>(null);
+  const joinNotifOpacity = useRef(new Animated.Value(0)).current;
+  const joinNotifTranslateX = useRef(new Animated.Value(60)).current;
+  const joinNotifTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showJoinNotif = useCallback((name: string) => {
+    if (joinNotifTimer.current) clearTimeout(joinNotifTimer.current);
+    setJoinNotif({ name });
+    joinNotifOpacity.setValue(0);
+    joinNotifTranslateX.setValue(60);
+    Animated.parallel([
+      Animated.timing(joinNotifOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.timing(joinNotifTranslateX, { toValue: 0, duration: 300, useNativeDriver: true }),
+    ]).start();
+    joinNotifTimer.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(joinNotifOpacity, { toValue: 0, duration: 400, useNativeDriver: true }),
+        Animated.timing(joinNotifTranslateX, { toValue: -10, duration: 400, useNativeDriver: true }),
+      ]).start(() => setJoinNotif(null));
+    }, 2500);
+  }, [joinNotifOpacity, joinNotifTranslateX]);
+
   const flatListRef = useRef<FlatList>(null);
   const audioFlatListRef = useRef<FlatList>(null);
   const textFlatListRef = useRef<FlatList>(null);
@@ -363,7 +387,10 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Tarouk controller changed via Socket.io:", data);
         setTaroukController(data.controller);
       },
-
+      // إشعار دخول مستخدم جديد للمنشئ
+      onCreatorJoinRequest: (data) => {
+        showJoinNotif(data.requesterName);
+      },
     });
   }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
 
@@ -2228,6 +2255,30 @@ export default function RoomScreen() {
           borderColor: "#FFD700", // ذهبي
         }}
       >
+        {/* إشعار دخول مستخدم جديد - الزاوية اليمنى العلوية */}
+        {isCreator && joinNotif && (
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              zIndex: 20,
+              opacity: joinNotifOpacity,
+              transform: [{ translateX: joinNotifTranslateX }],
+              backgroundColor: 'rgba(0,0,0,0.4)',
+              borderRadius: 10,
+              paddingVertical: 5,
+              paddingHorizontal: 10,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 4,
+            }}
+          >
+            <Text style={{ color: '#F0D060', fontSize: 11, fontWeight: '600' }}>✦</Text>
+            <Text style={{ color: '#d4b86a', fontSize: 11 }}>دخول </Text>
+            <Text style={{ color: '#F0D060', fontSize: 11, fontWeight: '700' }}>{joinNotif.name}</Text>
+          </Animated.View>
+        )}
         {/* أيقونة التثبيت للمنشئ فقط */}
         {isCreator && (
           <TouchableOpacity

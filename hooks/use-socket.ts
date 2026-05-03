@@ -316,6 +316,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
     onPinnedTextUpdated?: (data: { roomId: number; text: string }) => void;
     onTextMessageCreated?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
     onTextMessage?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
+    onCreatorJoinRequest?: (data: { requesterName: string; requestType: string }) => void;
   }>({});
 
   // تتبع roomId السابق لمغادرته عند التغيير
@@ -498,6 +499,16 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
+        // حدث دخول مستخدم جديد للمنشئ
+        socket.on("creatorJoinRequest", (data) => {
+          if (data.roomId === roomId) {
+            callbacksRef.current.onCreatorJoinRequest?.({
+              requesterName: data.requesterName,
+              requestType: data.requestType,
+            });
+          }
+        });
+
         // حدث رسالة كتابية جديدة
         socket.on("textMessageCreated", (data) => {
           if (data.roomId === roomId) {
@@ -551,6 +562,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("userBanned");
         socketRef.current.off("pinnedTextUpdated");
         socketRef.current.off("textMessageCreated");
+        socketRef.current.off("creatorJoinRequest");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         
