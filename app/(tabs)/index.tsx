@@ -345,6 +345,13 @@ export default function HomeScreen() {
     { userId: userId || '' },
     { enabled: !!userId && showFollowersModal, refetchInterval: showFollowersModal ? 5000 : false }
   );
+  // حالة اتصال المتابَعين (query خفيف دائماً لإظهار النقطة)
+  const { data: followingOnlineData } = trpc.interactions.getFollowingDetails.useQuery(
+    { userId: userId || '' },
+    { enabled: !!userId, refetchInterval: 15000 }
+  );
+  const anyFollowingOnline = (followingOnlineData || []).some((u: any) => u.isOnline);
+
   // عدد المتابعين/المتابَعين (query خفيف دائماً)
   const { data: followingCountData } = trpc.interactions.getFollowing.useQuery(
     { userId: userId || '' },
@@ -574,9 +581,14 @@ export default function HomeScreen() {
                 onPress={() => setShowFollowingModal(true)}
                 style={{ alignItems: 'center' }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}>
-                  <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
-                  <MaterialIcons name="person-add" size={14} color="#c8860a" />
+                <View style={{ position: 'relative' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#2d1f0e', borderRadius: 12, paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderColor: '#c8860a44' }}>
+                    <Text style={{ color: '#d4af37', fontSize: 11, fontWeight: 'bold' }}>{followingCount}</Text>
+                    <MaterialIcons name="person-add" size={14} color="#c8860a" />
+                  </View>
+                  {followingCount > 0 && (
+                    <View style={{ position: 'absolute', top: -3, right: -3, width: 8, height: 8, borderRadius: 4, backgroundColor: anyFollowingOnline ? '#22C55E' : '#EF4444', borderWidth: 1.5, borderColor: '#1c1208' }} />
+                  )}
                 </View>
                 <Text style={{ color: '#9BA1A6', fontSize: 8, marginTop: 2 }}>تتابعهم</Text>
               </TouchableOpacity>
