@@ -97,8 +97,8 @@ export function ReportModal({
               <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700", textAlign: "center", marginBottom: 6 }}>
                 الإبلاغ عن رسالة
               </Text>
-              <Text style={{ color: colors.muted, fontSize: 12, textAlign: "center", marginBottom: 20 }}>
-                اختر سبب البلاغ
+              <Text style={{ color: '#E8A020', fontSize: 12, textAlign: "center", marginBottom: 20, fontWeight: '600' }}>
+                ملاحظة : البلاغات الغير صحيحة تعتبر إساءة أيضاً
               </Text>
 
               {/* خيار 1 */}
