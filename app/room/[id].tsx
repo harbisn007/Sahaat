@@ -699,13 +699,13 @@ export default function RoomScreen() {
       },
       // استقبال رسالة كتابية جديدة (مع منع التكرار)
       onTextMessageCreated: (data: any) => {
-        setTextMessages(prev => {
+        setSocketTextMessages(prev => {
           if (prev.some(m =>
-            m.id === String(data.id) ||
+            String(m.id) === String(data.id) ||
             (m.userId === data.userId && m.text === data.text &&
               Math.abs(new Date(m.createdAt).getTime() - new Date(data.createdAt).getTime()) < 5000)
           )) return prev;
-          return [...prev, { ...data, id: String(data.id), type: "text" }];
+          return [...prev, { ...data, id: String(data.id) }];
         });
         setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
       },
@@ -721,6 +721,12 @@ export default function RoomScreen() {
   const { data: initialReactions, refetch: refetchReactions } = trpc.reactions.list.useQuery(
     { roomId },
     { enabled: roomId > 0, refetchInterval: 2000 } // polling كل 2 ثانية
+  );
+
+  // جلب الرسائل النصية من السيرفر (تبقى عند العودة للساحة)
+  const { data: initialTextMessages } = trpc.text.list.useQuery(
+    { roomId },
+    { enabled: roomId > 0, staleTime: 0 }
   );
 
 
@@ -1262,7 +1268,20 @@ export default function RoomScreen() {
   const [pinInput, setPinInput] = useState("");
   // حالة الرسائل الكتابية
   const [textMessage, setTextMessage] = useState("");
-  const [textMessages, setTextMessages] = useState<{id: number; userId: string; username: string; text: string; createdAt: string}[]>([]);
+  const [socketTextMessages, setSocketTextMessages] = useState<{id: string | number; userId: string; username: string; text: string; createdAt: string}[]>([]);
+
+  // دمج الرسائل النصية من السيرفر مع التحديثات الفورية عبر Socket.io
+  const textMessages = useMemo(() => {
+    const initial = (initialTextMessages || []).map((m: any) => ({ ...m, id: String(m.id) }));
+    const socket = socketTextMessages.map(m => ({ ...m, id: String(m.id) }));
+    const merged = [...socket];
+    for (const msg of initial) {
+      if (!merged.some(m => String(m.id) === String(msg.id))) {
+        merged.push(msg);
+      }
+    }
+    return merged.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [initialTextMessages, socketTextMessages]);
 
 
   // فصل البيانات: صوتي فقط | كتابي + تفاعلات
@@ -1299,10 +1318,9 @@ export default function RoomScreen() {
         text: textMessage.trim(),
       };
       socket.emit("textMessage", msg);
-      setTextMessages(prev => [...prev, {
+      setSocketTextMessages(prev => [...prev, {
         id: Date.now(),
         ...msg,
-        type: "text",
         createdAt: new Date().toISOString(),
       }]);
       setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -2774,7 +2792,7 @@ export default function RoomScreen() {
         )}
 
         {/* Viewer: Reactions + Request to Join as Player */}
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 12, width: '100%' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'center', gap: 12, width: '100%' }}>
 
           {/* زر التفاعلات للمستمع */}
           {isViewer && (
