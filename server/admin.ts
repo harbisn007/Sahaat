@@ -253,9 +253,9 @@ function dashboardPage(data: {
     <tr id="report-row-${r.id}">
       <td>${formatDate(r.createdAt)}</td>
       <td>
-        ${r.messageType === 'text' || (r.audioUrl && !r.audioUrl.startsWith('http'))
-          ? `<span style="font-size:13px;color:#ecedee;direction:rtl;text-align:right;display:block;max-width:200px;word-break:break-word">${r.audioUrl || ''}</span>`
-          : `<button onclick="playAudio('${r.audioUrl.replace(/'/g, "\\'").replace(/\\/g, '\\\\')}', this)" style="background:#2d1f0e;border:1.5px solid #c8860a55;color:#d4af37;border-radius:8px;padding:5px 12px;font-size:13px;cursor:pointer">▶ تشغيل</button>`
+        ${r.audioUrl && r.audioUrl.startsWith('http')
+          ? `<audio controls style="width:180px;height:32px;vertical-align:middle"><source src="${r.audioUrl.replace(/"/g, '&quot;')}" type="audio/mp4">لا يدعم المتصفح تشغيل الصوت</audio>`
+          : `<span style="font-size:13px;color:#ecedee;direction:rtl;text-align:right;display:block;max-width:200px;word-break:break-word">${r.audioUrl || ''}</span>`
         }
         <span style="font-size:11px;color:#c8860a;margin-right:4px">${typeLabel(r.messageType)}</span>
       </td>
