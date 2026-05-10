@@ -1,4 +1,5 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let r2Client: S3Client | null = null;
 
@@ -50,4 +51,19 @@ export async function storagePut(
   console.log("[Storage] Uploaded to R2:", url);
   
   return { key: relKey, url };
+}
+
+/**
+ * توليد Signed URL مؤقت لملف موجود في R2 (صالح 15 دقيقة)
+ * يُستخدم لتجاوز مشكلة CORS عند تشغيل الصوت في لوحة الإدارة
+ */
+export async function storageGetSignedUrl(
+  relKey: string,
+  expiresIn = 900, // 15 دقيقة
+): Promise<string> {
+  const client = getR2Client();
+  const bucket = process.env.R2_BUCKET_NAME;
+  if (!bucket) throw new Error("R2 config missing: set R2_BUCKET_NAME");
+  const command = new GetObjectCommand({ Bucket: bucket, Key: relKey });
+  return getSignedUrl(client, command, { expiresIn });
 }
