@@ -102,26 +102,8 @@ router.get("/dashboard", async (req: Request, res: Response) => {
       .orderBy(desc(adminBans.createdAt))
       .limit(200);
 
-    // توليد Signed URLs للبلاغات الصوتية لتجاوز CORS
-    const publicUrlBase = process.env.R2_PUBLIC_URL || '';
-    const allReportsWithSignedUrls = await Promise.all(
-      allReports.map(async (r) => {
-        if (r.audioUrl && r.audioUrl.startsWith('http')) {
-          try {
-            // استخراج المفتاح النسبي من الرابط العام
-            const relKey = publicUrlBase ? r.audioUrl.replace(publicUrlBase + '/', '') : r.audioUrl.split('/').slice(3).join('/');
-            const signedUrl = await storageGetSignedUrl(relKey, 900);
-            return { ...r, audioUrl: signedUrl };
-          } catch {
-            return r; // إذا فشل التوقيع، نُعيد الرابط الأصلي
-          }
-        }
-        return r;
-      })
-    );
-
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.send(dashboardPage({ totalUsers: totalUsers.count, rooms24h: rooms24h.count, activeRooms: activeRooms.count, totalReports: totalReports.count, latestUsers, latestRooms, allReports: allReportsWithSignedUrls, activeBans, activeIds }));
+    res.send(dashboardPage({ totalUsers: totalUsers.count, rooms24h: rooms24h.count, activeRooms: activeRooms.count, totalReports: totalReports.count, latestUsers, latestRooms, allReports, activeBans, activeIds }));
   } catch (err) {
     res.status(500).send(`<pre>خطأ: ${err}</pre>`);
   }
