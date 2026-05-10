@@ -165,6 +165,24 @@ router.get("/api/rooms", async (req: Request, res: Response) => {
   res.json(data);
 });
 
+// ── proxy لتشغيل الصوت من R2 بدون CORS ────────────────────────────────────
+router.get("/api/audio-proxy", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
+  const url = req.query.url as string;
+  if (!url || !url.startsWith("http")) return res.status(400).send("Invalid URL");
+  try {
+    const response = await fetch(url);
+    if (!response.ok) return res.status(response.status).send("Failed to fetch audio");
+    const contentType = response.headers.get("content-type") || "audio/mp4";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "no-cache");
+    const buffer = await response.arrayBuffer();
+    res.send(Buffer.from(buffer));
+  } catch (err) {
+    res.status(500).send("Proxy error: " + err);
+  }
+});
+
 export { router as adminRouter };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -530,8 +548,8 @@ function dashboardPage(data: {
       }
       btn.textContent = '⏳ جاري التحميل...';
       btn.disabled = true;
-      // تحميل الملف كـ Blob لتجاوز CORS ومشكلة الصيغة
-      fetch(url)
+      // تحميل الملف عبر الـ proxy لتجاوز CORS تماماً
+      fetch('/admin/api/audio-proxy?url=' + encodeURIComponent(url))
         .then(r => r.blob())
         .then(blob => {
           const blobUrl = URL.createObjectURL(blob);
