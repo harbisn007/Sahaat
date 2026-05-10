@@ -273,7 +273,7 @@ function dashboardPage(data: {
       <td>${formatDate(r.createdAt)}</td>
       <td>
         ${r.audioUrl && r.audioUrl.startsWith('http')
-          ? `<audio controls style="width:180px;height:32px;vertical-align:middle"><source src="${r.audioUrl.replace(/"/g, '&quot;')}" type="audio/mp4">لا يدعم المتصفح تشغيل الصوت</audio>`
+          ? `<button onclick="playAudio('${r.audioUrl.replace(/'/g, "\\'").replace(/\\/g, '\\\\')}', this)" style="background:#c8860a;color:#1a0e00;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:700" class="play-btn">▶ تشغيل</button>`
           : `<span style="font-size:13px;color:#ecedee;direction:rtl;text-align:right;display:block;max-width:200px;word-break:break-word">${r.audioUrl || ''}</span>`
         }
         <span style="font-size:11px;color:#c8860a;margin-right:4px">${typeLabel(r.messageType)}</span>
@@ -535,20 +535,50 @@ function dashboardPage(data: {
       });
     }
 
-    // ── حذف بلاغ ──
+    // ــ حذف بلاغ ــ
     let _currentAudio = null;
     function playAudio(url, btn) {
+      // إيقاف الصوت الحالي إذا ضغط نفس الزر
       if (_currentAudio) {
         _currentAudio.pause();
+        if (_currentAudio._blobUrl) URL.revokeObjectURL(_currentAudio._blobUrl);
         _currentAudio = null;
         document.querySelectorAll('.play-btn-active').forEach(b => { b.textContent = '▶ تشغيل'; b.classList.remove('play-btn-active'); });
+        if (btn.classList.contains('play-btn-active') || btn.textContent.includes('إيقاف')) return;
       }
-      const audio = new Audio(url);
-      _currentAudio = audio;
-      btn.textContent = '⏸ إيقاف';
-      btn.classList.add('play-btn-active');
-      audio.play().catch(e => { btn.textContent = '▶ تشغيل'; console.error(e); });
-      audio.onended = () => { btn.textContent = '▶ تشغيل'; btn.classList.remove('play-btn-active'); _currentAudio = null; };
+      btn.textContent = '⏳ جاري التحميل...';
+      btn.disabled = true;
+      // تحميل الملف كـ Blob لتجاوز CORS ومشكلة الصيغة
+      fetch(url)
+        .then(r => r.blob())
+        .then(blob => {
+          const blobUrl = URL.createObjectURL(blob);
+          const audio = new Audio(blobUrl);
+          audio._blobUrl = blobUrl;
+          _currentAudio = audio;
+          btn.textContent = '⏸ إيقاف';
+          btn.disabled = false;
+          btn.classList.add('play-btn-active');
+          audio.play().catch(e => {
+            btn.textContent = '▶ تشغيل';
+            btn.disabled = false;
+            btn.classList.remove('play-btn-active');
+            URL.revokeObjectURL(blobUrl);
+            _currentAudio = null;
+            console.error('خطأ تشغيل الصوت:', e);
+          });
+          audio.onended = () => {
+            btn.textContent = '▶ تشغيل';
+            btn.classList.remove('play-btn-active');
+            URL.revokeObjectURL(blobUrl);
+            _currentAudio = null;
+          };
+        })
+        .catch(e => {
+          btn.textContent = '▶ تشغيل';
+          btn.disabled = false;
+          console.error('خطأ تحميل الصوت:', e);
+        });
     }
     async function deleteReport(id) {
       if (!confirm('هل تريد حذف هذا البلاغ نهائياً؟')) return;
