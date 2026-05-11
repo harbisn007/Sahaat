@@ -279,7 +279,7 @@ function dashboardPage(data: {
       <td>${formatDate(r.createdAt)}</td>
       <td>
         ${r.audioUrl && r.audioUrl.startsWith('http')
-          ? `<button onclick="playAudio('${r.audioUrl.replace(/'/g, "\\'").replace(/\\/g, '\\\\')}', this)" style="background:#c8860a;color:#1a0e00;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;font-weight:700" class="play-btn">▶ تشغيل</button>`
+          ? `<audio controls style="height:32px; width:200px;"><source src="${r.audioUrl}" type="audio/mp4"><source src="${r.audioUrl}" type="audio/mpeg">متصفحك لا يدعم تشغيل الصوت</audio>`
           : `<span style="font-size:13px;color:#ecedee;direction:rtl;text-align:right;display:block;max-width:200px;word-break:break-word">${r.audioUrl || ''}</span>`
         }
         <span style="font-size:11px;color:#c8860a;margin-right:4px">${typeLabel(r.messageType)}</span>
