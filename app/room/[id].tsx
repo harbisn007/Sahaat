@@ -1740,7 +1740,7 @@ export default function RoomScreen() {
         console.log("[RoomScreen] Starting upload, isTarouk:", isTarouk);
         const uploadResult = await uploadAudioMutation.mutateAsync({
           base64Data,
-          fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "webm" : "m4a"}`,
+          fileName: `recording-${Date.now()}.${Platform.OS === "web" ? "mp4" : "m4a"}`,
           speedUp: isTarouk,
         });
         const { url } = uploadResult;

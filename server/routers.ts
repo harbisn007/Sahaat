@@ -524,16 +524,23 @@ export const appRouter = router({
     .mutation(async ({ input }) => {
       const { storagePut } = await import("./storage");
       
-      // Convert base64 to buffer
-      const buffer: Buffer = Buffer.from(input.base64Data, "base64");
+      // تنظيف base64 من data URL prefix إن وجد
+      const base64Clean = input.base64Data.replace(/^data:audio\/\w+;base64,/, '');
+      const buffer: Buffer = Buffer.from(base64Clean, "base64");
       
+      if (buffer.length === 0) throw new Error('الملف الصوتي فارغ');
+
+      // تحديد ContentType بناءً على اسم الملف
+      const isWebm = input.fileName.endsWith('.webm');
+      const contentType = isWebm ? 'audio/webm' : 'audio/mp4';
+
       // Generate unique file key
       const timestamp = Date.now();
       const randomSuffix = Math.random().toString(36).substring(7);
       const fileKey = `audio/${timestamp}-${randomSuffix}-${input.fileName}`;
       
       // رفع الصوت على S3
-      const { url } = await storagePut(fileKey, buffer, "audio/mp4");
+      const { url } = await storagePut(fileKey, buffer, contentType);
       console.log("[uploadAudio] Audio uploaded:", url);
       
       return { url };
