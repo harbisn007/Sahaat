@@ -173,11 +173,17 @@ router.get("/api/audio-proxy", async (req: Request, res: Response) => {
   try {
     const response = await fetch(url);
     if (!response.ok) return res.status(response.status).send("Failed to fetch audio");
-    const contentType = response.headers.get("content-type") || "audio/mp4";
+    const buffer = Buffer.from(await response.arrayBuffer());
+    // تحديد content-type بناءً على امتداد الملف لضمان دعم المتصفح
+    const isMp3 = url.toLowerCase().includes('.mp3');
+    const isOgg = url.toLowerCase().includes('.ogg');
+    const isWav = url.toLowerCase().includes('.wav');
+    const contentType = isOgg ? 'audio/ogg' : isMp3 ? 'audio/mpeg' : isWav ? 'audio/wav' : 'audio/mp4';
     res.setHeader("Content-Type", contentType);
-    res.setHeader("Cache-Control", "no-cache");
-    const buffer = await response.arrayBuffer();
-    res.send(Buffer.from(buffer));
+    res.setHeader("Accept-Ranges", "bytes");
+    res.setHeader("Content-Length", buffer.length);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(buffer);
   } catch (err) {
     res.status(500).send("Proxy error: " + err);
   }
@@ -550,29 +556,50 @@ function dashboardPage(data: {
       btn.disabled = true;
       // تحميل الملف عبر الـ proxy لتجاوز CORS تماماً
       fetch('/admin/api/audio-proxy?url=' + encodeURIComponent(url))
-        .then(r => r.blob())
-        .then(blob => {
+        .then(r => {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.arrayBuffer();
+        })
+        .then(arrayBuffer => {
+          // تحديد نوع الصوت بناءً على الامتداد
+          const isMp3 = url.toLowerCase().includes('.mp3');
+          const isOgg = url.toLowerCase().includes('.ogg');
+          const mimeType = isOgg ? 'audio/ogg' : isMp3 ? 'audio/mpeg' : 'audio/mp4';
+          const blob = new Blob([arrayBuffer], { type: mimeType });
           const blobUrl = URL.createObjectURL(blob);
-          const audio = new Audio(blobUrl);
+          const audio = new Audio();
+          audio.preload = 'auto';
           audio._blobUrl = blobUrl;
           _currentAudio = audio;
-          btn.textContent = '⏸ إيقاف';
-          btn.disabled = false;
-          btn.classList.add('play-btn-active');
-          audio.play().catch(e => {
+          audio.src = blobUrl;
+          audio.oncanplaythrough = () => {
+            btn.textContent = '⏸ إيقاف';
+            btn.disabled = false;
+            btn.classList.add('play-btn-active');
+            audio.play().catch(e => {
+              btn.textContent = '▶ تشغيل';
+              btn.disabled = false;
+              btn.classList.remove('play-btn-active');
+              URL.revokeObjectURL(blobUrl);
+              _currentAudio = null;
+              console.error('خطأ تشغيل الصوت:', e);
+            });
+          };
+          audio.onerror = (e) => {
             btn.textContent = '▶ تشغيل';
             btn.disabled = false;
             btn.classList.remove('play-btn-active');
             URL.revokeObjectURL(blobUrl);
             _currentAudio = null;
-            console.error('خطأ تشغيل الصوت:', e);
-          });
+            console.error('خطأ تحميل الصوت:', e);
+          };
           audio.onended = () => {
             btn.textContent = '▶ تشغيل';
             btn.classList.remove('play-btn-active');
             URL.revokeObjectURL(blobUrl);
             _currentAudio = null;
           };
+          audio.load();
         })
         .catch(e => {
           btn.textContent = '▶ تشغيل';
