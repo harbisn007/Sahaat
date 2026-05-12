@@ -18,7 +18,7 @@ const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
 // 5 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
-  { delay: 0,   volume: 0.50, rate: 1.10 }, // صوت 1
+  { delay: 5,   volume: 0.50, rate: 1.10 }, // صوت 1
   { delay: 8,   volume: 0.40, rate: 1.07 }, // صوت 2
   { delay: 9,   volume: 0.30, rate: 1.06 }, // صوت 3
   { delay: 10,  volume: 0.45, rate: 1.10 }, // صوت 4
