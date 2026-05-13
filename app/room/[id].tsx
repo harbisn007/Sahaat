@@ -654,7 +654,9 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment:", e);
           }
         } else {
-          // الطاروق: إيقاف الشيلوها أولاً ثم تشغيل الطاروق
+          // الطاروق: إذا شيلوها تعمل، لا تشغل طاروق
+          if (sheelohaPlayerRef.current.isPlaying) return;
+          // إيقاف الشيلوها أولاً ثم تشغيل الطاروق
           sheelohaPlayerRef.current.stop();
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
@@ -945,7 +947,7 @@ export default function RoomScreen() {
         // تشغيل صوت خلوها بالتزامن
         const khaloohaVoiceAsset = require("@/assets/sounds/khalooha-voice.m4a");
         const khaloohaVoicePlayer = createAudioPlayer(khaloohaVoiceAsset);
-        khaloohaVoicePlayer.volume = 0.55;
+        khaloohaVoicePlayer.volume = 0.45;
         khaloohaVoicePlayer.loop = false;
         khaloohaVoicePlayer.play();
       } catch (_) {}
@@ -2750,7 +2752,7 @@ export default function RoomScreen() {
                     // تشغيل صوت خلوها بالتزامن
                     const khaloohaVoiceAsset = require("@/assets/sounds/khalooha-voice.m4a");
                     const khaloohaVoicePlayer = createAudioPlayer(khaloohaVoiceAsset);
-                    khaloohaVoicePlayer.volume = 0.55;
+                    khaloohaVoicePlayer.volume = 0.45;
                     khaloohaVoicePlayer.loop = false;
                     khaloohaVoicePlayer.play();
                     
