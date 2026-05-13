@@ -737,7 +737,7 @@ export default function RoomScreen() {
   // جلب الرسائل النصية من السيرفر (تبقى عند العودة للساحة)
   const { data: initialTextMessages } = trpc.text.list.useQuery(
     { roomId },
-    { enabled: roomId > 0, staleTime: 0, refetchInterval: 2000, refetchOnMount: "always" }
+    { enabled: roomId > 0, staleTime: Infinity, refetchInterval: false, refetchOnMount: true }
   );
 
 
