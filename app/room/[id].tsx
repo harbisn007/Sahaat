@@ -543,6 +543,7 @@ export default function RoomScreen() {
   const generateSheelohaMutation = trpc.audio.generateSheeloha.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
   const createTextMessageMutation = trpc.text.create.useMutation();
+  const trpcUtils = trpc.useUtils();
   const reportMutation = trpc.reports.submit.useMutation();
 
   const { isRecording, isPreparing, formattedDuration, startRecording, stopRecording, requestPermissions } =
@@ -699,24 +700,25 @@ export default function RoomScreen() {
       onPinnedTextUpdated: (data: any) => {
         setPinnedText(data.text || "");
       },
-      // استقبال رسالة كتابية جديدة (مع منع التكرار)
+      // استقبال رسالة كتابية جديدة من السيرفر عبر Socket.io
       onTextMessageCreated: (data: any) => {
-        setSocketTextMessages(prev => {
-          // إذا كانت الرسالة موجودة بنفس الـ id الحقيقي → تجاهل
-          if (prev.some(m => String(m.id) === String(data.id))) return prev;
-          // إذا كانت رسالة محلية مؤقتة (id رقمي كبير = Date.now) من نفس المستخدم بنفس النص → استبدلها
-          const localIdx = prev.findIndex(m =>
+        trpcUtils.text.list.setData({ roomId }, (old: any) => {
+          const list = old || [];
+          // إذا موجودة بنفس id الحقيقي → تجاهل
+          if (list.some((m: any) => String(m.id) === String(data.id))) return list;
+          // إذا كانت رسالة محلية مؤقتة (id رقمي كبير) من نفس المستخدم بنفس النص → استبدلها
+          const localIdx = list.findIndex((m: any) =>
             m.userId === data.userId &&
             m.text === data.text &&
             typeof m.id === 'number' &&
             String(m.id).length >= 13
           );
           if (localIdx !== -1) {
-            const updated = [...prev];
-            updated[localIdx] = { ...data, id: String(data.id) };
+            const updated = [...list];
+            updated[localIdx] = data;
             return updated;
           }
-          return [...prev, { ...data, id: String(data.id) }];
+          return [...list, data];
         });
         setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
       },
@@ -1280,20 +1282,12 @@ export default function RoomScreen() {
   const [pinInput, setPinInput] = useState("");
   // حالة الرسائل الكتابية
   const [textMessage, setTextMessage] = useState("");
-  const [socketTextMessages, setSocketTextMessages] = useState<{id: string | number; userId: string; username: string; text: string; createdAt: string}[]>([]);
-
-  // دمج الرسائل النصية من السيرفر مع التحديثات الفورية عبر Socket.io
+  // الرسائل النصية من السيرفر cache (تتحدث فورياً عبر setData)
   const textMessages = useMemo(() => {
-    const initial = (initialTextMessages || []).map((m: any) => ({ ...m, id: String(m.id) }));
-    const socket = socketTextMessages.map(m => ({ ...m, id: String(m.id) }));
-    const merged = [...socket];
-    for (const msg of initial) {
-      if (!merged.some(m => String(m.id) === String(msg.id))) {
-        merged.push(msg);
-      }
-    }
-    return merged.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-  }, [initialTextMessages, socketTextMessages]);
+    return (initialTextMessages || [])
+      .map((m: any) => ({ ...m, id: String(m.id) }))
+      .sort((a: any, b: any) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  }, [initialTextMessages]);
 
 
   // فصل البيانات: صوتي فقط | كتابي + تفاعلات
@@ -1329,16 +1323,18 @@ export default function RoomScreen() {
         username: username || "",
         text: textMessage.trim(),
       };
-      socket.emit("textMessage", msg);
-      setSocketTextMessages(prev => [...prev, {
+      const tempMsg = {
         id: Date.now(),
         ...msg,
         createdAt: new Date().toISOString(),
-      }]);
+      };
+      socket.emit("textMessage", msg);
+      // أضف الرسالة مباشرة لـ cache السيرفر حتى تبقى عند العودة
+      trpcUtils.text.list.setData({ roomId }, (old: any) => [...(old || []), tempMsg]);
       setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
     }
     setTextMessage("");
-  }, [textMessage, roomId, userId, username]);
+  }, [textMessage, roomId, userId, username, trpcUtils]);
 
   // دالة إرسال الدعوة العامة
   const handleSendPublicInvite = () => {
