@@ -16,12 +16,10 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 7 أصوات ثابتة بجرس مختلف
+// 5 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
-  { delay: 0,  volume: 0.50, rate: 1.10 }, // صوت 1
   { delay: 0,  volume: 0.40, rate: 1.07 }, // صوت 2
   { delay: 0,  volume: 0.30, rate: 1.06 }, // صوت 3
-  { delay: 0,  volume: 0.45, rate: 1.10 }, // صوت 4
   { delay: 0,  volume: 0.38, rate: 1.08 }, // صوت 5
   { delay: 0,  volume: 0.38, rate: 1.05 }, // صوت 6
   { delay: 0,  volume: 0.48, rate: 1.09 }, // صوت 7
