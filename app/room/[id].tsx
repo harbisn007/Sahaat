@@ -702,11 +702,20 @@ export default function RoomScreen() {
       // استقبال رسالة كتابية جديدة (مع منع التكرار)
       onTextMessageCreated: (data: any) => {
         setSocketTextMessages(prev => {
-          if (prev.some(m =>
-            String(m.id) === String(data.id) ||
-            (m.userId === data.userId && m.text === data.text &&
-              Math.abs(new Date(m.createdAt).getTime() - new Date(data.createdAt).getTime()) < 5000)
-          )) return prev;
+          // إذا كانت الرسالة موجودة بنفس الـ id الحقيقي → تجاهل
+          if (prev.some(m => String(m.id) === String(data.id))) return prev;
+          // إذا كانت رسالة محلية مؤقتة (id رقمي كبير = Date.now) من نفس المستخدم بنفس النص → استبدلها
+          const localIdx = prev.findIndex(m =>
+            m.userId === data.userId &&
+            m.text === data.text &&
+            typeof m.id === 'number' &&
+            String(m.id).length >= 13
+          );
+          if (localIdx !== -1) {
+            const updated = [...prev];
+            updated[localIdx] = { ...data, id: String(data.id) };
+            return updated;
+          }
           return [...prev, { ...data, id: String(data.id) }];
         });
         setTimeout(() => textFlatListRef.current?.scrollToEnd({ animated: true }), 100);
@@ -947,7 +956,7 @@ export default function RoomScreen() {
         // تشغيل صوت خلوها بالتزامن
         const khaloohaVoiceAsset = require("@/assets/sounds/khalooha-voice.m4a");
         const khaloohaVoicePlayer = createAudioPlayer(khaloohaVoiceAsset);
-        khaloohaVoicePlayer.volume = 0.45;
+        khaloohaVoicePlayer.volume = 0.60;
         khaloohaVoicePlayer.loop = false;
         khaloohaVoicePlayer.play();
       } catch (_) {}
@@ -2755,7 +2764,7 @@ export default function RoomScreen() {
                     // تشغيل صوت خلوها بالتزامن
                     const khaloohaVoiceAsset = require("@/assets/sounds/khalooha-voice.m4a");
                     const khaloohaVoicePlayer = createAudioPlayer(khaloohaVoiceAsset);
-                    khaloohaVoicePlayer.volume = 0.45;
+                    khaloohaVoicePlayer.volume = 0.60;
                     khaloohaVoicePlayer.loop = false;
                     khaloohaVoicePlayer.play();
                     

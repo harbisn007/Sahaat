@@ -1,7 +1,7 @@
 /**
  * Sheeloha Player - تشغيل محلي بدون خادم
  *
- * صوت الصفوف: 4 نسخ بسرعات مختلفة قليلاً مع pitch correction
+ * صوت الصفوف: 7 نسخ بسرعات مختلفة قليلاً مع pitch correction
  * التصفيق: ملف محلي يتكرر كل 0.96 ثانية
  * الـ loop: 0.15 ثانية صمت بين كل تكرار للطاروق
  */
@@ -16,13 +16,15 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 5 أصوات ثابتة بجرس مختلف
+// 7 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
   { delay: 0,  volume: 0.50, rate: 1.10 }, // صوت 1
   { delay: 0,  volume: 0.40, rate: 1.07 }, // صوت 2
   { delay: 0,  volume: 0.30, rate: 1.06 }, // صوت 3
   { delay: 0,  volume: 0.45, rate: 1.10 }, // صوت 4
   { delay: 0,  volume: 0.38, rate: 1.08 }, // صوت 5
+  { delay: 0,  volume: 0.38, rate: 1.05 }, // صوت 6
+  { delay: 0,  volume: 0.48, rate: 1.09 }, // صوت 7
 ];
 
 interface SheelohaData {
@@ -53,7 +55,6 @@ export function useSheelohaPlayer() {
   }, []);
 
   const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
-    // الأصوات الخمسة الثابتة
     CROWD_FIXED.forEach(({ delay, volume, rate }) => {
       const t = setTimeout(() => {
         if (!isPlayingRef.current) return;
@@ -92,6 +93,41 @@ export function useSheelohaPlayer() {
         allowsRecording: false,
       });
     } catch (_) {}
+
+    // preload: حمّل الصوت مرة واحدة وانتظر جاهزيته
+    await new Promise<void>((resolve) => {
+      try {
+        const preloader = createAudioPlayer(taroukUrl);
+        let resolved = false;
+
+        const done = () => {
+          if (resolved) return;
+          resolved = true;
+          try { preloader.release(); } catch (_) {}
+          resolve();
+        };
+
+        // انتظر حتى يكون الصوت جاهزاً
+        const check = setInterval(() => {
+          if (preloader.duration && preloader.duration > 0) {
+            clearInterval(check);
+            done();
+          }
+        }, 50);
+
+        // timeout قصير — لا تنتظر أكثر من 2 ثانية
+        setTimeout(() => {
+          clearInterval(check);
+          done();
+        }, 2000);
+
+      } catch (_) {
+        resolve();
+      }
+    });
+
+    // إذا أُوقف أثناء التحميل
+    if (!isPlayingRef.current) return;
 
     // 1. تصفيق كل 0.96 ثانية
     const playClap = () => {
