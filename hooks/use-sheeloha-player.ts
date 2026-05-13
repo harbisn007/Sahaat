@@ -1,9 +1,12 @@
 /**
  * Sheeloha Player - تشغيل محلي بدون خادم
  *
- * صوت الصفوف: 7 نسخ بسرعات مختلفة قليلاً مع pitch correction
+ * صوت الصفوف: 5 نسخ بسرعات مختلفة قليلاً
  * التصفيق: ملف محلي يتكرر كل 0.96 ثانية
  * الـ loop: 0.15 ثانية صمت بين كل تكرار للطاروق
+ *
+ * الفكرة: عند إرسال الطاروق → prepare() تُجهّز الـ 5 مشغّلات مسبقاً
+ *         عند ضغط شيلوها → play() تشغّلها فوراً بدون preload
  */
 
 import { useRef, useCallback, useState } from "react";
@@ -18,11 +21,11 @@ const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
 // 5 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
-  { delay: 0,  volume: 0.40, rate: 1.07 }, // صوت 2
-  { delay: 0,  volume: 0.30, rate: 1.06 }, // صوت 3
-  { delay: 0,  volume: 0.38, rate: 1.08 }, // صوت 5
-  { delay: 0,  volume: 0.38, rate: 1.05 }, // صوت 6
-  { delay: 0,  volume: 0.48, rate: 1.09 }, // صوت 7
+  { volume: 0.40, rate: 1.07 },
+  { volume: 0.30, rate: 1.06 },
+  { volume: 0.38, rate: 1.08 },
+  { volume: 0.38, rate: 1.05 },
+  { volume: 0.48, rate: 1.09 },
 ];
 
 interface SheelohaData {
@@ -31,12 +34,20 @@ interface SheelohaData {
   sheelohaUrl?: string;
 }
 
+interface PreparedCrowd {
+  players: AudioPlayer[];
+  taroukUrl: string;
+  taroukDuration: number;
+}
+
 export function useSheelohaPlayer() {
   const [isPlayingState, setIsPlayingState] = useState(false);
   const isPlayingRef = useRef(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
+  // المشغّلات المجهّزة مسبقاً عند إرسال الطاروق
+  const preparedRef = useRef<PreparedCrowd | null>(null);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
@@ -52,9 +63,54 @@ export function useSheelohaPlayer() {
     playersRef.current = [];
   }, []);
 
-  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
-    CROWD_FIXED.forEach(({ delay, volume, rate }) => {
-      const t = setTimeout(() => {
+  // تجهيز الـ 5 مشغّلات مسبقاً — يُستدعى عند إرسال الطاروق
+  const prepare = useCallback((taroukUrl: string, taroukDuration: number) => {
+    // حرّر المجهّزات القديمة إن وجدت
+    if (preparedRef.current) {
+      preparedRef.current.players.forEach(p => {
+        try { p.pause(); } catch (_) {}
+        try { p.release(); } catch (_) {}
+      });
+      preparedRef.current = null;
+    }
+    if (!taroukUrl) return;
+    try {
+      const players = CROWD_FIXED.map(({ volume, rate }) => {
+        const player = createAudioPlayer(taroukUrl);
+        player.volume = volume;
+        player.setPlaybackRate(rate);
+        return player;
+      });
+      preparedRef.current = { players, taroukUrl, taroukDuration };
+    } catch (e) {
+      console.error("[SheelohaPlayer] prepare error:", e);
+    }
+  }, []);
+
+  // تشغيل الـ 5 مشغّلات المجهّزة في loop
+  const playCrowdPrepared = useCallback((taroukUrl: string, taroukDuration: number, isFirstLoop: boolean) => {
+    const prepared = isFirstLoop ? preparedRef.current : null;
+
+    if (prepared && prepared.taroukUrl === taroukUrl && isFirstLoop) {
+      // الدورة الأولى: استخدم المشغّلات الجاهزة
+      prepared.players.forEach((player) => {
+        if (!isPlayingRef.current) return;
+        try {
+          player.seekTo(0);
+          player.play();
+          playersRef.current.push(player);
+          setTimeout(() => {
+            try { player.release(); } catch (_) {}
+            playersRef.current = playersRef.current.filter(p => p !== player);
+          }, (taroukDuration + 2) * 1000);
+        } catch (e) {
+          console.error("[SheelohaPlayer] prepared play error:", e);
+        }
+      });
+      preparedRef.current = null; // استُهلكت
+    } else {
+      // الدورات التالية: أنشئ مشغّلات جديدة
+      CROWD_FIXED.forEach(({ volume, rate }) => {
         if (!isPlayingRef.current) return;
         try {
           const player = createAudioPlayer(taroukUrl);
@@ -69,16 +125,14 @@ export function useSheelohaPlayer() {
         } catch (e) {
           console.error("[SheelohaPlayer] crowd error:", e);
         }
-      }, delay);
-      timersRef.current.push(t);
-    });
+      });
+    }
   }, []);
 
   const play = useCallback(async (data: SheelohaData) => {
     const taroukUrl = data.taroukUrl || data.sheelohaUrl || "";
     const taroukDuration = data.taroukDuration || 3;
 
-    console.log("[SheelohaPlayer] play:", taroukUrl);
     cleanup();
     if (!taroukUrl) return;
 
@@ -92,39 +146,6 @@ export function useSheelohaPlayer() {
       });
     } catch (_) {}
 
-    // preload: حمّل الصوت مرة واحدة وانتظر جاهزيته
-    await new Promise<void>((resolve) => {
-      try {
-        const preloader = createAudioPlayer(taroukUrl);
-        let resolved = false;
-
-        const done = () => {
-          if (resolved) return;
-          resolved = true;
-          try { preloader.release(); } catch (_) {}
-          resolve();
-        };
-
-        // انتظر حتى يكون الصوت جاهزاً
-        const check = setInterval(() => {
-          if (preloader.duration && preloader.duration > 0) {
-            clearInterval(check);
-            done();
-          }
-        }, 50);
-
-        // timeout قصير — لا تنتظر أكثر من 2 ثانية
-        setTimeout(() => {
-          clearInterval(check);
-          done();
-        }, 2000);
-
-      } catch (_) {
-        resolve();
-      }
-    });
-
-    // إذا أُوقف أثناء التحميل
     if (!isPlayingRef.current) return;
 
     // 1. تصفيق كل 0.96 ثانية
@@ -148,20 +169,21 @@ export function useSheelohaPlayer() {
 
     // 2. صوت الصفوف في loop
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
+    let loopCount = 0;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
-      playCrowd(taroukUrl, taroukDuration);
+      playCrowdPrepared(taroukUrl, taroukDuration, loopCount === 0);
+      loopCount++;
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
     startLoop();
 
-  }, [cleanup, playCrowd]);
+  }, [cleanup, playCrowdPrepared]);
 
   const stop = useCallback(() => {
-    console.log("[SheelohaPlayer] stop()");
     cleanup();
   }, [cleanup]);
 
-  return { play, stop, isPlaying: isPlayingState };
+  return { play, stop, prepare, isPlaying: isPlayingState };
 }

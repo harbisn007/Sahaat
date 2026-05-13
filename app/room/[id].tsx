@@ -1748,6 +1748,11 @@ export default function RoomScreen() {
         const { url } = uploadResult;
         
         console.log("[RoomScreen] Audio uploaded successfully:", url);
+
+        // تجهيز الأصوات الخمسة مسبقاً إذا كان طاروق
+        if (isTarouk) {
+          sheelohaPlayer.prepare(url, recording.duration || 3);
+        }
         
         // تشغيل محلي فوري للمرسل فقط (الآخرون يستقبلون عبر Socket.io)
         // طاروق وتعليق يعملان بنفس الطريقة تماماً
