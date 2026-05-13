@@ -953,12 +953,7 @@ export default function RoomScreen() {
         finalClapPlayer.volume = 0.225;
         finalClapPlayer.loop = false;
         finalClapPlayer.play();
-        // تشغيل صوت خلوها بالتزامن
-        const khaloohaVoiceAsset = require("@/assets/sounds/khalooha-voice.m4a");
-        const khaloohaVoicePlayer = createAudioPlayer(khaloohaVoiceAsset);
-        khaloohaVoicePlayer.volume = 0.60;
-        khaloohaVoicePlayer.loop = false;
-        khaloohaVoicePlayer.play();
+
       } catch (_) {}
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
@@ -2761,12 +2756,7 @@ export default function RoomScreen() {
                     finalClapPlayer.volume = 0.225;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
-                    // تشغيل صوت خلوها بالتزامن
-                    const khaloohaVoiceAsset = require("@/assets/sounds/khalooha-voice.m4a");
-                    const khaloohaVoicePlayer = createAudioPlayer(khaloohaVoiceAsset);
-                    khaloohaVoicePlayer.volume = 0.60;
-                    khaloohaVoicePlayer.loop = false;
-                    khaloohaVoicePlayer.play();
+
                     
                     // بث أمر إيقاف للجميع مع URL الطاروق للتصفيق الختامي
                     await createKhaloohaCommandMutation.mutateAsync({
