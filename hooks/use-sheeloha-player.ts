@@ -78,6 +78,8 @@ export function useSheelohaPlayer() {
     cleanup();
     if (!taroukUrl) return;
 
+    // ✅ تعيين الحالة فوراً قبل أي await - هذا يمنع race condition
+    // عندما يصل onAudioMessageCreated في نفس الوقت تقريباً
     isPlayingRef.current = true;
     setIsPlayingState(true);
 
