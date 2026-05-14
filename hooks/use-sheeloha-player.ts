@@ -93,10 +93,12 @@ export function useSheelohaPlayer() {
 
     if (prepared && prepared.taroukUrl === taroukUrl && isFirstLoop) {
       // الدورة الأولى: استخدم المشغّلات الجاهزة
-      prepared.players.forEach((player) => {
+      console.log("[Sheeloha] Using PREPARED players, count:", prepared.players.length);
+      prepared.players.forEach((player, index) => {
         if (!isPlayingRef.current) return;
         try {
-          player.seekTo(0);
+          console.log(`[Sheeloha] Playing prepared player ${index + 1}`);
+          player.currentTime = 0;
           player.play();
           playersRef.current.push(player);
           setTimeout(() => {
@@ -104,11 +106,12 @@ export function useSheelohaPlayer() {
             playersRef.current = playersRef.current.filter(p => p !== player);
           }, (taroukDuration + 2) * 1000);
         } catch (e) {
-          console.error("[SheelohaPlayer] prepared play error:", e);
+          console.error(`[Sheeloha] Player ${index + 1} failed:`, e);
         }
       });
       preparedRef.current = null; // استُهلكت
     } else {
+      console.log("[Sheeloha] Using NEW players");
       // الدورات التالية: أنشئ مشغّلات جديدة
       CROWD_FIXED.forEach(({ volume, rate }) => {
         if (!isPlayingRef.current) return;
