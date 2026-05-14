@@ -4,9 +4,6 @@
  * صوت الصفوف: 5 نسخ بسرعات مختلفة قليلاً
  * التصفيق: ملف محلي يتكرر كل 0.96 ثانية
  * الـ loop: 0.15 ثانية صمت بين كل تكرار للطاروق
- *
- * الفكرة: عند إرسال الطاروق → prepare() تُجهّز الـ 5 مشغّلات مسبقاً
- *         عند ضغط شيلوها → play() تشغّلها فوراً بدون preload
  */
 
 import { useRef, useCallback, useState } from "react";
@@ -34,20 +31,12 @@ interface SheelohaData {
   sheelohaUrl?: string;
 }
 
-interface PreparedCrowd {
-  players: AudioPlayer[];
-  taroukUrl: string;
-  taroukDuration: number;
-}
-
 export function useSheelohaPlayer() {
   const [isPlayingState, setIsPlayingState] = useState(false);
   const isPlayingRef = useRef(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
-  // المشغّلات المجهّزة مسبقاً عند إرسال الطاروق
-  const preparedRef = useRef<PreparedCrowd | null>(null);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
@@ -63,73 +52,23 @@ export function useSheelohaPlayer() {
     playersRef.current = [];
   }, []);
 
-  // تجهيز الـ 5 مشغّلات مسبقاً — يُستدعى عند إرسال الطاروق
-  const prepare = useCallback((taroukUrl: string, taroukDuration: number) => {
-    // حرّر المجهّزات القديمة إن وجدت
-    if (preparedRef.current) {
-      preparedRef.current.players.forEach(p => {
-        try { p.pause(); } catch (_) {}
-        try { p.release(); } catch (_) {}
-      });
-      preparedRef.current = null;
-    }
-    if (!taroukUrl) return;
-    try {
-      const players = CROWD_FIXED.map(({ volume, rate }) => {
+  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
+    CROWD_FIXED.forEach(({ volume, rate }) => {
+      if (!isPlayingRef.current) return;
+      try {
         const player = createAudioPlayer(taroukUrl);
         player.volume = volume;
         player.setPlaybackRate(rate);
-        return player;
-      });
-      preparedRef.current = { players, taroukUrl, taroukDuration };
-    } catch (e) {
-      console.error("[SheelohaPlayer] prepare error:", e);
-    }
-  }, []);
-
-  // تشغيل الـ 5 مشغّلات المجهّزة في loop
-  const playCrowdPrepared = useCallback((taroukUrl: string, taroukDuration: number, isFirstLoop: boolean) => {
-    const prepared = isFirstLoop ? preparedRef.current : null;
-
-    if (prepared && prepared.taroukUrl === taroukUrl && isFirstLoop) {
-      // الدورة الأولى: استخدم المشغّلات الجاهزة
-      console.log("[Sheeloha] Using PREPARED players, count:", prepared.players.length);
-      prepared.players.forEach((player, index) => {
-        if (!isPlayingRef.current) return;
-        try {
-          console.log(`[Sheeloha] Playing prepared player ${index + 1}`);
-          player.currentTime = 0;
-          player.play();
-          playersRef.current.push(player);
-          setTimeout(() => {
-            try { player.release(); } catch (_) {}
-            playersRef.current = playersRef.current.filter(p => p !== player);
-          }, (taroukDuration + 2) * 1000);
-        } catch (e) {
-          console.error(`[Sheeloha] Player ${index + 1} failed:`, e);
-        }
-      });
-      preparedRef.current = null; // استُهلكت
-    } else {
-      console.log("[Sheeloha] Using NEW players");
-      // الدورات التالية: أنشئ مشغّلات جديدة
-      CROWD_FIXED.forEach(({ volume, rate }) => {
-        if (!isPlayingRef.current) return;
-        try {
-          const player = createAudioPlayer(taroukUrl);
-          player.volume = volume;
-          player.setPlaybackRate(rate);
-          player.play();
-          playersRef.current.push(player);
-          setTimeout(() => {
-            try { player.release(); } catch (_) {}
-            playersRef.current = playersRef.current.filter(p => p !== player);
-          }, (taroukDuration + 2) * 1000);
-        } catch (e) {
-          console.error("[SheelohaPlayer] crowd error:", e);
-        }
-      });
-    }
+        player.play();
+        playersRef.current.push(player);
+        setTimeout(() => {
+          try { player.release(); } catch (_) {}
+          playersRef.current = playersRef.current.filter(p => p !== player);
+        }, (taroukDuration + 2) * 1000);
+      } catch (e) {
+        console.error("[SheelohaPlayer] crowd error:", e);
+      }
+    });
   }, []);
 
   const play = useCallback(async (data: SheelohaData) => {
@@ -172,21 +111,19 @@ export function useSheelohaPlayer() {
 
     // 2. صوت الصفوف في loop
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
-    let loopCount = 0;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
-      playCrowdPrepared(taroukUrl, taroukDuration, loopCount === 0);
-      loopCount++;
+      playCrowd(taroukUrl, taroukDuration);
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
     startLoop();
 
-  }, [cleanup, playCrowdPrepared]);
+  }, [cleanup, playCrowd]);
 
   const stop = useCallback(() => {
     cleanup();
   }, [cleanup]);
 
-  return { play, stop, prepare, isPlaying: isPlayingState };
+  return { play, stop, isPlaying: isPlayingState };
 }
