@@ -2651,22 +2651,19 @@ export default function RoomScreen() {
                       Alert.alert("تنبيه", "شيلوها تعمل الآن، انتظر حتى تنتهي");
                       return;
                     }
-                    // استخدم sheelohaUrl المدموج إذا متوفر، وإلا استخدم audioUrl كـ fallback
-                    const playUrl = (lastTarouk as any).sheelohaUrl || lastTarouk.audioUrl;
-                    const isMixed = !!(lastTarouk as any).sheelohaUrl;
-                    console.log("[RoomScreen] Sheeloha using", isMixed ? "MIXED" : "FALLBACK", playUrl);
+
+                    // تشغيل محلي مباشرة - بدون خادم
                     await sheelohaPlayer.play({
-                      taroukUrl: playUrl,
+                      taroukUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
-                      isMixed,
                     });
+
                     // بث للجميع عبر Socket.io
                     const socket = await getSocket();
                     socket.emit("playSheeloha", {
                       roomId,
-                      sheelohaUrl: playUrl,
+                      sheelohaUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
-                      isMixed,
                       userId,
                       username: username || "",
                     });

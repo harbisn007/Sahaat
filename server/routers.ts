@@ -470,23 +470,6 @@ export const appRouter = router({
           input.duration
         );
         
-        // إذا كان الطاروق، ولّد الشيلوها في الخلفية (بدون انتظار)
-        if (input.messageType === "tarouk") {
-          (async () => {
-            try {
-              const { generateSheeloha } = await import("./sheeloha-generator");
-              const sheelohaUrl = await generateSheeloha({
-                taroukUrl: input.audioUrl,
-                taroukDuration: input.duration,
-              });
-              await db.updateAudioMessageSheelohaUrl(messageId, sheelohaUrl);
-              console.log(`[audio.create] SheelohaUrl saved for message ${messageId}`);
-            } catch (err: any) {
-              console.error(`[audio.create] Failed to generate sheeloha:`, err.message);
-            }
-          })();
-        }
-        
         return { messageId };
       }),
 

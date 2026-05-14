@@ -1,10 +1,9 @@
 /**
  * Sheeloha Player - تشغيل محلي بدون خادم
  *
- * وضعان:
- * 1. isMixed=true  → ملف واحد مدموج من السيرفر (5 أصوات مدمجة) - مشغّل واحد فقط
- * 2. isMixed=false → 5 نسخ محلية بسرعات مختلفة (fallback)
- * التصفيق: ملف محلي يتكرر كل 0.96 ثانية في كلا الوضعين
+ * صوت الصفوف: 5 نسخ بسرعات مختلفة قليلاً
+ * التصفيق: ملف محلي يتكرر كل 0.96 ثانية
+ * الـ loop: 0.15 ثانية صمت بين كل تكرار للطاروق
  */
 
 import { useRef, useCallback, useState } from "react";
@@ -17,7 +16,7 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 5 أصوات ثابتة بجرس مختلف (fallback فقط)
+// 5 أصوات ثابتة بجرس مختلف
 const CROWD_FIXED = [
   { volume: 0.40, rate: 1.07 },
   { volume: 0.30, rate: 1.06 },
@@ -30,7 +29,6 @@ interface SheelohaData {
   taroukUrl: string;
   taroukDuration: number;
   sheelohaUrl?: string;
-  isMixed?: boolean; // true = ملف مدموج من السيرفر
 }
 
 export function useSheelohaPlayer() {
@@ -54,7 +52,6 @@ export function useSheelohaPlayer() {
     playersRef.current = [];
   }, []);
 
-  // وضع fallback: 5 مشغّلات بسرعات مختلفة
   const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
     CROWD_FIXED.forEach(({ volume, rate }) => {
       if (!isPlayingRef.current) return;
@@ -74,27 +71,9 @@ export function useSheelohaPlayer() {
     });
   }, []);
 
-  // وضع mixed: مشغّل واحد للملف المدموج
-  const playMixed = useCallback((mixedUrl: string, taroukDuration: number) => {
-    if (!isPlayingRef.current) return;
-    try {
-      const player = createAudioPlayer(mixedUrl);
-      player.volume = 1.0;
-      player.play();
-      playersRef.current.push(player);
-      setTimeout(() => {
-        try { player.release(); } catch (_) {}
-        playersRef.current = playersRef.current.filter(p => p !== player);
-      }, (taroukDuration + 2) * 1000);
-    } catch (e) {
-      console.error("[SheelohaPlayer] mixed error:", e);
-    }
-  }, []);
-
   const play = useCallback(async (data: SheelohaData) => {
-    const taroukUrl = data.taroukUrl || "";
+    const taroukUrl = data.taroukUrl || data.sheelohaUrl || "";
     const taroukDuration = data.taroukDuration || 3;
-    const isMixed = data.isMixed === true;
 
     cleanup();
     if (!taroukUrl) return;
@@ -134,19 +113,13 @@ export function useSheelohaPlayer() {
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
-      if (isMixed) {
-        // وضع mixed: ملف واحد مدموج
-        playMixed(taroukUrl, taroukDuration);
-      } else {
-        // وضع fallback: 5 مشغّلات
-        playCrowd(taroukUrl, taroukDuration);
-      }
+      playCrowd(taroukUrl, taroukDuration);
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
     startLoop();
 
-  }, [cleanup, playCrowd, playMixed]);
+  }, [cleanup, playCrowd]);
 
   const stop = useCallback(() => {
     cleanup();
