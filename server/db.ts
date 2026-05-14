@@ -643,6 +643,13 @@ export async function addTextMessage(data: InsertTextMessage) {
   return Number(result[0].insertId);
 }
 
+export async function updateAudioMessageSheelohaUrl(messageId: number, sheelohaUrl: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(audioMessages).set({ sheelohaUrl }).where(eq(audioMessages.id, messageId));
+  console.log('[DB] Updated sheelohaUrl for message:', messageId);
+}
+
 export async function getLastTaroukMessage(roomId: number) {
   const db = await getDb();
   if (!db) return null;

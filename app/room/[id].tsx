@@ -2646,26 +2646,27 @@ export default function RoomScreen() {
                   }
 
                   try {
-                    console.log("[RoomScreen] Starting Sheeloha locally for:", lastTarouk.audioUrl);
-
                     // منع التداخل — إذا شيلوها تعمل عند أي أحد نمنع الضغط
                     if (sheelohaPlayer.isPlaying) {
                       Alert.alert("تنبيه", "شيلوها تعمل الآن، انتظر حتى تنتهي");
                       return;
                     }
-
-                    // تشغيل محلي مباشرة - بدون خادم
+                    // استخدم sheelohaUrl المدموج إذا متوفر، وإلا استخدم audioUrl كـ fallback
+                    const playUrl = (lastTarouk as any).sheelohaUrl || lastTarouk.audioUrl;
+                    const isMixed = !!(lastTarouk as any).sheelohaUrl;
+                    console.log("[RoomScreen] Sheeloha using", isMixed ? "MIXED" : "FALLBACK", playUrl);
                     await sheelohaPlayer.play({
-                      taroukUrl: lastTarouk.audioUrl,
+                      taroukUrl: playUrl,
                       taroukDuration: lastTarouk.duration || 3,
+                      isMixed,
                     });
-
                     // بث للجميع عبر Socket.io
                     const socket = await getSocket();
                     socket.emit("playSheeloha", {
                       roomId,
-                      sheelohaUrl: lastTarouk.audioUrl,
+                      sheelohaUrl: playUrl,
                       taroukDuration: lastTarouk.duration || 3,
+                      isMixed,
                       userId,
                       username: username || "",
                     });
