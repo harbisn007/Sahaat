@@ -2709,3 +2709,4 @@
 - [x] إضافة playingLockRef لمنع race condition من Socket.io
 - [x] إضافة logging مفصّل لتتبع التشغيل
 - [x] حذف fallback logic غير ضروري من playCrowd (الاحتمالية = 0%)
+- [x] حذف setTimeout من playCrowd لتحقيق تزامن كامل (0ms تأخير بين الأصوات)

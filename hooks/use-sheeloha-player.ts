@@ -10,9 +10,9 @@
    * - إذا تأخر التحميل → إعادة محاولة تلقائية
    *
  * تحسينات الأداء:
- * - تشغيل الأصوات الخمسة بدون تأخير (delay: 0)
- * - استخدام setImmediate بدلاً من setTimeout للتشغيل الفوري
- * - تقليل الفجوة الزمنية بين تشغيل الأصوات والصوت الأصلي
+   * - تشغيل الأصوات الخمسة متزامناً (بدون setTimeout)
+   * - تزامن كامل: 0ms تأخير بين الأصوات
+   * - تشغيل فوري وآني لجميع الأصوات الخمسة
  */
 
 import { useRef, useCallback, useState } from "react";
@@ -180,37 +180,32 @@ export function useSheelohaPlayer() {
   }, []);
 
   /**
-   * تشغيل الأصوات الخمسة بدون تأخير
-   * استخدام scheduleImmediate لتقليل latency
+   * تشغيل الأصوات الخمسة بدون تأخير - متزامن تماماً
+   * حذف setTimeout لتحقيق تزامن كامل (0ms تأخير بين الأصوات)
    */
   const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
-    CROWD_FIXED.forEach(({ delay, volume, rate }) => {
-      const t = setTimeout(() => {
-        if (!isPlayingRef.current) return;
+    CROWD_FIXED.forEach(({ volume, rate }) => {
+      if (!isPlayingRef.current) return;
+      
+      try {
+        const player = createAudioPlayer(taroukUrl);
+        player.volume = volume;
+        player.setPlaybackRate(rate);
+        player.play();
+        playersRef.current.push(player);
         
-        scheduleImmediate(() => {
-          if (!isPlayingRef.current) return;
-          
-          try {
-            const player = createAudioPlayer(taroukUrl);
-            player.volume = volume;
-            player.setPlaybackRate(rate);
-            player.play();
-            playersRef.current.push(player);
-            
-            console.log(`[SheelohaPlayer] Playing crowd voice: volume=${volume}, rate=${rate}`);
-            
-            setTimeout(() => {
-              try { player.pause(); } catch (_) {}
-              try { player.release(); } catch (_) {}
-              playersRef.current = playersRef.current.filter(p => p !== player);
-            }, (taroukDuration + 2) * 1000);
-          } catch (e) {
-            console.error("[SheelohaPlayer] crowd error:", e);
-          }
-        });
-      }, delay);
-      timersRef.current.push(t);
+        console.log(`[SheelohaPlayer] Playing crowd voice: volume=${volume}, rate=${rate}`);
+        
+        // تحرير الموارد بعد انتهاء الصوت
+        const cleanupTimer = setTimeout(() => {
+          try { player.pause(); } catch (_) {}
+          try { player.release(); } catch (_) {}
+          playersRef.current = playersRef.current.filter(p => p !== player);
+        }, (taroukDuration + 2) * 1000);
+        timersRef.current.push(cleanupTimer);
+      } catch (e) {
+        console.error("[SheelohaPlayer] crowd error:", e);
+      }
     });
   }, []);
 
