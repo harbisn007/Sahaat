@@ -2708,3 +2708,4 @@
 - [x] إضافة scheduleImmediate helper للتشغيل الفوري
 - [x] إضافة playingLockRef لمنع race condition من Socket.io
 - [x] إضافة logging مفصّل لتتبع التشغيل
+- [x] حذف fallback logic غير ضروري من playCrowd (الاحتمالية = 0%)

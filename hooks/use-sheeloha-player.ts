@@ -6,10 +6,9 @@
  * الـ loop: 0.15 ثانية صمت بين كل تكرار للطاروق
  *
  * Fallback Logic:
- * - إذا فشل تحميل الصوت → عرض خطأ واضح
- * - إذا تأخر التحميل → عرض تحذير
- * - إذا فشل التشغيل → إعادة محاولة مرة واحدة
- *
+   * - إذا فشل تحميل الصوت → عرض خطأ واضح
+   * - إذا تأخر التحميل → إعادة محاولة تلقائية
+   *
  * تحسينات الأداء:
  * - تشغيل الأصوات الخمسة بدون تأخير (delay: 0)
  * - استخدام setImmediate بدلاً من setTimeout للتشغيل الفوري
@@ -186,11 +185,9 @@ export function useSheelohaPlayer() {
    */
   const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
     CROWD_FIXED.forEach(({ delay, volume, rate }) => {
-      // استخدام scheduleImmediate بدلاً من setTimeout للتشغيل الفوري
       const t = setTimeout(() => {
         if (!isPlayingRef.current) return;
         
-        // تشغيل فوري بدون تأخير إضافي
         scheduleImmediate(() => {
           if (!isPlayingRef.current) return;
           
@@ -198,14 +195,11 @@ export function useSheelohaPlayer() {
             const player = createAudioPlayer(taroukUrl);
             player.volume = volume;
             player.setPlaybackRate(rate);
-            
-            // تشغيل فوري
             player.play();
             playersRef.current.push(player);
             
             console.log(`[SheelohaPlayer] Playing crowd voice: volume=${volume}, rate=${rate}`);
             
-            // تحرير الموارد بعد انتهاء الصوت
             setTimeout(() => {
               try { player.pause(); } catch (_) {}
               try { player.release(); } catch (_) {}
@@ -213,7 +207,6 @@ export function useSheelohaPlayer() {
             }, (taroukDuration + 2) * 1000);
           } catch (e) {
             console.error("[SheelohaPlayer] crowd error:", e);
-            // لا نوقف التشغيل - نحاول تشغيل الأصوات الأخرى
           }
         });
       }, delay);
