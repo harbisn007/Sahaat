@@ -22,6 +22,7 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 import { GlobalCreatorNotifier } from "@/components/global-creator-notifier";
 import { useCreatorBell } from "@/hooks/use-creator-bell";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SplashScreen } from "@/components/splash-screen";
 
 // مكون بسيط يستدعي useCreatorBell لتشغيل صوت الجرس عند تغير عداد الطلبات
 function CreatorBellListener() {
@@ -42,10 +43,20 @@ export default function RootLayout() {
 
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
+  const [showSplash, setShowSplash] = useState(true);
 
   // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
     initManusRuntime();
+  }, []);
+
+  // Hide splash screen after 2.5 seconds
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500);
+
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSafeAreaUpdate = useCallback((metrics: Metrics) => {
@@ -87,6 +98,10 @@ export default function RootLayout() {
       },
     };
   }, [initialInsets, initialFrame]);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
 
   const content = (
     <KeyboardProvider>
