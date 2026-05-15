@@ -4,23 +4,21 @@ import Animated, {
   withTiming,
   interpolate,
   Extrapolate,
+  useSharedValue,
 } from "react-native-reanimated";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 export function WaveAnimatedDot({ delay }: { delay: number }) {
-  const progress = useRef(new Animated.Value(0)).current;
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    progress.setValue(0);
-    const animation = withRepeat(
-      withTiming(progress, {
+    progress.value = withRepeat(
+      withTiming(1, {
         duration: 2500,
-        toValue: 1,
       }),
-      1,
+      -1,
       false
     );
-    progress.animate(animation);
   }, [progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
