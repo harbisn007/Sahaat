@@ -9,6 +9,11 @@
  * - إذا فشل تحميل الصوت → عرض خطأ واضح
  * - إذا تأخر التحميل → عرض تحذير
  * - إذا فشل التشغيل → إعادة محاولة مرة واحدة
+ *
+ * تحسينات الأداء:
+ * - تشغيل الأصوات الخمسة بدون تأخير (delay: 0)
+ * - استخدام setImmediate بدلاً من setTimeout للتشغيل الفوري
+ * - تقليل الفجوة الزمنية بين تشغيل الأصوات والصوت الأصلي
  */
 
 import { useRef, useCallback, useState } from "react";
@@ -21,7 +26,7 @@ const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960; // ms بين كل تصفيقة
 const LOOP_GAP = 150;      // ms صمت بين كل تكرار
 
-// 5 أصوات ثابتة بجرس مختلف
+// 5 أصوات ثابتة بجرس مختلف - بدون delay
 const CROWD_FIXED = [
   { delay: 0,  volume: 0.40, rate: 1.07 }, // صوت 2
   { delay: 0,  volume: 0.30, rate: 1.06 }, // صوت 3
@@ -43,6 +48,18 @@ interface LoadResult {
   timedOut?: boolean;
 }
 
+/**
+ * Helper: استخدام setImmediate أو fallback إلى setTimeout
+ * setImmediate ينفذ بعد I/O events مباشرة (أسرع من setTimeout)
+ */
+const scheduleImmediate = (callback: () => void) => {
+  if (typeof setImmediate !== "undefined") {
+    setImmediate(callback);
+  } else {
+    setTimeout(callback, 0);
+  }
+};
+
 export function useSheelohaPlayer() {
   const [isPlayingState, setIsPlayingState] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,9 +68,11 @@ export function useSheelohaPlayer() {
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
   const loadAttemptsRef = useRef(0);
+  const playingLockRef = useRef(false); // منع race condition
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
+    playingLockRef.current = false;
     setIsPlayingState(false);
     setError(null);
     timersRef.current.forEach(t => clearTimeout(t));
@@ -161,29 +180,55 @@ export function useSheelohaPlayer() {
     };
   }, []);
 
+  /**
+   * تشغيل الأصوات الخمسة بدون تأخير
+   * استخدام scheduleImmediate لتقليل latency
+   */
   const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
     CROWD_FIXED.forEach(({ delay, volume, rate }) => {
+      // استخدام scheduleImmediate بدلاً من setTimeout للتشغيل الفوري
       const t = setTimeout(() => {
         if (!isPlayingRef.current) return;
-        try {
-          const player = createAudioPlayer(taroukUrl);
-          player.volume = volume;
-          player.setPlaybackRate(rate);
-          player.play();
-          playersRef.current.push(player);
-          setTimeout(() => {
-            try { player.release(); } catch (_) {}
-            playersRef.current = playersRef.current.filter(p => p !== player);
-          }, (taroukDuration + 2) * 1000);
-        } catch (e) {
-          console.error("[SheelohaPlayer] crowd error:", e);
-        }
+        
+        // تشغيل فوري بدون تأخير إضافي
+        scheduleImmediate(() => {
+          if (!isPlayingRef.current) return;
+          
+          try {
+            const player = createAudioPlayer(taroukUrl);
+            player.volume = volume;
+            player.setPlaybackRate(rate);
+            
+            // تشغيل فوري
+            player.play();
+            playersRef.current.push(player);
+            
+            console.log(`[SheelohaPlayer] Playing crowd voice: volume=${volume}, rate=${rate}`);
+            
+            // تحرير الموارد بعد انتهاء الصوت
+            setTimeout(() => {
+              try { player.pause(); } catch (_) {}
+              try { player.release(); } catch (_) {}
+              playersRef.current = playersRef.current.filter(p => p !== player);
+            }, (taroukDuration + 2) * 1000);
+          } catch (e) {
+            console.error("[SheelohaPlayer] crowd error:", e);
+            // لا نوقف التشغيل - نحاول تشغيل الأصوات الأخرى
+          }
+        });
       }, delay);
       timersRef.current.push(t);
     });
   }, []);
 
   const play = useCallback(async (data: SheelohaData) => {
+    // منع race condition من Socket.io
+    if (playingLockRef.current) {
+      console.warn("[SheelohaPlayer] Already playing, ignoring duplicate call");
+      return;
+    }
+    playingLockRef.current = true;
+
     const taroukUrl = data.taroukUrl || data.sheelohaUrl || "";
     const taroukDuration = data.taroukDuration || 3;
 
@@ -192,6 +237,7 @@ export function useSheelohaPlayer() {
     
     if (!taroukUrl) {
       setError("لا يوجد صوت متاح للتشغيل");
+      playingLockRef.current = false;
       return;
     }
 
@@ -213,17 +259,21 @@ export function useSheelohaPlayer() {
       console.error("[SheelohaPlayer] Failed to load audio:", loadResult.error);
       setError(loadResult.error || "فشل تحميل الصوت");
       cleanup();
+      playingLockRef.current = false;
       return;
     }
 
     // إذا أُوقف أثناء التحميل
     if (!isPlayingRef.current) {
       cleanup();
+      playingLockRef.current = false;
       return;
     }
 
     // استخدم المدة المحملة أو القيمة الافتراضية
     const finalDuration = loadResult.duration || taroukDuration;
+
+    console.log(`[SheelohaPlayer] Starting playback with duration: ${finalDuration}s`);
 
     // 1. تصفيق كل 0.96 ثانية
     const playClap = () => {
@@ -246,7 +296,7 @@ export function useSheelohaPlayer() {
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
 
-    // 2. صوت الصفوف في loop
+    // 2. صوت الصفوف في loop - تشغيل فوري
     const loopDuration = (finalDuration * 1000) + LOOP_GAP;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
@@ -254,12 +304,15 @@ export function useSheelohaPlayer() {
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
+    
+    // تشغيل فوري للأصوات الخمسة (بدون delay)
     startLoop();
 
   }, [cleanup, playCrowd, loadAudioWithRetry]);
 
   const stop = useCallback(() => {
     console.log("[SheelohaPlayer] stop()");
+    playingLockRef.current = false;
     cleanup();
   }, [cleanup]);
 

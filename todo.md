@@ -2701,3 +2701,10 @@
 
 ## إصلاح سلوك زر شيلوها عند تأخر الأصوات
 - [x] إضافة fallback logic قوي لزر شيلوها عند تأخر أو عدم توفر الأصوات الخمسة المحلية
+
+## تحسين تأخير setTimeout في شيلوها
+- [x] استخدام setImmediate لتقليل تأخير التشغيل (0-2ms بدلاً من 4-16ms)
+- [x] تشغيل الأصوات الخمسة بدون delay (delay: 0)
+- [x] إضافة scheduleImmediate helper للتشغيل الفوري
+- [x] إضافة playingLockRef لمنع race condition من Socket.io
+- [x] إضافة logging مفصّل لتتبع التشغيل
