@@ -683,6 +683,13 @@ export default function RoomScreen() {
         sheelohaPlayerRef.current.play({
           taroukUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
+        }).then(() => {
+          // تحقق من الأخطاء بعد التشغيل
+          if (sheelohaPlayerRef.current.error) {
+            console.warn("[RoomScreen] Sheeloha playback error:", sheelohaPlayerRef.current.error);
+          }
+        }).catch((e) => {
+          console.error("[RoomScreen] Sheeloha playback failed:", e);
         });
       },
       // حدث حظر المستخدم - إخراجه فوراً من الساحة
@@ -1748,7 +1755,7 @@ export default function RoomScreen() {
         const { url } = uploadResult;
         
         console.log("[RoomScreen] Audio uploaded successfully:", url);
-
+        
         // تشغيل محلي فوري للمرسل فقط (الآخرون يستقبلون عبر Socket.io)
         // طاروق وتعليق يعملان بنفس الطريقة تماماً
         try {
@@ -2646,6 +2653,8 @@ export default function RoomScreen() {
                   }
 
                   try {
+                    console.log("[RoomScreen] Starting Sheeloha locally for:", lastTarouk.audioUrl);
+
                     // منع التداخل — إذا شيلوها تعمل عند أي أحد نمنع الضغط
                     if (sheelohaPlayer.isPlaying) {
                       Alert.alert("تنبيه", "شيلوها تعمل الآن، انتظر حتى تنتهي");
@@ -2657,6 +2666,12 @@ export default function RoomScreen() {
                       taroukUrl: lastTarouk.audioUrl,
                       taroukDuration: lastTarouk.duration || 3,
                     });
+
+                    // التحقق من وجود خطأ في التشغيل
+                    if (sheelohaPlayer.error) {
+                      Alert.alert("تحذير", sheelohaPlayer.error);
+                      return;
+                    }
 
                     // بث للجميع عبر Socket.io
                     const socket = await getSocket();

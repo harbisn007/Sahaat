@@ -80,7 +80,6 @@ export const audioMessages = mysqlTable("audio_messages", {
   messageType: mysqlEnum("messageType", ["comment", "tarouk"]).notNull(),
   audioUrl: text("audioUrl").notNull(),
   duration: int("duration").notNull(),
-  sheelohaUrl: text("sheelohaUrl"), // URL الملف المدموج (5 أصوات) - يُولَّد بعد رفع الطاروق
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

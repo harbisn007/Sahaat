@@ -643,7 +643,6 @@ export async function addTextMessage(data: InsertTextMessage) {
   return Number(result[0].insertId);
 }
 
-
 export async function getLastTaroukMessage(roomId: number) {
   const db = await getDb();
   if (!db) return null;

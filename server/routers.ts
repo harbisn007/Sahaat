@@ -470,6 +470,8 @@ export const appRouter = router({
           input.duration
         );
         
+        // الشيلوها تُولَّد فقط عند ضغط زر شيلوها - لا توليد تلقائي
+        
         return { messageId };
       }),
 

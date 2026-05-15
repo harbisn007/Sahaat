@@ -1,1 +1,0 @@
-ALTER TABLE `audio_messages` ADD `sheelohaUrl` text;
