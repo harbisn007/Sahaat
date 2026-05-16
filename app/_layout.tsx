@@ -22,8 +22,8 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 import { GlobalCreatorNotifier } from "@/components/global-creator-notifier";
 import { useCreatorBell } from "@/hooks/use-creator-bell";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { SplashScreen } from "@/components/splash-screen";
 
-// مكون بسيط يستدعي useCreatorBell لتشغيل صوت الجرس عند تغير عداد الطلبات
 function CreatorBellListener() {
   useCreatorBell();
   return null;
@@ -36,6 +36,49 @@ export const unstable_settings = {
   anchor: "(tabs)",
 };
 
+function RootLayoutInner() {
+  const [showSplash, setShowSplash] = useState(true);
+
+  const { data: top10Rooms } = trpc.top10.list.useQuery(undefined, {
+    enabled: showSplash,
+  });
+  const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery(
+    { limit: 50 },
+    { enabled: showSplash }
+  );
+
+  // اخفِ الشاشة عند اكتمال البيانات
+  useEffect(() => {
+    if (top10Rooms && pendingInvitesData) {
+      setShowSplash(false);
+    }
+  }, [top10Rooms, pendingInvitesData]);
+
+  // حد أقصى 4 ثوانٍ
+  useEffect(() => {
+    const timer = setTimeout(() => setShowSplash(false), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (showSplash) {
+    return <SplashScreen />;
+  }
+
+  return (
+    <KeyboardProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="oauth/callback" />
+        </Stack>
+        <GlobalCreatorNotifier />
+        <CreatorBellListener />
+        <StatusBar style="auto" />
+      </GestureHandlerRootView>
+    </KeyboardProvider>
+  );
+}
+
 export default function RootLayout() {
   const initialInsets = initialWindowMetrics?.insets ?? DEFAULT_WEB_INSETS;
   const initialFrame = initialWindowMetrics?.frame ?? DEFAULT_WEB_FRAME;
@@ -43,7 +86,6 @@ export default function RootLayout() {
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
 
-  // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
     initManusRuntime();
   }, []);
@@ -59,15 +101,12 @@ export default function RootLayout() {
     return () => unsubscribe();
   }, [handleSafeAreaUpdate]);
 
-  // Create clients once and reuse them
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Disable automatic refetching on window focus for mobile
             refetchOnWindowFocus: false,
-            // Retry failed requests once
             retry: 1,
           },
         },
@@ -75,7 +114,6 @@ export default function RootLayout() {
   );
   const [trpcClient] = useState(() => createTRPCClient());
 
-  // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
     return {
@@ -88,50 +126,31 @@ export default function RootLayout() {
     };
   }, [initialInsets, initialFrame]);
 
-  const content = (
-    <KeyboardProvider>
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <trpc.Provider client={trpcClient} queryClient={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="oauth/callback" />
-          </Stack>
-          <GlobalCreatorNotifier />
-          <CreatorBellListener />
-          <StatusBar style="auto" />
-        </QueryClientProvider>
-      </trpc.Provider>
-    </GestureHandlerRootView>
-    </KeyboardProvider>
-  );
-
   const shouldOverrideSafeArea = Platform.OS === "web";
 
-  if (shouldOverrideSafeArea) {
-    return (
-      <ThemeProvider>
-        <UserProvider>
-          <SafeAreaProvider initialMetrics={providerInitialMetrics}>
-            <SafeAreaFrameContext.Provider value={frame}>
-              <SafeAreaInsetsContext.Provider value={insets}>
-                {content}
-              </SafeAreaInsetsContext.Provider>
-            </SafeAreaFrameContext.Provider>
-          </SafeAreaProvider>
-        </UserProvider>
-      </ThemeProvider>
-    );
-  }
-
-  return (
+  const inner = (
     <ThemeProvider>
       <UserProvider>
-        <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
+        <trpc.Provider client={trpcClient} queryClient={queryClient}>
+          <QueryClientProvider client={queryClient}>
+            {shouldOverrideSafeArea ? (
+              <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+                <SafeAreaFrameContext.Provider value={frame}>
+                  <SafeAreaInsetsContext.Provider value={insets}>
+                    <RootLayoutInner />
+                  </SafeAreaInsetsContext.Provider>
+                </SafeAreaFrameContext.Provider>
+              </SafeAreaProvider>
+            ) : (
+              <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+                <RootLayoutInner />
+              </SafeAreaProvider>
+            )}
+          </QueryClientProvider>
+        </trpc.Provider>
       </UserProvider>
     </ThemeProvider>
   );
+
+  return inner;
 }
