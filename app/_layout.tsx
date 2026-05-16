@@ -1,4 +1,9 @@
 import "@/global.css";
+import * as SplashScreen from "expo-splash-screen";
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
+
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
