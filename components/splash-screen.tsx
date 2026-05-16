@@ -6,7 +6,7 @@ export function SplashScreen() {
     <View className="flex-1 bg-black justify-center items-center">
       {/* الصورة الخلفية */}
       <Image
-        source={require("@/assets/images/splash-image.jpg")}
+        source={require("@/assets/images/splash-icon.png")}
         className="absolute inset-0"
         resizeMode="cover"
       />
