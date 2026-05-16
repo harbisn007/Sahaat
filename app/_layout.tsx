@@ -50,6 +50,19 @@ export default function RootLayout() {
     initManusRuntime();
   }, []);
 
+  // Preload data while showing splash screen
+  const { data: top10Rooms } = trpc.top10.list.useQuery(undefined, { 
+    enabled: showSplash,
+    refetchInterval: 3000 
+  });
+  const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery(
+    { limit: 50 }, 
+    { 
+      enabled: showSplash,
+      refetchInterval: 2000 
+    }
+  );
+
   // Hide splash screen after 2.5 seconds
   useEffect(() => {
     const timer = setTimeout(() => {

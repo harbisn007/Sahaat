@@ -1,5 +1,9 @@
 // Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
+import * as SplashScreen from "expo-splash-screen";
+
+// Prevent the splash screen from auto-hiding
+SplashScreen.preventAutoHideAsync();
 import type { ExpoConfig } from "expo/config";
 
 // Bundle ID format: space.manus.<project_name_dots>.<timestamp>
@@ -108,10 +112,10 @@ const config: ExpoConfig = {
     [
       "expo-splash-screen",
       {
-        image: "./assets/images/splash-image.jpg",
-        imageWidth: 200,
+        image: "./assets/images/splash-icon.png",
+        imageWidth: 0,
         resizeMode: "contain",
-        backgroundColor: "#ffffff",
+        backgroundColor: "#000000",
         dark: {
           backgroundColor: "#000000",
         },
