@@ -1,5 +1,4 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
@@ -2273,7 +2272,7 @@ export default function RoomScreen() {
       )}
 
       {/* Messages Feed + حقل الكتابة + الأزرار */}
-      <KeyboardAvoidingView
+      <View
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
@@ -2873,7 +2872,7 @@ export default function RoomScreen() {
         </View>
       </View>
       </View>
-      </KeyboardAvoidingView>
+      </View>
       {/* Reactions Picker Modal */}
       <ReactionsPicker
         visible={isReactionsPickerOpen}
