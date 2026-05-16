@@ -52,8 +52,9 @@ export function useSheelohaPlayer() {
         player.setPlaybackRate(rate);
         player.play();
         playersRef.current.push(player);
+        // مدة موحدة للجميع
         setTimeout(() => {
-          try { player.release(); } catch (_) {}
+          try { player.pause(); player.release(); } catch (_) {}
           playersRef.current = playersRef.current.filter(p => p !== player);
         }, (taroukDuration + 2) * 1000);
       } catch (e) {}
@@ -93,10 +94,6 @@ export function useSheelohaPlayer() {
       } catch (_) {}
     };
 
-    playClap();
-    const clapInterval = setInterval(playClap, CLAP_INTERVAL);
-    intervalsRef.current.push(clapInterval);
-
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
@@ -104,7 +101,18 @@ export function useSheelohaPlayer() {
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
+
+    // ← الأصوات تبدأ فوراً
     startLoop();
+
+    // ← التصفيق يبدأ بعد 300ms حتى تكون الأصوات قد بدأت
+    const clapDelay = setTimeout(() => {
+      if (!isPlayingRef.current) return;
+      playClap();
+      const clapInterval = setInterval(playClap, CLAP_INTERVAL);
+      intervalsRef.current.push(clapInterval);
+    }, 300);
+    timersRef.current.push(clapDelay);
 
   }, [cleanup, playCrowd]);
 
