@@ -45,7 +45,7 @@ export function SplashScreen() {
       <Image
         source={require("@/assets/images/Start.jpg")}
         style={{ position: "absolute", width, height }}
-        resizeMode="cover"
+        resizeMode="contain"
       />
       <View
         style={{
