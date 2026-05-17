@@ -663,6 +663,7 @@ export default function RoomScreen() {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
+            sheelohaPlayerRef.current.prepare(data.audioUrl);
             activePlayersRef.current.push(taroukPlayer);
             setTimeout(() => {
               try { taroukPlayer.release(); } catch (_) {}
