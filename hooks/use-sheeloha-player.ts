@@ -28,6 +28,7 @@ export function useSheelohaPlayer() {
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
+  const preparedUrlRef = useRef<string | null>(null);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
@@ -112,5 +113,16 @@ export function useSheelohaPlayer() {
     cleanup();
   }, [cleanup]);
 
-  return { play, stop, isPlaying: isPlayingState };
+  const prepare = useCallback((taroukUrl: string) => {
+    if (preparedUrlRef.current === taroukUrl) return;
+    preparedUrlRef.current = taroukUrl;
+    try {
+      const preloader = createAudioPlayer(taroukUrl);
+      setTimeout(() => {
+        try { preloader.release(); } catch (_) {}
+      }, 30000);
+    } catch (_) {}
+  }, []);
+
+  return { play, stop, prepare, isPlaying: isPlayingState };
 }
