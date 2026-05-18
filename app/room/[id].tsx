@@ -2760,12 +2760,19 @@ export default function RoomScreen() {
                     // إيقاف الشيلوها محلياً
                     sheelohaPlayer.stop();
                     
-                    // تشغيل التصفيق الختامي
+                    // تشغيل التصفيق الختامي والملف الصوتي الجديد معاً
                     const finalClapAsset = require("@/assets/sounds/sheeloha-claps.m4a");
                     const finalClapPlayer = createAudioPlayer(finalClapAsset);
                     finalClapPlayer.volume = 0.225;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
+
+                    // تشغيل الملف الصوتي الجديد بالتزامن
+                    const khalwaSound = require("@/assets/sounds/khalwa-sound.m4a");
+                    const khalwaSoundPlayer = createAudioPlayer(khalwaSound);
+                    khalwaSoundPlayer.volume = 1.0;
+                    khalwaSoundPlayer.loop = false;
+                    khalwaSoundPlayer.play();
 
                     
                     // بث أمر إيقاف للجميع مع URL الطاروق للتصفيق الختامي
