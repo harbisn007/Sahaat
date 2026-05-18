@@ -655,9 +655,7 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment:", e);
           }
         } else {
-          // الطاروق: إذا شيلوها تعمل، لا تشغل طاروق
-          if (sheelohaPlayerRef.current.isPlaying) return;
-          // إيقاف الشيلوها أولاً ثم تشغيل الطاروق
+          // الطاروق: أوقف شيلوها وشغّل الطاروق
           sheelohaPlayerRef.current.stop();
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
