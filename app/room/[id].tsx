@@ -682,13 +682,6 @@ export default function RoomScreen() {
         sheelohaPlayerRef.current.play({
           taroukUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
-        }).then(() => {
-          // تحقق من الأخطاء بعد التشغيل
-          if (sheelohaPlayerRef.current.error) {
-            console.warn("[RoomScreen] Sheeloha playback error:", sheelohaPlayerRef.current.error);
-          }
-        }).catch((e) => {
-          console.error("[RoomScreen] Sheeloha playback failed:", e);
         });
       },
       // حدث حظر المستخدم - إخراجه فوراً من الساحة
