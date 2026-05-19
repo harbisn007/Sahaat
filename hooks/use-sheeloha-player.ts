@@ -22,12 +22,20 @@ interface SheelohaData {
   sheelohaUrl?: string;
 }
 
+interface PreparedPlayers {
+  players: AudioPlayer[];
+  taroukUrl: string;
+  taroukDuration: number;
+}
+
 export function useSheelohaPlayer() {
   const [isPlayingState, setIsPlayingState] = useState(false);
   const isPlayingRef = useRef(false);
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
+  const preparedUrlRef = useRef<string>("");
+  const preparedPlayersRef = useRef<PreparedPlayers | null>(null);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
@@ -43,7 +51,69 @@ export function useSheelohaPlayer() {
     playersRef.current = [];
   }, []);
 
-  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
+  const prepare = useCallback((taroukUrl: string, taroukDuration: number) => {
+    if (preparedUrlRef.current === taroukUrl) return;
+    preparedUrlRef.current = taroukUrl;
+
+    // حرر القديم إن وجد
+    if (preparedPlayersRef.current) {
+      preparedPlayersRef.current.players.forEach(p => {
+        try { p.release(); } catch (_) {}
+      });
+      preparedPlayersRef.current = null;
+    }
+
+    try {
+      // جهّز الخمسة players وشغّلهم بصوت صفر لإجبار التحميل
+      const players = CROWD_FIXED.map(({ volume, rate }) => {
+        const p = createAudioPlayer(taroukUrl);
+        p.volume = 0;
+        p.setPlaybackRate(rate);
+        p.play();
+        setTimeout(() => {
+          try { p.pause(); p.currentTime = 0; p.volume = volume; } catch (_) {}
+        }, 500);
+        return p;
+      });
+
+      preparedPlayersRef.current = { players, taroukUrl, taroukDuration };
+
+      // حررهم بعد 30 ثانية
+      setTimeout(() => {
+        if (preparedPlayersRef.current?.taroukUrl === taroukUrl) {
+          preparedPlayersRef.current.players.forEach(p => {
+            try { p.release(); } catch (_) {}
+          });
+          preparedPlayersRef.current = null;
+          preparedUrlRef.current = "";
+        }
+      }, 30000);
+    } catch (_) {}
+  }, []);
+
+  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number, isFirstLoop: boolean) => {
+    // أول loop — استخدم المُجهَّزين إن وجدوا
+    if (isFirstLoop && preparedPlayersRef.current?.taroukUrl === taroukUrl) {
+      const { players } = preparedPlayersRef.current;
+      preparedPlayersRef.current = null;
+      preparedUrlRef.current = "";
+
+      players.forEach(player => {
+        if (!isPlayingRef.current) return;
+        try {
+          player.currentTime = 0;
+          player.play();
+          playersRef.current.push(player);
+          setTimeout(() => {
+            try { player.pause(); player.release(); } catch (_) {}
+            playersRef.current = playersRef.current.filter(p => p !== player);
+          }, (taroukDuration + 2) * 1000);
+        } catch (_) {}
+      });
+      return;
+    }
+
+    // باقي الـ loops
     CROWD_FIXED.forEach(({ volume, rate }) => {
       if (!isPlayingRef.current) return;
       try {
@@ -52,12 +122,11 @@ export function useSheelohaPlayer() {
         player.setPlaybackRate(rate);
         player.play();
         playersRef.current.push(player);
-        // مدة موحدة للجميع
         setTimeout(() => {
           try { player.pause(); player.release(); } catch (_) {}
           playersRef.current = playersRef.current.filter(p => p !== player);
         }, (taroukDuration + 2) * 1000);
-      } catch (e) {}
+      } catch (_) {}
     });
   }, []);
 
@@ -95,17 +164,17 @@ export function useSheelohaPlayer() {
     };
 
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
+    let loopCount = 0;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
-      playCrowd(taroukUrl, taroukDuration);
+      playCrowd(taroukUrl, taroukDuration, loopCount === 0);
+      loopCount++;
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
 
-    // ← الأصوات تبدأ فوراً
     startLoop();
 
-    // ← التصفيق يبدأ بعد 300ms حتى تكون الأصوات قد بدأت
     const clapDelay = setTimeout(() => {
       if (!isPlayingRef.current) return;
       playClap();
@@ -120,5 +189,5 @@ export function useSheelohaPlayer() {
     cleanup();
   }, [cleanup]);
 
-  return { play, stop, isPlaying: isPlayingState };
+  return { play, stop, prepare, isPlaying: isPlayingState };
 }

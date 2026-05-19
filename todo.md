@@ -2710,9 +2710,3 @@
 - [x] إضافة logging مفصّل لتتبع التشغيل
 - [x] حذف fallback logic غير ضروري من playCrowd (الاحتمالية = 0%)
 - [x] حذف setTimeout من playCrowd لتحقيق تزامن كامل (0ms تأخير بين الأصوات)
-
-## شاشة التحميل (Splash Screen)
-- [x] إنشاء مكونات شاشة التحميل (splash-screen.tsx)
-- [x] إضافة حركة الموجة للنقاط النحاسية (wave-animated-dot.tsx)
-- [x] دمج شاشة التحميل في app/_layout.tsx
-- [x] اختبار الحركة والتوقيت

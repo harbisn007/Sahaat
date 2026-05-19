@@ -1,4 +1,5 @@
 import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
 import { useLocalSearchParams, router, useNavigation } from "expo-router";
@@ -654,14 +655,13 @@ export default function RoomScreen() {
             console.error("[RoomScreen] Failed to play comment:", e);
           }
         } else {
-          // الطاروق: إذا شيلوها تعمل، لا تشغل طاروق
-          if (sheelohaPlayerRef.current.isPlaying) return;
-          // إيقاف الشيلوها أولاً ثم تشغيل الطاروق
+          // الطاروق: أوقف شيلوها وشغّل الطاروق
           sheelohaPlayerRef.current.stop();
           try {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
+            sheelohaPlayerRef.current.prepare(data.audioUrl, data.duration || 3);
             activePlayersRef.current.push(taroukPlayer);
             setTimeout(() => {
               try { taroukPlayer.release(); } catch (_) {}
@@ -682,6 +682,11 @@ export default function RoomScreen() {
         sheelohaPlayerRef.current.play({
           taroukUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
+        }).then(() => {
+          // تحقق من الأخطاء بعد التشغيل
+          if (sheelohaPlayerRef.current.error) {
+            console.warn("[RoomScreen] Sheeloha playback error:", sheelohaPlayerRef.current.error);
+          }
         }).catch((e) => {
           console.error("[RoomScreen] Sheeloha playback failed:", e);
         });
@@ -1778,6 +1783,12 @@ export default function RoomScreen() {
         });
         console.log("[RoomScreen] Saved to database successfully");
         
+        // إذا كان طاروق، جهّز الأصوات للحلقة الأولى من Sheeloha
+        if (currentRecordingType === "tarouk") {
+          console.log("[RoomScreen] Preparing sheeloha audio for first loop after tarouk");
+          sheelohaPlayerRef.current.prepare(url, recording.duration || 3);
+        }
+        
         // Refresh audio messages فوراً
         console.log("[RoomScreen] Refetching audio messages...");
         await refetchAudioMessages();
@@ -2272,7 +2283,7 @@ export default function RoomScreen() {
       )}
 
       {/* Messages Feed + حقل الكتابة + الأزرار */}
-      <View
+      <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 50}
@@ -2661,6 +2672,12 @@ export default function RoomScreen() {
                       taroukDuration: lastTarouk.duration || 3,
                     });
 
+                    // التحقق من وجود خطأ في التشغيل
+                    if (sheelohaPlayer.error) {
+                      Alert.alert("تحذير", sheelohaPlayer.error);
+                      return;
+                    }
+
                     // بث للجميع عبر Socket.io
                     const socket = await getSocket();
                     socket.emit("playSheeloha", {
@@ -2747,12 +2764,19 @@ export default function RoomScreen() {
                     // إيقاف الشيلوها محلياً
                     sheelohaPlayer.stop();
                     
-                    // تشغيل التصفيق الختامي
+                    // تشغيل التصفيق الختامي والملف الصوتي الجديد معاً
                     const finalClapAsset = require("@/assets/sounds/sheeloha-claps.m4a");
                     const finalClapPlayer = createAudioPlayer(finalClapAsset);
                     finalClapPlayer.volume = 0.225;
                     finalClapPlayer.loop = false;
                     finalClapPlayer.play();
+
+                    // تشغيل الملف الصوتي الجديد بالتزامن
+                    const khalwaSound = require("@/assets/sounds/khalwa-sound.m4a");
+                    const khalwaSoundPlayer = createAudioPlayer(khalwaSound);
+                    khalwaSoundPlayer.volume = 1.0;
+                    khalwaSoundPlayer.loop = false;
+                    khalwaSoundPlayer.play();
 
                     
                     // بث أمر إيقاف للجميع مع URL الطاروق للتصفيق الختامي
@@ -2872,7 +2896,7 @@ export default function RoomScreen() {
         </View>
       </View>
       </View>
-      </View>
+      </KeyboardAvoidingView>
       {/* Reactions Picker Modal */}
       <ReactionsPicker
         visible={isReactionsPickerOpen}
