@@ -98,10 +98,37 @@ export function useSheelohaPlayer() {
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
 
+    // تشغيل الصوت الأول والثاني فقط في البداية لتجنب عدم التزامن
+    const playFirstTwoOnly = () => {
+      if (!isPlayingRef.current) return;
+      const firstTwo = CROWD_FIXED.slice(0, 2);
+      firstTwo.forEach(({ volume, rate }) => {
+        try {
+          const player = createAudioPlayer(taroukUrl);
+          player.volume = volume;
+          player.setPlaybackRate(rate);
+          player.play();
+          playersRef.current.push(player);
+          setTimeout(() => {
+            try { player.release(); } catch (_) {}
+            playersRef.current = playersRef.current.filter(p => p !== player);
+          }, (taroukDuration + 2) * 1000);
+        } catch (e) {}
+      });
+    };
+
+    // شغّل الأول والثاني فوراً
+    playFirstTwoOnly();
+
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
+    let loopCount = 0;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
-      playCrowd(taroukUrl, taroukDuration);
+      loopCount++;
+      // بعد الحلقة الأولى (التي شغلنا فيها الأول والثاني)، شغّل الخمسة كاملة
+      if (loopCount > 1) {
+        playCrowd(taroukUrl, taroukDuration);
+      }
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
