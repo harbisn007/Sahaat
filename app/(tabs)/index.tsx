@@ -334,7 +334,11 @@ export default function HomeScreen() {
   };
 
   const { data: top10Rooms, isLoading: roomsLoading, refetch } = trpc.top10.list.useQuery(undefined, { refetchInterval: 3000 });
-  const rooms = top10Rooms || [];
+  const { data: allRoomsData } = trpc.allRooms.list.useQuery(undefined, { refetchInterval: 3000 });
+  const allRoomsList = allRoomsData || [];
+  const top10 = allRoomsList.slice(0, 10);
+  const remainingRooms = allRoomsList.slice(10);
+  const rooms = top10Rooms || top10 || [];
   const { data: onlineCountData } = trpc.stats.onlineCount.useQuery(undefined, { refetchInterval: 3000 });
   const onlineCount = onlineCountData?.count ?? 0;
   const { data: followingData, isLoading: followingLoading } = trpc.interactions.getFollowingDetails.useQuery(
@@ -704,6 +708,27 @@ export default function HomeScreen() {
                 )}
                 refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
                 contentContainerStyle={{ paddingBottom: 20 }}
+                ListFooterComponent={
+                  remainingRooms.length > 0 ? (
+                    <View>
+                      <View style={{ height: 2, backgroundColor: '#c8860a', marginVertical: 16, marginHorizontal: 16, opacity: 0.6 }} />
+                      <View style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8, gap: 6 }}>
+                        {remainingRooms.map((item, index) => (
+                          <View key={item.id} style={{ width: '50%', marginBottom: 6 }}>
+                            <RoomCard
+                              room={item}
+                              currentUserId={userId}
+                              onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                              onDirectEnter={() => router.push(`/room/${item.id}`)}
+                              showGoldStar={item.hasGoldStar === "true"}
+                              rank={10 + index + 1}
+                            />
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                  ) : null
+                }
               />
             ) : (
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>

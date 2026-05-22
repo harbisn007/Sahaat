@@ -1271,6 +1271,84 @@ export async function getTop10Rooms() {
   return sortedRooms.slice(0, 10);
 }
 
+// دالة لجلب جميع الساحات (مرتبة بنفس معايير Top 10)
+export async function getAllRooms() {
+  const db = await getDb();
+  if (!db) return [];
+
+  // جلب جميع الساحات النشطة
+  const allRooms = await db
+    .select()
+    .from(rooms)
+    .where(eq(rooms.isActive, "true"));
+
+  if (allRooms.length === 0) return [];
+
+  // جلب جميع المشاركين للساحات النشطة
+  const roomIds = allRooms.map(r => r.id);
+  const allParticipants = await db
+    .select()
+    .from(roomParticipants)
+    .where(
+      and(
+        inArray(roomParticipants.roomId, roomIds),
+        eq(roomParticipants.status, "accepted")
+      )
+    );
+
+  // جلب جميع طلبات الانضمام المنتظرة
+  const allPendingRequests = await db
+    .select()
+    .from(joinRequests)
+    .where(
+      and(
+        inArray(joinRequests.roomId, roomIds),
+        eq(joinRequests.status, "pending")
+      )
+    );
+
+  // حساب الإحصائيات لكل ساحة
+  const roomsWithStats = allRooms.map(room => {
+    const roomParticipantsList = allParticipants.filter(p => p.roomId === room.id);
+    const roomPendingRequests = allPendingRequests.filter(r => r.roomId === room.id);
+    
+    const viewerCount = roomParticipantsList.filter(p => p.role === "viewer").length;
+    const playerCount = roomParticipantsList.filter(p => p.role === "player" || p.role === "creator").length;
+    const pendingRequestsCount = roomPendingRequests.length;
+    const acceptedPlayersCount = roomParticipantsList.filter(p => p.role === "player").length;
+
+    return {
+      ...room,
+      viewerCount,
+      playerCount,
+      pendingRequestsCount,
+      acceptedPlayersCount,
+      isRoomFull: acceptedPlayersCount >= 2,
+    };
+  });
+
+  // ترتيب حسب نفس المعايير
+  const sortedRooms = roomsWithStats.sort((a, b) => {
+    // 1. المستمعين
+    if (b.viewerCount !== a.viewerCount) {
+      return b.viewerCount - a.viewerCount;
+    }
+    // 2. طلبات الانضمام المنتظرة
+    if (b.pendingRequestsCount !== a.pendingRequestsCount) {
+      return b.pendingRequestsCount - a.pendingRequestsCount;
+    }
+    // 3. اللاعبين
+    if (b.playerCount !== a.playerCount) {
+      return b.playerCount - a.playerCount;
+    }
+    // 4. الأقدم أولاً
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+
+  // إرجاع جميع الساحات (بدون تحديد)
+  return sortedRooms;
+}
+
 // دالة للتحقق من منح النجمة الذهبية
 export async function checkAndAwardGoldStar(roomId: number) {
   const db = await getDb();

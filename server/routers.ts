@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
+import * as adminDb from "./db-admin-functions";
 import {
   emitRoomUpdated,
   emitRoomDeleted,
@@ -896,6 +897,13 @@ export const appRouter = router({
     }),
   }),
 
+  // All rooms (same sorting as top10)
+  allRooms: router({
+    list: publicProcedure.query(async () => {
+      return db.getAllRooms();
+    }),
+  }),
+
   // Online users count
   stats: router({
     // Get online users count (actual + 50%)
@@ -1163,7 +1171,7 @@ export const appRouter = router({
         banType: z.enum(["1h", "24h", "permanent"]),
       }))
       .mutation(async ({ input }) => {
-        const ban = await db.banUser(input.userId, input.username, input.banType);
+        const ban = await adminDb.banUser(input.userId, input.username, input.banType);
         // إغلاق ساحة المحظور فوراً إن وُجدت
         const activeRoom = await db.getUserActiveRoom(input.userId);
         if (activeRoom) {
@@ -1222,6 +1230,123 @@ export const appRouter = router({
         const now = new Date();
         emitTextMessageCreated(input.roomId, id, input.userId, input.username, input.text, now);
         return { id };
+      }),
+  }),
+  // Admin router - إدارة المشرفين والمدراء
+  admin: router({
+    getModeratorsAndAdmins: publicProcedure.query(async () => {
+      return db.getModeratorsAndAdmins();
+    }),
+    getAllUsers: publicProcedure.query(async () => {
+      return db.getAllUsers();
+    }),
+    setUserRole: publicProcedure
+      .input(
+        z.object({
+          targetUserId: z.string(),
+          newRole: z.enum(['user', 'moderator', 'admin']),
+          adminId: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const admin = await adminDb.getUserById(input.adminId);
+        if (!admin || admin.role !== 'admin') {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.updateUserRole(input.targetUserId, input.newRole);
+        return { success: true, message: 'تم تحديث الدور بنجاح' };
+      }),
+    removeUserRole: publicProcedure
+      .input(
+        z.object({
+          targetUserId: z.string(),
+          adminId: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const admin = await adminDb.getUserById(input.adminId);
+        if (!admin || admin.role !== 'admin') {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.updateUserRole(input.targetUserId, 'user');
+        return { success: true, message: 'تم إزالة الصلاحيات بنجاح' };
+      }),
+    banUser: publicProcedure
+      .input(
+        z.object({
+          targetUserId: z.string(),
+          moderatorId: z.string(),
+          reason: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const moderator = await adminDb.getUserById(input.moderatorId);
+        if (!moderator || !['moderator', 'admin'].includes(moderator.role)) {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.banUser(input.targetUserId, input.moderatorId, input.reason);
+        return { success: true, message: 'تم حظر المستخدم بنجاح' };
+      }),
+    unbanUser: publicProcedure
+      .input(
+        z.object({
+          targetUserId: z.string(),
+          moderatorId: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const moderator = await adminDb.getUserById(input.moderatorId);
+        if (!moderator || !['moderator', 'admin'].includes(moderator.role)) {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.unbanUser(input.targetUserId, input.moderatorId);
+        return { success: true, message: 'تم إلغاء الحظر بنجاح' };
+      }),
+    closeRoom: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          moderatorId: z.string(),
+          reason: z.string().optional(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const moderator = await adminDb.getUserById(input.moderatorId);
+        if (!moderator || !['moderator', 'admin'].includes(moderator.role)) {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.closeRoomByModerator(input.roomId, input.moderatorId, input.reason);
+        return { success: true, message: 'تم إغلاق الساحة بنجاح' };
+      }),
+    pinRoom: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          moderatorId: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const moderator = await adminDb.getUserById(input.moderatorId);
+        if (!moderator || !['moderator', 'admin'].includes(moderator.role)) {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.pinRoom(input.roomId, input.moderatorId);
+        return { success: true, message: 'تم تثبيت الساحة بنجاح' };
+      }),
+    unpinRoom: publicProcedure
+      .input(
+        z.object({
+          roomId: z.number(),
+          moderatorId: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        const moderator = await adminDb.getUserById(input.moderatorId);
+        if (!moderator || !['moderator', 'admin'].includes(moderator.role)) {
+          throw new Error('ليس لديك صلاحيات كافية');
+        }
+        await adminDb.unpinRoom(input.roomId, input.moderatorId);
+        return { success: true, message: 'تم إلغاء التثبيت بنجاح' };
       }),
   }),
 });

@@ -661,7 +661,7 @@ export default function RoomScreen() {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
-            sheelohaPlayerRef.current.prepare(data.audioUrl, data.duration || 3);
+            sheelohaPlayerRef.current.prepare(data.audioUrl);
             activePlayersRef.current.push(taroukPlayer);
             setTimeout(() => {
               try { taroukPlayer.release(); } catch (_) {}
@@ -682,6 +682,13 @@ export default function RoomScreen() {
         sheelohaPlayerRef.current.play({
           taroukUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
+        }).then(() => {
+          // تحقق من الأخطاء بعد التشغيل
+          if (sheelohaPlayerRef.current.error) {
+            console.warn("[RoomScreen] Sheeloha playback error:", sheelohaPlayerRef.current.error);
+          }
+        }).catch((e) => {
+          console.error("[RoomScreen] Sheeloha playback failed:", e);
         });
       },
       // حدث حظر المستخدم - إخراجه فوراً من الساحة
@@ -1775,12 +1782,6 @@ export default function RoomScreen() {
           duration: recording.duration || 0,
         });
         console.log("[RoomScreen] Saved to database successfully");
-        
-        // إذا كان طاروق، جهّز الأصوات للحلقة الأولى من Sheeloha
-        if (currentRecordingType === "tarouk") {
-          console.log("[RoomScreen] Preparing sheeloha audio for first loop after tarouk");
-          sheelohaPlayerRef.current.prepare(url, recording.duration || 3);
-        }
         
         // Refresh audio messages فوراً
         console.log("[RoomScreen] Refetching audio messages...");
