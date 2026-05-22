@@ -189,41 +189,6 @@ router.get("/api/audio-proxy", async (req: Request, res: Response) => {
   }
 });
 
-// ── جلب قائمة المدراء والمشرفين ──
-router.get("/api/moderators", async (req: Request, res: Response) => {
-  if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
-  try {
-    const db = await getDb();
-    if (!db) return res.status(500).json({ error: "Database connection failed" });
-    const result = await db.execute(
-      `SELECT id, name, email, avatar, role FROM users WHERE role IN ('moderator', 'admin') ORDER BY role DESC, name ASC`
-    );
-    res.json(result.rows || []);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch moderators" });
-  }
-});
-
-// ── تعيين دور للمستخدم ──
-router.post("/api/set-role", async (req: Request, res: Response) => {
-  if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
-  const { userId, role } = req.body;
-  if (!userId || !role || !['user', 'moderator', 'admin'].includes(role)) {
-    return res.status(400).json({ error: "Invalid input" });
-  }
-  try {
-    const db = await getDb();
-    if (!db) return res.status(500).json({ error: "Database connection failed" });
-    await db.execute(
-      `UPDATE users SET role = ? WHERE id = ?`,
-      [role, userId]
-    );
-    res.json({ success: true, message: "تم تحديث الدور بنجاح" });
-  } catch (err) {
-    res.status(500).json({ error: "Failed to update role" });
-  }
-});
-
 export { router as adminRouter };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -382,7 +347,6 @@ function dashboardPage(data: {
     tr:hover td { background: #1c1208; }
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
     .badge-user { background: #2d1f0e; color: #c8860a; border: 1px solid #c8860a44; }
-    .badge-moderator { background: #2d1f2d; color: #A78BFA; border: 1px solid #A78BFA44; }
     .badge-admin { background: #1a2d1a; color: #22C55E; border: 1px solid #22C55E44; }
     .badge-active { background: #1a2d1a; color: #22C55E; border: 1px solid #22C55E44; }
     .badge-inactive { background: #2d1a1a; color: #EF4444; border: 1px solid #EF444444; }
@@ -459,7 +423,6 @@ function dashboardPage(data: {
     <div class="tabs">
       <button class="tab active" onclick="switchTab('users', this)">المستخدمون</button>
       <button class="tab" onclick="switchTab('rooms', this)">الساحات</button>
-      <button class="tab" onclick="switchTab('moderators', this)">المدراء والمشرفون</button>
       <button class="tab" onclick="switchTab('reports', this)">البلاغات <span id="reports-count" style="background:#EF4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:4px">${totalReports}</span></button>
       <button class="tab" onclick="switchTab('bans', this)">المحظورون <span id="bans-count" style="background:#F59E0B;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:4px">${activeBans.length}</span></button>
     </div>
@@ -509,29 +472,6 @@ function dashboardPage(data: {
             </tr>
           </thead>
           <tbody>${roomsRows}</tbody>
-        </table>
-      </div>
-    </div>
-
-    <!-- تبويب المدراء والمشرفون -->
-    <div class="panel" id="panel-moderators">
-      <div class="section-header">
-        <h2>المدراء والمشرفون</h2>
-        <button class="refresh-btn" onclick="location.reload()">تحديث</button>
-      </div>
-      <input class="search-bar" type="text" placeholder="بحث بالاسم أو البريد..." oninput="filterTable('moderators-table', this.value)" />
-      <div class="table-wrap">
-        <table id="moderators-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>الاسم</th>
-              <th>البريد</th>
-              <th>الدور</th>
-              <th>الإجراءات</th>
-            </tr>
-          </thead>
-          <tbody id="moderators-tbody"></tbody>
         </table>
       </div>
     </div>
@@ -777,59 +717,6 @@ function dashboardPage(data: {
         }
       } catch(e) { alert('خطأ: ' + e); }
     }
-
-    // ── إدارة المدراء والمشرفون ──
-    async function loadModerators() {
-      try {
-        const res = await fetch('/admin/api/moderators');
-        if (!res.ok) throw new Error('Failed to load moderators');
-        const moderators = await res.json();
-        const tbody = document.getElementById('moderators-tbody');
-        tbody.innerHTML = moderators.map((m, i) => `
-          <tr id="mod-row-${m.id}">
-            <td>${i + 1}</td>
-            <td>${m.name || '—'}</td>
-            <td>${m.email || '—'}</td>
-            <td><span class="badge badge-${m.role}">${m.role === 'admin' ? 'مدير' : m.role === 'moderator' ? 'مشرف' : 'مستخدم'}</span></td>
-            <td>
-              <select onchange="changeModeratorRole('${m.id}', this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">
-                <option value="">-- اختر --</option>
-                <option value="moderator" ${m.role === 'moderator' ? 'selected' : ''}>مشرف</option>
-                <option value="admin" ${m.role === 'admin' ? 'selected' : ''}>مدير</option>
-                <option value="user">إزالة الصلاحيات</option>
-              </select>
-            </td>
-          </tr>
-        `).join('');
-      } catch(e) {
-        console.error('Error loading moderators:', e);
-      }
-    }
-
-    async function changeModeratorRole(userId, newRole) {
-      if (!newRole) return;
-      if (!confirm('هل تريد تحديث دور هذا المستخدم؟')) return;
-      try {
-        const res = await fetch('/admin/api/set-role', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, role: newRole })
-        });
-        if (res.ok) {
-          alert('تم تحديث الدور بنجاح');
-          loadModerators();
-        } else {
-          alert('فشل تحديث الدور');
-        }
-      } catch(e) {
-        alert('خطأ: ' + e);
-      }
-    }
-
-    // تحميل المدراء عند فتح التبويب
-    document.addEventListener('DOMContentLoaded', () => {
-      loadModerators();
-    });
   </script>
 </body>
 </html>`;
@@ -840,4 +727,3 @@ function formatDate(d: Date | string | null): string {
   const date = new Date(d);
   return date.toLocaleString("ar-SA", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh" });
 }
-// Force rebuild Fri May 22 12:57:22 EDT 2026

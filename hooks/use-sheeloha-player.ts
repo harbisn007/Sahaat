@@ -61,23 +61,6 @@ export function useSheelohaPlayer() {
     });
   }, []);
 
-  // دالة مستقلة لتشغيل الصوت الأول من الخمسة فقط
-  const playFirstCrowdOnly = useCallback((taroukUrl: string, taroukDuration: number) => {
-    if (!isPlayingRef.current) return;
-    try {
-      const { volume, rate } = CROWD_FIXED[0]; // الصوت الأول فقط
-      const player = createAudioPlayer(taroukUrl);
-      player.volume = volume;
-      player.setPlaybackRate(rate);
-      player.play();
-      playersRef.current.push(player);
-      setTimeout(() => {
-        try { player.release(); } catch (_) {}
-        playersRef.current = playersRef.current.filter(p => p !== player);
-      }, (taroukDuration + 2) * 1000);
-    } catch (e) {}
-  }, []);
-
   const play = useCallback(async (data: SheelohaData) => {
     const taroukUrl = data.taroukUrl || data.sheelohaUrl || "";
     const taroukDuration = data.taroukDuration || 3;
@@ -97,7 +80,6 @@ export function useSheelohaPlayer() {
 
     if (!isPlayingRef.current) return;
 
-    // دالة التصفيق المتكرر
     const playClap = () => {
       if (!isPlayingRef.current) return;
       try {
@@ -112,29 +94,47 @@ export function useSheelohaPlayer() {
       } catch (_) {}
     };
 
-    // البداية الفورية: تشغيل التصفيق
     playClap();
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
 
-    // تشغيل الصوت الأول من الخمسة فقط في البداية
-    playFirstCrowdOnly(taroukUrl, taroukDuration);
+    // تشغيل الصوت الأول والثاني فقط في البداية لتجنب عدم التزامن
+    const playFirstTwoOnly = () => {
+      if (!isPlayingRef.current) return;
+      const firstTwo = CROWD_FIXED.slice(0, 2);
+      firstTwo.forEach(({ volume, rate }) => {
+        try {
+          const player = createAudioPlayer(taroukUrl);
+          player.volume = volume;
+          player.setPlaybackRate(rate);
+          player.play();
+          playersRef.current.push(player);
+          setTimeout(() => {
+            try { player.release(); } catch (_) {}
+            playersRef.current = playersRef.current.filter(p => p !== player);
+          }, (taroukDuration + 2) * 1000);
+        } catch (e) {}
+      });
+    };
 
-    // بدء الحلقة بعد انتهاء الصوت الأول
+    // شغّل الأول والثاني فوراً
+    playFirstTwoOnly();
+
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
+    let loopCount = 0;
     const startLoop = () => {
       if (!isPlayingRef.current) return;
-      // تشغيل الخمسة أصوات كاملة
-      playCrowd(taroukUrl, taroukDuration);
+      loopCount++;
+      // بعد الحلقة الأولى (التي شغلنا فيها الأول والثاني)، شغّل الخمسة كاملة
+      if (loopCount > 1) {
+        playCrowd(taroukUrl, taroukDuration);
+      }
       const t = setTimeout(startLoop, loopDuration);
       timersRef.current.push(t);
     };
-    
-    // جدول بدء الحلقة بعد انتهاء الصوت الأول
-    const loopStartTimer = setTimeout(startLoop, loopDuration);
-    timersRef.current.push(loopStartTimer);
+    startLoop();
 
-  }, [cleanup, playCrowd, playFirstCrowdOnly]);
+  }, [cleanup, playCrowd]);
 
   const stop = useCallback(() => {
     cleanup();

@@ -15,7 +15,6 @@ interface UserContextType {
   accountType: AccountType;
   googleId: string | null;
   appleId: string | null;
-  userRole: 'user' | 'moderator' | 'admin';
   isLoading: boolean;
   isLoggedIn: boolean;
   setUsername: (name: string) => Promise<void>;
@@ -44,7 +43,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [accountType, setAccountTypeState] = useState<AccountType>("guest");
   const [googleId, setGoogleIdState] = useState<string | null>(null);
   const [appleId, setAppleIdState] = useState<string | null>(null);
-  const [userRole, setUserRoleState] = useState<'user' | 'moderator' | 'admin'>('user');
   const [isLoading, setIsLoading] = useState(true);
 
   const isLoggedIn = !!username && !!userId;
@@ -287,7 +285,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       avatar, 
       accountType,
       googleId,
-      userRole,
       appleId,
       isLoading, 
       isLoggedIn,
