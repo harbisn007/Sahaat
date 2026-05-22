@@ -208,7 +208,7 @@ router.get("/api/moderators", async (req: Request, res: Response) => {
 router.post("/api/set-role", async (req: Request, res: Response) => {
   if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
   const { userId, role } = req.body;
-  if (!userId || !['user', 'moderator', 'admin'].includes(role)) {
+  if (!userId || !role || !['user', 'moderator', 'admin'].includes(role)) {
     return res.status(400).json({ error: "Invalid input" });
   }
   try {

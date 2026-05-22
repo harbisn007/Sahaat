@@ -148,6 +148,13 @@
       "when": 1777408190874,
       "tag": "0020_friendly_lord_hawal",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1779458773937,
+      "tag": "0021_high_betty_ross",
+      "breakpoints": true
     }
   ]
 }

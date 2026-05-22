@@ -1271,8 +1271,8 @@ export async function getTop10Rooms() {
   return sortedRooms.slice(0, 10);
 }
 
-// دالة لجلب جميع الساحات (مرتبة بنفس معايير Top 10)
-export async function getAllRooms() {
+// دالة لجلب جميع الساحات مع الإحصائيات (مرتبة بنفس معايير Top 10)
+export async function getAllRoomsWithStats() {
   const db = await getDb();
   if (!db) return [];
 
