@@ -840,3 +840,4 @@ function formatDate(d: Date | string | null): string {
   const date = new Date(d);
   return date.toLocaleString("ar-SA", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Riyadh" });
 }
+// Force rebuild Fri May 22 12:57:22 EDT 2026
