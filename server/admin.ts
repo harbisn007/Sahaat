@@ -382,6 +382,7 @@ function dashboardPage(data: {
     tr:hover td { background: #1c1208; }
     .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; }
     .badge-user { background: #2d1f0e; color: #c8860a; border: 1px solid #c8860a44; }
+    .badge-moderator { background: #2d1f2d; color: #A78BFA; border: 1px solid #A78BFA44; }
     .badge-admin { background: #1a2d1a; color: #22C55E; border: 1px solid #22C55E44; }
     .badge-active { background: #1a2d1a; color: #22C55E; border: 1px solid #22C55E44; }
     .badge-inactive { background: #2d1a1a; color: #EF4444; border: 1px solid #EF444444; }
@@ -789,7 +790,7 @@ function dashboardPage(data: {
             <td>${i + 1}</td>
             <td>${m.name || '—'}</td>
             <td>${m.email || '—'}</td>
-            <td><span class="badge ${m.role === 'admin' ? 'badge-admin' : 'badge-user'}">${m.role === 'admin' ? 'مدير' : 'مشرف'}</span></td>
+            <td><span class="badge badge-${m.role}">${m.role === 'admin' ? 'مدير' : m.role === 'moderator' ? 'مشرف' : 'مستخدم'}</span></td>
             <td>
               <select onchange="changeModeratorRole('${m.id}', this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">
                 <option value="">-- اختر --</option>
