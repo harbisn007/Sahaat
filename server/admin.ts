@@ -165,7 +165,41 @@ router.get("/api/rooms", async (req: Request, res: Response) => {
   res.json(data);
 });
 
-// ── proxy لتشغيل الصوت من R2 بدون CORS ────────────────────────────────────
+// ── API: جلب قائمة المدراءوالمشرفين ──
+router.get("/api/moderators", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
+  try {
+    const dbConn = await getDb();
+    if (!dbConn) return res.status(500).json({ error: "Database connection failed" });
+    const result = await dbConn
+      .select({ id: users.id, name: users.name, email: users.phoneNumber, avatar: users.avatar, role: users.role })
+      .from(users)
+      .where(eq(users.role, 'moderator') || eq(users.role, 'admin'))
+      .orderBy(desc(users.role), users.name);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch moderators" });
+  }
+});
+
+// ── API: تعيين دور للمستخدم ──
+router.post("/api/set-role", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
+  const { userId, role } = req.body;
+  if (!userId || !role || !['user', 'moderator', 'admin'].includes(role)) {
+    return res.status(400).json({ error: "Invalid input" });
+  }
+  try {
+    const dbConn = await getDb();
+    if (!dbConn) return res.status(500).json({ error: "Database connection failed" });
+    await dbConn.update(users).set({ role: role as any }).where(eq(users.id, userId));
+    res.json({ success: true, message: "تم تحديث الدور بنجاح" });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to update role" });
+  }
+});
+
+// ── API: proxy لتشغيل الصوت من R2 بدون CORS ────────────────────────────────────
 router.get("/api/audio-proxy", async (req: Request, res: Response) => {
   if (!isAuthenticated(req)) return res.status(401).send("Unauthorized");
   const url = req.query.url as string;
@@ -185,8 +219,7 @@ router.get("/api/audio-proxy", async (req: Request, res: Response) => {
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.send(buffer);
   } catch (err) {
-    res.status(500).send("Proxy error: " + err);
-  }
+    res.status(500).send("Proxy error: " + err);  }
 });
 
 export { router as adminRouter };
@@ -425,6 +458,7 @@ function dashboardPage(data: {
       <button class="tab" onclick="switchTab('rooms', this)">الساحات</button>
       <button class="tab" onclick="switchTab('reports', this)">البلاغات <span id="reports-count" style="background:#EF4444;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:4px">${totalReports}</span></button>
       <button class="tab" onclick="switchTab('bans', this)">المحظورون <span id="bans-count" style="background:#F59E0B;color:#fff;border-radius:10px;padding:1px 7px;font-size:11px;margin-right:4px">${activeBans.length}</span></button>
+      <button class="tab" onclick="switchTab('moderators', this)">المدراء والمشرفون</button>
     </div>
 
     <!-- تبويب المستخدمين -->
@@ -521,7 +555,29 @@ function dashboardPage(data: {
           </thead>
           <tbody>${bansRows}</tbody>
         </table>
-      </div>`}
+      </div>
+    </div>
+
+    <!-- تبويب المدراء والمشرفون -->
+    <div class="panel" id="panel-moderators">
+      <div class="section-header">
+        <h2>إدارة المدراء والمشرفون</h2>
+        <button class="refresh-btn" onclick="loadModerators()">تحديث</button>
+      </div>
+      <div class="table-wrap">
+        <table id="moderators-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الاسم</th>
+              <th>البريد</th>
+              <th>الدور الحالي</th>
+              <th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody id="moderators-tbody"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
@@ -717,6 +773,50 @@ function dashboardPage(data: {
         }
       } catch(e) { alert('خطأ: ' + e); }
     }
+
+    // ── إدارة المدراء والمشرفون ──
+    async function loadModerators() {
+      try {
+        const res = await fetch('/admin/api/moderators');
+        if (!res.ok) throw new Error('Failed to fetch');
+        const moderators = await res.json();
+        const tbody = document.getElementById('moderators-tbody');
+        tbody.innerHTML = moderators.map((m, i) => {
+          const roleText = m.role === 'admin' ? 'مدير' : m.role === 'moderator' ? 'مشرف' : 'مستخدم';
+          const badgeClass = m.role === 'admin' ? 'badge-admin' : 'badge-moderator';
+          return '<tr><td>' + (i + 1) + '</td><td>' + (m.name || '—') + '</td><td>' + (m.email || '—') + '</td><td><span class="badge ' + badgeClass + '">' + roleText + '</span></td><td><select onchange="changeModeratorRole(' + m.id + ', this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ' + (m.role === 'user' ? 'selected' : '') + '>مستخدم عادي</option><option value="moderator" ' + (m.role === 'moderator' ? 'selected' : '') + '>مشرف</option><option value="admin" ' + (m.role === 'admin' ? 'selected' : '') + '>مدير</option></select></td></tr>';
+        }).join('');
+      } catch(e) {
+        alert('فشل تحميل المدراء: ' + e);
+      }
+    }
+
+    async function changeModeratorRole(userId, newRole) {
+      try {
+        const res = await fetch('/admin/api/set-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: parseInt(userId), role: newRole })
+        });
+        if (res.ok) {
+          alert('تم تحديث الدور بنجاح');
+          loadModerators();
+        } else {
+          const err = await res.json();
+          alert('فشل تحديث الدور: ' + (err.error || 'خطأ غير معروف'));
+        }
+      } catch(e) {
+        alert('خطأ: ' + e);
+      }
+    }
+
+    // تحميل المدراء عند فتح الصفحة
+    document.addEventListener('DOMContentLoaded', () => {
+      const moderatorsTab = document.querySelector('[onclick="switchTab(\'moderators\', this)"]');
+      if (moderatorsTab) {
+        moderatorsTab.addEventListener('click', loadModerators);
+      }
+    });
   </script>
 </body>
 </html>`;
