@@ -147,6 +147,24 @@ router.post("/api/unban", async (req: Request, res: Response) => {
   }
 });
 
+// ── API: تغيير دور المستخدم (user, moderator, admin) ──
+router.post("/api/set-role", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const { userId, newRole } = req.body;
+    if (!userId || !newRole) return res.status(400).json({ error: "Missing userId or newRole" });
+    if (!["user", "moderator", "admin"].includes(newRole)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+    const dbConn = await getDb();
+    if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
+    await dbConn.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ── API: بيانات JSON للمستخدمين ─────────────────────────────────────────────
 router.get("/api/users", async (req: Request, res: Response) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
@@ -189,29 +207,6 @@ router.get("/api/audio-proxy", async (req: Request, res: Response) => {
   }
 });
 
-
-// ── API: جلب المدراء والمشرفين ────────────────────────────────────────────────
-router.get("/api/moderators", async (req: Request, res: Response) => {
-  if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
-  const dbConn = await getDb();
-  if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
-  const data = await dbConn.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).where(db.sql`${users.role} IN ('admin', 'moderator')`);
-  res.json(data);
-});
-
-// ── API: تغيير دور المستخدم ────────────────────────────────────────────────────
-router.post("/api/set-role", async (req: Request, res: Response) => {
-  if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
-  const { userId, newRole } = req.body;
-  if (!userId || !newRole) return res.status(400).json({ error: "Missing fields" });
-  if (!['user', 'moderator', 'admin'].includes(newRole)) return res.status(400).json({ error: "Invalid role" });
-  
-  const dbConn = await getDb();
-  if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
-  
-  await dbConn.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
-  res.json({ success: true });
-});
 export { router as adminRouter };
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -272,13 +267,15 @@ function dashboardPage(data: {
 
   const usersRows = latestUsers.map(u => {
     const isOnline = activeIds.has(u.appUserId || '');
+    const roleText = u.role === 'admin' ? 'مدير' : (u.role === 'moderator' ? 'مشرف' : 'مستخدم');
+    const badgeClass = u.role === 'admin' ? 'badge-admin' : (u.role === 'moderator' ? 'badge-moderator' : 'badge-user');
     return `
     <tr style="${isOnline ? 'background:#1a2d1a22;' : ''}">
       <td>${u.id}</td>
       <td>${isOnline ? '<span style="display:inline-block;width:8px;height:8px;background:#22C55E;border-radius:50%;margin-left:6px"></span>' : ''}<span style="${isOnline ? 'color:#22C55E;font-weight:700' : ''}">${u.name || '—'}</span></td>
       <td>${u.phoneNumber || '—'}</td>
       <td>${u.loginMethod || 'ضيف'}</td>
-      <td><span class="badge ${u.role === 'admin' ? 'badge-admin' : 'badge-user'}">${u.role === 'admin' ? 'مدير' : 'مستخدم'}</span></td>
+      <td><select onchange="changeUserRole(${u.id}, this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ${u.role === 'user' ? 'selected' : ''}>مستخدم عادي</option><option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>مشرف</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>مدير</option></select></td>
       <td>${formatDate(u.lastSignedIn)}</td>
       <td>${formatDate(u.createdAt)}</td>
     </tr>`;
@@ -466,7 +463,7 @@ function dashboardPage(data: {
               <th>الاسم</th>
               <th>رقم الجوال</th>
               <th>طريقة الدخول</th>
-              <th>الدور</th>
+              <th>الدور / الإجراء</th>
               <th>آخر دخول</th>
               <th>تاريخ التسجيل</th>
             </tr>
@@ -547,21 +544,22 @@ function dashboardPage(data: {
         </table>
       </div>`}
     </div>
-    <!-- تبويب المدراء والمشرفون -->
+
+    <!-- تبويب المدراء والمشرفين -->
     <div class="panel" id="panel-moderators">
       <div class="section-header">
-        <h2>المدراء والمشرفون</h2>
+        <h2>إدارة المدراء والمشرفين</h2>
         <button class="refresh-btn" onclick="loadModerators()">تحديث</button>
       </div>
       <div class="table-wrap">
-        <table id="moderators-table">
+        <table>
           <thead>
             <tr>
               <th>#</th>
               <th>الاسم</th>
               <th>البريد الإلكتروني</th>
-              <th>الدور</th>
-              <th>تغيير الدور</th>
+              <th>الدور الحالي</th>
+              <th>إجراء</th>
             </tr>
           </thead>
           <tbody id="moderators-tbody"></tbody>
@@ -579,46 +577,6 @@ function dashboardPage(data: {
     }
 
     function filterTable(tableId, query) {
-
-    // ── إدارة المدراء والمشرفون ──
-    async function loadModerators() {
-      try {
-        const res = await fetch('/admin/api/moderators');
-        if (!res.ok) throw new Error('Failed to fetch');
-        const moderators = await res.json();
-        const tbody = document.getElementById('moderators-tbody');
-        tbody.innerHTML = moderators.map((m, i) => {
-          const roleText = m.role === 'admin' ? 'مدير' : m.role === 'moderator' ? 'مشرف' : 'مستخدم';
-          const badgeClass = m.role === 'admin' ? 'badge-admin' : 'badge-moderator';
-          return '<tr><td>' + (i + 1) + '</td><td>' + (m.name || '—') + '</td><td>' + (m.email || '—') + '</td><td><span class="badge ' + badgeClass + '">' + roleText + '</span></td><td><select onchange="changeModeratorRole(' + m.id + ', this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ' + (m.role === 'user' ? 'selected' : '') + '>مستخدم عادي</option><option value="moderator" ' + (m.role === 'moderator' ? 'selected' : '') + '>مشرف</option><option value="admin" ' + (m.role === 'admin' ? 'selected' : '') + '>مدير</option></select></td></tr>';
-        }).join('');
-      } catch(e) {
-        alert('فشل تحميل المدراء: ' + e);
-      }
-    }
-
-    async function changeModeratorRole(userId, newRole) {
-      try {
-        const res = await fetch('/admin/api/set-role', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, newRole })
-        });
-        if (!res.ok) throw new Error('Failed to update');
-        alert('تم تحديث الدور بنجاح');
-        loadModerators();
-      } catch(e) {
-        alert('خطأ: ' + e);
-      }
-    }
-
-    // تحميل المدراء عند فتح الصفحة
-    document.addEventListener('DOMContentLoaded', () => {
-      const moderatorsTab = document.querySelector('[onclick="switchTab(\'moderators\', this)"]');
-      if (moderatorsTab) {
-        moderatorsTab.addEventListener('click', loadModerators);
-      }
-    });
       const q = query.trim().toLowerCase();
       const rows = document.querySelectorAll('#' + tableId + ' tbody tr');
       rows.forEach(row => {
@@ -799,6 +757,24 @@ function dashboardPage(data: {
         } else {
           const err = await res.json();
           alert('فشل إلغاء الحظر: ' + (err.error || 'خطأ غير معروف'));
+        }
+      } catch(e) { alert('خطأ: ' + e); }
+    }
+
+    // ── تغيير دور المستخدم من تبويب المستخدمين ──
+    async function changeUserRole(userId, newRole) {
+      try {
+        const res = await fetch('/admin/api/set-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, newRole })
+        });
+        if (res.ok) {
+          alert('تم تحديث الدور بنجاح');
+          location.reload();
+        } else {
+          const err = await res.json();
+          alert('فشل تحديث الدور: ' + (err.error || 'خطأ غير معروف'));
         }
       } catch(e) { alert('خطأ: ' + e); }
     }

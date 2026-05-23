@@ -148,13 +148,6 @@
       "when": 1777408190874,
       "tag": "0020_friendly_lord_hawal",
       "breakpoints": true
-    },
-    {
-      "idx": 21,
-      "version": "5",
-      "when": 1779483321246,
-      "tag": "0021_purple_aaron_stack",
-      "breakpoints": true
     }
   ]
 }

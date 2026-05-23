@@ -19,7 +19,7 @@ export const users = mysqlTable("users", {
   appUserId: varchar("appUserId", { length: 255 }),
   avatar: varchar("avatar", { length: 500 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "moderator", "admin"]).default("user").notNull(),
+  role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
