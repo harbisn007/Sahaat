@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "./db";
-import { roomParticipants, blockedUsers, users } from "../drizzle/schema";
+import { roomParticipants, blockedUsers, users, notifications } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
-import { emitUserRoleUpdated } from "./_core/socket";
+import { emitUserRoleUpdated, emitNotification } from "./_core/socket";
 
 const router = Router();
 
@@ -41,7 +41,27 @@ router.post("/api/ban-from-room", async (req: Request, res: Response) => {
       .delete(roomParticipants)
       .where(and(eq(roomParticipants.roomId, roomId), eq(roomParticipants.userId, userId)));
 
-    // أرسل إشعار للعملاء (Socket.io event)
+    // إرسال إشعار للمستخدم المحظور
+    const bannedUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (bannedUser[0]) {
+      await db.insert(notifications).values({
+        userId: bannedUser[0].id,
+        title: 'تم حظرك',
+        message: `تم حظرك من الساحة بواسطة ${moderator[0].name || 'مدير'}`,
+        type: 'ban',
+        createdAt: new Date(),
+      });
+      emitNotification(bannedUser[0].id, {
+        title: 'تم حظرك',
+        message: `تم حظرك من الساحة بواسطة ${moderator[0].name || 'مدير'}`,
+        type: 'ban',
+      });
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -73,6 +93,28 @@ router.post("/api/unban-from-room", async (req: Request, res: Response) => {
 
     // أزل المستخدم من قائمة المحظورين
     await db.delete(blockedUsers).where(eq(blockedUsers.userId, userId));
+
+    // إرسال إشعار للمستخدم بإلغاء الحظر
+    const unbannedUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    if (unbannedUser[0]) {
+      await db.insert(notifications).values({
+        userId: unbannedUser[0].id,
+        title: 'تم إلغاء حظرك',
+        message: `تم إلغاء حظرك من قبل ${moderator[0].name || 'مدير'}`,
+        type: 'unban',
+        createdAt: new Date(),
+      });
+      emitNotification(unbannedUser[0].id, {
+        title: 'تم إلغاء حظرك',
+        message: `تم إلغاء حظرك من قبل ${moderator[0].name || 'مدير'}`,
+        type: 'unban',
+      });
+    }
 
     res.json({ success: true });
   } catch (err) {
@@ -108,6 +150,31 @@ router.post("/api/promote-participant", async (req: Request, res: Response) => {
 
     // حدّث دور المستخدم في قاعدة البيانات
     await db.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
+
+    // إرسال إشعار للمستخدم
+    const promotedUser = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, parseInt(userId)))
+      .limit(1);
+
+    if (promotedUser[0]) {
+      const roleLabel = newRole === 'admin' ? 'مدير' : 'مشرف';
+      const actionLabel = newRole === 'user' ? `تم إلغاء ${roleLabel === 'مدير' ? 'الإدارة' : 'الإشراف'}` : `تم تعيينك ${roleLabel}`;
+      
+      await db.insert(notifications).values({
+        userId: promotedUser[0].id,
+        title: actionLabel,
+        message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
+        type: newRole === 'user' ? 'role_removed' : 'role_granted',
+        createdAt: new Date(),
+      });
+      emitNotification(promotedUser[0].id, {
+        title: actionLabel,
+        message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
+        type: newRole === 'user' ? 'role_removed' : 'role_granted',
+      });
+    }
 
     // أرسل إشعار للعملاء
     emitUserRoleUpdated(userId, newRole as "user" | "moderator" | "admin");

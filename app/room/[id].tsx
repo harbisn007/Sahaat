@@ -145,6 +145,11 @@ export default function RoomScreen() {
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
   const [showParticipantsList, setShowParticipantsList] = useState(false);
+  const [selectedParticipant, setSelectedParticipant] = useState<any | null>(null);
+  const [showParticipantMenu, setShowParticipantMenu] = useState(false);
+  const [notification, setNotification] = useState<{ title: string; message: string; type: string } | null>(null);
+  const [showNotification, setShowNotification] = useState(false);
+  const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [pendingSheeloha, setPendingSheeloha] = useState<{ sheelohaUrl: string; taroukDuration: number } | null>(null);
@@ -392,8 +397,31 @@ export default function RoomScreen() {
       onCreatorJoinRequest: (data) => {
         showJoinNotif(data.requesterName);
       },
+      // استماع للإشعارات (حظر، إشراف، إدارة، إلخ)
+      onNotification: (data) => {
+        console.log("[RoomScreen] Notification received:", data);
+        setNotification(data);
+        setShowNotification(true);
+        
+        // إخفاء الإشعار بعد 4 ثواني
+        if (notificationTimeoutRef.current) {
+          clearTimeout(notificationTimeoutRef.current);
+        }
+        notificationTimeoutRef.current = setTimeout(() => {
+          setShowNotification(false);
+        }, 4000);
+      },
     });
   }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
+
+  // تنظيف timeout الإشعار
+  useEffect(() => {
+    return () => {
+      if (notificationTimeoutRef.current) {
+        clearTimeout(notificationTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // مراقبة الرد على طلب الانضمام - إعلام المستمع أنه أصبح لاعباً
   useEffect(() => {
@@ -2986,13 +3014,18 @@ export default function RoomScreen() {
             </Text>
             <ScrollView>
               {roomData?.participants?.map((participant) => (
-                <View
+                <Pressable
                   key={participant.userId}
+                  onPress={() => {
+                    if ((role === 'admin' || role === 'moderator') && participant.userId !== userId) {
+                      setSelectedParticipant(participant);
+                      setShowParticipantMenu(true);
+                    }
+                  }}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingVertical: 8,
+                    paddingVertical: 12,
                     paddingHorizontal: 8,
                     borderBottomWidth: 1,
                     borderBottomColor: '#333',
@@ -3003,46 +3036,183 @@ export default function RoomScreen() {
                       {participant.username}
                     </Text>
                     <Text style={{ color: '#888', fontSize: 12 }}>
-                      {participant.role === 'creator' ? 'منشئ' : participant.role === 'player' ? 'شاعر' : 'مستمع'}
+                      {participant.role === 'creator' ? 'منشئ' : participant.appRole === 'admin' ? 'مدير' : participant.appRole === 'moderator' ? 'مشرف' : participant.role === 'player' ? 'شاعر' : 'مستمع'}
                     </Text>
                   </View>
-                  {role === 'admin' && participant.userId !== userId && (
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: '#ff6b6b',
-                        paddingHorizontal: 8,
-                        paddingVertical: 4,
-                        borderRadius: 6,
-                      }}
-                      onPress={async () => {
-                        try {
-                          const response = await fetch('/api/ban-from-room', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                              roomId,
-                              userId: participant.userId,
-                              moderatorId: userId,
-                            }),
-                          });
-                          if (response.ok) {
-                            setShowParticipantsList(false);
-                            refetch();
-                          }
-                        } catch (err) {
-                          console.error('Ban error:', err);
-                        }
-                      }}
-                    >
-                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>حظر</Text>
-                    </TouchableOpacity>
+                  {(role === 'admin' || role === 'moderator') && participant.userId !== userId && (
+                    <MaterialIcons name="more-vert" size={20} color="#d4af37" />
                   )}
-                </View>
+                </Pressable>
               ))}
             </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
+
+      {/* Participant Actions Menu */}
+      <Modal
+        visible={showParticipantMenu}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowParticipantMenu(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+          }}
+          onPress={() => setShowParticipantMenu(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: 12,
+              padding: 12,
+              width: '80%',
+              borderWidth: 1,
+              borderColor: '#d4af37',
+            }}
+            onPress={() => {}}
+          >
+            <Text style={{ color: '#d4af37', fontSize: 14, fontWeight: 'bold', marginBottom: 12, textAlign: 'center' }}>
+              {selectedParticipant?.username}
+            </Text>
+
+            {/* Ban/Unban Option */}
+            <TouchableOpacity
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: '#333',
+              }}
+              onPress={async () => {
+                try {
+                  const endpoint = selectedParticipant?.isBanned ? '/api/unban-from-room' : '/api/ban-from-room';
+                  const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      roomId,
+                      userId: selectedParticipant?.userId,
+                      moderatorId: userId,
+                    }),
+                  });
+                  if (response.ok) {
+                    setShowParticipantMenu(false);
+                    refetch();
+                  }
+                } catch (err) {
+                  console.error('Ban/Unban error:', err);
+                }
+              }}
+            >
+              <Text style={{ color: selectedParticipant?.isBanned ? '#4ade80' : '#ff6b6b', fontWeight: 'bold', fontSize: 14 }}>
+                {selectedParticipant?.isBanned ? 'إلغاء حظر' : 'حظر'}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Moderator/Unmoderator Option (Admin only) */}
+            {role === 'admin' && (
+              <TouchableOpacity
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: '#333',
+                }}
+                onPress={async () => {
+                  try {
+                    const newRole = selectedParticipant?.appRole === 'moderator' ? 'user' : 'moderator';
+                    const response = await fetch('/api/set-role', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: selectedParticipant?.userId,
+                        role: newRole,
+                      }),
+                    });
+                    if (response.ok) {
+                      setShowParticipantMenu(false);
+                      refetch();
+                    }
+                  } catch (err) {
+                    console.error('Role change error:', err);
+                  }
+                }}
+              >
+                <Text style={{ color: selectedParticipant?.appRole === 'moderator' ? '#ff6b6b' : '#4ade80', fontWeight: 'bold', fontSize: 14 }}>
+                  {selectedParticipant?.appRole === 'moderator' ? 'إلغاء إشراف' : 'إشراف'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
+            {/* Admin/Unadmin Option (Admin only) */}
+            {role === 'admin' && (
+              <TouchableOpacity
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                }}
+                onPress={async () => {
+                  try {
+                    const newRole = selectedParticipant?.appRole === 'admin' ? 'user' : 'admin';
+                    const response = await fetch('/api/set-role', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        userId: selectedParticipant?.userId,
+                        role: newRole,
+                      }),
+                    });
+                    if (response.ok) {
+                      setShowParticipantMenu(false);
+                      refetch();
+                    }
+                  } catch (err) {
+                    console.error('Role change error:', err);
+                  }
+                }}
+              >
+                <Text style={{ color: selectedParticipant?.appRole === 'admin' ? '#ff6b6b' : '#fbbf24', fontWeight: 'bold', fontSize: 14 }}>
+                  {selectedParticipant?.appRole === 'admin' ? 'إلغاء إدارة' : 'إدارة'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {/* Notification Toast */}
+      {showNotification && notification && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 60,
+            left: 16,
+            right: 16,
+            backgroundColor: notification.type === 'ban' ? '#ff6b6b' : notification.type === 'unban' ? '#4ade80' : notification.type === 'role_granted' ? '#fbbf24' : '#3b82f6',
+            borderRadius: 8,
+            padding: 12,
+            zIndex: 9999,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.25,
+            shadowRadius: 3.84,
+            elevation: 5,
+          }}
+        >
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
+            {notification.title}
+          </Text>
+          <Text style={{ color: '#fff', fontSize: 12 }}>
+            {notification.message}
+          </Text>
+        </View>
+      )}
     </ScreenContainer>
     </ImageBackground>
   );\n}

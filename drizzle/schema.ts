@@ -248,3 +248,16 @@ export const textMessages = mysqlTable("text_messages", {
 });
 export type TextMessage = typeof textMessages.$inferSelect;
 export type InsertTextMessage = typeof textMessages.$inferInsert;
+
+// Notifications table
+export const notifications = mysqlTable("notifications", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: varchar("userId", { length: 100 }).notNull(),
+  title: varchar("title", { length: 200 }).notNull(),
+  message: varchar("message", { length: 500 }).notNull(),
+  type: varchar("type", { length: 50 }).notNull(), // 'ban', 'unban', 'role_granted', 'role_removed'
+  isRead: mysqlEnum("isRead", ["true", "false"]).default("false").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = typeof notifications.$inferInsert;

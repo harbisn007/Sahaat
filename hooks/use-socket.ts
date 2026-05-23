@@ -96,6 +96,7 @@ interface ServerToClientEvents {
   pinnedTextUpdated: (data: { roomId: number; text: string }) => void;
   publicInviteCreated: (data: { invitationId: number; roomId: number; creatorId: string; creatorName: string; creatorAvatar: string; roomName: string; }) => void;
   publicInviteExpired: (data: { invitationId: number }) => void;
+  notification: (data: { title: string; message: string; type: string }) => void;
 }
 
 interface ClientToServerEvents {
@@ -320,6 +321,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
     onTextMessageCreated?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
     onTextMessage?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
     onCreatorJoinRequest?: (data: { requesterName: string; requestType: string }) => void;
+    onNotification?: (data: { title: string; message: string; type: string }) => void;
   }>({});
 
   // تتبع roomId السابق لمغادرته عند التغيير
@@ -509,6 +511,11 @@ export function useSocket(roomId: number | null, userId?: string | null) {
           }
         });
 
+        // حدث الإشعارات (حظر، إشراف، إدارة، إلخ)
+        socket.on("notification", (data) => {
+          callbacksRef.current.onNotification?.(data);
+        });
+
         // حدث دخول مستخدم جديد للمنشئ
         socket.on("creatorJoinRequest", (data) => {
           if (data.roomId === roomId) {
@@ -573,6 +580,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         socketRef.current.off("pinnedTextUpdated");
         socketRef.current.off("textMessageCreated");
         socketRef.current.off("creatorJoinRequest");
+        socketRef.current.off("notification");
         socketRef.current.off("connect");
         socketRef.current.off("disconnect");
         

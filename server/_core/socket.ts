@@ -819,3 +819,9 @@ export function emitUserRoleUpdated(userId: string, newRole: 'user' | 'moderator
   io.to(`user:${userId}`).emit("userRoleUpdated", { userId, newRole });
   console.log(`[Socket.io] userRoleUpdated sent to user:${userId} (newRole: ${newRole})`);
 }
+
+export function emitNotification(userId: string, notification: { title: string; message: string; type: string }): void {
+  if (!io) return;
+  io.to(`user:${userId}`).emit("notification", notification);
+  console.log(`[Socket.io] notification sent to user:${userId} (type: ${notification.type})`);
+}
