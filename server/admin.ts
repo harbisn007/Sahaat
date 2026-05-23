@@ -283,15 +283,16 @@ function dashboardPage(data: {
 
   const usersRows = latestUsers.map(u => {
     const isOnline = activeIds.has(u.appUserId || '');
-    const roleText = u.role === 'admin' ? 'مدير' : (u.role === 'moderator' ? 'مشرف' : 'مستخدم');
-    const badgeClass = u.role === 'admin' ? 'badge-admin' : (u.role === 'moderator' ? 'badge-moderator' : 'badge-user');
+    const displayRole = u.appRole || u.role;
+    const roleText = displayRole === 'admin' ? 'مدير' : (displayRole === 'moderator' ? 'مشرف' : 'مستخدم');
+    const badgeClass = displayRole === 'admin' ? 'badge-admin' : (displayRole === 'moderator' ? 'badge-moderator' : 'badge-user');
     return `
     <tr style="${isOnline ? 'background:#1a2d1a22;' : ''}">
       <td>${u.id}</td>
       <td>${isOnline ? '<span style="display:inline-block;width:8px;height:8px;background:#22C55E;border-radius:50%;margin-left:6px"></span>' : ''}<span style="${isOnline ? 'color:#22C55E;font-weight:700' : ''}">${u.name || '—'}</span></td>
       <td>${u.phoneNumber || '—'}</td>
       <td>${u.loginMethod || 'ضيف'}</td>
-      <td><select onchange="changeUserRole(${u.id}, this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ${u.role === 'user' ? 'selected' : ''}>مستخدم عادي</option><option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>مشرف</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>مدير</option></select></td>
+      <td><select onchange="changeUserRole(${u.id}, this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ${displayRole === 'user' ? 'selected' : ''}>مستخدم عادي</option><option value="moderator" ${displayRole === 'moderator' ? 'selected' : ''}>مشرف</option><option value="admin" ${displayRole === 'admin' ? 'selected' : ''}>مدير</option></select></td>
       <td>${formatDate(u.lastSignedIn)}</td>
       <td>${formatDate(u.createdAt)}</td>
     </tr>`;
