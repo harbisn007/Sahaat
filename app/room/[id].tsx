@@ -2048,7 +2048,7 @@ export default function RoomScreen() {
         {/* Right: Share/Invite buttons and Pin toggle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {/* زر تثبيت الساحة (للمشرفين والمديرين) */}
-          {(role === 'admin' || role === 'moderator') && (
+          {(role === 'admin' || role === 'moderator' || userRole?.appRole === 'admin' || userRole?.appRole === 'moderator' || isCreator) && (
             <TouchableOpacity
               style={{
                 backgroundColor: roomData.isPinned === 'true' ? '#2d1f0e' : '#1a1a1a',
@@ -3159,7 +3159,7 @@ export default function RoomScreen() {
             </TouchableOpacity>
 
             {/* Moderator/Unmoderator Option (Admin only) */}
-            {role === 'admin' && (
+            {(role === 'admin' || userRole?.appRole === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
@@ -3194,7 +3194,7 @@ export default function RoomScreen() {
             )}
 
             {/* Admin/Unadmin Option (Admin only) */}
-            {role === 'admin' && (
+            {(role === 'admin' || userRole?.appRole === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
@@ -3258,4 +3258,5 @@ export default function RoomScreen() {
       )}
     </ScreenContainer>
     </ImageBackground>
-  );\n}
+  );
+}
