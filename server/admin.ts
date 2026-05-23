@@ -166,6 +166,21 @@ router.post("/api/set-role", async (req: Request, res: Response) => {
   }
 });
 
+// ── API: تثبيت/إلغاء تثبيت الساحة
+router.post("/api/pin-room", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const { roomId, isPinned } = req.body;
+    if (!roomId) return res.status(400).json({ error: "Missing roomId" });
+    const dbConn = await getDb();
+    if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
+    await dbConn.update(rooms).set({ isPinned: isPinned ? "true" : "false" }).where(eq(rooms.id, roomId));
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 // ── API: بيانات JSON للمستخدمين ─────────────────────────────────────────────
 router.get("/api/users", async (req: Request, res: Response) => {
   if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });

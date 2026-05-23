@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import { initializeSocketIO } from "./socket";
 import { startRoomCleanupService } from "./room-cleanup";
 import { adminRouter } from "../admin";
+import moderatorActionsRouter from "../moderator-actions";
 
 
 
@@ -46,6 +47,9 @@ async function startServer() {
 
   // لوحة الإدارة — محمية بكلمة مرور
   app.use("/admin", adminRouter);
+  
+  // مسارات إجراءات المعدلين والمدراء
+  app.use("/", moderatorActionsRouter);
 
   registerOAuthRoutes(app);
 

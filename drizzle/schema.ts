@@ -55,6 +55,8 @@ export const rooms = mysqlTable("rooms", {
   taroukController: mysqlEnum("taroukController", ["creator", "player1", "player2"]),
   // Clapping delay in seconds (0.05-1.50)
   clappingDelay: varchar("clappingDelay", { length: 10 }).default("0.80"),
+  // Whether the room is pinned (prevents auto-deletion)
+  isPinned: mysqlEnum("isPinned", ["true", "false"]).default("false").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

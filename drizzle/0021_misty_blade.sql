@@ -1,0 +1,1 @@
+ALTER TABLE `rooms` ADD `isPinned` enum('true','false') DEFAULT 'false' NOT NULL;
