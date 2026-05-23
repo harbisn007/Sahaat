@@ -680,29 +680,40 @@ export default function HomeScreen() {
                 ⭐ TOP 10 ⭐
               </Text>
             </View>
-            {roomsLoading ? (
+            {roomsLoading && allRoomsLoading ? (
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#c8860a" />
               </View>
-            ) : rooms && rooms.length > 0 ? (
+            ) : (rooms && rooms.length > 0) || (remainingRooms && remainingRooms.length > 0) ? (
               <FlatList
-                data={rooms}
-                keyExtractor={(item) => item.id.toString()}
+                data={[
+                  ...rooms.map((room, idx) => ({ ...room, _type: 'room', _index: idx })),
+                  ...(remainingRooms && remainingRooms.length > 0 ? [{ _type: 'separator', id: 'sep' }] : []),
+                  ...(remainingRooms || []).map((room, idx) => ({ ...room, _type: 'room', _index: rooms.length + idx }))
+                ]}
+                keyExtractor={(item, idx) => item._type === 'separator' ? 'separator' : `${item.id}-${idx}`}
                 numColumns={2}
-                columnWrapperStyle={{ gap: 6, marginBottom: 6 }}
-                renderItem={({ item, index }) => (
-                  <View style={{ flex: 1, maxWidth: '50%' }}>
-                    <RoomCard
-                      room={item}
-                      currentUserId={userId}
-                      onJoinAsViewer={() => handleJoinAsViewer(item.id)}
-                      onDirectEnter={() => router.push(`/room/${item.id}`)}
-                      showGoldStar={item.hasGoldStar === "true"}
-                      rank={index + 1}
-                    />
-                  </View>
-                )}
-                refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
+                columnWrapperStyle={(item) => item && item[0]?._type === 'separator' ? { width: '100%' } : { gap: 6, marginBottom: 6 }}
+                renderItem={({ item }) => {
+                  if (item._type === 'separator') {
+                    return (
+                      <View style={{ width: '100%', height: 2, backgroundColor: '#c8860a', marginVertical: 16, opacity: 0.5 }} />
+                    );
+                  }
+                  return (
+                    <View style={{ flex: 1, maxWidth: '50%' }}>
+                      <RoomCard
+                        room={item}
+                        currentUserId={userId}
+                        onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                        onDirectEnter={() => router.push(`/room/${item.id}`)}
+                        showGoldStar={item.hasGoldStar === "true"}
+                        rank={item._index + 1}
+                      />
+                    </View>
+                  );
+                }}
+                refreshControl={<RefreshControl refreshing={roomsLoading || allRoomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
                 contentContainerStyle={{ paddingBottom: 20 }}
               />
             ) : (
