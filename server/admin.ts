@@ -631,9 +631,10 @@ function dashboardPage(data: {
             <td>${mod.email || '—'}</td>
             <td>${role === 'admin' ? 'مدير' : role === 'moderator' ? 'مشرف' : 'مستخدم'}</td>
             <td>
-              <select onchange="changeUserRole(${mod.id}, this.value)" class="role-select                <option value="user" ${role === 'user' ? 'selected' : ''}>مستخدم</option>
-                <option value="moderator" ${role === 'moderator' ? 'selected' : ''}>مشرف</option>
-                <option value="admin" ${role === 'admin' ? 'selected' : ''}>مدير</option>\u0645دير</option>
+              <select onchange="changeUserRole(${mod.id}, this.value)" class="role-select">
+                <option value="user" ${role === 'user' ? 'selected' : ''}>\u0645ستخدم</option>
+                <option value="moderator" ${role === 'moderator' ? 'selected' : ''}>\u0645شرف</option>
+                <option value="admin" ${role === 'admin' ? 'selected' : ''}>\u0645دير</option>
               </select>
             </td>
           `;
@@ -641,6 +642,26 @@ function dashboardPage(data: {
         });
       } catch (err) {
         alert('خطأ في جلب بيانات المدراء: ' + err);
+      }
+    }
+
+    // ── تغيير دور المستخدم ──
+    async function changeUserRole(userId, newRole) {
+      try {
+        const res = await fetch('/admin/api/set-role', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, newRole })
+        });
+        if (res.ok) {
+          alert('تم تحديث الدور بنجاح');
+          location.reload();
+        } else {
+          const err = await res.json();
+          alert('فشل تحديث الدور: ' + (err.error || 'خطأ غير معروف'));
+        }
+      } catch (e) {
+        alert('خطأ: ' + e);
       }
     }
 

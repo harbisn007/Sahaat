@@ -3079,7 +3079,7 @@ export default function RoomScreen() {
                       {participant.username}
                     </Text>
                     <Text style={{ color: '#888', fontSize: 12 }}>
-                      {participant.role === 'creator' ? 'منشئ' : participant.appRole === 'admin' ? 'مدير' : participant.appRole === 'moderator' ? 'مشرف' : participant.role === 'player' ? 'شاعر' : 'مستمع'}
+                      {participant.role === 'creator' ? 'منشئ' : participant.role === 'admin' ? 'مدير' : participant.role === 'moderator' ? 'مشرف' : participant.role === 'player' ? 'شاعر' : 'مستمع'}
                     </Text>
                   </View>
                   {(role === 'admin' || role === 'moderator') && participant.userId !== userId && (
@@ -3159,7 +3159,7 @@ export default function RoomScreen() {
             </TouchableOpacity>
 
             {/* Moderator/Unmoderator Option (Admin only) */}
-            {selectedParticipant?.userId !== userId && (role === 'admin') && (
+            {selectedParticipant?.userId !== userId && (role === 'admin' || userRole?.appRole === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
@@ -3194,7 +3194,7 @@ export default function RoomScreen() {
             )}
 
             {/* Admin/Unadmin Option (Admin only) */}
-            {selectedParticipant?.userId !== userId && (role === 'admin') && (
+            {selectedParticipant?.userId !== userId && (role === 'admin' || userRole?.appRole === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
