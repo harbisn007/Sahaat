@@ -144,6 +144,7 @@ export default function RoomScreen() {
   const [joinedAt, setJoinedAt] = useState<Date>(new Date());
   const [isJoinedAtLoaded, setIsJoinedAtLoaded] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [showParticipantsList, setShowParticipantsList] = useState(false);
   // حالة محلية لعرض الدائرة الحمراء فوراً للمستخدم الحالي (بدون انتظار الخادم)
   const [localRecordingActive, setLocalRecordingActive] = useState(false);
   const [pendingSheeloha, setPendingSheeloha] = useState<{ sheelohaUrl: string; taroukDuration: number } | null>(null);
@@ -2009,9 +2010,11 @@ export default function RoomScreen() {
         {/* Center: Room info */}
         <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
           <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>{roomData.name}</Text>
-          <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
-            {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
-          </Text>
+          <TouchableOpacity onPress={() => role && ['moderator', 'admin'].includes(role) && setShowParticipantsList(true)}>
+            <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
+              {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
+            </Text>
+          </TouchableOpacity>
         </View>
         
         {/* Right: Share/Invite buttons */}
@@ -2947,9 +2950,99 @@ export default function RoomScreen() {
               </TouchableOpacity>
             </View>
           </Pressable>
+        </Pressable>      </Modal>
+      
+      {/* Participants List Modal */}
+      <Modal
+        visible={showParticipantsList}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowParticipantsList(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: 16,
+          }}
+          onPress={() => setShowParticipantsList(false)}
+        >
+          <Pressable
+            style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: 12,
+              padding: 16,
+              width: '100%',
+              maxHeight: '80%',
+              borderWidth: 1,
+              borderColor: '#d4af37',
+            }}
+            onPress={() => {}}
+          >
+            <Text style={{ color: '#d4af37', fontSize: 16, fontWeight: 'bold', marginBottom: 12 }}>
+              المشاركون
+            </Text>
+            <ScrollView>
+              {roomData?.participants?.map((participant) => (
+                <View
+                  key={participant.userId}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    paddingVertical: 8,
+                    paddingHorizontal: 8,
+                    borderBottomWidth: 1,
+                    borderBottomColor: '#333',
+                  }}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: '#d4af37', fontWeight: 'bold' }}>
+                      {participant.username}
+                    </Text>
+                    <Text style={{ color: '#888', fontSize: 12 }}>
+                      {participant.role === 'creator' ? 'منشئ' : participant.role === 'player' ? 'شاعر' : 'مستمع'}
+                    </Text>
+                  </View>
+                  {role === 'admin' && participant.userId !== userId && (
+                    <TouchableOpacity
+                      style={{
+                        backgroundColor: '#ff6b6b',
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                        borderRadius: 6,
+                      }}
+                      onPress={async () => {
+                        try {
+                          const response = await fetch('/api/ban-from-room', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              roomId,
+                              userId: participant.userId,
+                              moderatorId: userId,
+                            }),
+                          });
+                          if (response.ok) {
+                            setShowParticipantsList(false);
+                            refetch();
+                          }
+                        } catch (err) {
+                          console.error('Ban error:', err);
+                        }
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontSize: 11, fontWeight: 'bold' }}>حظر</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+            </ScrollView>
+          </Pressable>
         </Pressable>
       </Modal>
     </ScreenContainer>
     </ImageBackground>
-  );
-}
+  );\n}
