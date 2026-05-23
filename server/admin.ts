@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "./db";
 import { users, rooms, reports, adminBans } from "../drizzle/schema";
-import { desc, count, eq, and, gte, or } from "drizzle-orm";
+import { desc, count, eq, and, gte } from "drizzle-orm";
 import * as db from "./db";
 import { emitUserBanned, emitUserRoleUpdated, getActiveUserIds } from "./_core/socket";
 import { storageGetSignedUrl } from "./storage";
@@ -158,7 +158,7 @@ router.post("/api/set-role", async (req: Request, res: Response) => {
     }
     const dbConn = await getDb();
     if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
-    await dbConn.update(users).set({ appRole: newRole }).where(eq(users.id, parseInt(userId)));
+    await dbConn.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
     emitUserRoleUpdated(userId, newRole as 'user' | 'moderator' | 'admin');
     res.json({ success: true });
   } catch (err) {
@@ -613,62 +613,6 @@ function dashboardPage(data: {
         row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
       });
     }
-
-    // ── جلب وعرض قائمة المدراء والمشرفين ──
-    async function loadModerators() {
-      try {
-        const res = await fetch('/admin/api/moderators');
-        if (!res.ok) throw new Error('Failed to fetch moderators');
-        const mods = await res.json();
-        const tbody = document.getElementById('moderators-tbody');
-        tbody.innerHTML = '';
-        mods.forEach((mod, idx) => {
-          const role = mod.role || mod.appRole || 'user';
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${idx + 1}</td>
-            <td>${mod.name || '—'}</td>
-            <td>${mod.email || '—'}</td>
-            <td>${role === 'admin' ? 'مدير' : role === 'moderator' ? 'مشرف' : 'مستخدم'}</td>
-            <td>
-              <select onchange="changeUserRole(${mod.id}, this.value)" class="role-select">
-                <option value="user" ${role === 'user' ? 'selected' : ''}>\u0645ستخدم</option>
-                <option value="moderator" ${role === 'moderator' ? 'selected' : ''}>\u0645شرف</option>
-                <option value="admin" ${role === 'admin' ? 'selected' : ''}>\u0645دير</option>
-              </select>
-            </td>
-          `;
-          tbody.appendChild(row);
-        });
-      } catch (err) {
-        alert('خطأ في جلب بيانات المدراء: ' + err);
-      }
-    }
-
-    // ── تغيير دور المستخدم ──
-    async function changeUserRole(userId, newRole) {
-      try {
-        const res = await fetch('/admin/api/set-role', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId, newRole })
-        });
-        if (res.ok) {
-          alert('تم تحديث الدور بنجاح');
-          location.reload();
-        } else {
-          const err = await res.json();
-          alert('فشل تحديث الدور: ' + (err.error || 'خطأ غير معروف'));
-        }
-      } catch (e) {
-        alert('خطأ: ' + e);
-      }
-    }
-
-    // تحميل البيانات عند تحميل الصفحة
-    window.addEventListener('load', () => {
-      loadModerators();
-    });
 
     // ــ حذف بلاغ ــ
     let _currentAudio = null;

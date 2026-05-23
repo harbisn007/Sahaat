@@ -2038,7 +2038,7 @@ export default function RoomScreen() {
         {/* Center: Room info */}
         <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
           <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>{roomData.name}</Text>
-          <TouchableOpacity onPress={() => (role && ['moderator', 'admin'].includes(role)) ? setShowParticipantsList(true) : null}>
+          <TouchableOpacity onPress={() => (role && ['moderator', 'admin'].includes(role)) || (userRole?.appRole && ['moderator', 'admin'].includes(userRole.appRole)) ? setShowParticipantsList(true) : null}>
             <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
               {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
             </Text>
