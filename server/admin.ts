@@ -801,7 +801,7 @@ function dashboardPage(data: {
         });
         if (res.ok) {
           alert('تم تحديث الدور بنجاح');
-          location.reload();
+          loadModerators();
         } else {
           const err = await res.json();
           alert('فشل تحديث الدور: ' + (err.error || 'خطأ غير معروف'));
