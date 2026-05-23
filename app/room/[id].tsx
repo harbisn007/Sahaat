@@ -69,8 +69,8 @@ function TextMessageWithReport({ item, userId }: { item: any; userId: string | n
 }
 
 export default function RoomScreen() {
-  const { id, role, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
-  const { username, userId, avatar, setUserData } = useUser();
+  const { id, role: routeRole, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
+  const { username, userId, avatar, role, setUserData, setRole } = useUser();
 
   // Helper function to get avatar source
   const getAvatarSource = (avatarValue: string | undefined | null) => getAvatarSourceById(avatarValue);

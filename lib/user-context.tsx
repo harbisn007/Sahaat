@@ -8,11 +8,15 @@ export type AvatarType = 'male' | 'female' | string;
 // User account types
 export type AccountType = 'guest' | 'google' | 'apple';
 
+// User role types
+export type UserRole = 'user' | 'moderator' | 'admin';
+
 interface UserContextType {
   username: string | null;
   userId: string; // Changed from number to string (UUID)
   avatar: AvatarType | null;
   accountType: AccountType;
+  role: UserRole;
   googleId: string | null;
   appleId: string | null;
   isLoading: boolean;
@@ -20,6 +24,7 @@ interface UserContextType {
   setUsername: (name: string) => Promise<void>;
   setAvatar: (avatar: AvatarType) => Promise<void>;
   setUserData: (name: string, avatar: AvatarType) => Promise<void>;
+  setRole: (role: UserRole) => Promise<void>;
   loginAsGuest: (name: string, avatar: AvatarType) => Promise<void>;
   loginWithGoogle: (googleId: string, name: string, avatar: AvatarType) => Promise<void>;
   loginWithApple: (appleId: string, name: string, avatar: AvatarType) => Promise<void>;
@@ -35,6 +40,7 @@ const USER_AVATAR_STORAGE_KEY = "@sahaat_muhawara:avatar";
 const USER_ACCOUNT_TYPE_KEY = "@sahaat_muhawara:accountType";
 const USER_GOOGLE_ID_KEY = "@sahaat_muhawara:googleId";
 const USER_APPLE_ID_KEY = "@sahaat_muhawara:appleId";
+const USER_ROLE_KEY = "@sahaat_muhawara:role";
 
 export function UserProvider({ children }: { children: ReactNode }) {
   const [username, setUsernameState] = useState<string | null>(null);
@@ -43,6 +49,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [accountType, setAccountTypeState] = useState<AccountType>("guest");
   const [googleId, setGoogleIdState] = useState<string | null>(null);
   const [appleId, setAppleIdState] = useState<string | null>(null);
+  const [role, setRoleState] = useState<UserRole>("user");
   const [isLoading, setIsLoading] = useState(true);
 
   const isLoggedIn = !!username && !!userId;
@@ -76,6 +83,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       const storedAppleId = await AsyncStorage.getItem(USER_APPLE_ID_KEY);
       if (storedAppleId) {
         setAppleIdState(storedAppleId);
+      }
+
+      const storedRole = await AsyncStorage.getItem(USER_ROLE_KEY);
+      if (storedRole) {
+        setRoleState(storedRole as UserRole);
       }
 
       // Load or generate UUID
@@ -123,6 +135,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setRole = async (newRole: UserRole) => {
+    try {
+      await AsyncStorage.setItem(USER_ROLE_KEY, newRole);
+      setRoleState(newRole);
+    } catch (error) {
+      console.error("Failed to save role:", error);
+      throw error;
+    }
+  };
+
   const loginAsGuest = async (name: string, newAvatar: AvatarType) => {
     console.log("[UserContext] loginAsGuest called with:", { name, avatar: newAvatar });
     
@@ -152,6 +174,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem(USER_STORAGE_KEY, name);
       await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
       await AsyncStorage.setItem(USER_ACCOUNT_TYPE_KEY, "guest");
+      await AsyncStorage.setItem(USER_ROLE_KEY, "user");
       
       // Clear any existing Google/Apple IDs
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
@@ -162,6 +185,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUsernameState(name);
       setAvatarState(newAvatar);
       setAccountTypeState("guest");
+      setRoleState("user");
       setGoogleIdState(null);
       setAppleIdState(null);
       
@@ -182,12 +206,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
       await AsyncStorage.setItem(USER_ACCOUNT_TYPE_KEY, "google");
       await AsyncStorage.setItem(USER_GOOGLE_ID_KEY, newGoogleId);
+      await AsyncStorage.setItem(USER_ROLE_KEY, "user");
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
       
       setUserIdState(newUserId);
       setUsernameState(name);
       setAvatarState(newAvatar);
       setAccountTypeState("google");
+      setRoleState("user");
       setGoogleIdState(newGoogleId);
       setAppleIdState(null);
       
@@ -208,12 +234,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem(USER_AVATAR_STORAGE_KEY, newAvatar);
       await AsyncStorage.setItem(USER_ACCOUNT_TYPE_KEY, "apple");
       await AsyncStorage.setItem(USER_APPLE_ID_KEY, newAppleId);
+      await AsyncStorage.setItem(USER_ROLE_KEY, "user");
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       
       setUserIdState(newUserId);
       setUsernameState(name);
       setAvatarState(newAvatar);
       setAccountTypeState("apple");
+      setRoleState("user");
       setAppleIdState(newAppleId);
       setGoogleIdState(null);
       
@@ -232,6 +260,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_ACCOUNT_TYPE_KEY);
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
+      await AsyncStorage.removeItem(USER_ROLE_KEY);
       // مفاتيح welcome.tsx (Firebase phone auth) - بدون user_uuid
       await AsyncStorage.removeItem('user_name');
       await AsyncStorage.removeItem('user_avatar');
@@ -240,6 +269,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUsernameState(null);
       setAvatarState(null);
       setAccountTypeState("guest");
+      setRoleState("user");
       setGoogleIdState(null);
       setAppleIdState(null);
       // لا نصفّر userId لأنه يبقى محفوظاً
@@ -259,6 +289,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_ACCOUNT_TYPE_KEY);
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
+      await AsyncStorage.removeItem(USER_ROLE_KEY);
       // مفاتيح welcome.tsx (Firebase phone auth)
       await AsyncStorage.removeItem('user_uuid');
       await AsyncStorage.removeItem('user_name');
@@ -268,6 +299,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUserIdState("");
       setAvatarState(null);
       setAccountTypeState("guest");
+      setRoleState("user");
       setGoogleIdState(null);
       setAppleIdState(null);
       
@@ -284,6 +316,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       userId, 
       avatar, 
       accountType,
+      role,
       googleId,
       appleId,
       isLoading, 
@@ -291,6 +324,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUsername, 
       setAvatar, 
       setUserData,
+      setRole,
       loginAsGuest,
       loginWithGoogle,
       loginWithApple,
