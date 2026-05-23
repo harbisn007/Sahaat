@@ -2038,7 +2038,7 @@ export default function RoomScreen() {
         {/* Center: Room info */}
         <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
           <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>{roomData.name}</Text>
-          <TouchableOpacity onPress={() => role && ['moderator', 'admin'].includes(role) && setShowParticipantsList(true)}>
+          <TouchableOpacity onPress={() => (role && ['moderator', 'admin'].includes(role)) || (userRole?.appRole && ['moderator', 'admin'].includes(userRole.appRole)) ? setShowParticipantsList(true) : null}>
             <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
               {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
             </Text>
@@ -3094,7 +3094,7 @@ export default function RoomScreen() {
 
       {/* Participant Actions Menu */}
       <Modal
-        visible={showParticipantMenu && ((role === 'admin' || role === 'moderator' || userRole?.appRole === 'admin' || userRole?.appRole === 'moderator'))}
+        visible={showParticipantMenu}
         transparent
         animationType="fade"
         onRequestClose={() => setShowParticipantMenu(false)}
@@ -3124,44 +3124,42 @@ export default function RoomScreen() {
               {selectedParticipant?.username}
             </Text>
 
-            {/* Ban/Unban Option - For Admin and Moderator, but not self */}
-            {selectedParticipant?.userId !== userId && (
-              <TouchableOpacity
-                style={{
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: '#333',
-                }}
-                onPress={async () => {
-                  try {
-                    const endpoint = selectedParticipant?.isBanned ? '/api/unban-from-room' : '/api/ban-from-room';
-                    const response = await fetch(endpoint, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        roomId,
-                        userId: selectedParticipant?.userId,
-                        moderatorId: userId,
-                      }),
-                    });
-                    if (response.ok) {
-                      setShowParticipantMenu(false);
-                      refetch();
-                    }
-                  } catch (err) {
-                    console.error('Ban/Unban error:', err);
+            {/* Ban/Unban Option */}
+            <TouchableOpacity
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: '#333',
+              }}
+              onPress={async () => {
+                try {
+                  const endpoint = selectedParticipant?.isBanned ? '/api/unban-from-room' : '/api/ban-from-room';
+                  const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      roomId,
+                      userId: selectedParticipant?.userId,
+                      moderatorId: userId,
+                    }),
+                  });
+                  if (response.ok) {
+                    setShowParticipantMenu(false);
+                    refetch();
                   }
-                }}
-              >
-                <Text style={{ color: selectedParticipant?.isBanned ? '#4ade80' : '#ff6b6b', fontWeight: 'bold', fontSize: 14 }}>
-                  {selectedParticipant?.isBanned ? 'إلغاء حظر' : 'حظر'}
-                </Text>
-              </TouchableOpacity>
-            )
+                } catch (err) {
+                  console.error('Ban/Unban error:', err);
+                }
+              }}
+            >
+              <Text style={{ color: selectedParticipant?.isBanned ? '#4ade80' : '#ff6b6b', fontWeight: 'bold', fontSize: 14 }}>
+                {selectedParticipant?.isBanned ? 'إلغاء حظر' : 'حظر'}
+              </Text>
+            </TouchableOpacity>
 
             {/* Moderator/Unmoderator Option (Admin only) */}
-            {(role === 'admin' || userRole?.appRole === 'admin') && (
+            {selectedParticipant?.userId !== userId && (role === 'admin' || userRole?.appRole === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
@@ -3196,7 +3194,7 @@ export default function RoomScreen() {
             )}
 
             {/* Admin/Unadmin Option (Admin only) */}
-            {(role === 'admin' || userRole?.appRole === 'admin') && (
+            {selectedParticipant?.userId !== userId && (role === 'admin' || userRole?.appRole === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,

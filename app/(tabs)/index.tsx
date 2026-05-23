@@ -334,7 +334,12 @@ export default function HomeScreen() {
   };
 
   const { data: top10Rooms, isLoading: roomsLoading, refetch } = trpc.top10.list.useQuery(undefined, { refetchInterval: 3000 });
+  const { data: allRoomsData, isLoading: allRoomsLoading } = trpc.rooms.list.useQuery({ page: 1, limit: 100 }, { refetchInterval: 5000 });
+  const allRooms = allRoomsData?.rooms || [];
+  
+  // دمج Top 10 مع بقية الساحات
   const rooms = top10Rooms || [];
+  const remainingRooms = allRooms.filter(room => !top10Rooms?.some(t => t.id === room.id)) || [];
   const { data: onlineCountData } = trpc.stats.onlineCount.useQuery(undefined, { refetchInterval: 3000 });
   const onlineCount = onlineCountData?.count ?? 0;
   const { data: followingData, isLoading: followingLoading } = trpc.interactions.getFollowingDetails.useQuery(
@@ -680,40 +685,29 @@ export default function HomeScreen() {
                 ⭐ TOP 10 ⭐
               </Text>
             </View>
-            {roomsLoading && allRoomsLoading ? (
+            {roomsLoading ? (
               <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
                 <ActivityIndicator size="large" color="#c8860a" />
               </View>
-            ) : (rooms && rooms.length > 0) || (remainingRooms && remainingRooms.length > 0) ? (
+            ) : rooms && rooms.length > 0 ? (
               <FlatList
-                data={[
-                  ...rooms.map((room, idx) => ({ ...room, _type: 'room', _index: idx })),
-                  ...(remainingRooms && remainingRooms.length > 0 ? [{ _type: 'separator', id: 'sep' }] : []),
-                  ...(remainingRooms || []).map((room, idx) => ({ ...room, _type: 'room', _index: rooms.length + idx }))
-                ]}
-                keyExtractor={(item, idx) => item._type === 'separator' ? 'separator' : `${item.id}-${idx}`}
+                data={rooms}
+                keyExtractor={(item) => item.id.toString()}
                 numColumns={2}
-                columnWrapperStyle={(item) => item && item[0]?._type === 'separator' ? { width: '100%' } : { gap: 6, marginBottom: 6 }}
-                renderItem={({ item }) => {
-                  if (item._type === 'separator') {
-                    return (
-                      <View style={{ width: '100%', height: 2, backgroundColor: '#c8860a', marginVertical: 16, opacity: 0.5 }} />
-                    );
-                  }
-                  return (
-                    <View style={{ flex: 1, maxWidth: '50%' }}>
-                      <RoomCard
-                        room={item}
-                        currentUserId={userId}
-                        onJoinAsViewer={() => handleJoinAsViewer(item.id)}
-                        onDirectEnter={() => router.push(`/room/${item.id}`)}
-                        showGoldStar={item.hasGoldStar === "true"}
-                        rank={item._index + 1}
-                      />
-                    </View>
-                  );
-                }}
-                refreshControl={<RefreshControl refreshing={roomsLoading || allRoomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
+                columnWrapperStyle={{ gap: 6, marginBottom: 6 }}
+                renderItem={({ item, index }) => (
+                  <View style={{ flex: 1, maxWidth: '50%' }}>
+                    <RoomCard
+                      room={item}
+                      currentUserId={userId}
+                      onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                      onDirectEnter={() => router.push(`/room/${item.id}`)}
+                      showGoldStar={item.hasGoldStar === "true"}
+                      rank={index + 1}
+                    />
+                  </View>
+                )}
+                refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
                 contentContainerStyle={{ paddingBottom: 20 }}
               />
             ) : (
