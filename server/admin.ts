@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "./db";
 import { users, rooms, reports, adminBans } from "../drizzle/schema";
-import { desc, count, eq, and, gte, or } from "drizzle-orm";
+import { desc, count, eq, and, gte } from "drizzle-orm";
 import * as db from "./db";
 import { emitUserBanned, emitUserRoleUpdated, getActiveUserIds } from "./_core/socket";
 import { storageGetSignedUrl } from "./storage";
@@ -158,7 +158,7 @@ router.post("/api/set-role", async (req: Request, res: Response) => {
     }
     const dbConn = await getDb();
     if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
-    await dbConn.update(users).set({ appRole: newRole }).where(eq(users.id, parseInt(userId)));
+    await dbConn.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
     emitUserRoleUpdated(userId, newRole as 'user' | 'moderator' | 'admin');
     res.json({ success: true });
   } catch (err) {
@@ -283,15 +283,16 @@ function dashboardPage(data: {
 
   const usersRows = latestUsers.map(u => {
     const isOnline = activeIds.has(u.appUserId || '');
-    const roleText = u.role === 'admin' ? 'مدير' : (u.role === 'moderator' ? 'مشرف' : 'مستخدم');
-    const badgeClass = u.role === 'admin' ? 'badge-admin' : (u.role === 'moderator' ? 'badge-moderator' : 'badge-user');
+    const displayRole = u.appRole || u.role;
+    const roleText = displayRole === 'admin' ? 'مدير' : (displayRole === 'moderator' ? 'مشرف' : 'مستخدم');
+    const badgeClass = displayRole === 'admin' ? 'badge-admin' : (displayRole === 'moderator' ? 'badge-moderator' : 'badge-user');
     return `
     <tr style="${isOnline ? 'background:#1a2d1a22;' : ''}">
       <td>${u.id}</td>
       <td>${isOnline ? '<span style="display:inline-block;width:8px;height:8px;background:#22C55E;border-radius:50%;margin-left:6px"></span>' : ''}<span style="${isOnline ? 'color:#22C55E;font-weight:700' : ''}">${u.name || '—'}</span></td>
       <td>${u.phoneNumber || '—'}</td>
       <td>${u.loginMethod || 'ضيف'}</td>
-      <td><select onchange="changeUserRole(${u.id}, this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ${u.role === 'user' ? 'selected' : ''}>مستخدم عادي</option><option value="moderator" ${u.role === 'moderator' ? 'selected' : ''}>مشرف</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>مدير</option></select></td>
+      <td><select onchange="changeUserRole(${u.id}, this.value)" style="background:#2d1f0e;color:#d4af37;border:1.5px solid #c8860a44;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px"><option value="user" ${displayRole === 'user' ? 'selected' : ''}>مستخدم عادي</option><option value="moderator" ${displayRole === 'moderator' ? 'selected' : ''}>مشرف</option><option value="admin" ${displayRole === 'admin' ? 'selected' : ''}>مدير</option></select></td>
       <td>${formatDate(u.lastSignedIn)}</td>
       <td>${formatDate(u.createdAt)}</td>
     </tr>`;
@@ -584,21 +585,7 @@ function dashboardPage(data: {
     </div>
   </div>
 
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
   <script>
-    // ── WebSocket Connection ──
-    const socket = io(window.location.origin, { path: '/socket.io' });
-    
-    socket.on('userBanned', (data) => {
-      console.log('User banned:', data);
-      location.reload();
-    });
-    
-    socket.on('userRoleUpdated', (data) => {
-      console.log('User role updated:', data);
-      location.reload();
-    });
-    
     function switchTab(name, btn) {
       document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
       document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -613,42 +600,6 @@ function dashboardPage(data: {
         row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
       });
     }
-
-    // ── جلب وعرض قائمة المدراء والمشرفين ──
-    async function loadModerators() {
-      try {
-        const res = await fetch('/admin/api/moderators');
-        if (!res.ok) throw new Error('Failed to fetch moderators');
-        const mods = await res.json();
-        const tbody = document.getElementById('moderators-tbody');
-        tbody.innerHTML = '';
-        mods.forEach((mod, idx) => {
-          const role = mod.role || mod.appRole || 'user';
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${idx + 1}</td>
-            <td>${mod.name || '—'}</td>
-            <td>${mod.email || '—'}</td>
-            <td>${role === 'admin' ? 'مدير' : role === 'moderator' ? 'مشرف' : 'مستخدم'}</td>
-            <td>
-              <select onchange="changeUserRole(${mod.id}, this.value)" class="role-select">
-                <option value="user" ${role === 'user' ? 'selected' : ''}>\u0645ستخدم</option>
-                <option value="moderator" ${role === 'moderator' ? 'selected' : ''}>\u0645شرف</option>
-                <option value="admin" ${role === 'admin' ? 'selected' : ''}>\u0645دير</option>
-              </select>
-            </td>
-          `;
-          tbody.appendChild(row);
-        });
-      } catch (err) {
-        alert('خطأ في جلب بيانات المدراء: ' + err);
-      }
-    }
-
-    // تحميل البيانات عند تحميل الصفحة
-    window.addEventListener('load', () => {
-      loadModerators();
-    });
 
     // ــ حذف بلاغ ــ
     let _currentAudio = null;
