@@ -193,6 +193,11 @@ async function checkAndCleanupRooms(): Promise<void> {
     for (const room of activeRooms) {
       const roomId = room.id;
 
+      // الساحات المثبتة لا تُحذف أبداً
+      if (room.isPinned === "true") {
+        continue;
+      }
+
       // الساحات ذات التمديد النشط لا تُحذف
       if (hasActiveExtension(room)) {
         continue;

@@ -186,3 +186,35 @@ router.post("/api/promote-participant", async (req: Request, res: Response) => {
 });
 
 export default router;
+
+// ── API: تثبيت/إلغاء تثبيت الساحة ──
+router.post("/api/pin-room", async (req: Request, res: Response) => {
+  try {
+    const { roomId, isPinned, moderatorId } = req.body;
+    if (!roomId || isPinned === undefined || !moderatorId) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const db = await getDb();
+    if (!db) return res.status(503).json({ error: "DB unavailable" });
+
+    // تحقق من أن المعدل له صلاحيات
+    const moderator = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, parseInt(moderatorId)))
+      .limit(1);
+
+    if (!moderator[0] || !["admin", "moderator"].includes(moderator[0].role)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
+    // حدّث حالة التثبيت
+    const pinnedValue = isPinned ? "true" : "false";
+    await db.update(rooms).set({ isPinned: pinnedValue as any }).where(eq(rooms.id, roomId));
+
+    res.json({ success: true, isPinned });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});

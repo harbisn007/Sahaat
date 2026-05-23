@@ -2045,8 +2045,51 @@ export default function RoomScreen() {
           </TouchableOpacity>
         </View>
         
-        {/* Right: Share/Invite buttons */}
+        {/* Right: Share/Invite buttons and Pin toggle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {/* زر تثبيت الساحة (للمشرفين والمديرين) */}
+          {(role === 'admin' || role === 'moderator') && (
+            <TouchableOpacity
+              style={{
+                backgroundColor: roomData.isPinned === 'true' ? '#2d1f0e' : '#1a1a1a',
+                borderWidth: 1,
+                borderColor: roomData.isPinned === 'true' ? '#c8860a' : '#444',
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 10,
+              }}
+              onPress={async () => {
+                try {
+                  const response = await fetch('/api/pin-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      roomId,
+                      isPinned: roomData.isPinned !== 'true',
+                      moderatorId: userId,
+                    }),
+                  });
+                  if (response.ok) {
+                    refetch();
+                  }
+                } catch (err) {
+                  console.error('Pin room error:', err);
+                }
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <MaterialIcons 
+                  name={roomData.isPinned === 'true' ? 'push-pin' : 'push-pin'} 
+                  size={14} 
+                  color={roomData.isPinned === 'true' ? '#d4af37' : '#888'} 
+                />
+                <Text style={{ color: roomData.isPinned === 'true' ? '#d4af37' : '#888', fontWeight: 'bold', fontSize: 11 }}>
+                  {roomData.isPinned === 'true' ? 'مثبتة' : 'تثبيت'}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          
           {/* زر الدعوة العامة */}
           {isCreator && (
             <TouchableOpacity
