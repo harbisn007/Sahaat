@@ -204,6 +204,8 @@ export interface ServerToClientEvents {
   pinnedTextUpdated: (data: { roomId: number; text: string }) => void;
   // حدث رسالة كتابية جديدة
   textMessageCreated: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
+  // حدث تحديث دور المستخدم من الإدارة
+  userRoleUpdated: (data: { userId: string; newRole: 'user' | 'moderator' | 'admin' }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -807,4 +809,13 @@ export function emitUserBanned(userId: string, banType: string): void {
   if (!io) return;
   io.to(`user:${userId}`).emit("userBanned", { userId, banType });
   console.log(`[Socket.io] userBanned sent to user:${userId} (type: ${banType})`);
+}
+
+/**
+ * إرسال حدث تحديث دور المستخدم من الإدارة
+ */
+export function emitUserRoleUpdated(userId: string, newRole: 'user' | 'moderator' | 'admin'): void {
+  if (!io) return;
+  io.to(`user:${userId}`).emit("userRoleUpdated", { userId, newRole });
+  console.log(`[Socket.io] userRoleUpdated sent to user:${userId} (newRole: ${newRole})`);
 }

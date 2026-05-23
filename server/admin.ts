@@ -3,7 +3,7 @@ import { getDb } from "./db";
 import { users, rooms, reports, adminBans } from "../drizzle/schema";
 import { desc, count, eq, and, gte } from "drizzle-orm";
 import * as db from "./db";
-import { emitUserBanned, getActiveUserIds } from "./_core/socket";
+import { emitUserBanned, emitUserRoleUpdated, getActiveUserIds } from "./_core/socket";
 import { storageGetSignedUrl } from "./storage";
 
 const router = Router();
@@ -159,6 +159,7 @@ router.post("/api/set-role", async (req: Request, res: Response) => {
     const dbConn = await getDb();
     if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
     await dbConn.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
+    emitUserRoleUpdated(userId, newRole as 'user' | 'moderator' | 'admin');
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });

@@ -88,6 +88,8 @@ interface ServerToClientEvents {
   interactionUpdated: (data: { toUserId: string; likes: number; dislikes: number; follows: number }) => void;
   // حدث حظر المستخدم
   userBanned: (data: { userId: string; banType: string }) => void;
+  // حدث تحديث دور المستخدم
+  userRoleUpdated: (data: { userId: string; newRole: 'user' | 'moderator' | 'admin' }) => void;
   // حدث تحديث عدد المتواجدين
   onlineCountUpdated: (data: { count: number }) => void;
   // حدث تحديث النص المثبت في الساحة
@@ -313,6 +315,7 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       username: string;
     }) => void;
     onUserBanned?: (data: { userId: string; banType: string }) => void;
+    onUserRoleUpdated?: (data: { userId: string; newRole: 'user' | 'moderator' | 'admin' }) => void;
     onPinnedTextUpdated?: (data: { roomId: number; text: string }) => void;
     onTextMessageCreated?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
     onTextMessage?: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
@@ -492,6 +495,11 @@ export function useSocket(roomId: number | null, userId?: string | null) {
         // حدث حظر المستخدم
         socket.on("userBanned", (data) => {
           callbacksRef.current.onUserBanned?.(data);
+        });
+
+        // حدث تحديث دور المستخدم
+        socket.on("userRoleUpdated", (data) => {
+          callbacksRef.current.onUserRoleUpdated?.(data);
         });
 
         // حدث تحديث النص المثبت
