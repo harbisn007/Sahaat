@@ -691,17 +691,11 @@ export default function HomeScreen() {
               </View>
             ) : rooms && rooms.length > 0 ? (
               <FlatList
-                data={[...rooms, { isDivider: true }, ...remainingRooms]}
-                keyExtractor={(item, index) => item.isDivider ? `divider-${index}` : item.id.toString()}
+                data={rooms}
+                keyExtractor={(item) => item.id.toString()}
                 numColumns={2}
                 columnWrapperStyle={{ gap: 6, marginBottom: 6 }}
-                renderItem={({ item, index }) => {
-                  if (item.isDivider) {
-                    return (
-                      <View style={{ width: '100%', height: 1, backgroundColor: '#c8860a44', marginVertical: 12 }} />
-                    );
-                  }
-                  return (
+                renderItem={({ item, index }) => (
                   <View style={{ flex: 1, maxWidth: '50%' }}>
                     <RoomCard
                       room={item}
@@ -712,8 +706,7 @@ export default function HomeScreen() {
                       rank={index + 1}
                     />
                   </View>
-                  );
-                }}
+                )}
                 refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
                 contentContainerStyle={{ paddingBottom: 20 }}
               />

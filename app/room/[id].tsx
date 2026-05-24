@@ -71,6 +71,7 @@ function TextMessageWithReport({ item, userId }: { item: any; userId: string | n
 export default function RoomScreen() {
   const { id, role: routeRole, autoJoin } = useLocalSearchParams<{ id: string; role?: string; autoJoin?: string }>();
   const { username, userId, avatar, role, setUserData, setRole } = useUser();
+  console.log('[RoomScreen] Current role:', role);
 
   // Helper function to get avatar source
   const getAvatarSource = (avatarValue: string | undefined | null) => getAvatarSourceById(avatarValue);
@@ -2055,7 +2056,7 @@ export default function RoomScreen() {
         {/* Right: Share/Invite buttons and Pin toggle */}
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           {/* زر تثبيت الساحة (للمشرفين والمديرين) */}
-          {(role === 'admin' || role === 'moderator' || isCreator) && (
+          {(role === 'admin' || role === 'moderator') && (
             <TouchableOpacity
               style={{
                 backgroundColor: roomData.isPinned === 'true' ? '#2d1f0e' : '#1a1a1a',
@@ -2067,8 +2068,16 @@ export default function RoomScreen() {
               }}
               onPress={async () => {
                 try {
-                  await trpc.rooms.pinRoom.mutate({ roomId, isPinned: roomData.isPinned !== 'true' });
-                  refetch();
+                  const response = await fetch('/api/pin-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      roomId,
+                      isPinned: roomData.isPinned !== 'true',
+                      moderatorId: userId,
+                    }),
+                  });
+                  if (response.ok) refetch();
                 } catch (err) {
                   console.error('Pin room error:', err);
                 }

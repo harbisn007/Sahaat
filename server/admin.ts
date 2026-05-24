@@ -800,6 +800,37 @@ function dashboardPage(data: {
       } catch(e) { alert('خطأ: ' + e); }
     }
 
+    // ── تحميل قائمة المدراء والمشرفين ──
+    async function loadModerators() {
+      try {
+        const res = await fetch('/admin/admin/api/moderators');
+        if (!res.ok) throw new Error('Failed to fetch moderators');
+        const moderators = await res.json();
+        const tbody = document.getElementById('moderators-tbody');
+        tbody.innerHTML = '';
+        moderators.forEach((mod, idx) => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${idx + 1}</td>
+            <td>${mod.name}</td>
+            <td>${mod.email || '—'}</td>
+            <td>${mod.role}</td>
+            <td>
+              <select onchange="changeUserRole(${mod.id}, this.value)">
+                <option value="${mod.role}" selected>لا تغيير</option>
+                <option value="user">مستخدم</option>
+                <option value="moderator">مشرف</option>
+                <option value="admin">مدير</option>
+              </select>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch(e) { alert('خطأ في تحميل المدراء: ' + e); }
+    }
+    // تحميل البيانات عند فتح التبويب
+    loadModerators();
+
     // ── تغيير دور المستخدم من تبويب المستخدمين ──
     async function changeUserRole(userId, newRole) {
       try {
