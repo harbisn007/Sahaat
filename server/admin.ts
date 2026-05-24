@@ -810,20 +810,14 @@ function dashboardPage(data: {
         tbody.innerHTML = '';
         moderators.forEach((mod, idx) => {
           const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${idx + 1}</td>
-            <td>${mod.name}</td>
-            <td>${mod.email || '—'}</td>
-            <td>${mod.role}</td>
-            <td>
-              <select onchange="changeUserRole(${mod.id}, this.value)">
-                <option value="${mod.role}" selected>لا تغيير</option>
-                <option value="user">مستخدم</option>
-                <option value="moderator">مشرف</option>
-                <option value="admin">مدير</option>
-              </select>
-            </td>
-          `;
+          row.innerHTML = '<td>' + (idx + 1) + '</td>' +
+            '<td>' + mod.name + '</td>' +
+            '<td>' + (mod.role === 'admin' ? 'مدير' : mod.role === 'moderator' ? 'مشرف' : 'مستخدم') + '</td>' +
+            '<td><select onchange="changeUserRole(' + mod.id + ', this.value)">' +
+            '<option value="user"' + (mod.role === 'user' ? ' selected' : '') + '>مستخدم</option>' +
+            '<option value="moderator"' + (mod.role === 'moderator' ? ' selected' : '') + '>مشرف</option>' +
+            '<option value="admin"' + (mod.role === 'admin' ? ' selected' : '') + '>مدير</option>' +
+            '</select></td>';
           tbody.appendChild(row);
         });
       } catch(e) { alert('خطأ في تحميل المدراء: ' + e); }
