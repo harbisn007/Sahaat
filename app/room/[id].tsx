@@ -12,7 +12,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
-import { useUser } from "@/lib/user-context";
+import { useUser, type UserRole } from "@/lib/user-context";
 import { trpc } from "@/lib/trpc";
 import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
@@ -414,9 +414,8 @@ export default function RoomScreen() {
       },
       // استماع لتحديث دور المستخدم
       onUserRoleUpdated: (data) => {
-        console.log("[RoomScreen] User role updated via Socket.io:", data);
         if (data.userId === userId) {
-          setRole(data.newRole);
+          setRole(data.newRole as UserRole);
         }
       },
     });
