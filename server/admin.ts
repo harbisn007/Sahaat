@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "./db";
 import { users, rooms, reports, adminBans } from "../drizzle/schema";
-import { desc, count, eq, and, gte } from "drizzle-orm";
+import { desc, count, eq, and, gte, or } from "drizzle-orm";
 import * as db from "./db";
 import { emitUserBanned, emitUserRoleUpdated, getActiveUserIds } from "./_core/socket";
 import { storageGetSignedUrl } from "./storage";
@@ -221,6 +221,15 @@ router.get("/api/audio-proxy", async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).send("Proxy error: " + err);
   }
+});
+
+router.get("/admin/api/moderators", async (req: Request, res: Response) => {
+  if (!isAuthenticated(req)) return res.status(401).json({ error: "Unauthorized" });
+  try {
+    const dbConn = await getDb();
+    const moderators = await dbConn.select({ id: users.id, name: users.name, email: users.email, role: users.role }).from(users).where(or(eq(users.role, 'admin'), eq(users.role, 'moderator')));
+    res.json(moderators);
+  } catch (err) { res.status(500).json({ error: String(err) }); }
 });
 
 export { router as adminRouter };
@@ -801,7 +810,7 @@ function dashboardPage(data: {
         });
         if (res.ok) {
           alert('تم تحديث الدور بنجاح');
-          loadModerators();
+          location.reload();
         } else {
           const err = await res.json();
           alert('فشل تحديث الدور: ' + (err.error || 'خطأ غير معروف'));

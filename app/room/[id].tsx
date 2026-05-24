@@ -411,6 +411,13 @@ export default function RoomScreen() {
           setShowNotification(false);
         }, 4000);
       },
+      // استماع لتحديث دور المستخدم
+      onUserRoleUpdated: (data) => {
+        console.log("[RoomScreen] User role updated via Socket.io:", data);
+        if (data.userId === userId) {
+          setRole(data.newRole);
+        }
+      },
     });
   }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
 
@@ -2038,7 +2045,7 @@ export default function RoomScreen() {
         {/* Center: Room info */}
         <View style={{ flex: 1, alignItems: 'center', paddingHorizontal: 8 }}>
           <Text style={{ color: '#d4af37', fontSize: 18, fontWeight: 'bold', textAlign: 'center' }}>{roomData.name}</Text>
-          <TouchableOpacity onPress={() => (role && ['moderator', 'admin'].includes(role)) || (userRole?.appRole && ['moderator', 'admin'].includes(userRole.appRole)) ? setShowParticipantsList(true) : null}>
+          <TouchableOpacity onPress={() => (role && ['moderator', 'admin'].includes(role)) ? setShowParticipantsList(true) : null}>
             <Text style={{ color: 'rgba(212,175,55,0.6)', fontSize: 11, textAlign: 'center', marginTop: 2 }}>
               {roomData.acceptedPlayersCount}/2 شعراء · {roomData.viewerCount} مستمعين
             </Text>
@@ -2060,18 +2067,8 @@ export default function RoomScreen() {
               }}
               onPress={async () => {
                 try {
-                  const response = await fetch('/api/pin-room', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      roomId,
-                      isPinned: roomData.isPinned !== 'true',
-                      moderatorId: userId,
-                    }),
-                  });
-                  if (response.ok) {
-                    refetch();
-                  }
+                  await trpc.rooms.pinRoom.mutate({ roomId, isPinned: roomData.isPinned !== 'true' });
+                  refetch();
                 } catch (err) {
                   console.error('Pin room error:', err);
                 }
@@ -3159,7 +3156,7 @@ export default function RoomScreen() {
             </TouchableOpacity>
 
             {/* Moderator/Unmoderator Option (Admin only) */}
-            {selectedParticipant?.userId !== userId && (role === 'admin' || userRole?.appRole === 'admin') && (
+            {selectedParticipant?.userId !== userId && (role === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
@@ -3194,7 +3191,7 @@ export default function RoomScreen() {
             )}
 
             {/* Admin/Unadmin Option (Admin only) */}
-            {selectedParticipant?.userId !== userId && (role === 'admin' || userRole?.appRole === 'admin') && (
+            {selectedParticipant?.userId !== userId && (role === 'admin') && (
               <TouchableOpacity
                 style={{
                   paddingVertical: 10,
