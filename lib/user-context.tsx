@@ -85,15 +85,30 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setAppleIdState(storedAppleId);
       }
 
-      const storedRole = await AsyncStorage.getItem(USER_ROLE_KEY);
-      if (storedRole) {
-        setRoleState(storedRole as UserRole);
-      }
-
       // Load or generate UUID
       let storedUserId = await AsyncStorage.getItem(USER_ID_STORAGE_KEY);
       if (storedUserId) {
         setUserIdState(storedUserId);
+        // جلب الدور من السيرفر
+        try {
+          const API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+          const res = await fetch(`${API_URL}/api/user-role?userId=${storedUserId}`);
+          const data = await res.json();
+          if (data.role) {
+            await AsyncStorage.setItem(USER_ROLE_KEY, data.role);
+            setRoleState(data.role as UserRole);
+          }
+        } catch {
+          // استخدم المحفوظ محلياً كـ fallback
+          const storedRole = await AsyncStorage.getItem(USER_ROLE_KEY);
+          if (storedRole) setRoleState(storedRole as UserRole);
+        }
+      } else {
+        // لا يوجد userId - استخدم المحفوظ محلياً
+        const storedRole = await AsyncStorage.getItem(USER_ROLE_KEY);
+        if (storedRole) {
+          setRoleState(storedRole as UserRole);
+        }
       }
       // Note: For guests, userId is generated on login, not on app start
     } catch (error) {
