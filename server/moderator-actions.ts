@@ -202,7 +202,7 @@ router.post("/api/pin-room", async (req: Request, res: Response) => {
     const moderator = await db
       .select()
       .from(users)
-      .where(eq(users.appUserId, moderatorId))
+      .where(eq(users.id, parseInt(moderatorId)))
       .limit(1);
 
     if (!moderator[0] || !["admin", "moderator"].includes(moderator[0].role)) {
