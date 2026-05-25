@@ -159,6 +159,9 @@ router.post("/api/set-role", async (req: Request, res: Response) => {
     const dbConn = await getDb();
     if (!dbConn) return res.status(503).json({ error: "DB unavailable" });
     await dbConn.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
+    const userResult = await dbConn.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
+    const appUserId = userResult[0]?.appUserId;
+    if (appUserId) emitUserRoleUpdated(appUserId, newRole as 'user' | 'moderator' | 'admin');
     emitUserRoleUpdated(userId, newRole as 'user' | 'moderator' | 'admin');
     res.json({ success: true });
   } catch (err) {

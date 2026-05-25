@@ -422,6 +422,9 @@ export default function HomeScreen() {
         else Alert.alert("تم الرفض", "لم يتم قبول طلبك للانضمام كشاعر.");
       }
     });
+    socket.on('userRoleUpdated', async (data) => {
+      if (data.userId === userId) { await setRole(data.newRole as UserRole); }
+    });
     return () => {
       socket.emit("leavePublicInvites");
       if (userId) { socket.emit("leaveCreatorChannel", userId); socket.emit("leaveUserChannel", userId); }

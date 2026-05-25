@@ -241,3 +241,13 @@ router.get("/api/user-role", async (req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
+
+router.get("/api/user-role", async (req, res) => {
+  const { userId } = req.query;
+  const db = await getDb();
+  if (!db) return res.status(503).json({ error: "DB unavailable" });
+  const user = await db.select({ role: users.role }).from(users).where(eq(users.appUserId, userId as string)).limit(1);
+  res.json({ role: user[0]?.role || 'user' });
+});
+
+export default router;
