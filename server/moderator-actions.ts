@@ -241,5 +241,3 @@ router.get("/api/user-role", async (req: Request, res: Response) => {
     res.status(500).json({ error: String(err) });
   }
 });
-
-export default router;
