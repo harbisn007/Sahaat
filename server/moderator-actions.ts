@@ -249,5 +249,3 @@ router.get("/api/user-role", async (req, res) => {
   const user = await db.select({ role: users.role }).from(users).where(eq(users.appUserId, userId as string)).limit(1);
   res.json({ role: user[0]?.role || 'user' });
 });
-
-export default router;
