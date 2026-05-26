@@ -114,7 +114,7 @@ async function startServer() {
   );
 
   // مسارات إجراءات المعدلين والمدراء
-  app.use("/", moderatorActionsRouter);
+  app.use("/mod", moderatorActionsRouter);
 
   const port = parseInt(process.env.PORT || "8080");
 
