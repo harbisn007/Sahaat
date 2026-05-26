@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { getDb } from "./db";
-import { roomParticipants, blockedUsers, users, notifications } from "../drizzle/schema";
+import { roomParticipants, blockedUsers, users, notifications, rooms } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { emitUserRoleUpdated, emitNotification } from "./_core/socket";
 
