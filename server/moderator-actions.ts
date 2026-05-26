@@ -210,8 +210,7 @@ router.post("/pin-room", async (req: Request, res: Response) => {
     }
 
     // حدّث حالة التثبيت
-    const pinnedValue = isPinned ? "true" : "false";
-    await db.update(rooms).set({ isPinned: pinnedValue as any }).where(eq(rooms.id, roomId));
+    await db.update(rooms).set({ isPinned: isPinned ? 1 : 0 } as any).where(eq(rooms.id, roomId));
 
     res.json({ success: true, isPinned });
   } catch (err) {
