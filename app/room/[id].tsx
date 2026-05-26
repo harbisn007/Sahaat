@@ -2058,9 +2058,9 @@ export default function RoomScreen() {
           {(role === 'admin' || role === 'moderator') && (
             <TouchableOpacity
               style={{
-                backgroundColor: roomData.isPinned === 'true' ? '#2d1f0e' : '#1a1a1a',
+                backgroundColor: (roomData.isPinned === 'true' || roomData.isPinned === 1) ? '#2d1f0e' : '#1a1a1a',
                 borderWidth: 1,
-                borderColor: roomData.isPinned === 'true' ? '#c8860a' : '#444',
+                borderColor: (roomData.isPinned === 'true' || roomData.isPinned === 1) ? '#c8860a' : '#444',
                 paddingHorizontal: 10,
                 paddingVertical: 7,
                 borderRadius: 10,
@@ -2072,7 +2072,7 @@ export default function RoomScreen() {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                       roomId,
-                      isPinned: roomData.isPinned !== 'true',
+                      isPinned: !(roomData.isPinned === 'true' || roomData.isPinned === 1),
                       moderatorId: userId,
                     }),
                   });
@@ -2084,12 +2084,12 @@ export default function RoomScreen() {
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <MaterialIcons 
-                  name={roomData.isPinned === 'true' ? 'push-pin' : 'push-pin'} 
+                  name={(roomData.isPinned === 'true' || roomData.isPinned === 1) ? 'push-pin' : 'push-pin'} 
                   size={14} 
-                  color={roomData.isPinned === 'true' ? '#d4af37' : '#888'} 
+                  color={(roomData.isPinned === 'true' || roomData.isPinned === 1) ? '#d4af37' : '#888'} 
                 />
-                <Text style={{ color: roomData.isPinned === 'true' ? '#d4af37' : '#888', fontWeight: 'bold', fontSize: 11 }}>
-                  {roomData.isPinned === 'true' ? 'مثبتة' : 'تثبيت'}
+                <Text style={{ color: (roomData.isPinned === 'true' || roomData.isPinned === 1) ? '#d4af37' : '#888', fontWeight: 'bold', fontSize: 11 }}>
+                  {(roomData.isPinned === 'true' || roomData.isPinned === 1) ? 'مثبتة' : 'تثبيت'}
                 </Text>
               </View>
             </TouchableOpacity>
