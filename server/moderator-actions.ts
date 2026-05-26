@@ -188,7 +188,7 @@ router.post("/api/promote-participant", async (req: Request, res: Response) => {
 export default router;
 
 // ── API: تثبيت/إلغاء تثبيت الساحة ──
-router.post("/mod/pin-room", async (req: Request, res: Response) => {
+router.post("/pin-room", async (req: Request, res: Response) => {
   try {
     const { roomId, isPinned, moderatorId } = req.body;
     if (!roomId || isPinned === undefined || !moderatorId) {
