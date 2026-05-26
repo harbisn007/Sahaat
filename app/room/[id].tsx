@@ -2067,7 +2067,7 @@ export default function RoomScreen() {
               }}
               onPress={async () => {
                 try {
-                  const response = await fetch('https://sahaat-production.up.railway.app/api/pin-room', {
+                  const response = await fetch('https://sahaat-production.up.railway.app/pin-room', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
