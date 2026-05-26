@@ -194,7 +194,7 @@ async function checkAndCleanupRooms(): Promise<void> {
       const roomId = room.id;
 
       // الساحات المثبتة لا تُحذف أبداً
-      if (room.isPinned === "true") {
+      if (room.isPinned === "true" || room.isPinned === 1) {
         continue;
       }
 
