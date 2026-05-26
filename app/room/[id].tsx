@@ -2076,6 +2076,8 @@ export default function RoomScreen() {
                       moderatorId: userId,
                     }),
                   });
+                  const text = await response.text();
+                  Alert.alert('Response: ' + response.status, text.substring(0, 200));
                   if (response.ok) refetch();
                 } catch (err) {
                   console.error('Pin room error:', err);
