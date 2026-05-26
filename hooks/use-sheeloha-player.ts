@@ -29,6 +29,7 @@ export function useSheelohaPlayer() {
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
   const playersRef = useRef<AudioPlayer[]>([]);
   const preparedUrlRef = useRef<string | null>(null);
+  const preparedPlayersRef = useRef<AudioPlayer[]>([]);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
@@ -44,21 +45,55 @@ export function useSheelohaPlayer() {
     playersRef.current = [];
   }, []);
 
-  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
+  const prepare = useCallback((taroukUrl: string) => {
+    if (preparedUrlRef.current === taroukUrl) return;
+    preparedUrlRef.current = taroukUrl;
+    preparedPlayersRef.current.forEach(p => { try { p.release(); } catch (_) {} });
+    preparedPlayersRef.current = [];
     CROWD_FIXED.forEach(({ volume, rate }) => {
-      if (!isPlayingRef.current) return;
       try {
         const player = createAudioPlayer(taroukUrl);
         player.volume = volume;
         player.setPlaybackRate(rate);
-        player.play();
-        playersRef.current.push(player);
-        setTimeout(() => {
-          try { player.release(); } catch (_) {}
-          playersRef.current = playersRef.current.filter(p => p !== player);
-        }, (taroukDuration + 2) * 1000);
-      } catch (e) {}
+        preparedPlayersRef.current.push(player);
+      } catch (_) {}
     });
+  }, []);
+
+  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
+    const prepared = preparedPlayersRef.current;
+    const usePrepared = prepared.length === CROWD_FIXED.length && preparedUrlRef.current === taroukUrl;
+
+    if (usePrepared) {
+      preparedPlayersRef.current = [];
+      preparedUrlRef.current = null;
+      prepared.forEach((player) => {
+        if (!isPlayingRef.current) return;
+        try {
+          player.play();
+          playersRef.current.push(player);
+          setTimeout(() => {
+            try { player.release(); } catch (_) {}
+            playersRef.current = playersRef.current.filter(p => p !== player);
+          }, (taroukDuration + 2) * 1000);
+        } catch (_) {}
+      });
+    } else {
+      CROWD_FIXED.forEach(({ volume, rate }) => {
+        if (!isPlayingRef.current) return;
+        try {
+          const player = createAudioPlayer(taroukUrl);
+          player.volume = volume;
+          player.setPlaybackRate(rate);
+          player.play();
+          playersRef.current.push(player);
+          setTimeout(() => {
+            try { player.release(); } catch (_) {}
+            playersRef.current = playersRef.current.filter(p => p !== player);
+          }, (taroukDuration + 2) * 1000);
+        } catch (_) {}
+      });
+    }
   }, []);
 
   const play = useCallback(async (data: SheelohaData) => {
@@ -98,9 +133,6 @@ export function useSheelohaPlayer() {
     const clapInterval = setInterval(playClap, CLAP_INTERVAL);
     intervalsRef.current.push(clapInterval);
 
-
-
-    // شغّل الخمسة أصوات مباشرة
     playCrowd(taroukUrl, taroukDuration);
 
     const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
@@ -117,17 +149,6 @@ export function useSheelohaPlayer() {
   const stop = useCallback(() => {
     cleanup();
   }, [cleanup]);
-
-  const prepare = useCallback((taroukUrl: string) => {
-    if (preparedUrlRef.current === taroukUrl) return;
-    preparedUrlRef.current = taroukUrl;
-    try {
-      const preloader = createAudioPlayer(taroukUrl);
-      setTimeout(() => {
-        try { preloader.release(); } catch (_) {}
-      }, 30000);
-    } catch (_) {}
-  }, []);
 
   return { play, stop, prepare, isPlaying: isPlayingState };
 }
