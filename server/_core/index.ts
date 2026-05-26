@@ -47,9 +47,6 @@ async function startServer() {
 
   // لوحة الإدارة — محمية بكلمة مرور
   app.use("/admin", adminRouter);
-  
-  // مسارات إجراءات المعدلين والمدراء
-  app.use("/", moderatorActionsRouter);
 
   registerOAuthRoutes(app);
 
@@ -115,6 +112,9 @@ async function startServer() {
       createContext,
     }),
   );
+
+  // مسارات إجراءات المعدلين والمدراء
+  app.use("/", moderatorActionsRouter);
 
   const port = parseInt(process.env.PORT || "8080");
 
