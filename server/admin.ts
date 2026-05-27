@@ -127,7 +127,9 @@ router.post("/api/ban", async (req: Request, res: Response) => {
     const { userId, username, banType } = req.body;
     if (!userId || !banType) return res.status(400).json({ error: "Missing fields" });
     const ban = await db.banUser(userId, username || userId, banType);
-    const userResult = await dbConn.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
+    const banDb = await getDb();
+    if (!banDb) return res.status(503).json({ error: 'DB unavailable' });
+    const userResult = await banDb.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
     const appUserId = userResult[0]?.appUserId;
     if (appUserId) emitUserBanned(appUserId, banType);
     res.json({ success: true, ban });
@@ -164,7 +166,6 @@ router.post("/api/set-role", async (req: Request, res: Response) => {
     const userResult = await dbConn.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
     const appUserId = userResult[0]?.appUserId;
     if (appUserId) emitUserRoleUpdated(appUserId, newRole as 'user' | 'moderator' | 'admin');
-    emitUserRoleUpdated(userId, newRole as 'user' | 'moderator' | 'admin');
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: String(err) });
