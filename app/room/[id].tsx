@@ -2086,9 +2086,11 @@ export default function RoomScreen() {
                       moderatorId: userId,
                     }),
                   });
-                  const text = await response.text();
-                  Alert.alert('Response: ' + response.status, text.substring(0, 200));
-                  if (response.ok) refetch();
+                  const isCurrentlyPinned = roomData.isPinned === 'true' || roomData.isPinned === 1;
+                  if (response.ok) {
+                    Alert.alert(isCurrentlyPinned ? 'تم إلغاء التثبيت' : 'تم التثبيت');
+                    refetch();
+                  }
                 } catch (err) {
                   console.error('Pin room error:', err);
                 }

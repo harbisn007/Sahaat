@@ -212,6 +212,18 @@ router.post("/pin-room", async (req: Request, res: Response) => {
     // حدّث حالة التثبيت
     await db.update(rooms).set({ isPinned: isPinned ? 1 : 0 } as any).where(eq(rooms.id, roomId));
 
+    if (isPinned) {
+      try {
+        const roomResult = await db.select({ creatorId: rooms.creatorId }).from(rooms).where(eq(rooms.id, roomId)).limit(1);
+        if (roomResult[0]?.creatorId) {
+          const creator = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, roomResult[0].creatorId)).limit(1);
+          if (creator[0]) {
+            emitNotification(creator[0].id, { message: 'مرحبا ،تقديرا لك.. قامت الادارة بتثبيت ساحتك لتكون ساحة دائمة 🌹', type: 'pin' });
+          }
+        }
+      } catch (_) {}
+    }
+
     res.json({ success: true, isPinned });
   } catch (err) {
     res.status(500).json({ error: String(err) });
