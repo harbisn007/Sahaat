@@ -130,7 +130,6 @@ export async function upsertUserByPhone(data: {
     set: {
       name: data.name,
       avatar: data.avatar,
-      appUserId: data.appUserId || null,
       lastSignedIn: new Date(),
     }
   });
