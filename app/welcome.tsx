@@ -239,12 +239,17 @@ export default function WelcomeScreen() {
       const avatar = selectedAvatar || "male";
       await loginAsGuest(displayName, avatar as AvatarType);
       const guestUserId = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
+      // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
+      const existingUser = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
+      const finalUserId = existingUser?.openId ? 
+        (await AsyncStorage.getItem('@sahaat_muhawara:userId') || guestUserId) :
+        guestUserId;
       await upsertUserByPhone.mutateAsync({
         phoneNumber: fullPhone,
         name: displayName,
         avatar: avatar as string,
         openId: firebaseUid,
-        appUserId: guestUserId,
+        appUserId: finalUserId,
       });
       await AsyncStorage.setItem('user_uuid', firebaseUid);
       await AsyncStorage.setItem('user_name', displayName);
@@ -272,7 +277,12 @@ export default function WelcomeScreen() {
             const avatar = selectedAvatar || "male";
             await loginAsGuest(displayName, avatar as AvatarType);
             const guestUserId2 = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
-            await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid, appUserId: guestUserId2 });
+            // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
+            const existingUser2 = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
+            const finalUserId2 = existingUser2?.openId ? 
+              (await AsyncStorage.getItem('@sahaat_muhawara:userId') || guestUserId2) :
+              guestUserId2;
+            await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid, appUserId: finalUserId2 });
             await AsyncStorage.setItem('user_uuid', firebaseUid);
             await AsyncStorage.setItem('user_name', displayName);
             await AsyncStorage.setItem('user_avatar', avatar as string);
