@@ -127,7 +127,9 @@ router.post("/api/ban", async (req: Request, res: Response) => {
     const { userId, username, banType } = req.body;
     if (!userId || !banType) return res.status(400).json({ error: "Missing fields" });
     const ban = await db.banUser(userId, username || userId, banType);
-    emitUserBanned(userId, banType);
+    const userResult = await dbConn.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
+    const appUserId = userResult[0]?.appUserId;
+    if (appUserId) emitUserBanned(appUserId, banType);
     res.json({ success: true, ban });
   } catch (err) {
     res.status(500).json({ error: String(err) });
