@@ -1,5 +1,5 @@
 import { Router, Request, Response } from "express";
-import { getDb } from "./db";
+import { getDb, banUser } from "./db";
 import { roomParticipants, blockedUsers, users, notifications, rooms } from "../drizzle/schema";
 import { eq, and } from "drizzle-orm";
 import { emitUserRoleUpdated, emitNotification } from "./_core/socket";
@@ -32,7 +32,7 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
     const userToban = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, userId)).limit(1);
     if (!userToban[0]) return res.status(404).json({ error: "User not found" });
     const participant = await db.select({ username: roomParticipants.username }).from(roomParticipants).where(and(eq(roomParticipants.roomId, roomId), eq(roomParticipants.userId, userId))).limit(1);
-    await db.banUser(String(userToban[0].id), participant?.[0]?.username || userId, 'permanent');
+    await banUser(String(userToban[0].id), participant?.[0]?.username || userId, 'permanent');
 
     // أزل المستخدم من الساحة
     await db
