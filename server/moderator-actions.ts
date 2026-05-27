@@ -33,10 +33,8 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
     const moderatorRecord = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, moderatorId)).limit(1);
     if (!userToban[0]) return res.status(404).json({ error: "User not found" });
     await db.insert(blockedUsers).values({
-      userId: String(userToban[0].id),
-      blockedBy: String(moderatorRecord[0]?.id || moderatorId),
-      reason: "Banned from room",
-      createdAt: new Date(),
+      blockerId: String(moderatorRecord[0]?.id || moderatorId),
+      blockedId: String(userToban[0].id),
     });
 
     // أزل المستخدم من الساحة
