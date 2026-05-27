@@ -3161,6 +3161,8 @@ export default function RoomScreen() {
                       moderatorId: userId,
                     }),
                   });
+                  const text = await response.text();
+                  Alert.alert('Response: ' + response.status, text.substring(0, 200));
                   if (response.ok) {
                     setShowParticipantMenu(false);
                     refetch();
