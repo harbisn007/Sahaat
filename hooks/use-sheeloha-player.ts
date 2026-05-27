@@ -55,6 +55,10 @@ export function useSheelohaPlayer() {
         const player = createAudioPlayer(taroukUrl);
         player.volume = volume;
         player.setPlaybackRate(rate);
+        player.play();
+        setTimeout(() => { 
+          try { player.pause(); player.seekTo(0); } catch (_) {} 
+        }, 100);
         preparedPlayersRef.current.push(player);
       } catch (_) {}
     });

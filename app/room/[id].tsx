@@ -1602,6 +1602,11 @@ export default function RoomScreen() {
     
     try {
       console.log("[RoomScreen] Calling startRecording...");
+      await AudioModule.setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: true,
+        interruptionModeAndroid: 1,
+      });
       const success = await startRecording();
       
       // التحقق من أن التسجيل لم يُلغَ أثناء التحضير - استخدام ref بدلاً من state
@@ -1736,6 +1741,11 @@ export default function RoomScreen() {
     
     try {
       let recording = await stopRecording();
+      await AudioModule.setAudioModeAsync({
+        playsInSilentMode: true,
+        allowsRecording: false,
+        interruptionModeAndroid: 2,
+      });
       
       // #2: إذا فشل التسجيل (null)، إعادة محاولة بعد تأخير قصير
       if (!recording) {
