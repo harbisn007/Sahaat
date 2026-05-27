@@ -32,6 +32,7 @@ import {
   emitReactionCreated,
   emitUserBanned,
   emitTextMessageCreated,
+  emitForceLogout,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -73,6 +74,11 @@ export const appRouter = router({
       }))
       .mutation(async ({ input }) => {
         await db.upsertUserByPhone(input);
+        // إخراج الجلسات القديمة
+        const existingUser = await db.getUserByPhone(input.phoneNumber);
+        if (existingUser?.appUserId && existingUser.appUserId !== input.appUserId) {
+          emitForceLogout(existingUser.appUserId);
+        }
         return { success: true };
       }),
   }),

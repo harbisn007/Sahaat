@@ -425,6 +425,10 @@ export default function HomeScreen() {
     socket.on('userRoleUpdated', async (data) => {
       if (data.userId === userId) { await setRole(data.newRole as UserRole); }
     });
+    socket.on('forceLogout', async () => {
+      await logout();
+      router.replace('/welcome');
+    });
     return () => {
       socket.emit("leavePublicInvites");
       if (userId) { socket.emit("leaveCreatorChannel", userId); socket.emit("leaveUserChannel", userId); }

@@ -825,3 +825,9 @@ export function emitNotification(userId: string, notification: { title: string; 
   io.to(`user:${userId}`).emit("notification", notification);
   console.log(`[Socket.io] notification sent to user:${userId} (type: ${notification.type})`);
 }
+
+export function emitForceLogout(appUserId: string): void {
+  if (!io) return;
+  io.to(`user:${appUserId}`).emit('forceLogout');
+  console.log(`[Socket.io] forceLogout sent to user:${appUserId}`);
+}
