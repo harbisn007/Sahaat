@@ -21,7 +21,7 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
     const moderator = await db
       .select()
       .from(users)
-      .where(eq(users.id, parseInt(moderatorId)))
+      .where(eq(users.appUserId, moderatorId))
       .limit(1);
 
     if (!moderator[0] || !["admin", "moderator"].includes(moderator[0].role)) {
@@ -84,7 +84,7 @@ router.post("/unban-from-room", async (req: Request, res: Response) => {
     const moderator = await db
       .select()
       .from(users)
-      .where(eq(users.id, parseInt(moderatorId)))
+      .where(eq(users.appUserId, moderatorId))
       .limit(1);
 
     if (!moderator[0] || !["admin", "moderator"].includes(moderator[0].role)) {
@@ -141,7 +141,7 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
     const moderator = await db
       .select()
       .from(users)
-      .where(eq(users.id, parseInt(moderatorId)))
+      .where(eq(users.appUserId, moderatorId))
       .limit(1);
 
     if (!moderator[0] || moderator[0].role !== "admin") {
