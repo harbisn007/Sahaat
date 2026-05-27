@@ -29,10 +29,9 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
     }
 
     // أضف المستخدم إلى قائمة المحظورين
-    const userToban = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, userId)).limit(1);
+    const userToban = await db.select({ id: users.id, name: users.name }).from(users).where(eq(users.appUserId, userId)).limit(1);
     if (!userToban[0]) return res.status(404).json({ error: "User not found" });
-    const participant = await db.select({ username: roomParticipants.username }).from(roomParticipants).where(and(eq(roomParticipants.roomId, roomId), eq(roomParticipants.userId, userId))).limit(1);
-    await banUser(String(userToban[0].id), participant?.[0]?.username || userId, 'permanent');
+    await banUser(userId, userToban[0].name || userId, 'permanent');
 
     // أزل المستخدم من الساحة
     await db
