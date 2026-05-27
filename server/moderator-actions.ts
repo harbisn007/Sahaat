@@ -7,7 +7,7 @@ import { emitUserRoleUpdated, emitNotification } from "./_core/socket";
 const router = Router();
 
 // ── API: حظر مستخدم من الساحة ──
-router.post("/api/ban-from-room", async (req: Request, res: Response) => {
+router.post("/ban-from-room", async (req: Request, res: Response) => {
   try {
     const { roomId, userId, moderatorId } = req.body;
     if (!roomId || !userId || !moderatorId) {
@@ -70,7 +70,7 @@ router.post("/api/ban-from-room", async (req: Request, res: Response) => {
 });
 
 // ── API: إلغاء حظر مستخدم ──
-router.post("/api/unban-from-room", async (req: Request, res: Response) => {
+router.post("/unban-from-room", async (req: Request, res: Response) => {
   try {
     const { userId, moderatorId } = req.body;
     if (!userId || !moderatorId) {
@@ -123,7 +123,7 @@ router.post("/api/unban-from-room", async (req: Request, res: Response) => {
 });
 
 // ── API: تعيين مشرف/مدير من داخل الساحة ──
-router.post("/api/promote-participant", async (req: Request, res: Response) => {
+router.post("/promote-participant", async (req: Request, res: Response) => {
   try {
     const { roomId, userId, newRole, moderatorId } = req.body;
     if (!roomId || !userId || !newRole || !moderatorId) {

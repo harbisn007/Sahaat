@@ -3153,7 +3153,7 @@ export default function RoomScreen() {
               }}
               onPress={async () => {
                 try {
-                  const endpoint = selectedParticipant?.isBanned ? 'https://sahaat-production.up.railway.app/api/unban-from-room' : 'https://sahaat-production.up.railway.app/api/ban-from-room';
+                  const endpoint = selectedParticipant?.isBanned ? 'https://sahaat-production.up.railway.app/mod/unban-from-room' : 'https://sahaat-production.up.railway.app/mod/ban-from-room';
                   const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
