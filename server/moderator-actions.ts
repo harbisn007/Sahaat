@@ -30,12 +30,9 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
 
     // أضف المستخدم إلى قائمة المحظورين
     const userToban = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, userId)).limit(1);
-    const moderatorRecord = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, moderatorId)).limit(1);
     if (!userToban[0]) return res.status(404).json({ error: "User not found" });
-    await db.insert(blockedUsers).values({
-      blockerId: String(moderatorRecord[0]?.id || moderatorId),
-      blockedId: String(userToban[0].id),
-    });
+    const participant = await db.select({ username: roomParticipants.username }).from(roomParticipants).where(and(eq(roomParticipants.roomId, roomId), eq(roomParticipants.userId, userId))).limit(1);
+    await db.banUser(String(userToban[0].id), participant?.[0]?.username || userId, 'permanent');
 
     // أزل المستخدم من الساحة
     await db
@@ -131,7 +128,7 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    if (!["moderator", "admin"].includes(newRole)) {
+    if (!["moderator", "admin", "user"].includes(newRole)) {
       return res.status(400).json({ error: "Invalid role" });
     }
 
@@ -150,7 +147,7 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
     }
 
     // حدّث دور المستخدم في قاعدة البيانات
-    await db.update(users).set({ role: newRole }).where(eq(users.id, parseInt(userId)));
+    await db.update(users).set({ role: newRole }).where(eq(users.appUserId, userId));
 
     // إرسال إشعار للمستخدم
     const promotedUser = await db
