@@ -55,10 +55,6 @@ export function useSheelohaPlayer() {
         const player = createAudioPlayer(taroukUrl);
         player.volume = volume;
         player.setPlaybackRate(rate);
-        player.play();
-        setTimeout(() => { 
-          try { player.pause(); player.seekTo(0); } catch (_) {} 
-        }, 100);
         preparedPlayersRef.current.push(player);
       } catch (_) {}
     });
@@ -71,8 +67,8 @@ export function useSheelohaPlayer() {
     if (usePrepared) {
       preparedPlayersRef.current = [];
       preparedUrlRef.current = null;
-      prepared.forEach((player) => {
-        if (!isPlayingRef.current) return;
+      Promise.all(prepared.map(player => {
+        if (!isPlayingRef.current) return Promise.resolve();
         try {
           player.play();
           playersRef.current.push(player);
@@ -81,7 +77,9 @@ export function useSheelohaPlayer() {
             playersRef.current = playersRef.current.filter(p => p !== player);
           }, (taroukDuration + 2) * 1000);
         } catch (_) {}
-      });
+        return Promise.resolve();
+      }));
+      return;
     } else {
       CROWD_FIXED.forEach(({ volume, rate }) => {
         if (!isPlayingRef.current) return;
