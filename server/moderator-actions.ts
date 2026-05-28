@@ -152,7 +152,7 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
     const promotedUser = await db
       .select()
       .from(users)
-      .where(eq(users.id, parseInt(userId)))
+      .where(eq(users.appUserId, userId))
       .limit(1);
 
     if (promotedUser[0]) {
@@ -166,7 +166,7 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
         type: newRole === 'user' ? 'role_removed' : 'role_granted',
         createdAt: new Date(),
       });
-      emitNotification(promotedUser[0].id, {
+      if (promotedUser[0]?.appUserId) emitNotification(promotedUser[0].appUserId, {
         title: actionLabel,
         message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
         type: newRole === 'user' ? 'role_removed' : 'role_granted',
