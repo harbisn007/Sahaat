@@ -91,7 +91,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUserIdState(storedUserId);
         // جلب الدور من السيرفر
         try {
-          const API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
+          const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://sahaat-production.up.railway.app';
           const res = await fetch(`${API_URL}/api/user-role?userId=${storedUserId}`);
           const data = await res.json();
           if (data.role) {
