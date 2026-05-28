@@ -240,10 +240,14 @@ export default function WelcomeScreen() {
       await loginAsGuest(displayName, avatar as AvatarType);
       const guestUserId = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
       // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
-      const existingUser = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
-      const finalUserId = existingUser?.openId ? 
-        (await AsyncStorage.getItem('@sahaat_muhawara:userId') || guestUserId) :
-        guestUserId;
+      let finalUserId = guestUserId;
+      try {
+        const existingUser = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
+        if (existingUser?.appUserId) {
+          finalUserId = existingUser.appUserId;
+          await AsyncStorage.setItem('@sahaat_muhawara:userId', existingUser.appUserId);
+        }
+      } catch (_) {}
       await upsertUserByPhone.mutateAsync({
         phoneNumber: fullPhone,
         name: displayName,
@@ -278,10 +282,14 @@ export default function WelcomeScreen() {
             await loginAsGuest(displayName, avatar as AvatarType);
             const guestUserId2 = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
             // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
-            const existingUser2 = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
-            const finalUserId2 = existingUser2?.openId ? 
-              (await AsyncStorage.getItem('@sahaat_muhawara:userId') || guestUserId2) :
-              guestUserId2;
+            let finalUserId2 = guestUserId2;
+            try {
+              const existingUser2 = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
+              if (existingUser2?.appUserId) {
+                finalUserId2 = existingUser2.appUserId;
+                await AsyncStorage.setItem('@sahaat_muhawara:userId', existingUser2.appUserId);
+              }
+            } catch (_) {}
             await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid, appUserId: finalUserId2 });
             await AsyncStorage.setItem('user_uuid', firebaseUid);
             await AsyncStorage.setItem('user_name', displayName);
