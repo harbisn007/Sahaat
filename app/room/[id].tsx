@@ -3175,7 +3175,6 @@ export default function RoomScreen() {
                     }),
                   });
                   const text = await response.text();
-                  Alert.alert('Response: ' + response.status, text.substring(0, 200));
                   if (response.ok) {
                     setShowParticipantMenu(false);
                     refetch();
@@ -3202,12 +3201,14 @@ export default function RoomScreen() {
                 onPress={async () => {
                   try {
                     const newRole = selectedParticipant?.appRole === 'moderator' ? 'user' : 'moderator';
-                    const response = await fetch('/api/set-role', {
+                    const response = await fetch('https://sahaat-production.up.railway.app/mod/promote-participant', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
+                        roomId,
                         userId: selectedParticipant?.userId,
-                        role: newRole,
+                        newRole,
+                        moderatorId: userId,
                       }),
                     });
                     if (response.ok) {
@@ -3235,12 +3236,14 @@ export default function RoomScreen() {
                 onPress={async () => {
                   try {
                     const newRole = selectedParticipant?.appRole === 'admin' ? 'user' : 'admin';
-                    const response = await fetch('/api/set-role', {
+                    const response = await fetch('https://sahaat-production.up.railway.app/mod/promote-participant', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({
+                        roomId,
                         userId: selectedParticipant?.userId,
-                        role: newRole,
+                        newRole,
+                        moderatorId: userId,
                       }),
                     });
                     if (response.ok) {
