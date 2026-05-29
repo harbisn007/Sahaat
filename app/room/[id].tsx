@@ -2471,7 +2471,7 @@ export default function RoomScreen() {
                     {isCreator && (
                       <TouchableOpacity
                         onPress={() => handleKickPlayer(player1.userId, player1.username)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
                       >
                         <MaterialIcons name='close' size={14} color='white' />
@@ -2553,7 +2553,7 @@ export default function RoomScreen() {
                     {isCreator && (
                       <TouchableOpacity
                         onPress={() => handleKickPlayer(player2.userId, player2.username)}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
                         style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
                       >
                         <MaterialIcons name='close' size={14} color='white' />
