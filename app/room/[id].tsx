@@ -243,6 +243,15 @@ export default function RoomScreen() {
     }
   }, [roomId, userId]);
 
+  // Join user channel for socket notifications
+  useEffect(() => {
+    getSocket().then(socket => {
+      if (socket && userId) {
+        socket.emit('joinUserChannel', userId);
+      }
+    });
+  }, [userId]);
+
   // حفظ اسم الساحة عند أول تحميل
   useEffect(() => {
     if (roomData?.name && !savedRoomName) {
