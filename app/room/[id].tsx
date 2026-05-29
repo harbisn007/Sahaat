@@ -245,11 +245,13 @@ export default function RoomScreen() {
 
   // Join user channel for socket notifications
   useEffect(() => {
-    getSocket().then(socket => {
+    const joinChannel = async () => {
+      const socket = await getSocket();
       if (socket && userId) {
         socket.emit('joinUserChannel', userId);
       }
-    });
+    };
+    joinChannel();
   }, [userId]);
 
   // حفظ اسم الساحة عند أول تحميل
