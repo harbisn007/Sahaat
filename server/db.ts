@@ -989,6 +989,14 @@ export async function kickPlayer(roomId: number, playerId: string, creatorId: st
       eq(roomParticipants.role, 'player')
     ));
 
+  // Send notification to the kicked player
+  const { emitNotification } = await import('./_core/socket');
+  emitNotification(playerId, { 
+    title: 'رسالة', 
+    message: 'اعتذر منك تم سحب المايك ، وشكرا', 
+    type: 'info' 
+  });
+
   return { success: true };
 }
 

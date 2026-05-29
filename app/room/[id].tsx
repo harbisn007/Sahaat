@@ -2468,10 +2468,14 @@ export default function RoomScreen() {
                       source={getAvatarSource(player1.avatar)}
                       style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
                     />
-                    {userRole === "creator" && (
-                      <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-                        <MaterialIcons name="close" size={14} color="white" />
-                      </View>
+                    {isCreator && (
+                      <TouchableOpacity
+                        onPress={() => handleKickPlayer(player1.userId, player1.username)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
+                      >
+                        <MaterialIcons name='close' size={14} color='white' />
+                      </TouchableOpacity>
                     )}
                   </TouchableOpacity>
                   <InteractionButtons targetUserId={player1.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer1Recording ? '#DC2626' : colors.success} />
@@ -2546,10 +2550,14 @@ export default function RoomScreen() {
                       source={getAvatarSource(player2.avatar)}
                       style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
                     />
-                    {userRole === "creator" && (
-                      <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-                        <MaterialIcons name="close" size={14} color="white" />
-                      </View>
+                    {isCreator && (
+                      <TouchableOpacity
+                        onPress={() => handleKickPlayer(player2.userId, player2.username)}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                        style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
+                      >
+                        <MaterialIcons name='close' size={14} color='white' />
+                      </TouchableOpacity>
                     )}
                   </TouchableOpacity>
                   <InteractionButtons targetUserId={player2.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer2Recording ? '#DC2626' : colors.success} />
@@ -3288,7 +3296,7 @@ export default function RoomScreen() {
           <Text style={{ color: '#c8860a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
             {notification.title}
           </Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>
+          <Text style={{ color: '#c8860a', fontSize: 12 }}>
             {notification.message}
           </Text>
         </View>
