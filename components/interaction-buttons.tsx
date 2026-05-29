@@ -111,7 +111,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
     addLikeDislikeMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "dislike", roomId });
   };
 
-  const btnSize = 24;
+  const btnSize = 32;
   const iconSize = 13;
 
   return (

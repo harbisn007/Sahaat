@@ -1058,10 +1058,9 @@ export default function RoomScreen() {
           setIsApproved(false);
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
-          Alert.alert(
-            "تم استبعادك",
-            "اعتذر منك تم سحب المايك ، وشكرا"
-          );
+          setNotification({ title: 'رسالة', message: 'اعتذر منك تم سحب المايك ، وشكرا', type: 'info' });
+          setShowNotification(true);
+          setTimeout(() => setShowNotification(false), 4000);
         } else {
           console.log("[RoomScreen] Participant not found for username:", username);
         }
@@ -1102,12 +1101,12 @@ export default function RoomScreen() {
   // Handle kick player
   const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
-      "استبعاد الشاعر",
-      `هل تريد استبعاد ${playerName} من الساحة؟`,
+      "سحب المايك",
+      `هل تريد سحب المايك من ${playerName}؟`,
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "استبعاد",
+          text: "سحب",
           style: "destructive",
           onPress: () => {
             kickPlayerMutation.mutate({
@@ -3275,7 +3274,7 @@ export default function RoomScreen() {
             top: 60,
             left: 16,
             right: 16,
-            backgroundColor: notification.type === 'ban' ? '#ff6b6b' : notification.type === 'unban' ? '#4ade80' : notification.type === 'role_granted' ? '#fbbf24' : '#3b82f6',
+            backgroundColor: 'rgba(0,0,0,0.4)',
             borderRadius: 8,
             padding: 12,
             zIndex: 9999,
@@ -3286,7 +3285,7 @@ export default function RoomScreen() {
             elevation: 5,
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
+          <Text style={{ color: '#c8860a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
             {notification.title}
           </Text>
           <Text style={{ color: '#fff', fontSize: 12 }}>
