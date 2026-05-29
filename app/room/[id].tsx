@@ -148,6 +148,7 @@ export default function RoomScreen() {
   const [showParticipantsList, setShowParticipantsList] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<any | null>(null);
   const [showParticipantMenu, setShowParticipantMenu] = useState(false);
+  const [promotedRole, setPromotedRole] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string; type: string } | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -3212,6 +3213,7 @@ export default function RoomScreen() {
                       }),
                     });
                     if (response.ok) {
+                      setPromotedRole(newRole);
                       setShowParticipantMenu(false);
                       refetch();
                     }
@@ -3220,8 +3222,8 @@ export default function RoomScreen() {
                   }
                 }}
               >
-                <Text style={{ color: selectedParticipant?.appRole === 'moderator' ? '#ff6b6b' : '#4ade80', fontWeight: 'bold', fontSize: 14 }}>
-                  {selectedParticipant?.appRole === 'moderator' ? 'إلغاء إشراف' : 'إشراف'}
+                <Text style={{ color: (promotedRole === 'moderator' || selectedParticipant?.appRole === 'moderator') ? '#ff6b6b' : '#4ade80', fontWeight: 'bold', fontSize: 14 }}>
+                  {(promotedRole === 'moderator' || selectedParticipant?.appRole === 'moderator') ? 'إلغاء إشراف' : 'إشراف'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -3247,6 +3249,7 @@ export default function RoomScreen() {
                       }),
                     });
                     if (response.ok) {
+                      setPromotedRole(newRole);
                       setShowParticipantMenu(false);
                       refetch();
                     }
@@ -3255,8 +3258,8 @@ export default function RoomScreen() {
                   }
                 }}
               >
-                <Text style={{ color: selectedParticipant?.appRole === 'admin' ? '#ff6b6b' : '#fbbf24', fontWeight: 'bold', fontSize: 14 }}>
-                  {selectedParticipant?.appRole === 'admin' ? 'إلغاء إدارة' : 'إدارة'}
+                <Text style={{ color: (promotedRole === 'admin' || selectedParticipant?.appRole === 'admin') ? '#ff6b6b' : '#fbbf24', fontWeight: 'bold', fontSize: 14 }}>
+                  {(promotedRole === 'admin' || selectedParticipant?.appRole === 'admin') ? 'إلغاء إدارة' : 'إدارة'}
                 </Text>
               </TouchableOpacity>
             )}

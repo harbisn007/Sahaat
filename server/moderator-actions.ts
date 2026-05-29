@@ -166,7 +166,7 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
         type: newRole === 'user' ? 'role_removed' : 'role_granted',
         createdAt: new Date(),
       });
-      emitNotification(promotedUser[0].id, {
+      if (promotedUser[0]?.appUserId) emitNotification(promotedUser[0].appUserId, {
         title: actionLabel,
         message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
         type: newRole === 'user' ? 'role_removed' : 'role_granted',
@@ -213,10 +213,8 @@ router.post("/pin-room", async (req: Request, res: Response) => {
       try {
         const roomResult = await db.select({ creatorId: rooms.creatorId }).from(rooms).where(eq(rooms.id, roomId)).limit(1);
         if (roomResult[0]?.creatorId) {
-          const creator = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, roomResult[0].creatorId)).limit(1);
-          if (creator[0]) {
-            emitNotification(creator[0].id, { message: 'مرحبا ،تقديرا لك.. قامت الادارة بتثبيت ساحتك لتكون ساحة دائمة 🌹', type: 'pin' });
-          }
+          const creator = await db.select({ appUserId: users.appUserId }).from(users).where(eq(users.appUserId, roomResult[0].creatorId)).limit(1);
+          if (creator[0]?.appUserId) emitNotification(creator[0].appUserId, { message: 'مرحبا ،تقديرا لك.. قامت الادارة بتثبيت ساحتك لتكون ساحة دائمة 🌹', type: 'pin' });
         }
       } catch (_) {}
     }
