@@ -2480,7 +2480,7 @@ export default function RoomScreen() {
                   </TouchableOpacity>
                   <InteractionButtons targetUserId={player1.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer1Recording ? '#DC2626' : colors.success} />
                 </View>
-                <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <Text className="text-xs mt-4 text-center font-bold" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player1.username}
                 </Text>
               </View>
@@ -2512,7 +2512,7 @@ export default function RoomScreen() {
                   />
                   <InteractionButtons targetUserId={roomData?.creatorId || ''} currentUserId={userId || ''} avatarSize={80} roomId={roomId} avatarBorderColor={isCreatorRecording ? '#DC2626' : colors.primary} />
                 </View>
-                <Text className="text-sm font-bold mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <Text className="text-sm font-bold mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground, fontWeight: 'bold' }}>
                   {roomData?.creatorName}
                 </Text>
               </View>
@@ -2562,7 +2562,7 @@ export default function RoomScreen() {
                   </TouchableOpacity>
                   <InteractionButtons targetUserId={player2.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer2Recording ? '#DC2626' : colors.success} />
                 </View>
-                <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <Text className="text-xs mt-4 text-center font-bold" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player2.username}
                 </Text>
               </View>
@@ -3282,7 +3282,7 @@ export default function RoomScreen() {
             top: 60,
             left: 16,
             right: 16,
-            backgroundColor: 'rgba(0,0,0,0.4)',
+            backgroundColor: 'rgba(0,0,0,0.85)',
             borderRadius: 8,
             padding: 12,
             zIndex: 9999,

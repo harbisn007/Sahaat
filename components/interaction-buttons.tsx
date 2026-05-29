@@ -200,7 +200,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
-    left: -10,
+    left: -14,
     top: 0,
     bottom: 0,
     alignItems: "center",
@@ -210,13 +210,13 @@ const styles = StyleSheet.create({
   },
   topRow: {
     alignItems: "center",
-    marginTop: 2,
+    marginTop: -14,
   },
   bottomRow: {
     flexDirection: "row",
     gap: 10,
     alignItems: "center",
-    marginBottom: 2,
+    marginBottom: -14,
   },
   btn: {
     alignItems: "center",
