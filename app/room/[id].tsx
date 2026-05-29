@@ -1060,7 +1060,7 @@ export default function RoomScreen() {
           router.replace("/");
           Alert.alert(
             "تم استبعادك",
-            "تم استبعادك من الساحة بواسطة المنشئ"
+            "اعتذر منك تم سحب المايك ، وشكرا"
           );
         } else {
           console.log("[RoomScreen] Participant not found for username:", username);
@@ -2461,9 +2461,9 @@ export default function RoomScreen() {
                 />
                 <View style={{ position: 'relative' }}>
                   <TouchableOpacity
-                    onPress={() => userRole === "creator" && handleKickPlayer(player1.userId, player1.username)}
-                    disabled={userRole !== "creator"}
-                    activeOpacity={userRole === "creator" ? 0.7 : 1}
+                    onPress={() => isCreator && handleKickPlayer(player1.userId, player1.username)}
+                    disabled={!isCreator}
+                    activeOpacity={isCreator ? 0.7 : 1}
                   >
                     <Image
                       source={getAvatarSource(player1.avatar)}
@@ -2539,9 +2539,9 @@ export default function RoomScreen() {
                 />
                 <View style={{ position: 'relative' }}>
                   <TouchableOpacity
-                    onPress={() => userRole === "creator" && handleKickPlayer(player2.userId, player2.username)}
-                    disabled={userRole !== "creator"}
-                    activeOpacity={userRole === "creator" ? 0.7 : 1}
+                    onPress={() => isCreator && handleKickPlayer(player2.userId, player2.username)}
+                    disabled={!isCreator}
+                    activeOpacity={isCreator ? 0.7 : 1}
                   >
                     <Image
                       source={getAvatarSource(player2.avatar)}

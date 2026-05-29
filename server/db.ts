@@ -980,16 +980,14 @@ export async function kickPlayer(roomId: number, playerId: string, creatorId: st
     throw new Error("ليس لديك صلاحية الاستبعاد");
   }
 
-  // Remove the player
-  await db
-    .delete(roomParticipants)
-    .where(
-      and(
-        eq(roomParticipants.roomId, roomId),
-        eq(roomParticipants.userId, playerId),
-        eq(roomParticipants.role, "player")
-      )
-    );
+  // Change player role to viewer instead of deleting
+  await db.update(roomParticipants)
+    .set({ role: 'viewer', status: 'accepted' })
+    .where(and(
+      eq(roomParticipants.roomId, roomId),
+      eq(roomParticipants.userId, playerId),
+      eq(roomParticipants.role, 'player')
+    ));
 
   return { success: true };
 }
