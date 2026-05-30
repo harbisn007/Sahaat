@@ -3258,7 +3258,7 @@ export default function RoomScreen() {
             top: 60,
             left: 16,
             right: 16,
-            backgroundColor: notification.type === 'ban' ? '#ff6b6b' : notification.type === 'unban' ? '#4ade80' : notification.type === 'role_granted' ? '#fbbf24' : '#3b82f6',
+            backgroundColor: 'rgba(0,0,0,0.8)',
             borderRadius: 8,
             padding: 12,
             zIndex: 9999,
@@ -3269,10 +3269,10 @@ export default function RoomScreen() {
             elevation: 5,
           }}
         >
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
+          <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
             {notification.title}
           </Text>
-          <Text style={{ color: '#fff', fontSize: 12 }}>
+          <Text style={{ color: '#ef4444', fontSize: 12 }}>
             {notification.message}
           </Text>
         </View>
