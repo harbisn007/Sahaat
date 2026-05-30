@@ -132,6 +132,21 @@ router.post("/api/ban", async (req: Request, res: Response) => {
     const userResult = await banDb.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
     const appUserId = userResult[0]?.appUserId;
     if (appUserId) emitUserBanned(appUserId, banType);
+
+    // إغلاق ساحة المحظور إذا كانت نشطة
+    try {
+      const bannedUserRecord = await banDb.select({ appUserId: users.appUserId }).from(users).where(eq(users.id, parseInt(userId))).limit(1);
+      const bannedAppUserId = bannedUserRecord[0]?.appUserId;
+      if (bannedAppUserId) {
+        const activeRoom = await banDb.select({ id: rooms.id }).from(rooms).where(and(eq(rooms.creatorId, bannedAppUserId), eq(rooms.isActive, 'true'))).limit(1);
+        if (activeRoom[0]) {
+          await banDb.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, activeRoom[0].id));
+          const { emitToRoom } = await import('./_core/socket');
+          emitToRoom(activeRoom[0].id, 'roomClosed', { message: 'تم إغلاق الساحة من قبل الادارة' });
+        }
+      }
+    } catch (_) {}
+
     res.json({ success: true, ban });
   } catch (err) {
     res.status(500).json({ error: String(err) });

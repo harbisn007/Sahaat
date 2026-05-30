@@ -49,15 +49,28 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
       await db.insert(notifications).values({
         userId: bannedUser[0].id,
         title: 'تم حظرك',
-        message: `تم حظرك من الساحة بواسطة ${moderator[0].name || 'مدير'}`,
+        message: 'تم حظر الحساب مؤقتا',
         type: 'ban',
         createdAt: new Date(),
       });
       emitNotification(bannedUser[0].id, {
         title: 'تم حظرك',
-        message: `تم حظرك من الساحة بواسطة ${moderator[0].name || 'مدير'}`,
+        message: 'تم حظر الحساب مؤقتا',
         type: 'ban',
       });
+    }
+
+    // إغلاق الساحة إذا كان المحظور هو المنشئ
+    const bannedUserRecord = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, userId)).limit(1);
+    if (bannedUserRecord[0]) {
+      const roomOfBanned = await db.select({ creatorId: rooms.creatorId, id: rooms.id }).from(rooms).where(eq(rooms.creatorId, userId)).limit(1);
+      if (roomOfBanned[0]) {
+        // أغلق الساحة
+        await db.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, roomOfBanned[0].id));
+        // أرسل إشعار لجميع المتواجدين
+        const { emitToRoom } = await import('./_core/socket');
+        emitToRoom(roomOfBanned[0].id, 'roomClosed', { message: 'تم إغلاق الساحة من قبل الادارة' });
+      }
     }
 
     res.json({ success: true });

@@ -3282,7 +3282,7 @@ export default function RoomScreen() {
             top: 60,
             left: 16,
             right: 16,
-            backgroundColor: 'rgba(0,0,0,0.85)',
+            backgroundColor: 'rgba(0,0,0,0.8)',
             borderRadius: 8,
             padding: 12,
             zIndex: 9999,
@@ -3293,10 +3293,10 @@ export default function RoomScreen() {
             elevation: 5,
           }}
         >
-          <Text style={{ color: '#c8860a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
+          <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
             {notification.title}
           </Text>
-          <Text style={{ color: '#c8860a', fontSize: 12 }}>
+          <Text style={{ color: '#ef4444', fontSize: 12 }}>
             {notification.message}
           </Text>
         </View>
