@@ -141,8 +141,8 @@ router.post("/api/ban", async (req: Request, res: Response) => {
         const activeRoom = await banDb.select({ id: rooms.id }).from(rooms).where(and(eq(rooms.creatorId, bannedAppUserId), eq(rooms.isActive, 'true'))).limit(1);
         if (activeRoom[0]) {
           await banDb.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, activeRoom[0].id));
-          const { emitToRoom } = await import('./_core/socket');
-          emitToRoom(activeRoom[0].id, 'roomClosed', { message: 'تم إغلاق الساحة من قبل الادارة' });
+          const { emitRoomClosedByAdmin } = await import('./_core/socket');
+          emitRoomClosedByAdmin(activeRoom[0].id);
         }
       }
     } catch (_) {}

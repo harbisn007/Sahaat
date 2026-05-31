@@ -68,8 +68,8 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
         // أغلق الساحة
         await db.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, roomOfBanned[0].id));
         // أرسل إشعار لجميع المتواجدين
-        const { emitToRoom } = await import('./_core/socket');
-        emitToRoom(roomOfBanned[0].id, 'roomClosed', { message: 'تم إغلاق الساحة من قبل الادارة' });
+        const { emitRoomClosedByAdmin } = await import('./_core/socket');
+        emitRoomClosedByAdmin(roomOfBanned[0].id);
       }
     }
 

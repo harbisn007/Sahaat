@@ -475,6 +475,14 @@ export function emitRoomDeleted(roomId: number, roomName: string, reason: "manua
 }
 
 /**
+ * بث إغلاق الساحة من قبل الإدارة
+ */
+export function emitRoomClosedByAdmin(roomId: number): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: '', reason: "manual", message: 'تم إغلاق الساحة من قبل الادارة' });
+}
+
+/**
  * بث انضمام مشارك جديد
  */
 export function emitParticipantJoined(roomId: number, userId: string, username: string, role: string): void {

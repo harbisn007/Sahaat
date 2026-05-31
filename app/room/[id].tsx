@@ -290,8 +290,11 @@ export default function RoomScreen() {
     if (!roomId || roomId <= 0) return;
     
     setCallbacks({
-      onRoomDeleted: (roomName: string, reason?: "manual" | "auto") => {
-        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason);
+      onRoomDeleted: (data: any) => {
+        const roomName = data.roomName || '';
+        const reason = data.reason;
+        const message = data.message;
+        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason, "message:", message);
         if (!roomClosedAlertShown) {
           setRoomClosedAlertShown(true);
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
@@ -299,19 +302,15 @@ export default function RoomScreen() {
           
           // رسالة مختلفة حسب سبب الحذف
           if (reason === "auto") {
-            Alert.alert(
-              "تم حذف الساحة",
-              `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
-            );
+            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً...");
+          } else if (message === 'تم إغلاق الساحة من قبل الادارة') {
+            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
           } else {
-            Alert.alert(
-              "تم إغلاق الساحة",
-              "تم إغلاق الساحة بنجاح"
-            );
+            Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
           }
         }
       },
-      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
+      // استماع للرسالل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
       onAudioMessageCreated: (data) => {
         console.log("[RoomScreen] New audio message via Socket.io:", data);
         setSocketAudioMessages(prev => {
@@ -3293,10 +3292,10 @@ export default function RoomScreen() {
             elevation: 5,
           }}
         >
-          <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
+          <Text style={{ color: notification.type === 'ban' ? '#ef4444' : '#c8860a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
             {notification.title}
           </Text>
-          <Text style={{ color: '#ef4444', fontSize: 12 }}>
+          <Text style={{ color: notification.type === 'ban' ? '#ef4444' : '#c8860a', fontWeight: 'bold', fontSize: 12 }}>
             {notification.message}
           </Text>
         </View>
