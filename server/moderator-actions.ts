@@ -65,11 +65,12 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
     if (bannedUserRecord[0]) {
       const roomOfBanned = await db.select({ creatorId: rooms.creatorId, id: rooms.id }).from(rooms).where(eq(rooms.creatorId, userId)).limit(1);
       if (roomOfBanned[0]) {
-        // أغلق الساحة
-        await db.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, roomOfBanned[0].id));
+        // استخدم نفس منطق deleteRoom
+        const { deleteRoom } = await import('./db');
+        const { emitRoomDeleted } = await import('./_core/socket');
+        await deleteRoom(roomOfBanned[0].id);
         // أرسل إشعار لجميع المتواجدين
-        const { emitRoomClosedByAdmin } = await import('./_core/socket');
-        emitRoomClosedByAdmin(roomOfBanned[0].id);
+        emitRoomDeleted(roomOfBanned[0].id, '', 'manual', 'تم إغلاق الساحة من قبل الادارة');
       }
     }
 

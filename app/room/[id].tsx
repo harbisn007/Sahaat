@@ -742,7 +742,7 @@ export default function RoomScreen() {
       onUserBanned: (data: { userId: string; banType: string }) => {
         if (data.userId === userId) {
           const msg = data.banType === 'permanent'
-            ? 'تم حظرك بشكل دائم.'
+            ? 'تم حظر الحساب مؤقتا'
             : 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
           Alert.alert('تم حظرك', msg, [
             { text: 'حسناً', onPress: () => router.replace('/(tabs)') }
