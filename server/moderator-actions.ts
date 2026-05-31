@@ -53,7 +53,7 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
         type: 'ban',
         createdAt: new Date(),
       });
-      emitNotification(bannedUser[0].id, {
+      if (bannedUser[0]?.appUserId) emitNotification(bannedUser[0].appUserId, {
         title: 'تم حظرك',
         message: 'تم حظر الحساب مؤقتا',
         type: 'ban',
@@ -70,7 +70,7 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
         const { emitRoomDeleted } = await import('./_core/socket');
         await deleteRoom(roomOfBanned[0].id);
         // أرسل إشعار لجميع المتواجدين
-        emitRoomDeleted(roomOfBanned[0].id, '', 'manual', 'تم إغلاق الساحة من قبل الادارة');
+        emitRoomDeleted(roomOfBanned[0].id, 'تم إغلاق الساحة من قبل الادارة', 'manual');
       }
     }
 
