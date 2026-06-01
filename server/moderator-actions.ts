@@ -169,18 +169,16 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
       .where(eq(users.id, parseInt(userId)))
       .limit(1);
 
-    if (promotedUser[0]) {
-      const roleLabel = newRole === 'admin' ? 'مدير' : 'مشرف';
-      const actionLabel = newRole === 'user' ? `تم إلغاء ${roleLabel === 'مدير' ? 'الإدارة' : 'الإشراف'}` : `تم تعيينك ${roleLabel}`;
-      
-      await db.insert(notifications).values({
-        userId: promotedUser[0].id,
-        title: actionLabel,
-        message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
-        type: newRole === 'user' ? 'role_removed' : 'role_granted',
-        createdAt: new Date(),
-      });
-      if (promotedUser[0]?.appUserId) emitNotification(promotedUser[0].appUserId, {
+    const roleLabel = newRole === 'admin' ? 'مدير' : 'مشرف';
+    const actionLabel = newRole === 'user' ? `تم إلغاء ${roleLabel === 'مدير' ? 'الإدارة' : 'الإشراف'}` : `تم تعيينك ${roleLabel}`;
+    
+    const userForNotif = await db
+      .select({ appUserId: users.appUserId })
+      .from(users)
+      .where(eq(users.appUserId, userId))
+      .limit(1);
+    if (userForNotif[0]?.appUserId) {
+      emitNotification(userForNotif[0].appUserId, {
         title: actionLabel,
         message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
         type: newRole === 'user' ? 'role_removed' : 'role_granted',
