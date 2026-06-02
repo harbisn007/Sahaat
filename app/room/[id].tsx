@@ -302,9 +302,11 @@ export default function RoomScreen() {
           
           // رسالة مختلفة حسب سبب الحذف
           if (reason === "auto") {
-            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً...");
-          } else if (message === 'تم إغلاق الساحة من قبل الادارة') {
+            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)");
+          } else if (roomName === 'تم إغلاق الساحة من قبل الادارة') {
             Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
+          } else if (userId === roomData?.creatorId) {
+            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة بنجاح");
           } else {
             Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
           }
@@ -741,9 +743,7 @@ export default function RoomScreen() {
       // حدث حظر المستخدم - إخراجه فوراً من الساحة
       onUserBanned: (data: { userId: string; banType: string }) => {
         if (data.userId === userId) {
-          const msg = data.banType === 'permanent'
-            ? 'تم حظر الحساب مؤقتا'
-            : 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
+          const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
           Alert.alert('تم حظرك', msg, [
             { text: 'حسناً', onPress: () => router.replace('/(tabs)') }
           ]);
@@ -1050,7 +1050,7 @@ export default function RoomScreen() {
         // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
         // إذا كان لديه دور سابق (ليس null) وليس المنشئ وكان مقبولاً، فهذا يعني أنه تم استبعاده
         // إذا لم يكن مقبولاً (طلب معلق)، فهذا يعني أنه خرج بنفسه أو رُفض طلبه
-        if (userRole && userRole !== "creator" && isApproved) {
+        if (userRole && userRole === "player" && isApproved) {
           console.log("[RoomScreen] User was kicked from the room");
           // إعادة ضبط الحالة لمنع التكرار
           setUserRole(null);
