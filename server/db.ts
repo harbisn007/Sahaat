@@ -252,10 +252,22 @@ export async function getRoomWithAllData(roomId: number) {
   const room = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1);
   if (!room[0]) throw new Error("Room not found");
 
-  // استعلام 2: جلب جميع المشاركين
+  // استعلام 2: جلب جميع المشاركين مع دورهم العام والحظر
   const participants = await db
-    .select()
+    .select({
+      id: roomParticipants.id,
+      roomId: roomParticipants.roomId,
+      userId: roomParticipants.userId,
+      username: roomParticipants.username,
+      avatar: roomParticipants.avatar,
+      role: roomParticipants.role,
+      status: roomParticipants.status,
+      appRole: users.role,
+      isBanned: sql`CASE WHEN ${adminBans.isActive} = 'true' THEN true ELSE false END`,
+    })
     .from(roomParticipants)
+    .leftJoin(users, eq(roomParticipants.userId, users.appUserId))
+    .leftJoin(adminBans, and(eq(adminBans.userId, roomParticipants.userId), eq(adminBans.isActive, 'true')))
     .where(eq(roomParticipants.roomId, roomId));
 
   // حساب الإحصائيات من البيانات المجلوبة (بدون استعلامات إضافية)
