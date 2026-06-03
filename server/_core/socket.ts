@@ -479,7 +479,7 @@ export function emitRoomDeleted(roomId: number, roomName: string, reason: "manua
  */
 export function emitRoomClosedByAdmin(roomId: number): void {
   if (!io) return;
-  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: '', reason: "manual", message: 'تم إغلاق الساحة من قبل الادارة' });
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: 'تم إغلاق الساحة من قبل الادارة', reason: "manual", message: 'تم إغلاق الساحة من قبل الادارة' });
 }
 
 /**
