@@ -486,7 +486,7 @@ export default function HomeScreen() {
       // فحص الحظر قبل الإنشاء
       const ban = await trpcUtils.reports.checkBan.fetch({ userId });
       if (ban && ban.isBanned) {
-        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
         Alert.alert('الحساب محظور', msg);
         return;
       }
@@ -510,7 +510,7 @@ export default function HomeScreen() {
       // فحص الحظر
       const ban = await trpcUtils.reports.checkBan.fetch({ userId });
       if (ban && ban.isBanned) {
-        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
         Alert.alert('الحساب محظور', msg);
         return;
       }
@@ -525,7 +525,7 @@ export default function HomeScreen() {
       // فحص الحظر
       const ban = await trpcUtils.reports.checkBan.fetch({ userId });
       if (ban && ban.isBanned) {
-        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
         Alert.alert('الحساب محظور', msg);
         return;
       }
