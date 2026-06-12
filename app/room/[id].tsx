@@ -432,7 +432,7 @@ export default function RoomScreen() {
         }
       },
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
+  }, [roomId, setCallbacks, savedRoomName, userId]);
 
   // تنظيف timeout الإشعار
   useEffect(() => {
