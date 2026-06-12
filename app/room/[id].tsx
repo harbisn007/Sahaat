@@ -1012,7 +1012,13 @@ export default function RoomScreen() {
         finalClapPlayer.volume = 0.225;
         finalClapPlayer.loop = false;
         finalClapPlayer.play();
-
+      } catch (_) {}
+      try {
+        const khalwaSound = require("@/assets/sounds/khalwa-sound.m4a");
+        const khalwaSoundPlayer = createAudioPlayer(khalwaSound);
+        khalwaSoundPlayer.volume = 1.0;
+        khalwaSoundPlayer.loop = false;
+        khalwaSoundPlayer.play();
       } catch (_) {}
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
