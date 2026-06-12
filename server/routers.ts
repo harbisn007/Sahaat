@@ -299,6 +299,8 @@ export const appRouter = router({
           
           // If accepting a player, check if we've reached the limit (2 players)
           if (participant.role === "player") {
+            // Reset the timer when a player joins (no longer empty)
+            await db.update(rooms).set({ lastPlayerLeftAt: null }).where(eq(rooms.id, participant.roomId));
             const acceptedPlayersCount = await db.getAcceptedPlayersCount(participant.roomId);
             
             // If we now have 2 players, reject all other pending player requests
