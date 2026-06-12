@@ -480,15 +480,19 @@ export default function RoomScreen() {
     const serverError = !!error;
 
     if (roomDisappeared || serverError) {
-      console.log("[RoomScreen] Room not found - redirecting. disappeared:", roomDisappeared, "error:", error?.message);
-      setRoomClosedAlertShown(true);
-      router.replace("/");
-      if (savedRoomName) {
-        Alert.alert(
-          "تم حذف الساحة",
-          "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
-        );
-      }
+      (async () => {
+        await new Promise(r => setTimeout(r, 1500));
+        if (roomClosedAlertShown) return;
+        console.log("[RoomScreen] Room not found - redirecting. disappeared:", roomDisappeared, "error:", error?.message);
+        setRoomClosedAlertShown(true);
+        router.replace("/");
+        if (savedRoomName) {
+          Alert.alert(
+            "تم حذف الساحة",
+            "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
+          );
+        }
+      })();
     }
   }, [isLoading, roomData, error, roomClosedAlertShown, savedRoomName]);
 
