@@ -343,6 +343,16 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         await db.removeParticipant(input.roomId, input.userId);
+
+        // إنهاء أي طلبات انضمام معلّقة لهذا المستخدم (لتختفي فوراً من قائمة المنشئ)
+        try {
+          const pending = await db.getPendingJoinRequests(input.roomId);
+          for (const r of pending.filter((x: any) => x.userId === input.userId)) {
+            await db.expireJoinRequest(r.id);
+          }
+        } catch (e) {
+          console.warn("[leaveRoom] Error expiring pending join requests:", e);
+        }
         
         // تحديث وقت خروج آخر لاعب (لحساب مدة الحذف التلقائي)
         if (input.role === "player") {
@@ -770,20 +780,7 @@ export const appRouter = router({
             );
           }
           
-          // حذف تلقائي بعد 15 ثانية من الإنشاء
-          setTimeout(async () => {
-            try {
-              const requests = await db.getPendingJoinRequests(input.roomId);
-              const req = requests.find((r: any) => r.id === requestId);
-              if (req) {
-                console.log(`[AutoExpire] Auto-expiring join request ${requestId} after 15s`);
-                await db.expireJoinRequest(requestId);
-                emitRoomUpdated(input.roomId);
-              }
-            } catch (e) {
-              console.warn(`[AutoExpire] Error expiring join request ${requestId}:`, e);
-            }
-          }, 15000);
+          // (أُزيل الإنهاء التلقائي بعد 15 ثانية — الطلب يبقى حتى يردّ المنشئ أو يغادر صاحبه)
 
           return { success: true, requestId };
         } catch (error: any) {

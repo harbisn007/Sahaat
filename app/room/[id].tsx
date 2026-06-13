@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser, type UserRole } from "@/lib/user-context";
 import { trpc } from "@/lib/trpc";
+import JoinRequestsPanel from "@/components/room/JoinRequestsPanel";
 import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
@@ -278,13 +279,8 @@ export default function RoomScreen() {
   const [socketJoinRequests, setSocketJoinRequests] = useState<any[]>([]);
   const [joinRequestResponse, setJoinRequestResponse] = useState<{ accepted: boolean; requestId: number } | null>(null);
   
-  // نظام الطابور الموحد: الطلبات المعروضة حالياً (أول 2) والطلبات المنتظرة
-  // يدمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
-  const [displayedRequests, setDisplayedRequests] = useState<any[]>([]);
-  const [queuedRequests, setQueuedRequests] = useState<any[]>([]);
-  // تتبع الطلبات التي تم التعامل معها (قبول/رفض) لمنع إعادة ظهورها
-  const handledRequestIdsRef = useRef<Set<string>>(new Set());
-  
+  // (أُزيل نظام الطابور القديم: لوحة الطلبات الآن في مكوّن JoinRequestsPanel)
+
   // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
@@ -534,13 +530,7 @@ export default function RoomScreen() {
     performAutoJoin();
   }, [autoJoin, username, userId, roomData, avatar, roomId, joinAsViewerMutation, refetch]);
 
-  // جلب طلبات الانضمام - polling كل 3 ثواني + Socket.io للتحديثات الفورية
-  const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
-    { roomId },
-    { enabled: roomId > 0, refetchInterval: 3000 } // polling كل 3 ثواني كـ fallback
-  );
-
-  const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
+  // (أُزيل استعلام rooms.getPendingRequests و respondToRequestMutation — لم يعودا مستخدمين)
   const leaveRoomMutation = trpc.rooms.leaveRoom.useMutation();
 
   // حذف المستخدم غير المنشئ تلقائياً عند مغادرة صفحة الساحة (بأي طريقة)
@@ -1138,144 +1128,15 @@ export default function RoomScreen() {
   const isRoomCreator = roomData?.creatorId === userId;
   console.log("[RoomScreen] isRoomCreator check:", { creatorId: roomData?.creatorId, userId, isRoomCreator, roomId });
   
-  // جلب طلبات الانضمام - polling كل 3 ثواني + Socket.io للتحديثات الفورية
-  const { data: serverJoinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
-    { roomId },
-    { enabled: isRoomCreator && roomId > 0, refetchInterval: 3000 } // polling كل 3 ثواني كـ fallback
-  );
-  
-  // دمج طلبات الانضمام من الخادم وSocket.io (بدون تكرار)
-  const joinRequests = useMemo(() => {
-    const serverData = serverJoinRequests || [];
-    const socketData = socketJoinRequests || [];
-    // دمج بدون تكرار
-    const merged = [...socketData];
-    serverData.forEach((req: any) => {
-      if (!merged.some(r => r.id === req.id)) {
-        merged.push(req);
-      }
-    });
-    return merged;
-  }, [serverJoinRequests, socketJoinRequests]);
-  
-  // Log join requests for debugging
-  useEffect(() => {
-    if (isRoomCreator) {
-      console.log("[RoomScreen] Join requests updated (Socket.io + Server):", joinRequests?.length || 0, joinRequests);
-    }
-  }, [joinRequests, isRoomCreator]);
-  
-  // نظام الطابور الموحد: دمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
-  // عرض 2 طلبات فقط لمدة 10 ثواني ثم التالية
-  const allRequests = useMemo(() => {
-    // دمج الطلبات من النوعين مع تحديد النوع
-    const viewerReqs = (joinRequests || []).map((req: any) => ({ ...req, requestType: 'viewer' }));
-    const playerReqs = (pendingRequests || []).map((req: any) => ({ ...req, requestType: 'player' }));
-    // ترتيب حسب وقت الإنشاء (الأقدم أولاً) مع إزالة التكرار
-    const combined = [...viewerReqs, ...playerReqs];
-    const unique = combined.filter((req, idx) => 
-      combined.findIndex(r => r.requesterId === req.requesterId && r.requestType === req.requestType) === idx
-    );
-    return unique.sort((a, b) => {
-      const timeA = new Date(a.createdAt || 0).getTime();
-      const timeB = new Date(b.createdAt || 0).getTime();
-      return timeA - timeB;
-    });
-  }, [joinRequests, pendingRequests]);
-  
-  useEffect(() => {
-    if (!isRoomCreator || allRequests.length === 0) {
-      setDisplayedRequests([]);
-      setQueuedRequests([]);
-      return;
-    }
-    
-    // إضافة الطلبات الجديدة للطابور (مع منع التكرار بناء على userId + requestType)
-    const newRequests = allRequests.filter((req: any) => {
-      const key = `${req.requestType}-${req.id}`;
-      // تجاهل الطلبات التي تم التعامل معها سابقاً
-      if (handledRequestIdsRef.current.has(key)) return false;
-      return (
-        !displayedRequests.some(d => (d.id === req.id || d.requesterId === req.requesterId) && d.requestType === req.requestType) && 
-        !queuedRequests.some(q => (q.id === req.id || q.requesterId === req.requesterId) && q.requestType === req.requestType)
-      );
-    });
-    
-    if (newRequests.length > 0) {
-      // إذا كان هناك مكان في العرض (أقل من 2)
-      if (displayedRequests.length < 2) {
-        const slotsAvailable = 2 - displayedRequests.length;
-        const toDisplay = newRequests.slice(0, slotsAvailable);
-        const toQueue = newRequests.slice(slotsAvailable);
-        setDisplayedRequests(prev => [...prev, ...toDisplay]);
-        setQueuedRequests(prev => [...prev, ...toQueue]);
-      } else {
-        // إضافة للطابور
-        setQueuedRequests(prev => [...prev, ...newRequests]);
-      }
-    }
-  }, [allRequests, isRoomCreator]);
-  
-  // مؤقت 10 ثواني لحذف الطلبات المعروضة وعرض التالية
-  useEffect(() => {
-    if (displayedRequests.length === 0) return;
-    
-    const timer = setTimeout(() => {
-      // حذف/رفض الطلبات المعروضة حسب نوعها
-      displayedRequests.forEach((req: any) => {
-        if (req.requestType === 'viewer') {
-          expireJoinRequestMutation.mutate({ requestId: req.id });
-        } else {
-          respondToRequestMutation.mutate({ participantId: req.id, accept: false });
-        }
-      });
-      
-      // عرض أول 2 من الطابور
-      const nextBatch = queuedRequests.slice(0, 2);
-      const remaining = queuedRequests.slice(2);
-      
-      setDisplayedRequests(nextBatch);
-      setQueuedRequests(remaining);
-    }, 10000);
-    
-    return () => clearTimeout(timer);
-  }, [displayedRequests]);
+  // (أُزيلت منطقة دمج الطلبات/الطابور/المؤقتات القديمة — أصبحت داخل JoinRequestsPanel)
 
-  // Expire join request mutation
-  const expireJoinRequestMutation = trpc.joinRequests.expire.useMutation();
-  
-  // Create join request mutation (for viewers)
+  // Create join request mutation (for viewers) — خاص بزر "طلب الانضمام كشاعر"
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation({
     onSuccess: (data) => {
       console.log("[RoomScreen] Join request created successfully:", data);
-      // الحالة تم تحديثها فوراً في handleRequestJoinAsPlayer
-      // Immediately refetch to show request to creator
+      // الحالة حُدّثت فوراً في handleRequestJoinAsPlayer.
+      // تصفير الزر عند رد المنشئ يتمّ عبر السوكِت (joinRequestResponse).
       refetch();
-      // Auto-expire after 10 seconds
-      setTimeout(() => {
-        setHasPendingRequest(false);
-        // Also expire in database
-        if (data.requestId) {
-          expireJoinRequestMutation.mutate({ requestId: data.requestId });
-        }
-      }, 10000);
-    },
-    onError: (error) => {
-      Alert.alert("خطأ", error.message);
-    },
-  });
-
-  // Respond to join request mutation (for creator)
-  const respondToJoinRequestMutation = trpc.joinRequests.respond.useMutation({
-    onSuccess: async (data, variables) => {
-      // Immediately refetch all data for instant update
-      await Promise.all([
-        refetchJoinRequests(),
-        refetch(),
-      ]);
-      if (variables.accept) {
-        // لا إشعار عند قبول الشاعر
-      }
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message);
@@ -1307,15 +1168,7 @@ export default function RoomScreen() {
     });
   };
 
-  // Handle creator response to join request
-  const handleRespondToJoinRequest = (requestId: number, requestUserId: string, accept: boolean) => {
-    respondToJoinRequestMutation.mutate({
-      requestId,
-      accept,
-      roomId,
-      userId: requestUserId,
-    });
-  };
+  // (أُزيل handleRespondToJoinRequest — أصبح القبول/الرفض داخل JoinRequestsPanel)
 
 
   // Mutation لإرسال الدعوة العامة
@@ -1451,39 +1304,7 @@ export default function RoomScreen() {
     }
   };
 
-  const handleAcceptRequest = async (participantId: number) => {
-    try {
-      await respondToRequestMutation.mutateAsync({
-        participantId,
-        accept: true,
-      });
-      await refetch();
-      await refetchRequests();
-      // لا إشعار عند قبول الشاعر
-    } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء قبول الطلب");
-    }
-  };
-
-  const handleRejectRequest = async (participantId: number) => {
-    try {
-      console.log("[RoomScreen] Rejecting request for participant:", participantId);
-      
-      // Reject the request - this will convert the player to a viewer
-      await respondToRequestMutation.mutateAsync({
-        participantId,
-        accept: false,
-      });
-      console.log("[RoomScreen] Request rejected, participant converted to viewer");
-      
-      await refetch();
-      await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مستمع");
-    } catch (error) {
-      console.error("[RoomScreen] Error rejecting request:", error);
-      Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
-    }
-  };
+  // (أُزيل handleAcceptRequest و handleRejectRequest — مسار الطلبات الموازي لم يعد مستخدماً)
 
   // Handle saving profile changes
   const handleSaveProfile = async (newName: string, newAvatar: string) => {
@@ -2326,68 +2147,7 @@ export default function RoomScreen() {
         </Pressable>
       </Modal>
 
-      {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 10 ثواني */}
-      {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
-        <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
-          {displayedRequests.map((request: any) => (
-            <View key={`${request.requestType}-${request.id}`} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
-              <View className="flex-row items-center flex-1">
-                {request.avatar && (
-                  <Image
-                    source={getAvatarSource(request.avatar)}
-                    style={{ width: 36, height: 36, borderRadius: 18, marginLeft: 8 }}
-                  />
-                )}
-                <Text style={{ color: '#000', fontWeight: '600' }}>
-                  {request.username} يريد الانضمام كشاعر
-                </Text>
-              </View>
-              <View className="flex-row gap-2">
-                <TouchableOpacity
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: '#22C55E' }}
-                  onPress={() => {
-                    const key = `${request.requestType}-${request.id}`;
-                    handledRequestIdsRef.current.add(key);
-                    if (request.requestType === 'viewer') {
-                      handleRespondToJoinRequest(request.id, request.userId, true);
-                    } else {
-                      handleAcceptRequest(request.id);
-                    }
-                    // إزالة الطلب من العرض فوراً
-                    setDisplayedRequests(prev => prev.filter(r => !(r.id === request.id && r.requestType === request.requestType)));
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>قبول</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: '#EF4444' }}
-                  onPress={() => {
-                    const key = `${request.requestType}-${request.id}`;
-                    handledRequestIdsRef.current.add(key);
-                    if (request.requestType === 'viewer') {
-                      handleRespondToJoinRequest(request.id, request.userId, false);
-                    } else {
-                      handleRejectRequest(request.id);
-                    }
-                    // إزالة الطلب من العرض فوراً
-                    setDisplayedRequests(prev => prev.filter(r => !(r.id === request.id && r.requestType === request.requestType)));
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>رفض</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          {/* عداد الطلبات المنتظرة */}
-          {queuedRequests.length > 0 && (
-            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 4 }}>
-              + {queuedRequests.length} طلبات في الانتظار
-            </Text>
-          )}
-        </View>
-      )}
+      {/* (أُزيلت كتلة الطلبات القديمة — لوحة الطلبات الآن داخل JoinRequestsPanel في حاوية الساحة) */}
 
       {/* Messages Feed + حقل الكتابة + الأزرار */}
       <KeyboardAvoidingView
@@ -2436,6 +2196,14 @@ export default function RoomScreen() {
             <MaterialIcons name="push-pin" size={18} color="#FFD700" />
           </TouchableOpacity>
         )}
+        {/* لوحة طلبات الانضمام (نمط رفع اليد) — للمنشئ فقط، حبّة أعلى يمين الساحة */}
+        <JoinRequestsPanel
+          roomId={roomId}
+          userId={userId}
+          isRoomCreator={isRoomCreator}
+          isRoomFull={roomData?.isRoomFull ?? ((roomData?.acceptedPlayersCount ?? 0) >= 2)}
+          getAvatarSource={getAvatarSource}
+        />
         {/* النص المثبت يظهر للجميع فوق صور اللاعبين — لا يحجز مساحة عند الفراغ */}
         {pinnedText.trim().length > 0 && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginHorizontal: 4 }}>

@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
+import * as Font from "expo-font";
+import { Tajawal_400Regular, Tajawal_500Medium, Tajawal_700Bold } from "@expo-google-fonts/tajawal";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { UserProvider } from "@/lib/user-context";
@@ -38,6 +40,25 @@ export const unstable_settings = {
 
 function RootLayoutInner() {
   const [showSplash, setShowSplash] = useState(true);
+  const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  // تحميل خط Tajawal مرة واحدة
+  useEffect(() => {
+    async function loadFonts() {
+      try {
+        await Font.loadAsync({
+          Tajawal_400Regular,
+          Tajawal_500Medium,
+          Tajawal_700Bold,
+        });
+        setFontsLoaded(true);
+      } catch (e) {
+        console.warn("Failed to load Tajawal font:", e);
+        setFontsLoaded(true); // استمر حتى بدون الخط
+      }
+    }
+    loadFonts();
+  }, []);
 
   const { data: top10Rooms } = trpc.top10.list.useQuery(undefined, {
     enabled: showSplash,
@@ -60,7 +81,7 @@ function RootLayoutInner() {
     return () => clearTimeout(timer);
   }, []);
 
-  if (showSplash) {
+  if (showSplash || !fontsLoaded) {
     return <SplashScreen />;
   }
 
