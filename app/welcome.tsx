@@ -100,9 +100,7 @@ export default function WelcomeScreen() {
             const ban = await trpcUtils.reports.checkBan.fetch({ userId: uuid });
             if (ban && ban.isBanned) {
               setIsCheckingUUID(false);
-              const msg = ban.banType === 'permanent'
-                ? 'تم حظر حسابك بشكل دائم.'
-                : 'تم حظر حسابك مؤقتاً. العملية تحت المراجعة.';
+              const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
               Alert.alert('الحساب محظور', msg);
               return;
             }
@@ -237,6 +235,7 @@ export default function WelcomeScreen() {
       // تسجيل جديد أو تحديث → احفظ/حدّث الحساب
       const displayName = name.trim() || "مستخدم";
       const avatar = selectedAvatar || "male";
+      await AsyncStorage.removeItem('@sahaat_muhawara:userId');
       await loginAsGuest(displayName, avatar as AvatarType);
       const guestUserId = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
       // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
@@ -279,6 +278,7 @@ export default function WelcomeScreen() {
             const fullPhone = `${selectedCountry.code}${phoneNumber.replace(/^0/, '')}`;
             const displayName = name.trim() || "مستخدم";
             const avatar = selectedAvatar || "male";
+            await AsyncStorage.removeItem('@sahaat_muhawara:userId');
             await loginAsGuest(displayName, avatar as AvatarType);
             const guestUserId2 = await AsyncStorage.getItem('@sahaat_muhawara:userId') || undefined;
             // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً

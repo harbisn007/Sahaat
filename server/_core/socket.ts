@@ -294,7 +294,7 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     });
 
     // مغادرة ساحة
-    socket.on("leaveRoom", (roomId: number) => {
+    socket.on("leaveRoom", async (roomId: number) => {
       const roomName = `room:${roomId}`;
       socket.leave(roomName);
       // حذف بيانات الإعجاب لهذا المستخدم من الغرفة
@@ -304,6 +304,11 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       if (socket.data.currentRoomId === roomId) {
         socket.data.currentRoomId = undefined;
       }
+      // حذف جميع طلبات الانضمام المعلقة للمستخدم
+      try {
+        const { expireAllPendingRequestsForUser } = await import('../db');
+        await expireAllPendingRequestsForUser(socket.data.userId);
+      } catch (_) {}
       console.log(`[Socket.io] Client ${socket.id} left room ${roomId}`);
     });
 
@@ -370,9 +375,18 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
       // بث عدد المتواجدين عند قطع الاتصال
       broadcastOnlineCount();
+      console.log('[Socket] disconnect - userId:', socket.data.userId);
       
-      // حذف المشارك غير المنشئ من الساحة عند قطع الاتصال
       const { userId, currentRoomId } = socket.data;
+      
+      // حذف جميع طلبات الانضمام المعلقة للمستخدم - خارج شرط currentRoomId
+      if (userId) {
+        try {
+          const { expireAllPendingRequestsForUser } = await import('../db');
+          await expireAllPendingRequestsForUser(userId);
+        } catch (_) {}
+      }
+      
       // حذف بيانات الإعجاب عند قطع الاتصال
       if (userId && currentRoomId) {
         clearUserRoomLikes(currentRoomId, userId);
@@ -386,6 +400,14 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
             await removeParticipant(currentRoomId, userId);
             emitParticipantLeft(currentRoomId, userId);
             emitRoomUpdated(currentRoomId);
+            // حذف طلبات الانضمام المعلقة فوراً
+            try {
+              const { getPendingJoinRequestsByUser, expireJoinRequest } = await import('../db');
+              const pendingRequests = await getPendingJoinRequestsByUser(userId, currentRoomId);
+              for (const req of pendingRequests) {
+                await expireJoinRequest(req.id);
+              }
+            } catch (_) {}
           }
         } catch (e) {
           console.error(`[Socket.io] Failed to auto-remove participant on disconnect:`, e);
@@ -472,6 +494,14 @@ export function emitRoomUpdated(roomId: number): void {
 export function emitRoomDeleted(roomId: number, roomName: string, reason: "manual" | "auto" = "manual"): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName, reason });
+}
+
+/**
+ * بث إغلاق الساحة من قبل الإدارة
+ */
+export function emitRoomClosedByAdmin(roomId: number): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: 'تم إغلاق الساحة من قبل الادارة', reason: "manual", message: 'تم إغلاق الساحة من قبل الادارة' });
 }
 
 /**

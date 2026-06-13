@@ -148,6 +148,7 @@ export default function RoomScreen() {
   const [showParticipantsList, setShowParticipantsList] = useState(false);
   const [selectedParticipant, setSelectedParticipant] = useState<any | null>(null);
   const [showParticipantMenu, setShowParticipantMenu] = useState(false);
+  const [promotedRole, setPromotedRole] = useState<string | null>(null);
   const [notification, setNotification] = useState<{ title: string; message: string; type: string } | null>(null);
   const [showNotification, setShowNotification] = useState(false);
   const notificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -243,6 +244,17 @@ export default function RoomScreen() {
     }
   }, [roomId, userId]);
 
+  // Join user channel for socket notifications
+  useEffect(() => {
+    const joinChannel = async () => {
+      const socket = await getSocket();
+      if (socket && userId) {
+        socket.emit('joinUserChannel', userId);
+      }
+    };
+    joinChannel();
+  }, [userId]);
+
   // حفظ اسم الساحة عند أول تحميل
   useEffect(() => {
     if (roomData?.name && !savedRoomName) {
@@ -278,8 +290,11 @@ export default function RoomScreen() {
     if (!roomId || roomId <= 0) return;
     
     setCallbacks({
-      onRoomDeleted: (roomName: string, reason?: "manual" | "auto") => {
-        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason);
+      onRoomDeleted: (data: any) => {
+        const roomName = data.roomName || '';
+        const reason = data.reason;
+        const message = data.message;
+        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason, "message:", message);
         if (!roomClosedAlertShown) {
           setRoomClosedAlertShown(true);
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
@@ -287,19 +302,17 @@ export default function RoomScreen() {
           
           // رسالة مختلفة حسب سبب الحذف
           if (reason === "auto") {
-            Alert.alert(
-              "تم حذف الساحة",
-              `يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)`
-            );
+            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)");
+          } else if (roomName === 'تم إغلاق الساحة من قبل الادارة') {
+            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
+          } else if (userId === roomData?.creatorId) {
+            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة بنجاح");
           } else {
-            Alert.alert(
-              "تم إغلاق الساحة",
-              "تم إغلاق الساحة بنجاح"
-            );
+            Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
           }
         }
       },
-      // استماع للرسائل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
+      // استماع للرسالل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
       onAudioMessageCreated: (data) => {
         console.log("[RoomScreen] New audio message via Socket.io:", data);
         setSocketAudioMessages(prev => {
@@ -380,6 +393,7 @@ export default function RoomScreen() {
         setSocketJoinRequests(prev => prev.filter(r => r.id !== data.requestId));
         // حفظ الرد لعرضه للمستخدم المعني فقط (الذي أرسل الطلب)
         if (data.userId === userId) {
+          setHasPendingRequest(false);
           setJoinRequestResponse({ accepted: data.accepted, requestId: data.requestId });
         }
         // تحديث البيانات يتم عبر onRoomUpdated -> refetch
@@ -419,7 +433,7 @@ export default function RoomScreen() {
         }
       },
     });
-  }, [roomId, setCallbacks, savedRoomName, roomClosedAlertShown, userId]);
+  }, [roomId, setCallbacks, savedRoomName, userId]);
 
   // تنظيف timeout الإشعار
   useEffect(() => {
@@ -467,15 +481,19 @@ export default function RoomScreen() {
     const serverError = !!error;
 
     if (roomDisappeared || serverError) {
-      console.log("[RoomScreen] Room not found - redirecting. disappeared:", roomDisappeared, "error:", error?.message);
-      setRoomClosedAlertShown(true);
-      router.replace("/");
-      if (savedRoomName) {
-        Alert.alert(
-          "تم حذف الساحة",
-          "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
-        );
-      }
+      (async () => {
+        await new Promise(r => setTimeout(r, 1500));
+        if (roomClosedAlertShown) return;
+        console.log("[RoomScreen] Room not found - redirecting. disappeared:", roomDisappeared, "error:", error?.message);
+        setRoomClosedAlertShown(true);
+        router.replace("/");
+        if (savedRoomName) {
+          Alert.alert(
+            "تم حذف الساحة",
+            "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
+          );
+        }
+      })();
     }
   }, [isLoading, roomData, error, roomClosedAlertShown, savedRoomName]);
 
@@ -730,9 +748,7 @@ export default function RoomScreen() {
       // حدث حظر المستخدم - إخراجه فوراً من الساحة
       onUserBanned: (data: { userId: string; banType: string }) => {
         if (data.userId === userId) {
-          const msg = data.banType === 'permanent'
-            ? 'تم حظرك بشكل دائم.'
-            : 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
+          const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
           Alert.alert('تم حظرك', msg, [
             { text: 'حسناً', onPress: () => router.replace('/(tabs)') }
           ]);
@@ -997,7 +1013,13 @@ export default function RoomScreen() {
         finalClapPlayer.volume = 0.225;
         finalClapPlayer.loop = false;
         finalClapPlayer.play();
-
+      } catch (_) {}
+      try {
+        const khalwaSound = require("@/assets/sounds/khalwa-sound.m4a");
+        const khalwaSoundPlayer = createAudioPlayer(khalwaSound);
+        khalwaSoundPlayer.volume = 1.0;
+        khalwaSoundPlayer.loop = false;
+        khalwaSoundPlayer.play();
       } catch (_) {}
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
@@ -1039,17 +1061,16 @@ export default function RoomScreen() {
         // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
         // إذا كان لديه دور سابق (ليس null) وليس المنشئ وكان مقبولاً، فهذا يعني أنه تم استبعاده
         // إذا لم يكن مقبولاً (طلب معلق)، فهذا يعني أنه خرج بنفسه أو رُفض طلبه
-        if (userRole && userRole !== "creator" && isApproved) {
+        if (userRole && userRole === "player" && isApproved) {
           console.log("[RoomScreen] User was kicked from the room");
           // إعادة ضبط الحالة لمنع التكرار
           setUserRole(null);
           setIsApproved(false);
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
-          Alert.alert(
-            "تم استبعادك",
-            "تم استبعادك من الساحة بواسطة المنشئ"
-          );
+          setNotification({ title: 'رسالة', message: 'اعتذر منك تم سحب المايك ، وشكرا', type: 'info' });
+          setShowNotification(true);
+          setTimeout(() => setShowNotification(false), 4000);
         } else {
           console.log("[RoomScreen] Participant not found for username:", username);
         }
@@ -1090,12 +1111,12 @@ export default function RoomScreen() {
   // Handle kick player
   const handleKickPlayer = (playerId: string, playerName: string) => {
     Alert.alert(
-      "استبعاد الشاعر",
-      `هل تريد استبعاد ${playerName} من الساحة؟`,
+      "سحب المايك",
+      `هل تريد سحب المايك من ${playerName}؟`,
       [
         { text: "إلغاء", style: "cancel" },
         {
-          text: "استبعاد",
+          text: "سحب",
           style: "destructive",
           onPress: () => {
             kickPlayerMutation.mutate({
@@ -1112,6 +1133,21 @@ export default function RoomScreen() {
   // Join request state (for viewers)
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState<number>(0);
+  
+  // Track appearances of each request for smart queue
+  const requestAppearanceRef = useRef<Map<string, number>>(new Map());
+
+  // Check if user has a pending request on mount or when userId/roomId changes
+  useEffect(() => {
+    if (!userId || !roomId) return;
+    const checkPending = async () => {
+      try {
+        const result = await trpcUtils.joinRequests.checkMyRequest.fetch({ roomId, userId });
+        setHasPendingRequest(result.hasPending);
+      } catch (_) {}
+    };
+    checkPending();
+  }, [userId, roomId]);
 
   // Join requests query (for creator) - enabled when user is the room creator
   // Use roomData.creatorId instead of userRole to avoid timing issues
@@ -1154,7 +1190,7 @@ export default function RoomScreen() {
     // ترتيب حسب وقت الإنشاء (الأقدم أولاً) مع إزالة التكرار
     const combined = [...viewerReqs, ...playerReqs];
     const unique = combined.filter((req, idx) => 
-      combined.findIndex(r => r.requesterId === req.requesterId && r.requestType === req.requestType) === idx
+      combined.findIndex(r => (r.requesterId === req.requesterId || r.userId === req.userId) && r.requestType === req.requestType) === idx
     );
     return unique.sort((a, b) => {
       const timeA = new Date(a.createdAt || 0).getTime();
@@ -1170,6 +1206,14 @@ export default function RoomScreen() {
       return;
     }
     
+    // تصفية الطلبات المحذوفة من الخادم
+    setDisplayedRequests(prev => 
+      prev.filter(d => allRequests.some(r => r.id === d.id && r.requestType === d.requestType))
+    );
+    setQueuedRequests(prev => 
+      prev.filter(q => allRequests.some(r => r.id === q.id && r.requestType === q.requestType))
+    );
+    
     // إضافة الطلبات الجديدة للطابور (مع منع التكرار بناء على userId + requestType)
     const newRequests = allRequests.filter((req: any) => {
       const key = `${req.requestType}-${req.id}`;
@@ -1182,9 +1226,9 @@ export default function RoomScreen() {
     });
     
     if (newRequests.length > 0) {
-      // إذا كان هناك مكان في العرض (أقل من 2)
-      if (displayedRequests.length < 2) {
-        const slotsAvailable = 2 - displayedRequests.length;
+      // إذا كان هناك مكان في العرض (أقل من 1)
+      if (displayedRequests.length < 1) {
+        const slotsAvailable = 1 - displayedRequests.length;
         const toDisplay = newRequests.slice(0, slotsAvailable);
         const toQueue = newRequests.slice(slotsAvailable);
         setDisplayedRequests(prev => [...prev, ...toDisplay]);
@@ -1196,30 +1240,32 @@ export default function RoomScreen() {
     }
   }, [allRequests, isRoomCreator]);
   
-  // مؤقت 10 ثواني لحذف الطلبات المعروضة وعرض التالية
+  // مؤقت 10 ثواني لإدارة الطابور الذكي - كل طلب يظهر مرتين قبل الحذف
   useEffect(() => {
     if (displayedRequests.length === 0) return;
     
     const timer = setTimeout(() => {
-      // حذف/رفض الطلبات المعروضة حسب نوعها
-      displayedRequests.forEach((req: any) => {
-        if (req.requestType === 'viewer') {
-          expireJoinRequestMutation.mutate({ requestId: req.id });
+      setDisplayedRequests(prev => {
+        const current = prev[0];
+        if (!current) return prev;
+        const key = `${current.requestType}-${current.id}`;
+        const appearances = (requestAppearanceRef.current.get(key) || 0) + 1;
+        if (appearances >= 2) {
+          requestAppearanceRef.current.delete(key);
+          if (current.requestType === 'viewer') {
+            expireJoinRequestMutation.mutate({ requestId: current.id });
+          }
         } else {
-          respondToRequestMutation.mutate({ participantId: req.id, accept: false });
+          requestAppearanceRef.current.set(key, appearances);
+          setQueuedRequests(q => [...q, current]);
         }
+        return queuedRequests.length > 0 ? [queuedRequests[0]] : [];
       });
-      
-      // عرض أول 2 من الطابور
-      const nextBatch = queuedRequests.slice(0, 2);
-      const remaining = queuedRequests.slice(2);
-      
-      setDisplayedRequests(nextBatch);
-      setQueuedRequests(remaining);
+      setQueuedRequests(prev => prev.slice(1));
     }, 10000);
     
     return () => clearTimeout(timer);
-  }, [displayedRequests]);
+  }, [displayedRequests, queuedRequests]);
 
   // Expire join request mutation
   const expireJoinRequestMutation = trpc.joinRequests.expire.useMutation();
@@ -1232,8 +1278,14 @@ export default function RoomScreen() {
       // Immediately refetch to show request to creator
       refetch();
       // Auto-expire after 10 seconds
-      setTimeout(() => {
-        setHasPendingRequest(false);
+      setTimeout(async () => {
+        try {
+          const requests = await trpcUtils.joinRequests.getPending.fetch({ roomId });
+          const myRequest = requests?.find((r: any) => r.userId === userId);
+          setHasPendingRequest(!!myRequest);
+        } catch (_) {
+          setHasPendingRequest(false);
+        }
         // Also expire in database
         if (data.requestId) {
           expireJoinRequestMutation.mutate({ requestId: data.requestId });
@@ -2306,11 +2358,11 @@ export default function RoomScreen() {
         </Pressable>
       </Modal>
 
-      {/* طلبات الانضمام الموحدة - نظام الطابور: 2 طلبات لمدة 10 ثواني */}
+      {/* طلبات الانضمام الموحدة - نظام الطابور: 1 طلب */}
       {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
-        <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(255, 193, 7, 0.15)' }}>
+        <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(30, 20, 5, 0.95)', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 999 }}>
           {displayedRequests.map((request: any) => (
-            <View key={`${request.requestType}-${request.id}`} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(255, 215, 0, 0.2)', borderRadius: 8, padding: 10 }}>
+            <View key={`${request.requestType}-${request.id}`} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(50, 35, 5, 0.95)', borderRadius: 8, padding: 10 }}>
               <View className="flex-row items-center flex-1">
                 {request.avatar && (
                   <Image
@@ -2449,23 +2501,27 @@ export default function RoomScreen() {
                 />
                 <View style={{ position: 'relative' }}>
                   <TouchableOpacity
-                    onPress={() => userRole === "creator" && handleKickPlayer(player1.userId, player1.username)}
-                    disabled={userRole !== "creator"}
-                    activeOpacity={userRole === "creator" ? 0.7 : 1}
+                    onPress={() => isCreator && handleKickPlayer(player1.userId, player1.username)}
+                    disabled={!isCreator}
+                    activeOpacity={isCreator ? 0.7 : 1}
                   >
                     <Image
                       source={getAvatarSource(player1.avatar)}
                       style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer1Recording ? '#DC2626' : colors.success }}
                     />
-                    {userRole === "creator" && (
-                      <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-                        <MaterialIcons name="close" size={14} color="white" />
-                      </View>
-                    )}
                   </TouchableOpacity>
+                  {isCreator && (
+                    <TouchableOpacity
+                      onPress={() => handleKickPlayer(player1.userId, player1.username)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
+                    >
+                      <MaterialIcons name='close' size={14} color='white' />
+                    </TouchableOpacity>
+                  )}
                   <InteractionButtons targetUserId={player1.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer1Recording ? '#DC2626' : colors.success} />
                 </View>
-                <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <Text className="text-xs mt-4 text-center font-bold" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player1.username}
                 </Text>
               </View>
@@ -2497,7 +2553,7 @@ export default function RoomScreen() {
                   />
                   <InteractionButtons targetUserId={roomData?.creatorId || ''} currentUserId={userId || ''} avatarSize={80} roomId={roomId} avatarBorderColor={isCreatorRecording ? '#DC2626' : colors.primary} />
                 </View>
-                <Text className="text-sm font-bold mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <Text className="text-sm font-bold mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground, fontWeight: 'bold' }}>
                   {roomData?.creatorName}
                 </Text>
               </View>
@@ -2527,23 +2583,27 @@ export default function RoomScreen() {
                 />
                 <View style={{ position: 'relative' }}>
                   <TouchableOpacity
-                    onPress={() => userRole === "creator" && handleKickPlayer(player2.userId, player2.username)}
-                    disabled={userRole !== "creator"}
-                    activeOpacity={userRole === "creator" ? 0.7 : 1}
+                    onPress={() => isCreator && handleKickPlayer(player2.userId, player2.username)}
+                    disabled={!isCreator}
+                    activeOpacity={isCreator ? 0.7 : 1}
                   >
                     <Image
                       source={getAvatarSource(player2.avatar)}
                       style={{ width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: isPlayer2Recording ? '#DC2626' : colors.success }}
                     />
-                    {userRole === "creator" && (
-                      <View style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center' }}>
-                        <MaterialIcons name="close" size={14} color="white" />
-                      </View>
-                    )}
                   </TouchableOpacity>
+                  {isCreator && (
+                    <TouchableOpacity
+                      onPress={() => handleKickPlayer(player2.userId, player2.username)}
+                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                      style={{ position: 'absolute', top: -5, right: -5, backgroundColor: '#DC2626', borderRadius: 10, width: 22, height: 22, justifyContent: 'center', alignItems: 'center', zIndex: 20 }}
+                    >
+                      <MaterialIcons name='close' size={14} color='white' />
+                    </TouchableOpacity>
+                  )}
                   <InteractionButtons targetUserId={player2.userId} currentUserId={userId || ''} avatarSize={60} roomId={roomId} avatarBorderColor={isPlayer2Recording ? '#DC2626' : colors.success} />
                 </View>
-                <Text className="text-xs mt-4 text-center" numberOfLines={1} style={{ color: colors.foreground }}>
+                <Text className="text-xs mt-4 text-center font-bold" numberOfLines={1} style={{ color: colors.foreground }}>
                   {player2.username}
                 </Text>
               </View>
@@ -2973,11 +3033,7 @@ export default function RoomScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
-              {hasPendingRequest && (
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, textAlign: 'center' }}>
-                  سيتم حذف الطلب تلقائياً بعد 10 ثواني
-                </Text>
-              )}
+
             </View>
           )}
         </View>
@@ -3163,6 +3219,7 @@ export default function RoomScreen() {
                       moderatorId: userId,
                     }),
                   });
+                  const text = await response.text();
                   if (response.ok) {
                     setShowParticipantMenu(false);
                     refetch();
@@ -3192,23 +3249,25 @@ export default function RoomScreen() {
                     const response = await fetch('https://sahaat-production.up.railway.app/mod/promote-participant', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ roomId, userId: selectedParticipant?.userId, newRole, moderatorId: userId }),
+                      body: JSON.stringify({
+                        roomId,
+                        userId: selectedParticipant?.userId,
+                        newRole,
+                        moderatorId: userId,
+                      }),
                     });
-                    const text = await response.text();
                     if (response.ok) {
-                      Alert.alert('تم', newRole === 'moderator' ? 'تم تعيين مشرف' : 'تم إلغاء الإشراف');
+                      setPromotedRole(newRole);
                       setShowParticipantMenu(false);
                       refetch();
-                    } else {
-                      Alert.alert('خطأ', text.substring(0, 200));
                     }
                   } catch (err) {
-                    Alert.alert('خطأ', String(err));
+                    console.error('Role change error:', err);
                   }
                 }}
               >
-                <Text style={{ color: selectedParticipant?.appRole === 'moderator' ? '#ff6b6b' : '#4ade80', fontWeight: 'bold', fontSize: 14 }}>
-                  {selectedParticipant?.appRole === 'moderator' ? 'إلغاء إشراف' : 'إشراف'}
+                <Text style={{ color: (promotedRole === 'moderator' || selectedParticipant?.appRole === 'moderator') ? '#ff6b6b' : '#4ade80', fontWeight: 'bold', fontSize: 14 }}>
+                  {(promotedRole === 'moderator' || selectedParticipant?.appRole === 'moderator') ? 'إلغاء إشراف' : 'إشراف'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -3226,23 +3285,25 @@ export default function RoomScreen() {
                     const response = await fetch('https://sahaat-production.up.railway.app/mod/promote-participant', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ roomId, userId: selectedParticipant?.userId, newRole, moderatorId: userId }),
+                      body: JSON.stringify({
+                        roomId,
+                        userId: selectedParticipant?.userId,
+                        newRole,
+                        moderatorId: userId,
+                      }),
                     });
-                    const text = await response.text();
                     if (response.ok) {
-                      Alert.alert('تم', newRole === 'admin' ? 'تم تعيين مدير' : 'تم إلغاء الإدارة');
+                      setPromotedRole(newRole);
                       setShowParticipantMenu(false);
                       refetch();
-                    } else {
-                      Alert.alert('خطأ', text.substring(0, 200));
                     }
                   } catch (err) {
-                    Alert.alert('خطأ', String(err));
+                    console.error('Role change error:', err);
                   }
                 }}
               >
-                <Text style={{ color: selectedParticipant?.appRole === 'admin' ? '#ff6b6b' : '#fbbf24', fontWeight: 'bold', fontSize: 14 }}>
-                  {selectedParticipant?.appRole === 'admin' ? 'إلغاء إدارة' : 'إدارة'}
+                <Text style={{ color: (promotedRole === 'admin' || selectedParticipant?.appRole === 'admin') ? '#ff6b6b' : '#fbbf24', fontWeight: 'bold', fontSize: 14 }}>
+                  {(promotedRole === 'admin' || selectedParticipant?.appRole === 'admin') ? 'إلغاء إدارة' : 'إدارة'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -3269,10 +3330,10 @@ export default function RoomScreen() {
             elevation: 5,
           }}
         >
-          <Text style={{ color: '#ef4444', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
+          <Text style={{ color: notification.type === 'ban' ? '#ef4444' : '#c8860a', fontWeight: 'bold', fontSize: 14, marginBottom: 4 }}>
             {notification.title}
           </Text>
-          <Text style={{ color: '#ef4444', fontSize: 12 }}>
+          <Text style={{ color: notification.type === 'ban' ? '#ef4444' : '#c8860a', fontWeight: 'bold', fontSize: 12 }}>
             {notification.message}
           </Text>
         </View>

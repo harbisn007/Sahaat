@@ -141,8 +141,8 @@ router.post("/api/ban", async (req: Request, res: Response) => {
         const activeRoom = await banDb.select({ id: rooms.id }).from(rooms).where(and(eq(rooms.creatorId, bannedAppUserId), eq(rooms.isActive, 'true'))).limit(1);
         if (activeRoom[0]) {
           await banDb.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, activeRoom[0].id));
-          const { emitToRoom } = await import('./_core/socket');
-          emitToRoom(activeRoom[0].id, 'roomClosed', { message: 'تم إغلاق الساحة من قبل الادارة' });
+          const { emitRoomClosedByAdmin } = await import('./_core/socket');
+          emitRoomClosedByAdmin(activeRoom[0].id);
         }
       }
     } catch (_) {}
@@ -345,7 +345,7 @@ function dashboardPage(data: {
       <td>${formatDate(r.createdAt)}</td>
       <td>
         ${r.audioUrl && r.audioUrl.startsWith('http')
-          ? `<audio controls style="height:32px; width:200px;"><source src="${r.audioUrl}" type="audio/mp4"><source src="${r.audioUrl}" type="audio/mpeg">متصفحك لا يدعم تشغيل الصوت</audio>`
+          ? `<a href="${r.audioUrl}" target="_blank" style="color:#4ade80; font-size:13px;">\u25b6 تشغيل الصوت</a>`
           : `<span style="font-size:13px;color:#ecedee;direction:rtl;text-align:right;display:block;max-width:200px;word-break:break-word">${r.audioUrl || ''}</span>`
         }
         <span style="font-size:11px;color:#c8860a;margin-right:4px">${typeLabel(r.messageType)}</span>

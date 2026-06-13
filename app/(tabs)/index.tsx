@@ -460,16 +460,19 @@ export default function HomeScreen() {
       displayedInvites.forEach((invite) => {
         if (expiredInviteIds.has(invite.id) || timerCreatedRef.current.has(invite.id)) return;
         timerCreatedRef.current.add(invite.id);
-        setTimeout(async () => {
-          try {
-            setDisplayedInvites(prev => prev.filter(i => i.id !== invite.id));
-            setExpiredInviteIds(prev => new Set(prev).add(invite.id));
-            await expireInviteMutation.mutateAsync({ invitationId: invite.id });
-          } catch {}
-        }, 35000);
+        // تشغيل المؤقت فقط إذا تجاوز المجموع 10
+        if (displayedInvites.length + pendingInvites.length > 10) {
+          setTimeout(async () => {
+            try {
+              setDisplayedInvites(prev => prev.filter(i => i.id !== invite.id));
+              setExpiredInviteIds(prev => new Set(prev).add(invite.id));
+              await expireInviteMutation.mutateAsync({ invitationId: invite.id });
+            } catch {}
+          }, 35000);
+        }
       });
     }
-  }, [displayedInvites]);
+  }, [displayedInvites, pendingInvites.length]);
 
   useEffect(() => {
     if (displayedInvites.length < 10 && pendingInvites.length > 0) {
@@ -486,7 +489,7 @@ export default function HomeScreen() {
       // فحص الحظر قبل الإنشاء
       const ban = await trpcUtils.reports.checkBan.fetch({ userId });
       if (ban && ban.isBanned) {
-        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
         Alert.alert('الحساب محظور', msg);
         return;
       }
@@ -510,7 +513,7 @@ export default function HomeScreen() {
       // فحص الحظر
       const ban = await trpcUtils.reports.checkBan.fetch({ userId });
       if (ban && ban.isBanned) {
-        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
         Alert.alert('الحساب محظور', msg);
         return;
       }
@@ -525,11 +528,10 @@ export default function HomeScreen() {
       // فحص الحظر
       const ban = await trpcUtils.reports.checkBan.fetch({ userId });
       if (ban && ban.isBanned) {
-        const msg = ban.banType === 'permanent' ? 'تم حظر حسابك بشكل دائم.' : 'تم حظر حسابك مؤقتاً.';
+        const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
         Alert.alert('الحساب محظور', msg);
         return;
       }
-      await createJoinRequestMutation.mutateAsync({ roomId: invite.roomId, userId, username, avatar: avatar || "male" });
       await joinAsViewerMutation.mutateAsync({ roomId: invite.roomId, userId, username, avatar: avatar || "male" });
       router.push(`/room/${invite.roomId}`);
     } catch (error: any) { Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام"); }

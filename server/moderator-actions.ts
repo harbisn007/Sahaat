@@ -53,7 +53,7 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
         type: 'ban',
         createdAt: new Date(),
       });
-      emitNotification(bannedUser[0].id, {
+      if (bannedUser[0]?.appUserId) emitNotification(bannedUser[0].appUserId, {
         title: 'تم حظرك',
         message: 'تم حظر الحساب مؤقتا',
         type: 'ban',
@@ -65,11 +65,12 @@ router.post("/ban-from-room", async (req: Request, res: Response) => {
     if (bannedUserRecord[0]) {
       const roomOfBanned = await db.select({ creatorId: rooms.creatorId, id: rooms.id }).from(rooms).where(eq(rooms.creatorId, userId)).limit(1);
       if (roomOfBanned[0]) {
-        // أغلق الساحة
-        await db.update(rooms).set({ isActive: 'false' }).where(eq(rooms.id, roomOfBanned[0].id));
+        // استخدم نفس منطق deleteRoom
+        const { deleteRoom } = await import('./db');
+        const { emitRoomDeleted } = await import('./_core/socket');
+        await deleteRoom(roomOfBanned[0].id);
         // أرسل إشعار لجميع المتواجدين
-        const { emitToRoom } = await import('./_core/socket');
-        emitToRoom(roomOfBanned[0].id, 'roomClosed', { message: 'تم إغلاق الساحة من قبل الادارة' });
+        emitRoomDeleted(roomOfBanned[0].id, 'تم إغلاق الساحة من قبل الادارة', 'manual');
       }
     }
 
@@ -165,21 +166,19 @@ router.post("/promote-participant", async (req: Request, res: Response) => {
     const promotedUser = await db
       .select()
       .from(users)
-      .where(eq(users.appUserId, userId))
+      .where(eq(users.id, parseInt(userId)))
       .limit(1);
 
-    if (promotedUser[0]) {
-      const roleLabel = newRole === 'admin' ? 'مدير' : 'مشرف';
-      const actionLabel = newRole === 'user' ? `تم إلغاء ${roleLabel === 'مدير' ? 'الإدارة' : 'الإشراف'}` : `تم تعيينك ${roleLabel}`;
-      
-      await db.insert(notifications).values({
-        userId: promotedUser[0].id,
-        title: actionLabel,
-        message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
-        type: newRole === 'user' ? 'role_removed' : 'role_granted',
-        createdAt: new Date(),
-      });
-      if (promotedUser[0]?.appUserId) emitNotification(promotedUser[0].appUserId, {
+    const roleLabel = newRole === 'admin' ? 'مدير' : 'مشرف';
+    const actionLabel = newRole === 'user' ? `تم إلغاء ${roleLabel === 'مدير' ? 'الإدارة' : 'الإشراف'}` : `تم تعيينك ${roleLabel}`;
+    
+    const userForNotif = await db
+      .select({ appUserId: users.appUserId })
+      .from(users)
+      .where(eq(users.appUserId, userId))
+      .limit(1);
+    if (userForNotif[0]?.appUserId) {
+      emitNotification(userForNotif[0].appUserId, {
         title: actionLabel,
         message: `${actionLabel} بواسطة ${moderator[0].name || 'مدير'}`,
         type: newRole === 'user' ? 'role_removed' : 'role_granted',
@@ -226,10 +225,8 @@ router.post("/pin-room", async (req: Request, res: Response) => {
       try {
         const roomResult = await db.select({ creatorId: rooms.creatorId }).from(rooms).where(eq(rooms.id, roomId)).limit(1);
         if (roomResult[0]?.creatorId) {
-          const creator = await db.select({ id: users.id }).from(users).where(eq(users.appUserId, roomResult[0].creatorId)).limit(1);
-          if (creator[0]) {
-            if (creator[0]?.appUserId) emitNotification(creator[0].appUserId, { message: 'مرحبا ،تقديرا لك.. قامت الادارة بتثبيت ساحتك لتكون ساحة دائمة 🌹', type: 'pin' });
-          }
+          const creator = await db.select({ appUserId: users.appUserId }).from(users).where(eq(users.appUserId, roomResult[0].creatorId)).limit(1);
+          if (creator[0]?.appUserId) emitNotification(creator[0].appUserId, { message: 'مرحبا ،تقديرا لك.. قامت الادارة بتثبيت ساحتك لتكون ساحة دائمة 🌹', type: 'pin' });
         }
       } catch (_) {}
     }

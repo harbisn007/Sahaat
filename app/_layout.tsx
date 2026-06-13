@@ -23,9 +23,27 @@ import { GlobalCreatorNotifier } from "@/components/global-creator-notifier";
 import { useCreatorBell } from "@/hooks/use-creator-bell";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SplashScreen } from "@/components/splash-screen";
+import { useUser } from "@/lib/user-context";
+import { getSocket } from "@/hooks/use-socket";
 
 function CreatorBellListener() {
   useCreatorBell();
+  const { userId } = useUser();
+  
+  useEffect(() => {
+    if (!userId) return;
+    const setupSocket = async () => {
+      const socket = await getSocket();
+      if (!socket) return;
+      socket.emit('joinUserChannel', userId);
+      // Socket listener للجرس الفوري
+      socket.on('creatorJoinRequest', () => {
+        console.log('[CreatorBellListener] Received creatorJoinRequest event');
+      });
+    };
+    setupSocket();
+  }, [userId]);
+  
   return null;
 }
 

@@ -91,7 +91,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUserIdState(storedUserId);
         // جلب الدور من السيرفر
         try {
-          const API_URL = process.env.EXPO_PUBLIC_API_URL || 'https://sahaat-production.up.railway.app';
+          const API_URL = process.env.EXPO_PUBLIC_API_BASE_URL || 'http://localhost:3000';
           const res = await fetch(`${API_URL}/api/user-role?userId=${storedUserId}`);
           const data = await res.json();
           if (data.role) {
@@ -203,6 +203,16 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setRoleState("user");
       setGoogleIdState(null);
       setAppleIdState(null);
+      
+      // Fetch user role from Railway
+      try {
+        const res = await fetch(`https://sahaat-production.up.railway.app/mod/user-role?userId=${newUserId}`);
+        const data = await res.json();
+        if (data.role) {
+          await AsyncStorage.setItem(USER_ROLE_KEY, data.role);
+          setRoleState(data.role as UserRole);
+        }
+      } catch (_) {}
       
       console.log("[UserContext] Logged in as guest successfully:", { userId: newUserId, name });
     } catch (error: any) {

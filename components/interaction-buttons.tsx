@@ -111,7 +111,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
     addLikeDislikeMutation.mutate({ fromUserId: currentUserId, toUserId: targetUserId, type: "dislike", roomId });
   };
 
-  const btnSize = 24;
+  const btnSize = 26;
   const iconSize = 13;
 
   return (
@@ -200,7 +200,7 @@ export function InteractionButtons({ targetUserId, currentUserId, avatarSize, ro
 const styles = StyleSheet.create({
   wrapper: {
     position: "absolute",
-    left: -10,
+    left: -14,
     top: 0,
     bottom: 0,
     alignItems: "center",
@@ -210,13 +210,13 @@ const styles = StyleSheet.create({
   },
   topRow: {
     alignItems: "center",
-    marginTop: -10,
+    marginTop: -14,
   },
   bottomRow: {
     flexDirection: "row",
     gap: 10,
     alignItems: "center",
-    marginBottom: -10,
+    marginBottom: -14,
   },
   btn: {
     alignItems: "center",

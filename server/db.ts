@@ -252,10 +252,22 @@ export async function getRoomWithAllData(roomId: number) {
   const room = await db.select().from(rooms).where(eq(rooms.id, roomId)).limit(1);
   if (!room[0]) throw new Error("Room not found");
 
-  // استعلام 2: جلب جميع المشاركين
+  // استعلام 2: جلب جميع المشاركين مع دورهم العام والحظر
   const participants = await db
-    .select()
+    .select({
+      id: roomParticipants.id,
+      roomId: roomParticipants.roomId,
+      userId: roomParticipants.userId,
+      username: roomParticipants.username,
+      avatar: roomParticipants.avatar,
+      role: roomParticipants.role,
+      status: roomParticipants.status,
+      appRole: users.role,
+      isBanned: sql`CASE WHEN ${adminBans.isActive} = 'true' THEN true ELSE false END`,
+    })
     .from(roomParticipants)
+    .leftJoin(users, eq(roomParticipants.userId, users.appUserId))
+    .leftJoin(adminBans, and(eq(adminBans.userId, roomParticipants.userId), eq(adminBans.isActive, 'true')))
     .where(eq(roomParticipants.roomId, roomId));
 
   // حساب الإحصائيات من البيانات المجلوبة (بدون استعلامات إضافية)
@@ -925,6 +937,22 @@ export async function expireJoinRequest(requestId: number) {
     .where(eq(joinRequests.id, requestId));
 }
 
+export async function getPendingJoinRequestsByUser(userId: string, roomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(joinRequests)
+    .where(and(eq(joinRequests.userId, userId), eq(joinRequests.roomId, roomId), eq(joinRequests.status, 'pending')))
+    .limit(5);
+}
+
+export async function expireAllPendingRequestsForUser(userId: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(joinRequests)
+    .set({ status: 'expired' })
+    .where(and(eq(joinRequests.userId, userId), eq(joinRequests.status, 'pending')));
+}
+
 export async function promoteViewerToPlayer(roomId: number, userId: string, username: string, avatar: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -980,16 +1008,22 @@ export async function kickPlayer(roomId: number, playerId: string, creatorId: st
     throw new Error("ليس لديك صلاحية الاستبعاد");
   }
 
-  // Remove the player
-  await db
-    .delete(roomParticipants)
-    .where(
-      and(
-        eq(roomParticipants.roomId, roomId),
-        eq(roomParticipants.userId, playerId),
-        eq(roomParticipants.role, "player")
-      )
-    );
+  // Change player role to viewer instead of deleting
+  await db.update(roomParticipants)
+    .set({ role: 'viewer', status: 'accepted' })
+    .where(and(
+      eq(roomParticipants.roomId, roomId),
+      eq(roomParticipants.userId, playerId),
+      eq(roomParticipants.role, 'player')
+    ));
+
+  // Send notification to the kicked player
+  const { emitNotification } = await import('./_core/socket');
+  emitNotification(playerId, { 
+    title: 'رسالة', 
+    message: 'اعتذر منك تم سحب المايك ، وشكرا', 
+    type: 'info' 
+  });
 
   return { success: true };
 }
