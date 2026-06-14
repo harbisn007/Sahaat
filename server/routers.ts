@@ -781,18 +781,9 @@ export const appRouter = router({
             input.avatar
           );
           
-          // إرسال إشعار للمنشئ عبر قناته الخاصة (خارج الساحة)
-          const room = await db.getRoomById(input.roomId);
-          if (room) {
-            emitCreatorJoinRequest(
-              input.roomId,
-              room.creatorId,
-              "player",
-              input.userId,
-              input.username
-            );
-          }
-          
+          // (أُزيل بثّ "دخول فلان" عند الطلب — يبقى الإشعار للدخول الفعلي في joinAsViewer فقط،
+          //  واليد المرفوعة تكفي للدلالة على الطلب)
+
           // (أُزيل الإنهاء التلقائي بعد 15 ثانية — الطلب يبقى حتى يردّ المنشئ أو يغادر صاحبه)
 
           return { success: true, requestId };
