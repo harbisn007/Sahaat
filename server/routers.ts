@@ -397,6 +397,10 @@ export const appRouter = router({
         clearRoomLikes(input.roomId);
         
         await db.deleteRoom(input.roomId);
+
+        // إعلام صفحة الساحات بتحديث قائمة الدعوات (تختفي دعوة الساحة المغلقة فوراً)
+        emitPublicInviteExpired(0);
+
         return { success: true, roomName };
       }),
 
@@ -979,6 +983,13 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().default(10) }))
       .query(async ({ input }) => {
         return db.getDisplayedPublicInvitations(input.limit);
+      }),
+
+    // Get active invitations (دعوة واحدة لكل ساحة مفتوحة، الأحدث أعلى) — النظام الجديد
+    getActive: publicProcedure
+      .input(z.object({ limit: z.number().default(30) }))
+      .query(async ({ input }) => {
+        return db.getActivePublicInvitations(input.limit);
       }),
 
     // Mark invitation as displayed

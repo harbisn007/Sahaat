@@ -299,8 +299,6 @@ export default function HomeScreen() {
   const socketRef = useRef<Socket | null>(null);
   const creatorSocketRef = useRef<Socket | null>(null);
   const playedJoinRequestsRef = useRef<Set<string>>(new Set());
-  const [displayedInvites, setDisplayedInvites] = useState<PublicInvitation[]>([]);
-  const [pendingInvites, setPendingInvites] = useState<PublicInvitation[]>([]);
   const deleteRoomMutation = trpc.rooms.deleteRoom.useMutation();
 
   const handleLogout = () => {
@@ -373,8 +371,8 @@ export default function HomeScreen() {
   const hasNewFollowers = lastSeenFollowersCount !== null && followersCount > lastSeenFollowersCount;
   const heartbeatMutation = trpc.stats.heartbeat.useMutation();
   const { data: activeRoom, refetch: refetchActiveRoom } = trpc.rooms.getUserActiveRoom.useQuery({ creatorId: userId }, { refetchInterval: 3000 });
-  const { data: pendingInvitesData } = trpc.publicInvitations.getPending.useQuery({ limit: 50 }, { refetchInterval: 2000 });
-  const { data: displayedInvitesData } = trpc.publicInvitations.getDisplayed.useQuery({ limit: 10 }, { refetchInterval: 1000 });
+  // الدعوات الفعّالة (دعوة واحدة لكل ساحة مفتوحة، الأحدث أعلى) — لحظي عبر السوكِت + احتياطي خفيف
+  const { data: activeInvitesData, refetch: refetchInvites } = trpc.publicInvitations.getActive.useQuery({ limit: 30 }, { refetchInterval: 8000 });
   const createRoomMutation = trpc.rooms.create.useMutation();
   const unfollowMutation = trpc.interactions.toggle.useMutation({
     onSuccess: () => {
@@ -401,8 +399,6 @@ export default function HomeScreen() {
   const joinAsPlayerMutation = trpc.rooms.requestJoinAsPlayer.useMutation();
   const joinAsViewerMutation = trpc.rooms.joinAsViewer.useMutation();
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation();
-  const markDisplayedMutation = trpc.publicInvitations.markDisplayed.useMutation();
-  const expireInviteMutation = trpc.publicInvitations.expire.useMutation();
   const hasActiveRoom = !!activeRoom;
   const creatorRoomsRef = useRef<Set<number>>(new Set());
 
@@ -414,8 +410,8 @@ export default function HomeScreen() {
       socket.emit("joinPublicInvites");
       if (userId) { socket.emit("joinCreatorChannel", userId); socket.emit("joinUserChannel", userId); }
     });
-    socket.on("publicInviteCreated", () => refetch());
-    socket.on("publicInviteExpired", () => refetch());
+    socket.on("publicInviteCreated", () => { refetch(); refetchInvites(); });
+    socket.on("publicInviteExpired", () => { refetch(); refetchInvites(); });
     socket.on("joinRequestResponded", (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => {
       if (data.userId === userId) {
         if (data.accepted) router.push(`/room/${data.roomId}`);
@@ -443,40 +439,8 @@ export default function HomeScreen() {
     return () => clearInterval(interval);
   }, [userId]);
 
-  useEffect(() => { if (pendingInvitesData) setPendingInvites(pendingInvitesData as PublicInvitation[]); }, [pendingInvitesData]);
-
-  const [expiredInviteIds, setExpiredInviteIds] = useState<Set<number>>(new Set());
-
-  useEffect(() => {
-    if (displayedInvitesData) {
-      setDisplayedInvites((displayedInvitesData as PublicInvitation[]).filter(i => !expiredInviteIds.has(i.id)));
-    }
-  }, [displayedInvitesData, expiredInviteIds]);
-
-  const timerCreatedRef = useRef<Set<number>>(new Set());
-
-  useEffect(() => {
-    if (displayedInvites.length > 0) {
-      displayedInvites.forEach((invite) => {
-        if (expiredInviteIds.has(invite.id) || timerCreatedRef.current.has(invite.id)) return;
-        timerCreatedRef.current.add(invite.id);
-        setTimeout(async () => {
-          try {
-            setDisplayedInvites(prev => prev.filter(i => i.id !== invite.id));
-            setExpiredInviteIds(prev => new Set(prev).add(invite.id));
-            await expireInviteMutation.mutateAsync({ invitationId: invite.id });
-          } catch {}
-        }, 35000);
-      });
-    }
-  }, [displayedInvites]);
-
-  useEffect(() => {
-    if (displayedInvites.length < 10 && pendingInvites.length > 0) {
-      const nextInvite = pendingInvites[0];
-      if (nextInvite) markDisplayedMutation.mutate({ invitationId: nextInvite.id });
-    }
-  }, [displayedInvites.length, pendingInvites.length]);
+  // الدعوات الفعّالة جاهزة مباشرةً من الاستعلام (بلا طابور ولا مؤقتات)
+  const activeInvites: PublicInvitation[] = (activeInvitesData as PublicInvitation[] | undefined) ?? [];
 
   useEffect(() => { if (!userLoading && !username) router.replace("/welcome"); }, [username, userLoading]);
 
@@ -673,8 +637,8 @@ export default function HomeScreen() {
                 <Image source={require('@/assets/images/sadu-pattern.jpg')} style={{ width: '100%', height: '100%', opacity: 0.40 }} resizeMode="repeat" />
               </View>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                {displayedInvites.length > 0 ? (
-                  displayedInvites.map((invite) => (
+                {activeInvites.length > 0 ? (
+                  activeInvites.map((invite) => (
                     <PublicInviteCard key={invite.id} invite={invite} onJoin={() => handleJoinFromInvite(invite)} currentUserId={userId} />
                   ))
                 ) : null}

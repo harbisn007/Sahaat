@@ -358,6 +358,9 @@ export async function deleteRoom(roomId: number) {
   // 4. Delete join requests
   await db.delete(joinRequests).where(eq(joinRequests.roomId, roomId));
   
+  // 4b. Delete public invitations (لتختفي دعوة الساحة فور إغلاقها)
+  await db.delete(publicInvitations).where(eq(publicInvitations.roomId, roomId));
+  
   // 5. Delete participants
   await db.delete(roomParticipants).where(eq(roomParticipants.roomId, roomId));
   
@@ -1052,8 +1055,39 @@ export async function createPublicInvitation(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const result = await db.insert(publicInvitations).values(data);
+  // دعوة واحدة لكل ساحة: احذف دعوات الساحة السابقة قبل إنشاء الجديدة
+  await db.delete(publicInvitations).where(eq(publicInvitations.roomId, data.roomId));
+
+  // الدعوة فعّالة فوراً (بلا طابور ولا مرحلة "pending")، وتبقى حتى تُغلق الساحة أو تُستبدل
+  const result = await db.insert(publicInvitations).values({
+    ...data,
+    status: "displayed",
+    displayedAt: new Date(),
+  });
   return Number(result[0].insertId);
+}
+
+// الدعوات الفعّالة: دعوة واحدة لكل ساحة مفتوحة (INNER JOIN يضمن استبعاد ساحات مغلقة)، الأحدث أعلى
+export async function getActivePublicInvitations(limit: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      id: publicInvitations.id,
+      roomId: publicInvitations.roomId,
+      creatorId: publicInvitations.creatorId,
+      creatorName: publicInvitations.creatorName,
+      creatorAvatar: publicInvitations.creatorAvatar,
+      roomName: publicInvitations.roomName,
+      message: publicInvitations.message,
+      createdAt: publicInvitations.createdAt,
+    })
+    .from(publicInvitations)
+    .innerJoin(rooms, eq(publicInvitations.roomId, rooms.id))
+    .where(eq(publicInvitations.status, "displayed"))
+    .orderBy(desc(publicInvitations.createdAt))
+    .limit(limit);
 }
 
 export async function getPendingPublicInvitations(limit: number = 50) {
