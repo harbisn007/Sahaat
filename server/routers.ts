@@ -245,6 +245,19 @@ export const appRouter = router({
         // Remove any existing participant record for this user in this room
         await db.removeParticipant(input.roomId, input.userId);
 
+        // تنظيف أي طلب انضمام معلّق قديم لهذا المستخدم في هذه الساحة
+        // (يمنع ظهور أيقونة اليد كـ"شبح" عند إعادة دخول المستخدم)
+        try {
+          const pendingOld = await db.getPendingJoinRequests(input.roomId);
+          const stale = pendingOld.filter((x: any) => x.userId === input.userId);
+          for (const r of stale) {
+            await db.expireJoinRequest(r.id);
+          }
+          if (stale.length) emitRoomUpdated(input.roomId);
+        } catch (e) {
+          console.warn("[joinAsViewer] Error expiring stale join requests:", e);
+        }
+
         const participantId = await db.addParticipant({
           roomId: input.roomId,
           userId: input.userId,
