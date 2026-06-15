@@ -18,20 +18,19 @@ const execFileAsync = promisify(execFile);
 
 const SR = 44100;
 
-// تمييز كل صوت بـ"بصمة ترددية" (EQ) تحاكي حنجرة مختلفة — نظيف بلا أثر إزاحة طبقة.
-// pitch: ٤ مستويات متباعدة ٣٪ (٠.٩٦/٠.٩٩/١.٠٢/١.٠٥) لتفادي التضارب البطيء؛ كل مستوى صوتان بـEQ مختلف (لا يتضاربان لتطابق الطبقة).
-// eqF: تردد البصمة (منخفض=صدر عميق، مرتفع=أنفي/حادّ) | eqG: قوّة البصمة dB | delay: إزاحة | vol: حجم.
+// التمييز أساساً من الـEQ (نظيف). الطبقة: مستويان متقاربان فقط (٠.٩٨٥/١.٠١٥، ±١.٥٪) لتقليل أثر rubberband
+// والتضارب إلى الحدّ الأدنى، مع بقاء حركة لطيفة. كل صوت ببصمة EQ مختلفة. أصوات نفس المستوى لا تتضارب (طبقة متطابقة).
 const LEFT_VOICES = [
-  { pitch: 0.96, eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
-  { pitch: 0.99, eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
-  { pitch: 1.02, eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
-  { pitch: 1.05, eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
+  { pitch: 0.985, eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
+  { pitch: 1.015, eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
+  { pitch: 0.985, eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
+  { pitch: 1.015, eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
 ];
 const RIGHT_VOICES = [
-  { pitch: 0.96, eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
-  { pitch: 0.99, eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
-  { pitch: 1.02, eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
-  { pitch: 1.05, eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
+  { pitch: 1.015, eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
+  { pitch: 0.985, eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
+  { pitch: 1.015, eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
+  { pitch: 0.985, eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
 ];
 
 // تشتيت خفيف فقط (اختلاف الـEQ بين الأصوات يقلّل تداخل الأطوار أصلاً): انعكاس قصير منخفض، + alimiter.
