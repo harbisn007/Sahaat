@@ -18,19 +18,19 @@ const execFileAsync = promisify(execFile);
 
 const SR = 44100;
 
-// حلّ وسط: مستويا طبقة بفجوة ١٪ فقط (٠.٩٨٥/٠.٩٩٥) — حركة لطيفة جداً دون ارتعاش محسوس، وكلاهما أسفل ١.٠٠
-// (بعيداً عن الصوت الأصلي). التمييز أساساً من الـEQ. أصوات نفس المستوى لا تتضارب (طبقة متطابقة).
+// خطوة نحو "الحركة" المطلوبة: فجوة ١.٥٪ بين مستويي الطبقة (٠.٩٩/١.٠٠٥) — حركة أوضح، ارتعاش أخفّ من الـ٢٪.
+// التمييز أساساً من الـEQ. أصوات نفس المستوى لا تتضارب (طبقة متطابقة).
 const LEFT_VOICES = [
-  { pitch: 0.985, eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
-  { pitch: 0.995, eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
-  { pitch: 0.985, eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
-  { pitch: 0.995, eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
+  { pitch: 0.99,  eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
+  { pitch: 1.005, eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
+  { pitch: 0.99,  eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
+  { pitch: 1.005, eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
 ];
 const RIGHT_VOICES = [
-  { pitch: 0.995, eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
-  { pitch: 0.985, eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
-  { pitch: 0.995, eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
-  { pitch: 0.985, eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
+  { pitch: 1.005, eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
+  { pitch: 0.99,  eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
+  { pitch: 1.005, eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
+  { pitch: 0.99,  eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
 ];
 
 // تشتيت خفيف فقط (اختلاف الـEQ بين الأصوات يقلّل تداخل الأطوار أصلاً): انعكاس قصير منخفض، + alimiter.
