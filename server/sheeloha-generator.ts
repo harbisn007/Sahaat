@@ -56,9 +56,9 @@ function buildFilter(): string {
     // asetrate يرفع الطبقة+البصمة+السرعة بمقدار k، ثم atempo=1/k يعيد السرعة الأصلية فتبقى الطبقة والبصمة مُزاحتين (شخص مختلف)
     g += `[s${i}]asetrate=${target},aresample=${SR},atempo=${tempo},vibrato=f=${v.vibF}:d=${v.vibD},adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
   });
-  // صفّ يسار = أول ٣، صفّ يمين = آخر ٣
-  g += `[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0[Lmix];`;
-  g += `[a3][a4][a5]amix=inputs=3:duration=longest:normalize=0[Rmix];`;
+  // صفّ يسار = أول ٣، صفّ يمين = آخر ٣ (نُحدّد mono صراحةً ليقبلهما amerge)
+  g += `[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0,aformat=channel_layouts=mono[Lmix];`;
+  g += `[a3][a4][a5]amix=inputs=3:duration=longest:normalize=0,aformat=channel_layouts=mono[Rmix];`;
   g += `[Lmix][Rmix]amerge=inputs=2,aformat=channel_layouts=stereo,${OPEN_AIR}[out]`;
   return g;
 }
