@@ -18,23 +18,22 @@ const execFileAsync = promisify(execFile);
 
 const SR = 44100;
 
-// لجعل كل صوت "شخصاً مختلفاً": نُزيح الطبقة + بصمة الحنجرة (formant) بمقدار k مختلف لكل صوت
-// عبر asetrate (يرفع الطبقة+البصمة+السرعة) ثم atempo=1/k (يعيد السرعة فقط) → تبقى الطبقة والبصمة مُزاحتين.
-// k<1 = صوت أعمق/أكبر، k>1 = صوت أحدّ/أصغر. نوّعنا الستة (عميقون وحادّون) ليبدوا صفّاً من أناس مختلفين.
-// vibF/vibD: تذبذب خفيف مستقلّ (حركة طبيعية) | delay: إزاحة زمنية | vol: حجم.
+// كل صوت "شخص مختلف": إزاحة طبقة/بصمة (formant) بمقدار k عبر فلتر rubberband عالي الجودة (بلا ارتعاش).
+// pitch=k: k<1 أعمق/أكبر، k>1 أحدّ/أصغر. مدى معتدل ليبدوا أناساً مختلفين بصوت نظيف.
+// delay: إزاحة زمنية متباعدة (تفكّ التداخل) | vol: حجم. بلا asetrate/atempo/vibrato (مصادر الروبوتية/الارتعاش/النحل).
 const LEFT_VOICES = [
-  { k: 0.90, vibF: 0.32, vibD: 0.22, delay: 0,  vol: 0.37 },
-  { k: 1.08, vibF: 0.45, vibD: 0.20, delay: 45, vol: 0.33 },
-  { k: 0.96, vibF: 0.38, vibD: 0.25, delay: 82, vol: 0.35 },
+  { k: 0.92, delay: 0,   vol: 0.37 },
+  { k: 1.07, delay: 55,  vol: 0.33 },
+  { k: 0.97, delay: 110, vol: 0.35 },
 ];
 const RIGHT_VOICES = [
-  { k: 1.12, vibF: 0.35, vibD: 0.20, delay: 22,  vol: 0.33 },
-  { k: 0.93, vibF: 0.43, vibD: 0.24, delay: 60,  vol: 0.37 },
-  { k: 1.04, vibF: 0.40, vibD: 0.22, delay: 100, vol: 0.35 },
+  { k: 1.10, delay: 30,  vol: 0.33 },
+  { k: 0.94, delay: 85,  vol: 0.37 },
+  { k: 1.04, delay: 140, vol: 0.35 },
 ];
 
-// هواء طلق + بُعد عن المايك: صدى مكان أوضح قليلاً، ثم lowpass يقصّ الترددات العالية (الصوت البعيد يفقد حدّته)، + alimiter.
-const OPEN_AIR = "aecho=0.85:0.8:55|95:0.22|0.15,lowpass=f=6200,alimiter=limit=0.95";
+// هواء طلق + بُعد: صدى متعدّد التشتيت (يذيب أي طنين متبقٍّ)، lowpass يقصّ الحدّة للبعد، + alimiter.
+const OPEN_AIR = "aecho=0.82:0.75:55|95|140:0.22|0.16|0.1,lowpass=f=6500,alimiter=limit=0.95";
 
 export interface SheelohaOptions {
   taroukBase64: string;
@@ -51,10 +50,8 @@ function buildFilter(): string {
   all.forEach((_, i) => { g += `[s${i}]`; });
   g += `;`;
   all.forEach((v, i) => {
-    const target = Math.round(SR * v.k);
-    const tempo = (1 / v.k).toFixed(4);
-    // asetrate يرفع الطبقة+البصمة+السرعة بمقدار k، ثم atempo=1/k يعيد السرعة الأصلية فتبقى الطبقة والبصمة مُزاحتين (شخص مختلف)
-    g += `[s${i}]asetrate=${target},aresample=${SR},atempo=${tempo},vibrato=f=${v.vibF}:d=${v.vibD},adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
+    // rubberband: إزاحة طبقة/بصمة عالية الجودة بلا ارتعاش (pitch=k، tempo=1 فلا تغيّر وقت). transients=smooth أنعم للصوت المغنّى.
+    g += `[s${i}]rubberband=pitch=${v.k}:tempo=1:transients=smooth,adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
   });
   // صفّ يسار = أول ٣، صفّ يمين = آخر ٣ (نُحدّد mono صراحةً ليقبلهما amerge)
   g += `[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0,aformat=channel_layouts=mono[Lmix];`;
