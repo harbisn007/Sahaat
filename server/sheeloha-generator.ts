@@ -16,13 +16,14 @@ import { storagePut } from "./storage";
 
 const execFileAsync = promisify(execFile);
 
-// نفس فروقات الأصوات الخمسة التي كانت في العميل (CROWD_FIXED): حجم + سرعة (سرعة = طبقة+سرعة مثل setPlaybackRate)
+// ٥ طبقات تحاكي صفّاً حقيقياً: إزاحة زمنية مختلفة لكل طبقة (تفكّ تزامن الأطوار فتزيل الطابع الروبوتي/المعدني)،
+// وتوزيع طبقة الصوت حول الأصل (بعضها أخفض وبعضها أعلى) بدل رفعها كلها للأعلى — فيبدو طبيعياً كمجموعة لا كنسخة مكرّرة.
 const CROWD_LAYERS = [
-  { volume: 0.40, rate: 1.07 },
-  { volume: 0.30, rate: 1.06 },
-  { volume: 0.38, rate: 1.08 },
-  { volume: 0.38, rate: 1.05 },
-  { volume: 0.48, rate: 1.09 },
+  { delay: 0,   rate: 1.00,  volume: 0.42 },
+  { delay: 50,  rate: 0.985, volume: 0.34 },
+  { delay: 90,  rate: 1.015, volume: 0.36 },
+  { delay: 125, rate: 0.99,  volume: 0.32 },
+  { delay: 155, rate: 1.025, volume: 0.30 },
 ];
 
 const SR = 44100; // معدّل العيّنات الموحّد للمزج
@@ -40,8 +41,9 @@ function buildFilter(): string {
   let filter = `[0:a]asplit=${CROWD_LAYERS.length}${splitLabels};`;
   CROWD_LAYERS.forEach((layer, i) => {
     const target = Math.round(SR * layer.rate);
-    // aresample=SR لتوحيد معدّل العيّنات، ثم asetrate لمحاكاة setPlaybackRate (أسرع+أحدّ طبقة)، ثم aresample=SR للمزج
-    filter += `[a${i}]aresample=${SR},asetrate=${target},aresample=${SR},volume=${layer.volume}[v${i}];`;
+    // aresample=SR لتوحيد المعدّل، asetrate لتغيير الطبقة/السرعة، aresample=SR للمزج،
+    // adelay لإزاحة الطبقة زمنياً (يفكّ تزامن الأطوار → يزيل الطابع الروبوتي)، ثم volume
+    filter += `[a${i}]aresample=${SR},asetrate=${target},aresample=${SR},adelay=${layer.delay}:all=1,volume=${layer.volume}[v${i}];`;
   });
   const mixInputs = CROWD_LAYERS.map((_, i) => `[v${i}]`).join("");
   // normalize=0 يمنع amix من قسمة الحجم على عدد المدخلات (نتحكّم بالحجم يدوياً)
