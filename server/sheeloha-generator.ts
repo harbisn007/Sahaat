@@ -18,20 +18,19 @@ const execFileAsync = promisify(execFile);
 
 const SR = 44100;
 
-// التمييز كلّه من الـEQ (نظيف، بلا تضارب). إزاحة طبقة موحّدة واحدة للجميع (تُبعد الصوت قليلاً عن الأصل)
-// — صفر تضارب لتطابق الطبقة، فلا ارتعاش. كل صوت يختلف ببصمة ترددية (eqF/eqG) + إزاحة زمنية (delay) + حجم (vol).
-const UNIFORM_PITCH = 0.99;
+// حلّ وسط: مستويا طبقة بفجوة ١٪ فقط (٠.٩٨٥/٠.٩٩٥) — حركة لطيفة جداً دون ارتعاش محسوس، وكلاهما أسفل ١.٠٠
+// (بعيداً عن الصوت الأصلي). التمييز أساساً من الـEQ. أصوات نفس المستوى لا تتضارب (طبقة متطابقة).
 const LEFT_VOICES = [
-  { eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
-  { eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
-  { eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
-  { eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
+  { pitch: 0.985, eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
+  { pitch: 0.995, eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
+  { pitch: 0.985, eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
+  { pitch: 0.995, eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
 ];
 const RIGHT_VOICES = [
-  { eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
-  { eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
-  { eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
-  { eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
+  { pitch: 0.995, eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
+  { pitch: 0.985, eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
+  { pitch: 0.995, eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
+  { pitch: 0.985, eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
 ];
 
 // تشتيت خفيف فقط (اختلاف الـEQ بين الأصوات يقلّل تداخل الأطوار أصلاً): انعكاس قصير منخفض، + alimiter.
@@ -48,13 +47,12 @@ export interface SheelohaOptions {
  */
 function buildFilter(): string {
   const all = [...LEFT_VOICES, ...RIGHT_VOICES];
-  // إزاحة طبقة موحّدة مرّة واحدة (كل الأصوات بنفس الطبقة = صفر تضارب)، ثم نُوزّع نسخاً بـEQ مختلف
-  let g = `[0:a]aformat=channel_layouts=mono,aresample=${SR},rubberband=pitch=${UNIFORM_PITCH}:tempo=1:transients=smooth,asplit=${all.length}`;
+  let g = `[0:a]aformat=channel_layouts=mono,aresample=${SR},asplit=${all.length}`;
   all.forEach((_, i) => { g += `[s${i}]`; });
   g += `;`;
   all.forEach((v, i) => {
-    // equalizer: بصمة ترددية مميّزة لكل صوت (تحاكي حنجرة مختلفة) — نظيف بلا أثر إزاحة طبقة
-    g += `[s${i}]equalizer=f=${v.eqF}:t=q:w=1.5:g=${v.eqG},adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
+    // rubberband: إزاحة طبقة صغيرة حسب مستوى الصوت (٠.٩٨٥/٠.٩٩٥) + equalizer: بصمة ترددية مميّزة (نظيف)
+    g += `[s${i}]rubberband=pitch=${v.pitch}:tempo=1:transients=smooth,equalizer=f=${v.eqF}:t=q:w=1.5:g=${v.eqG},adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
   });
   // صفّ يسار = أصوات LEFT، صفّ يمين = أصوات RIGHT (نُحدّد mono صراحةً ليقبلهما amerge)
   const nL = LEFT_VOICES.length;
