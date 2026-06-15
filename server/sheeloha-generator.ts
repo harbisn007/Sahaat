@@ -16,17 +16,11 @@ import { storagePut } from "./storage";
 
 const execFileAsync = promisify(execFile);
 
-// ٥ طبقات تحاكي صفّاً حقيقياً: إزاحة زمنية مختلفة لكل طبقة (تفكّ تزامن الأطوار فتزيل الطابع الروبوتي/المعدني)،
-// وتوزيع طبقة الصوت حول الأصل (بعضها أخفض وبعضها أعلى) بدل رفعها كلها للأعلى — فيبدو طبيعياً كمجموعة لا كنسخة مكرّرة.
-const CROWD_LAYERS = [
-  { delay: 0,   rate: 1.00,  volume: 0.42 },
-  { delay: 50,  rate: 0.985, volume: 0.34 },
-  { delay: 90,  rate: 1.015, volume: 0.36 },
-  { delay: 125, rate: 0.99,  volume: 0.32 },
-  { delay: 155, rate: 1.025, volume: 0.30 },
-];
-
-const SR = 44100; // معدّل العيّنات الموحّد للمزج
+// إعدادات فلتر chorus: يحوّل صوتاً واحداً إلى جوقة (صوت جافّ + أصوات مُزاحة متذبذبة LFO).
+// التذبذب البطيء يحرّك الطور باستمرار فيمنع التضارب الثابت (beating) → صوت ناعم طبيعي بلا روبوتية/خشونة.
+// الترتيب: in_gain:out_gain:delays(ms):decays:speeds(Hz):depths(ms) — عدد الأصوات = عدد القيم في كل قائمة.
+const CHORUS_FILTER =
+  "chorus=0.7:0.9:55|70|90|110:0.4|0.35|0.32|0.28:0.4|0.25|0.5|0.3:0.35|0.45|0.4|0.5";
 
 export interface SheelohaOptions {
   taroukBase64: string;
@@ -34,21 +28,10 @@ export interface SheelohaOptions {
 }
 
 /**
- * يبني فلتر ffmpeg الذي يقسّم الدخل إلى ٥ نسخ، يطبّق على كلٍّ asetrate (سرعة+طبقة) + volume، ثم يمزجها.
+ * يبني فلتر ffmpeg الذي يحوّل صوت الطاروق إلى جوقة ناعمة عبر فلتر chorus المخصّص (بدل مزج نسخ ثابتة).
  */
 function buildFilter(): string {
-  const splitLabels = CROWD_LAYERS.map((_, i) => `[a${i}]`).join("");
-  let filter = `[0:a]asplit=${CROWD_LAYERS.length}${splitLabels};`;
-  CROWD_LAYERS.forEach((layer, i) => {
-    const target = Math.round(SR * layer.rate);
-    // aresample=SR لتوحيد المعدّل، asetrate لتغيير الطبقة/السرعة، aresample=SR للمزج،
-    // adelay لإزاحة الطبقة زمنياً (يفكّ تزامن الأطوار → يزيل الطابع الروبوتي)، ثم volume
-    filter += `[a${i}]aresample=${SR},asetrate=${target},aresample=${SR},adelay=${layer.delay}:all=1,volume=${layer.volume}[v${i}];`;
-  });
-  const mixInputs = CROWD_LAYERS.map((_, i) => `[v${i}]`).join("");
-  // normalize=0 يمنع amix من قسمة الحجم على عدد المدخلات (نتحكّم بالحجم يدوياً)
-  filter += `${mixInputs}amix=inputs=${CROWD_LAYERS.length}:duration=longest:normalize=0[out]`;
-  return filter;
+  return `[0:a]${CHORUS_FILTER}[out]`;
 }
 
 /**
