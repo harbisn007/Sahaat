@@ -6,104 +6,70 @@ type AudioPlayer = ExpoAudio.AudioPlayer;
 
 const CLAP_ASSET = require("@/assets/sounds/single-clap-short.mp3");
 const CLAP_INTERVAL = 960;
-const LOOP_GAP = 150;
-
-const CROWD_FIXED = [
-  { volume: 0.40, rate: 1.07 },
-  { volume: 0.30, rate: 1.06 },
-  { volume: 0.38, rate: 1.08 },
-  { volume: 0.38, rate: 1.05 },
-  { volume: 0.48, rate: 1.09 },
-];
 
 interface SheelohaData {
-  taroukUrl: string;
-  taroukDuration: number;
+  // رابط ملفّ الصفّ الممزوج (المُولَّد على الخادم). نقبل أيضاً taroukUrl للتوافق مع المستدعين القدامى.
   sheelohaUrl?: string;
+  taroukUrl?: string;
+  taroukDuration?: number;
 }
 
+/**
+ * النظام الجديد: ملفّ صفّ واحد ممزوج (٥ أصوات مدموجة) يُشغَّل بمشغّل واحد ويُكرَّر بسلاسة (loop)
+ * حتى يوقفه "خلوها". التصفيق يبقى كما هو: حلقة منفصلة. لا CROWD_FIXED ولا ٥ مشغّلات حيّة،
+ * فلا يمكن أن يخرج صوت عن السرب ولا أن يتدهور إلى الطاروق الأصلي وحده.
+ */
 export function useSheelohaPlayer() {
   const [isPlayingState, setIsPlayingState] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const isPlayingRef = useRef(false);
-  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
-  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
-  const playersRef = useRef<AudioPlayer[]>([]);
+  const crowdPlayerRef = useRef<AudioPlayer | null>(null);
+  const clapIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clapPlayersRef = useRef<AudioPlayer[]>([]);
   const preparedUrlRef = useRef<string | null>(null);
-  const preparedPlayersRef = useRef<AudioPlayer[]>([]);
+  const preparedPlayerRef = useRef<AudioPlayer | null>(null);
 
   const cleanup = useCallback(() => {
     isPlayingRef.current = false;
     setIsPlayingState(false);
-    timersRef.current.forEach(t => clearTimeout(t));
-    timersRef.current = [];
-    intervalsRef.current.forEach(i => clearInterval(i));
-    intervalsRef.current = [];
-    playersRef.current.forEach(p => {
+    if (clapIntervalRef.current) {
+      clearInterval(clapIntervalRef.current);
+      clapIntervalRef.current = null;
+    }
+    clapPlayersRef.current.forEach(p => {
       try { p.pause(); } catch (_) {}
       try { p.release(); } catch (_) {}
     });
-    playersRef.current = [];
-  }, []);
-
-  const prepare = useCallback((taroukUrl: string) => {
-    if (preparedUrlRef.current === taroukUrl) return;
-    preparedUrlRef.current = taroukUrl;
-    preparedPlayersRef.current.forEach(p => { try { p.release(); } catch (_) {} });
-    preparedPlayersRef.current = [];
-    CROWD_FIXED.forEach(({ volume, rate }) => {
-      try {
-        const player = createAudioPlayer(taroukUrl);
-        player.volume = volume;
-        player.setPlaybackRate(rate);
-        preparedPlayersRef.current.push(player);
-      } catch (_) {}
-    });
-  }, []);
-
-  const playCrowd = useCallback((taroukUrl: string, taroukDuration: number) => {
-    const prepared = preparedPlayersRef.current;
-    const usePrepared = prepared.length === CROWD_FIXED.length && preparedUrlRef.current === taroukUrl;
-
-    if (usePrepared) {
-      preparedPlayersRef.current = [];
-      preparedUrlRef.current = null;
-      Promise.all(prepared.map(player => {
-        if (!isPlayingRef.current) return Promise.resolve();
-        try {
-          player.play();
-          playersRef.current.push(player);
-          setTimeout(() => {
-            try { player.release(); } catch (_) {}
-            playersRef.current = playersRef.current.filter(p => p !== player);
-          }, (taroukDuration + 2) * 1000);
-        } catch (_) {}
-        return Promise.resolve();
-      }));
-      return;
-    } else {
-      CROWD_FIXED.forEach(({ volume, rate }) => {
-        if (!isPlayingRef.current) return;
-        try {
-          const player = createAudioPlayer(taroukUrl);
-          player.volume = volume;
-          player.setPlaybackRate(rate);
-          player.play();
-          playersRef.current.push(player);
-          setTimeout(() => {
-            try { player.release(); } catch (_) {}
-            playersRef.current = playersRef.current.filter(p => p !== player);
-          }, (taroukDuration + 2) * 1000);
-        } catch (_) {}
-      });
+    clapPlayersRef.current = [];
+    if (crowdPlayerRef.current) {
+      try { crowdPlayerRef.current.pause(); } catch (_) {}
+      try { crowdPlayerRef.current.release(); } catch (_) {}
+      crowdPlayerRef.current = null;
     }
   }, []);
 
+  // تجهيز مشغّل الصفّ مسبقاً (تحميل الملفّ الممزوج) لتشغيل أسرع. اختياري.
+  const prepare = useCallback((crowdUrl: string) => {
+    if (!crowdUrl || preparedUrlRef.current === crowdUrl) return;
+    if (preparedPlayerRef.current) {
+      try { preparedPlayerRef.current.release(); } catch (_) {}
+      preparedPlayerRef.current = null;
+    }
+    try {
+      const player = createAudioPlayer(crowdUrl);
+      player.loop = true;
+      player.volume = 1.0;
+      preparedPlayerRef.current = player;
+      preparedUrlRef.current = crowdUrl;
+    } catch (_) {}
+  }, []);
+
   const play = useCallback(async (data: SheelohaData) => {
-    const taroukUrl = data.taroukUrl || data.sheelohaUrl || "";
-    const taroukDuration = data.taroukDuration || 3;
+    const crowdUrl = data.sheelohaUrl || data.taroukUrl || "";
 
     cleanup();
-    if (!taroukUrl) return;
+    setError(null);
+    if (!crowdUrl) { setError("لا يوجد ملفّ للشيلوها"); return; }
 
     isPlayingRef.current = true;
     setIsPlayingState(true);
@@ -114,43 +80,49 @@ export function useSheelohaPlayer() {
         allowsRecording: false,
       });
     } catch (_) {}
-
     if (!isPlayingRef.current) return;
 
+    // مشغّل الصفّ: ملفّ واحد ممزوج يُكرَّر بسلاسة
+    try {
+      let player: AudioPlayer;
+      if (preparedPlayerRef.current && preparedUrlRef.current === crowdUrl) {
+        player = preparedPlayerRef.current;
+        preparedPlayerRef.current = null;
+        preparedUrlRef.current = null;
+      } else {
+        player = createAudioPlayer(crowdUrl);
+        player.volume = 1.0;
+      }
+      player.loop = true;
+      player.play();
+      crowdPlayerRef.current = player;
+    } catch (e: any) {
+      setError(e?.message || "تعذّر تشغيل الشيلوها");
+      cleanup();
+      return;
+    }
+
+    // التصفيق: يبقى كما هو — حلقة منفصلة كل 960ms
     const playClap = () => {
       if (!isPlayingRef.current) return;
       try {
         const clap = createAudioPlayer(CLAP_ASSET);
         clap.volume = 0.25;
         clap.play();
-        playersRef.current.push(clap);
+        clapPlayersRef.current.push(clap);
         setTimeout(() => {
           try { clap.release(); } catch (_) {}
-          playersRef.current = playersRef.current.filter(p => p !== clap);
+          clapPlayersRef.current = clapPlayersRef.current.filter(p => p !== clap);
         }, 1000);
       } catch (_) {}
     };
-
     playClap();
-    const clapInterval = setInterval(playClap, CLAP_INTERVAL);
-    intervalsRef.current.push(clapInterval);
-
-    playCrowd(taroukUrl, taroukDuration);
-
-    const loopDuration = (taroukDuration * 1000) + LOOP_GAP;
-    const startLoop = () => {
-      if (!isPlayingRef.current) return;
-      playCrowd(taroukUrl, taroukDuration);
-      const t = setTimeout(startLoop, loopDuration);
-      timersRef.current.push(t);
-    };
-    startLoop();
-
-  }, [cleanup, playCrowd]);
+    clapIntervalRef.current = setInterval(playClap, CLAP_INTERVAL);
+  }, [cleanup]);
 
   const stop = useCallback(() => {
     cleanup();
   }, [cleanup]);
 
-  return { play, stop, prepare, isPlaying: isPlayingState };
+  return { play, stop, prepare, isPlaying: isPlayingState, error };
 }

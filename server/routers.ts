@@ -36,6 +36,28 @@ import {
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
+// ============ Sheeloha (ملف الصفّ الممزوج) ============
+// نُولّد ملفّ صفّ واحداً ممزوجاً لكل طاروق عبر ffmpeg، ونخزّنه مؤقتاً بمفتاح رابط الطاروق.
+// فيشغّله الجميع كملفّ واحد متطابق يُكرَّر — بلا عدم اتساق بين الأصوات.
+const sheelohaCache = new Map<string, string>();
+const sheelohaInflight = new Map<string, Promise<string>>();
+
+function ensureSheeloha(taroukUrl: string, taroukDuration: number): Promise<string> {
+  const cached = sheelohaCache.get(taroukUrl);
+  if (cached) return Promise.resolve(cached);
+  let inflight = sheelohaInflight.get(taroukUrl);
+  if (!inflight) {
+    inflight = (async () => {
+      const { generateSheelohaFromUrl } = await import("./sheeloha-generator");
+      const url = await generateSheelohaFromUrl(taroukUrl, taroukDuration);
+      sheelohaCache.set(taroukUrl, url);
+      return url;
+    })().finally(() => { sheelohaInflight.delete(taroukUrl); });
+    sheelohaInflight.set(taroukUrl, inflight);
+  }
+  return inflight;
+}
+
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -505,7 +527,12 @@ export const appRouter = router({
           input.duration
         );
         
-        // الشيلوها تُولَّد فقط عند ضغط زر شيلوها - لا توليد تلقائي
+        // توليد ملف الصفّ (شيلوها) مسبقاً في الخلفية لكل طاروق — فتكون ضغطة شيلوها فورية
+        if (input.messageType === "tarouk" && input.audioUrl) {
+          void ensureSheeloha(input.audioUrl, input.duration).catch((e) => {
+            console.warn("[audio.create] sheeloha prefetch failed:", e?.message);
+          });
+        }
         
         return { messageId };
       }),
@@ -543,6 +570,24 @@ export const appRouter = router({
           console.error(`[audio.generateSheeloha] Error message:`, error.message);
           console.error(`[audio.generateSheeloha] Error stack:`, error.stack);
           throw new Error(`Failed to generate sheeloha: ${error.message}`);
+        }
+      }),
+
+    // جلب/توليد ملفّ الصفّ الممزوج (شيلوها) لطاروق، مع cache بمفتاح رابط الطاروق — النظام المعتمد
+    getSheeloha: publicProcedure
+      .input(
+        z.object({
+          taroukUrl: z.string(),
+          taroukDuration: z.number().default(3),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const sheelohaUrl = await ensureSheeloha(input.taroukUrl, input.taroukDuration);
+          return { sheelohaUrl };
+        } catch (error: any) {
+          console.error(`[audio.getSheeloha] Failed:`, error?.message);
+          throw new Error(`Failed to get sheeloha: ${error?.message}`);
         }
       }),
   }),

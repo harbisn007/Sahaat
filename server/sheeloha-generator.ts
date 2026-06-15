@@ -1,17 +1,107 @@
 /**
  * Sheeloha Generator - server side
- * يُستخدم كـ endpoint احتياطي فقط
- * التشغيل الفعلي يتم محلياً في العميل عبر use-sheeloha-player.ts
+ * يمزج "صفّ" المجموعة (٥ طبقات من صوت الطاروق نفسه بفروق سرعة/حجم) في ملفّ صوتي واحد
+ * عبر ffmpeg، فيُشغّله الجميع كملفّ واحد متطابق يُكرَّر — بلا عدم اتساق بين الأصوات الخمسة،
+ * ولا يمكن أن يتدهور إلى "الطاروق الأصلي وحده".
  */
 
+// @ts-ignore - ffmpeg-static لا يأتي بملفّ تعريفات أنواع
+import ffmpegPath from "ffmpeg-static";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
 import { storagePut } from "./storage";
+
+const execFileAsync = promisify(execFile);
+
+// نفس فروقات الأصوات الخمسة التي كانت في العميل (CROWD_FIXED): حجم + سرعة (سرعة = طبقة+سرعة مثل setPlaybackRate)
+const CROWD_LAYERS = [
+  { volume: 0.40, rate: 1.07 },
+  { volume: 0.30, rate: 1.06 },
+  { volume: 0.38, rate: 1.08 },
+  { volume: 0.38, rate: 1.05 },
+  { volume: 0.48, rate: 1.09 },
+];
+
+const SR = 44100; // معدّل العيّنات الموحّد للمزج
 
 export interface SheelohaOptions {
   taroukBase64: string;
   taroukDuration: number;
 }
 
-export async function generateSheeloha(options: SheelohaOptions): Promise<string> {
-  // التشغيل المحلي أصبح هو الأساس - هذا الـ endpoint غير مستخدم
-  throw new Error("Local playback is now used instead of server-side generation");
+/**
+ * يبني فلتر ffmpeg الذي يقسّم الدخل إلى ٥ نسخ، يطبّق على كلٍّ asetrate (سرعة+طبقة) + volume، ثم يمزجها.
+ */
+function buildFilter(): string {
+  const splitLabels = CROWD_LAYERS.map((_, i) => `[a${i}]`).join("");
+  let filter = `[0:a]asplit=${CROWD_LAYERS.length}${splitLabels};`;
+  CROWD_LAYERS.forEach((layer, i) => {
+    const target = Math.round(SR * layer.rate);
+    // aresample=SR لتوحيد معدّل العيّنات، ثم asetrate لمحاكاة setPlaybackRate (أسرع+أحدّ طبقة)، ثم aresample=SR للمزج
+    filter += `[a${i}]aresample=${SR},asetrate=${target},aresample=${SR},volume=${layer.volume}[v${i}];`;
+  });
+  const mixInputs = CROWD_LAYERS.map((_, i) => `[v${i}]`).join("");
+  // normalize=0 يمنع amix من قسمة الحجم على عدد المدخلات (نتحكّم بالحجم يدوياً)
+  filter += `${mixInputs}amix=inputs=${CROWD_LAYERS.length}:duration=longest:normalize=0[out]`;
+  return filter;
+}
+
+/**
+ * الطريق المعتمد: يولّد ملف الصفّ من رابط الطاروق المخزَّن على S3، ويعيد رابط الملف الممزوج.
+ */
+export async function generateSheelohaFromUrl(
+  taroukUrl: string,
+  _taroukDuration: number
+): Promise<string> {
+  if (!ffmpegPath) throw new Error("ffmpeg-static path not found");
+
+  const tmp = os.tmpdir();
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const inputPath = path.join(tmp, `tarouk-${id}`);
+  const outputPath = path.join(tmp, `sheeloha-${id}.mp3`);
+
+  try {
+    // 1) تنزيل ملف الطاروق إلى ملف مؤقت
+    const res = await fetch(taroukUrl);
+    if (!res.ok) throw new Error(`فشل تنزيل الطاروق: ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length === 0) throw new Error("ملف الطاروق فارغ");
+    await fs.writeFile(inputPath, buf);
+
+    // 2) مزج الطبقات الخمس + إخراج mp3
+    await execFileAsync(
+      ffmpegPath as unknown as string,
+      [
+        "-y",
+        "-i", inputPath,
+        "-filter_complex", buildFilter(),
+        "-map", "[out]",
+        "-c:a", "libmp3lame",
+        "-q:a", "4",
+        outputPath,
+      ],
+      { maxBuffer: 1024 * 1024 * 64 }
+    );
+
+    // 3) رفع الملف الممزوج على التخزين وإرجاع رابطه
+    const outBuf = await fs.readFile(outputPath);
+    if (outBuf.length === 0) throw new Error("فشل توليد ملف الشيلوها (ناتج فارغ)");
+    const fileKey = `sheeloha/${id}.mp3`;
+    const { url } = await storagePut(fileKey, outBuf, "audio/mpeg");
+    console.log(`[sheeloha-generator] Generated crowd file: ${url}`);
+    return url;
+  } finally {
+    fs.unlink(inputPath).catch(() => {});
+    fs.unlink(outputPath).catch(() => {});
+  }
+}
+
+/**
+ * توقيع قديم (متوافقية فقط) — المسار المعتمد هو generateSheelohaFromUrl باستخدام رابط الطاروق المخزَّن.
+ */
+export async function generateSheeloha(_options: SheelohaOptions): Promise<string> {
+  throw new Error("Use generateSheelohaFromUrl with the stored tarouk URL");
 }

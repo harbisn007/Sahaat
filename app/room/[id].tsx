@@ -584,6 +584,7 @@ export default function RoomScreen() {
 
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
   const generateSheelohaMutation = trpc.audio.generateSheeloha.useMutation();
+  const getSheelohaMutation = trpc.audio.getSheeloha.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
   const createTextMessageMutation = trpc.text.create.useMutation();
   const trpcUtils = trpc.useUtils();
@@ -704,7 +705,6 @@ export default function RoomScreen() {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
-            sheelohaPlayerRef.current.prepare(data.audioUrl);
             activePlayersRef.current.push(taroukPlayer);
             setTimeout(() => {
               try { taroukPlayer.release(); } catch (_) {}
@@ -723,7 +723,7 @@ export default function RoomScreen() {
         if (isRecordingRef.current) return; // لا شيلوها أثناء التسجيل
         sheelohaPlayerRef.current.stop();
         sheelohaPlayerRef.current.play({
-          taroukUrl: data.sheelohaUrl,
+          sheelohaUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
         }).then(() => {
           // تحقق من الأخطاء بعد التشغيل
@@ -2541,17 +2541,23 @@ export default function RoomScreen() {
                   }
 
                   try {
-                    console.log("[RoomScreen] Starting Sheeloha locally for:", lastTarouk.audioUrl);
-
-                    // منع التداخل — إذا شيلوها تعمل عند أي أحد نمنع الضغط
+                    // منع التداخل — إذا شيلوها تعمل نمنع الضغط
                     if (sheelohaPlayer.isPlaying) {
                       Alert.alert("تنبيه", "شيلوها تعمل الآن، انتظر حتى تنتهي");
                       return;
                     }
 
-                    // تشغيل محلي مباشرة - بدون خادم
-                    await sheelohaPlayer.play({
+                    console.log("[RoomScreen] Sheeloha for tarouk:", lastTarouk.audioUrl);
+
+                    // 1) جلب/توليد ملفّ الصفّ الممزوج (مرّة واحدة لكل طاروق، مخزَّن مؤقتاً على الخادم — غالباً جاهز مسبقاً)
+                    const { sheelohaUrl } = await getSheelohaMutation.mutateAsync({
                       taroukUrl: lastTarouk.audioUrl,
+                      taroukDuration: lastTarouk.duration || 3,
+                    });
+
+                    // 2) تشغيل محلي: ملفّ واحد يُكرَّر بسلاسة
+                    await sheelohaPlayer.play({
+                      sheelohaUrl,
                       taroukDuration: lastTarouk.duration || 3,
                     });
 
@@ -2561,11 +2567,11 @@ export default function RoomScreen() {
                       return;
                     }
 
-                    // بث للجميع عبر Socket.io
+                    // 3) بث للجميع عبر Socket.io (نفس ملفّ الصفّ)
                     const socket = await getSocket();
                     socket.emit("playSheeloha", {
                       roomId,
-                      sheelohaUrl: lastTarouk.audioUrl,
+                      sheelohaUrl,
                       taroukDuration: lastTarouk.duration || 3,
                       userId,
                       username: username || "",
