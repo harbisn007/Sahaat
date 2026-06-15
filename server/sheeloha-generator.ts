@@ -18,23 +18,24 @@ const execFileAsync = promisify(execFile);
 
 const SR = 44100;
 
-// صفّ متماسك من ٨ أشخاص: نبرات متباعدة بانتظام (لا زوجَين متقاربين يسبّبان تضارباً بطيئاً/روبوتية)،
-// لكنها ضمن مدى معقول (وحدة الصفّ)، وإزاحات زمنية صغيرة (يغنّون معاً).
+// تمييز كل صوت بـ"بصمة ترددية" (EQ) تحاكي حنجرة مختلفة — نظيف بلا أثر إزاحة طبقة.
+// pitch: ٤ مستويات متباعدة ٣٪ (٠.٩٦/٠.٩٩/١.٠٢/١.٠٥) لتفادي التضارب البطيء؛ كل مستوى صوتان بـEQ مختلف (لا يتضاربان لتطابق الطبقة).
+// eqF: تردد البصمة (منخفض=صدر عميق، مرتفع=أنفي/حادّ) | eqG: قوّة البصمة dB | delay: إزاحة | vol: حجم.
 const LEFT_VOICES = [
-  { k: 0.90, delay: 0,  vol: 0.40 },
-  { k: 0.96, delay: 14, vol: 0.37 },
-  { k: 1.02, delay: 28, vol: 0.38 },
-  { k: 1.07, delay: 40, vol: 0.36 },
+  { pitch: 0.96, eqF: 400,  eqG: 5, delay: 0,  vol: 0.40 },
+  { pitch: 0.99, eqF: 1800, eqG: 5, delay: 14, vol: 0.37 },
+  { pitch: 1.02, eqF: 1200, eqG: 4, delay: 28, vol: 0.38 },
+  { pitch: 1.05, eqF: 2400, eqG: 5, delay: 40, vol: 0.36 },
 ];
 const RIGHT_VOICES = [
-  { k: 0.93, delay: 7,  vol: 0.37 },
-  { k: 0.99, delay: 20, vol: 0.40 },
-  { k: 1.04, delay: 33, vol: 0.38 },
-  { k: 1.10, delay: 45, vol: 0.36 },
+  { pitch: 0.96, eqF: 750,  eqG: 4, delay: 7,  vol: 0.37 },
+  { pitch: 0.99, eqF: 550,  eqG: 4, delay: 20, vol: 0.40 },
+  { pitch: 1.02, eqF: 2800, eqG: 5, delay: 33, vol: 0.38 },
+  { pitch: 1.05, eqF: 480,  eqG: 4, delay: 50, vol: 0.36 },
 ];
 
-// تشتيت قصير معتدل: انعكاسان قصيران بمستوى منخفض (يُخفيان تداخل الأطوار/الروبوتية) دون صخب ملعب. + alimiter.
-const OPEN_AIR = "aecho=0.88:0.8:35|62:0.14|0.09,alimiter=limit=0.95";
+// تشتيت خفيف فقط (اختلاف الـEQ بين الأصوات يقلّل تداخل الأطوار أصلاً): انعكاس قصير منخفض، + alimiter.
+const OPEN_AIR = "aecho=0.9:0.82:30:0.1,alimiter=limit=0.95";
 
 export interface SheelohaOptions {
   taroukBase64: string;
@@ -51,8 +52,8 @@ function buildFilter(): string {
   all.forEach((_, i) => { g += `[s${i}]`; });
   g += `;`;
   all.forEach((v, i) => {
-    // rubberband: إزاحة طبقة/بصمة عالية الجودة بلا ارتعاش (pitch=k، tempo=1 فلا تغيّر وقت). transients=smooth أنعم للصوت المغنّى.
-    g += `[s${i}]rubberband=pitch=${v.k}:tempo=1:transients=smooth,adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
+    // rubberband: إزاحة طبقة صغيرة (±٥٪، أثر ضئيل) + equalizer: بصمة ترددية مميّزة (تحاكي حنجرة مختلفة، نظيف)
+    g += `[s${i}]rubberband=pitch=${v.pitch}:tempo=1:transients=smooth,equalizer=f=${v.eqF}:t=q:w=1.5:g=${v.eqG},adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
   });
   // صفّ يسار = أصوات LEFT، صفّ يمين = أصوات RIGHT (نُحدّد mono صراحةً ليقبلهما amerge)
   const nL = LEFT_VOICES.length;
