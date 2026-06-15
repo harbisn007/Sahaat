@@ -16,16 +16,25 @@ import { storagePut } from "./storage";
 
 const execFileAsync = promisify(execFile);
 
-// محاكاة المشهد: صفّان متقابلان يردّدان. كل صفّ = فلتر chorus (جوقة ناعمة كثيفة بـ٥ أصوات متذبذبة)،
-// بإعدادات مختلفة قليلاً للصفّين لفكّ الترابط بينهما، ثم دمجهما ستيريو (صفّ يسار + صفّ يمين) = عرض المشهد.
-// in_gain منخفض قليلاً (0.5) كي لا يطغى الصوت الأصلي — فالصفوف مجموعة لا قائد منفرد.
-const LEFT_ROW =
-  "chorus=0.5:0.85:45|62|80|100|118:0.5|0.46|0.42|0.38|0.34:0.35|0.5|0.4|0.3|0.45:0.4|0.5|0.45|0.5|0.4";
-const RIGHT_ROW =
-  "chorus=0.5:0.85:52|70|88|108|126:0.5|0.46|0.42|0.38|0.34:0.45|0.3|0.5|0.35|0.4:0.5|0.45|0.55|0.4|0.5";
+const SR = 44100;
 
-// هواء طلق: صدى قصير خفيف (لا قاعة/كهف) + lowpass خفيف يُبعِد الجوقة قليلاً عن قُرب المايك، + alimiter لمنع التشبّع.
-const OPEN_AIR = "aecho=0.85:0.82:45|75:0.13|0.09,lowpass=f=9000,alimiter=limit=0.95";
+// لجعل كل صوت "شخصاً مختلفاً": نُزيح الطبقة + بصمة الحنجرة (formant) بمقدار k مختلف لكل صوت
+// عبر asetrate (يرفع الطبقة+البصمة+السرعة) ثم atempo=1/k (يعيد السرعة فقط) → تبقى الطبقة والبصمة مُزاحتين.
+// k<1 = صوت أعمق/أكبر، k>1 = صوت أحدّ/أصغر. نوّعنا الستة (عميقون وحادّون) ليبدوا صفّاً من أناس مختلفين.
+// vibF/vibD: تذبذب خفيف مستقلّ (حركة طبيعية) | delay: إزاحة زمنية | vol: حجم.
+const LEFT_VOICES = [
+  { k: 0.90, vibF: 0.32, vibD: 0.22, delay: 0,  vol: 0.37 },
+  { k: 1.08, vibF: 0.45, vibD: 0.20, delay: 45, vol: 0.33 },
+  { k: 0.96, vibF: 0.38, vibD: 0.25, delay: 82, vol: 0.35 },
+];
+const RIGHT_VOICES = [
+  { k: 1.12, vibF: 0.35, vibD: 0.20, delay: 22,  vol: 0.33 },
+  { k: 0.93, vibF: 0.43, vibD: 0.24, delay: 60,  vol: 0.37 },
+  { k: 1.04, vibF: 0.40, vibD: 0.22, delay: 100, vol: 0.35 },
+];
+
+// هواء طلق + بُعد عن المايك: صدى مكان أوضح قليلاً، ثم lowpass يقصّ الترددات العالية (الصوت البعيد يفقد حدّته)، + alimiter.
+const OPEN_AIR = "aecho=0.85:0.8:55|95:0.22|0.15,lowpass=f=6200,alimiter=limit=0.95";
 
 export interface SheelohaOptions {
   taroukBase64: string;
@@ -33,16 +42,25 @@ export interface SheelohaOptions {
 }
 
 /**
- * يبني فلتر ffmpeg: يوحّد الدخل أحادياً، ينسخه لصفّين (يسار/يمين) كلٌّ بجوقته، يدمجهما ستيريو عريضاً،
- * ثم يضيف إحساس الهواء الطلق. النتيجة: جوقة عريضة على الجانبين تحاكي الصفّين المتقابلين.
+ * يبني فلتر ffmpeg: يوحّد الدخل أحادياً، يصنع ٦ نسخ مُعالَجة بالكامل (لا نسخة نظيفة)،
+ * يجمع كل ٣ في صفّ (يسار/يمين)، ثم يدمجهما ستيريو عريضاً مع إحساس الهواء الطلق.
  */
 function buildFilter(): string {
-  return (
-    `[0:a]aformat=channel_layouts=mono,asplit=2[L][R];` +
-    `[L]${LEFT_ROW}[lc];` +
-    `[R]${RIGHT_ROW}[rc];` +
-    `[lc][rc]amerge=inputs=2,aformat=channel_layouts=stereo,${OPEN_AIR}[out]`
-  );
+  const all = [...LEFT_VOICES, ...RIGHT_VOICES];
+  let g = `[0:a]aformat=channel_layouts=mono,aresample=${SR},asplit=${all.length}`;
+  all.forEach((_, i) => { g += `[s${i}]`; });
+  g += `;`;
+  all.forEach((v, i) => {
+    const target = Math.round(SR * v.k);
+    const tempo = (1 / v.k).toFixed(4);
+    // asetrate يرفع الطبقة+البصمة+السرعة بمقدار k، ثم atempo=1/k يعيد السرعة الأصلية فتبقى الطبقة والبصمة مُزاحتين (شخص مختلف)
+    g += `[s${i}]asetrate=${target},aresample=${SR},atempo=${tempo},vibrato=f=${v.vibF}:d=${v.vibD},adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
+  });
+  // صفّ يسار = أول ٣، صفّ يمين = آخر ٣
+  g += `[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0[Lmix];`;
+  g += `[a3][a4][a5]amix=inputs=3:duration=longest:normalize=0[Rmix];`;
+  g += `[Lmix][Rmix]amerge=inputs=2,aformat=channel_layouts=stereo,${OPEN_AIR}[out]`;
+  return g;
 }
 
 /**
