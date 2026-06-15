@@ -18,22 +18,23 @@ const execFileAsync = promisify(execFile);
 
 const SR = 44100;
 
-// كل صوت "شخص مختلف": إزاحة طبقة/بصمة (formant) بمقدار k عبر فلتر rubberband عالي الجودة (بلا ارتعاش).
-// pitch=k: k<1 أعمق/أكبر، k>1 أحدّ/أصغر. مدى معتدل ليبدوا أناساً مختلفين بصوت نظيف.
-// delay: إزاحة زمنية متباعدة (تفكّ التداخل) | vol: حجم. بلا asetrate/atempo/vibrato (مصادر الروبوتية/الارتعاش/النحل).
+// صفّ متماسك من ٨ أشخاص يغنّون البيت معاً: نبرات متقاربة (وحدة لا نشاز) لكنها مختلفة (أشخاص)،
+// إزاحات زمنية صغيرة (يغنّون معاً لا متفرّقين)، حضور أكثر (لا صخب ملعب بعيد).
 const LEFT_VOICES = [
-  { k: 0.92, delay: 0,   vol: 0.37 },
-  { k: 1.07, delay: 55,  vol: 0.33 },
-  { k: 0.97, delay: 110, vol: 0.35 },
+  { k: 0.95, delay: 0,  vol: 0.40 },
+  { k: 1.06, delay: 14, vol: 0.36 },
+  { k: 0.99, delay: 28, vol: 0.38 },
+  { k: 1.03, delay: 40, vol: 0.36 },
 ];
 const RIGHT_VOICES = [
-  { k: 1.10, delay: 30,  vol: 0.33 },
-  { k: 0.94, delay: 85,  vol: 0.37 },
-  { k: 1.04, delay: 140, vol: 0.35 },
+  { k: 1.07, delay: 7,  vol: 0.36 },
+  { k: 0.96, delay: 20, vol: 0.40 },
+  { k: 1.01, delay: 33, vol: 0.38 },
+  { k: 0.98, delay: 45, vol: 0.36 },
 ];
 
-// هواء طلق + بُعد: صدى متعدّد التشتيت (يذيب أي طنين متبقٍّ)، lowpass يقصّ الحدّة للبعد، + alimiter.
-const OPEN_AIR = "aecho=0.82:0.75:55|95|140:0.22|0.16|0.1,lowpass=f=6500,alimiter=limit=0.95";
+// تماسك خفيف: انعكاس واحد قصير جداً (يعطي إحساس "معاً في مكان" دون صخب ملعب)، + alimiter للأمان. بلا lowpass (حضور وصفاء).
+const OPEN_AIR = "aecho=0.9:0.85:25:0.09,alimiter=limit=0.95";
 
 export interface SheelohaOptions {
   taroukBase64: string;
@@ -53,9 +54,12 @@ function buildFilter(): string {
     // rubberband: إزاحة طبقة/بصمة عالية الجودة بلا ارتعاش (pitch=k، tempo=1 فلا تغيّر وقت). transients=smooth أنعم للصوت المغنّى.
     g += `[s${i}]rubberband=pitch=${v.k}:tempo=1:transients=smooth,adelay=${v.delay}:all=1,volume=${v.vol}[a${i}];`;
   });
-  // صفّ يسار = أول ٣، صفّ يمين = آخر ٣ (نُحدّد mono صراحةً ليقبلهما amerge)
-  g += `[a0][a1][a2]amix=inputs=3:duration=longest:normalize=0,aformat=channel_layouts=mono[Lmix];`;
-  g += `[a3][a4][a5]amix=inputs=3:duration=longest:normalize=0,aformat=channel_layouts=mono[Rmix];`;
+  // صفّ يسار = أصوات LEFT، صفّ يمين = أصوات RIGHT (نُحدّد mono صراحةً ليقبلهما amerge)
+  const nL = LEFT_VOICES.length;
+  const leftLabels = LEFT_VOICES.map((_, i) => `[a${i}]`).join("");
+  const rightLabels = RIGHT_VOICES.map((_, i) => `[a${nL + i}]`).join("");
+  g += `${leftLabels}amix=inputs=${LEFT_VOICES.length}:duration=longest:normalize=0,aformat=channel_layouts=mono[Lmix];`;
+  g += `${rightLabels}amix=inputs=${RIGHT_VOICES.length}:duration=longest:normalize=0,aformat=channel_layouts=mono[Rmix];`;
   g += `[Lmix][Rmix]amerge=inputs=2,aformat=channel_layouts=stereo,${OPEN_AIR}[out]`;
   return g;
 }
