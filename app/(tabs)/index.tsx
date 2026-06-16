@@ -196,6 +196,8 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
       borderWidth: 1,
       borderColor: '#c8860a',
       flexDirection: 'row-reverse',
+      minHeight: 84,
+      alignItems: 'center',
     }}>
       {/* يمين: صورة + اسم + ساحة */}
       <View style={{
@@ -216,7 +218,7 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
           color: '#d4af37',
           fontWeight: '700',
           textAlign: 'center',
-        }} numberOfLines={2}>
+        }} numberOfLines={1}>
           {invite.creatorName}
         </Text>
         <Text style={{
@@ -224,7 +226,7 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
           color: 'rgba(212,175,55,0.6)',
           textAlign: 'center',
           marginTop: 1,
-        }} numberOfLines={2}>
+        }} numberOfLines={1}>
           {invite.roomName}
         </Text>
       </View>
@@ -713,6 +715,7 @@ export default function HomeScreen() {
                     onJoinAsViewer={() => handleJoinAsViewer(item.id)}
                     onDirectEnter={() => router.push(`/room/${item.id}`)}
                     showGoldStar={item.hasGoldStar === "true"}
+                    poetNames={(item as any).poetNames}
                   />
                 </View>
               )}

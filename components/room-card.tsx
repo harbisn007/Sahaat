@@ -1,7 +1,37 @@
-import { View, Text, TouchableOpacity, Image } from "react-native";
+import { View, Text, TouchableOpacity, Image, Animated } from "react-native";
+import { useEffect, useRef } from "react";
 import { useColors } from "@/hooks/use-colors";
 
 import { getAvatarSourceById } from "@/lib/avatars";
+
+// نقطة "مباشر" الحمراء الوامضة/المتوهجة
+function LiveDot() {
+  const pulse = useRef(new Animated.Value(1)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.25, duration: 600, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse]);
+  return (
+    <Animated.View style={{
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      backgroundColor: "#ff2a2a",
+      opacity: pulse,
+      shadowColor: "#ff2a2a",
+      shadowOpacity: 0.9,
+      shadowRadius: 4,
+      shadowOffset: { width: 0, height: 0 },
+      elevation: 4,
+    }} />
+  );
+}
 
 interface RoomCardProps {
   room: {
@@ -45,26 +75,10 @@ export function RoomCard({
       className="bg-surface rounded-xl p-3 shadow-sm"
       style={{
         flex: 1,
-        borderWidth: isCreator ? 2 : 1,
-        borderColor: isCreator ? colors.primary : (hasGoldStar ? "#d4af37" : colors.border),
+        borderWidth: 1.5,
+        borderColor: "#2d1f0e",
       }}
     >
-      {/* وسم "ساحتك" — مثبّت أعلى البطاقة للمنشئ */}
-      {isCreator && (
-        <View style={{
-          position: "absolute",
-          top: -8,
-          right: 10,
-          backgroundColor: colors.primary,
-          borderRadius: 20,
-          paddingHorizontal: 8,
-          paddingVertical: 1,
-          zIndex: 2,
-        }}>
-          <Text style={{ fontSize: 9.5, fontWeight: "800", color: colors.background }}>ساحتك</Text>
-        </View>
-      )}
-
       {/* الأفتار - أعلى اليسار */}
       <View style={{
         position: "absolute",
@@ -82,7 +96,7 @@ export function RoomCard({
       </View>
 
       {/* معلومات الساحة */}
-      <View className="mb-2" style={{ marginTop: isCreator ? 6 : 0 }}>
+      <View className="mb-2">
         <View className="flex-row items-center gap-1 mb-1">
           {hasGoldStar && <Text style={{ fontSize: 12 }}>⭐</Text>}
           <Text className="text-sm font-bold text-foreground" numberOfLines={1} style={{ flex: 1 }}>{room.name}</Text>
@@ -100,19 +114,19 @@ export function RoomCard({
           <View style={{
             flexDirection: "row",
             alignItems: "center",
-            gap: 3,
-            backgroundColor: "rgba(226,59,43,0.15)",
-            borderColor: "rgba(226,59,43,0.5)",
+            gap: 4,
+            backgroundColor: "#2d1f0e",
             borderWidth: 1,
+            borderColor: "#1c1208",
             borderRadius: 6,
-            paddingHorizontal: 5,
-            paddingVertical: 1,
+            paddingHorizontal: 6,
+            paddingVertical: 2,
           }}>
-            <View style={{ width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#e23b2b" }} />
-            <Text style={{ fontSize: 9, color: "#ffcfc8", fontWeight: "700" }}>مباشر</Text>
+            <LiveDot />
+            <Text style={{ fontSize: 9, color: "#fff", fontWeight: "800" }}>مباشر</Text>
           </View>
           {poetNames && poetNames.length > 0 && (
-            <Text numberOfLines={1} style={{ flex: 1, fontSize: 10, color: "#e9d9b8", fontWeight: "600" }}>
+            <Text className="text-foreground" numberOfLines={1} style={{ flex: 1, fontSize: 10, fontWeight: "700" }}>
               {poetNames.length >= 2 ? `${poetNames[0]} VS ${poetNames[1]}` : poetNames[0]}
             </Text>
           )}
@@ -128,13 +142,19 @@ export function RoomCard({
         </View>
       </View>
 
-      {/* زرّ "دخول" — في كل الحالات */}
+      {/* الزرّ: "ساحتك" (بنّي داكن + كتابة ذهبية نحاسية) للمنشئ، "دخول" (أحمر) لغيره */}
       <TouchableOpacity
         className="rounded-lg py-1.5 items-center"
-        style={{ backgroundColor: "#EF4444" }}
+        style={{
+          backgroundColor: isCreator ? "#2d1f0e" : "#EF4444",
+          borderWidth: isCreator ? 1 : 0,
+          borderColor: "#c8860a",
+        }}
         onPress={isCreator ? onDirectEnter : onJoinAsViewer}
       >
-        <Text className="font-semibold text-xs" style={{ color: "#FFFFFF" }}>دخول</Text>
+        <Text className="font-semibold text-xs" style={{ color: isCreator ? "#d4af37" : "#FFFFFF" }}>
+          {isCreator ? "ساحتك" : "دخول"}
+        </Text>
       </TouchableOpacity>
     </View>
   );
