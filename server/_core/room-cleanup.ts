@@ -15,9 +15,9 @@
  */
 
 import { getDb, removeGoldStar, removeExtension } from "../db";
-import { rooms, roomParticipants, audioMessages, reactions, textMessages, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations, reports } from "../../drizzle/schema";
-import { eq, and, lt, inArray, notInArray } from "drizzle-orm";
-import { broadcastRoomDeleted } from "./socket";
+import { rooms, roomParticipants, audioMessages, reactions, textMessages, sheelohaBroadcasts, khaloohaCommands, recordingStatus, joinRequests, publicInvitations, reports, userInteractions } from "../../drizzle/schema";
+import { eq, and, lt, inArray, notInArray, sql } from "drizzle-orm";
+import { broadcastRoomDeleted, emitPublicInviteExpired } from "./socket";
 
 // الفترة الزمنية بالدقائق قبل حذف الساحة بدون انضمام شاعر
 const NO_PLAYER_JOIN_TIMEOUT_MINUTES = 15;
@@ -122,6 +122,21 @@ export async function deleteRoomCompletely(roomId: number): Promise<void> {
   console.log(`[RoomCleanup] Deleting room ${roomId} and all its data`);
 
   try {
+    // حذف like/dislike للمشاركين (توحيداً مع الإغلاق اليدوي) — قبل حذف المشاركين
+    const parts = await db
+      .select({ userId: roomParticipants.userId })
+      .from(roomParticipants)
+      .where(eq(roomParticipants.roomId, roomId));
+    const partIds = parts.map(p => p.userId);
+    if (partIds.length > 0) {
+      await db.delete(userInteractions).where(
+        and(
+          inArray(userInteractions.toUserId, partIds),
+          sql`${userInteractions.type} IN ('like', 'dislike')`
+        )
+      );
+    }
+
     // حذف جميع البيانات المرتبطة بالترتيب
     await db.delete(reactions).where(eq(reactions.roomId, roomId));
     // حذف الرسائل النصية (textMessages) مثل التفاعلات تماماً
@@ -156,6 +171,8 @@ export async function deleteRoomCompletely(roomId: number): Promise<void> {
 
     // إخطار جميع المتصلين بحذف الساحة
     broadcastRoomDeleted(roomId);
+    // إعلام صفحة الساحات بتحديث القائمة (تختفي دعوة/بطاقة الساحة المحذوفة فوراً)
+    emitPublicInviteExpired(0);
 
     console.log(`[RoomCleanup] Room ${roomId} deleted successfully`);
   } catch (error) {

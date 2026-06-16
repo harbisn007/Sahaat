@@ -355,6 +355,10 @@ export async function deleteRoom(roomId: number) {
   // 3. Delete sheeloha broadcasts
   await db.delete(sheelohaBroadcasts).where(eq(sheelohaBroadcasts.roomId, roomId));
   
+  // 3b. Delete khalooha commands + recording status (توحيداً مع الحذف التلقائي)
+  await db.delete(khaloohaCommands).where(eq(khaloohaCommands.roomId, roomId));
+  await db.delete(recordingStatus).where(eq(recordingStatus.roomId, roomId));
+  
   // 4. Delete join requests
   await db.delete(joinRequests).where(eq(joinRequests.roomId, roomId));
   
