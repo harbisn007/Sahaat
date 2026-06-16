@@ -284,9 +284,10 @@ function RotatingInviteBanner({ invites, currentUserId, onJoin }: { invites: Pub
     // مدّة العرض: ٤ ثوانٍ، وتصبح ٣ ثوانٍ إذا تجاوز عدد الدعوات ١٥
     const duration = count > 15 ? 3000 : 4000;
     const timer = setInterval(() => {
-      Animated.timing(fade, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+      // تلاشٍ لطيف للدعوة الحالية، ثم ظهور لطيف للتالية بعد التلاشي (سريع كفايةً ليبقى الظهور كامل المدّة)
+      Animated.timing(fade, { toValue: 0, duration: 300, easing: Easing.in(Easing.ease), useNativeDriver: true }).start(() => {
         setIndex((i) => (i + 1) % count);
-        Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+        Animated.timing(fade, { toValue: 1, duration: 450, easing: Easing.out(Easing.ease), useNativeDriver: true }).start();
       });
     }, duration);
     return () => clearInterval(timer);
@@ -685,8 +686,12 @@ export default function HomeScreen() {
         {/* ══ الدعوات: لافتة واحدة تتبدّل تلقائياً ══ */}
         {dedupedInvites.length > 0 && (
           <View style={{ paddingHorizontal: 12, marginTop: 6 }}>
-            <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginBottom: 8 }}>
               <BlinkingTitle text="الدعوات" color="#c8860a" />
+              <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(200,134,10,0.12)', borderWidth: 1, borderColor: 'rgba(200,134,10,0.45)' }}>
+                <Text style={{ color: '#c8860a', fontSize: 11, fontWeight: '800' }}>{dedupedInvites.length}</Text>
+              </View>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(200,134,10,0.3)' }} />
             </View>
             <RotatingInviteBanner invites={dedupedInvites} currentUserId={userId} onJoin={handleJoinFromInvite} />
           </View>
@@ -694,8 +699,12 @@ export default function HomeScreen() {
 
         {/* ══ الساحات: شبكة بعرض كامل (عمودان) ══ */}
         <View style={{ flex: 1, paddingHorizontal: 12, marginTop: 12 }}>
-          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+          <View style={{ flexDirection: 'row-reverse', alignItems: 'center', gap: 8, marginBottom: 8 }}>
             <BlinkingTitle text="الساحات" color="#c8860a" />
+            <View style={{ minWidth: 22, height: 22, borderRadius: 11, paddingHorizontal: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(200,134,10,0.12)', borderWidth: 1, borderColor: 'rgba(200,134,10,0.45)' }}>
+              <Text style={{ color: '#c8860a', fontSize: 11, fontWeight: '800' }}>{rooms.length}</Text>
+            </View>
+            <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(200,134,10,0.3)' }} />
           </View>
           {roomsLoading ? (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
