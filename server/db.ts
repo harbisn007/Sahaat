@@ -1284,7 +1284,9 @@ export async function getTop10Rooms() {
     const viewerCount = roomParticipantsList.filter(p => p.role === "viewer").length;
     const playerCount = roomParticipantsList.filter(p => p.role === "player" || p.role === "creator").length;
     const pendingRequestsCount = roomPendingRequests.length;
-    const acceptedPlayersCount = roomParticipantsList.filter(p => p.role === "player").length;
+    const poets = roomParticipantsList.filter(p => p.role === "player");
+    const acceptedPlayersCount = poets.length;
+    const poetNames = poets.map(p => p.username);
 
     return {
       ...room,
@@ -1292,6 +1294,7 @@ export async function getTop10Rooms() {
       playerCount,
       pendingRequestsCount,
       acceptedPlayersCount,
+      poetNames,
       isRoomFull: acceptedPlayersCount >= 2,
     };
   });
@@ -1318,8 +1321,8 @@ export async function getTop10Rooms() {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
 
-  // إرجاع أفضل 10 ساحات فقط
-  return sortedRooms.slice(0, 10);
+  // إرجاع جميع الساحات النشطة مرتّبة (بلا حدّ). كانت سابقاً محدودة بـ10 (top 10).
+  return sortedRooms;
 }
 
 // دالة للتحقق من منح النجمة الذهبية

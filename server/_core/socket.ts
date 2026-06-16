@@ -464,6 +464,8 @@ export function emitInteractionUpdated(roomId: number, toUserId: string, likes: 
 export function emitRoomUpdated(roomId: number): void {
   if (!io) return;
   io.to(`room:${roomId}`).emit("roomUpdated", { roomId });
+  // إشعار اللوبي فوراً بتغيّر القائمة (ظهور/اختفاء "مباشر" وأسماء الشعراء)
+  io.to("public-invites").emit("lobbyRoomsUpdated", { roomId });
 }
 
 /**

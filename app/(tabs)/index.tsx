@@ -244,7 +244,7 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
             color: 'rgba(212,175,55,0.4)',
             fontSize: 11,
             textAlign: 'center',
-          }}>
+          }} numberOfLines={2}>
             {invite.message || 'حياكم الله..'}
           </Text>
         </View>
@@ -262,10 +262,56 @@ function PublicInviteCard({ invite, onJoin, currentUserId }: { invite: PublicInv
             color: '#d4af37',
             fontSize: 11,
             textAlign: 'center',
-          }}>
+          }} numberOfLines={2}>
             {invite.message || 'حياكم الله..'}
           </Text>
         </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// لافتة الدعوات: تعرض دعوةً واحدة في كل مرّة وتتبدّل تلقائياً عبر جميع الدعوات (كلٌّ يأخذ دوره)
+function RotatingInviteBanner({ invites, currentUserId, onJoin }: { invites: PublicInvitation[]; currentUserId: string; onJoin: (invite: PublicInvitation) => void; }) {
+  const [index, setIndex] = useState(0);
+  const fade = useRef(new Animated.Value(1)).current;
+  const count = invites.length;
+
+  useEffect(() => {
+    if (count <= 1) { setIndex(0); return; }
+    // مدّة العرض: ٤ ثوانٍ، وتصبح ٣ ثوانٍ إذا تجاوز عدد الدعوات ١٥
+    const duration = count > 15 ? 3000 : 4000;
+    const timer = setInterval(() => {
+      Animated.timing(fade, { toValue: 0, duration: 250, useNativeDriver: true }).start(() => {
+        setIndex((i) => (i + 1) % count);
+        Animated.timing(fade, { toValue: 1, duration: 250, useNativeDriver: true }).start();
+      });
+    }, duration);
+    return () => clearInterval(timer);
+  }, [count, fade]);
+
+  if (count === 0) return null;
+  const safeIndex = index % count;
+  const invite = invites[safeIndex];
+  if (!invite) return null;
+
+  return (
+    <View>
+      <Animated.View style={{ opacity: fade }}>
+        <PublicInviteCard invite={invite} onJoin={() => onJoin(invite)} currentUserId={currentUserId} />
+      </Animated.View>
+      {count > 1 && (
+        count <= 8 ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 5, marginTop: 2 }}>
+            {invites.map((_, j) => (
+              <View key={j} style={{ width: j === safeIndex ? 14 : 6, height: 6, borderRadius: 3, backgroundColor: j === safeIndex ? '#c8860a' : 'rgba(212,175,55,0.35)' }} />
+            ))}
+          </View>
+        ) : (
+          <View style={{ alignItems: 'center', marginTop: 2 }}>
+            <Text style={{ fontSize: 10, color: 'rgba(212,175,55,0.6)', fontWeight: '700' }}>{safeIndex + 1} / {count}</Text>
+          </View>
+        )
       )}
     </View>
   );
@@ -332,12 +378,8 @@ export default function HomeScreen() {
   };
 
   const { data: top10Rooms, isLoading: roomsLoading, refetch } = trpc.top10.list.useQuery(undefined, { refetchInterval: 3000 });
-  const { data: allRoomsData, isLoading: allRoomsLoading } = trpc.rooms.list.useQuery({ page: 1, limit: 100 }, { refetchInterval: 5000 });
-  const allRooms = allRoomsData?.rooms || [];
-  
-  // دمج Top 10 مع بقية الساحات
+  // جميع الساحات النشطة مرتّبة (المعيار في الخادم: المستمعون ← الطلبات ← اللاعبون ← الأقدم)
   const rooms = top10Rooms || [];
-  const remainingRooms = allRooms.filter(room => !top10Rooms?.some(t => t.id === room.id)) || [];
   const { data: onlineCountData } = trpc.stats.onlineCount.useQuery(undefined, { refetchInterval: 3000 });
   const onlineCount = onlineCountData?.count ?? 0;
   const { data: followingData, isLoading: followingLoading } = trpc.interactions.getFollowingDetails.useQuery(
@@ -412,6 +454,8 @@ export default function HomeScreen() {
     });
     socket.on("publicInviteCreated", () => { refetch(); refetchInvites(); });
     socket.on("publicInviteExpired", () => { refetch(); refetchInvites(); });
+    // تحديث لحظي للقائمة عند تغيّر شعراء أي ساحة (مباشر/الأسماء) — يبثّه الخادم من emitRoomUpdated
+    socket.on("lobbyRoomsUpdated", () => { refetch(); });
     socket.on("joinRequestResponded", (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => {
       if (data.userId === userId) {
         if (data.accepted) router.push(`/room/${data.roomId}`);
@@ -441,6 +485,18 @@ export default function HomeScreen() {
 
   // الدعوات الفعّالة جاهزة مباشرةً من الاستعلام (بلا طابور ولا مؤقتات)
   const activeInvites: PublicInvitation[] = (activeInvitesData as PublicInvitation[] | undefined) ?? [];
+
+  // دعوة واحدة لكل ساحة فقط (الأحدث) — لا تُعرض دعوتان لنفس الساحة
+  const dedupedInvites: PublicInvitation[] = (() => {
+    const seen = new Set<number>();
+    const out: PublicInvitation[] = [];
+    for (const inv of activeInvites) {
+      if (seen.has(inv.roomId)) continue;
+      seen.add(inv.roomId);
+      out.push(inv);
+    }
+    return out;
+  })();
 
   useEffect(() => { if (!userLoading && !username) router.replace("/welcome"); }, [username, userLoading]);
 
@@ -624,70 +680,51 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* ══ المحتوى الرئيسي - عمودان ══ */}
-        <View style={{ flex: 1, flexDirection: 'row', paddingHorizontal: 8 }}>
-
-          {/* العمود الأيسر - الدعوات العامة */}
-          <View style={{ flex: 1, paddingHorizontal: 4 }}>
-            <View style={{ alignItems: 'center', marginBottom: 8, marginTop: 6 }}>
-              <BlinkingTitle text="الدعوات العامة" color="#c8860a" />
+        {/* ══ الدعوات: لافتة واحدة تتبدّل تلقائياً ══ */}
+        {dedupedInvites.length > 0 && (
+          <View style={{ paddingHorizontal: 12, marginTop: 6 }}>
+            <View style={{ alignItems: 'center', marginBottom: 8 }}>
+              <BlinkingTitle text="الدعوات" color="#c8860a" />
             </View>
-            <View style={{ flex: 1, position: 'relative' }}>
-              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: -1 }} pointerEvents="none">
-                <Image source={require('@/assets/images/sadu-pattern.jpg')} style={{ width: '100%', height: '100%', opacity: 0.40 }} resizeMode="repeat" />
-              </View>
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
-                {activeInvites.length > 0 ? (
-                  activeInvites.map((invite) => (
-                    <PublicInviteCard key={invite.id} invite={invite} onJoin={() => handleJoinFromInvite(invite)} currentUserId={userId} />
-                  ))
-                ) : null}
-              </ScrollView>
-            </View>
+            <RotatingInviteBanner invites={dedupedInvites} currentUserId={userId} onJoin={handleJoinFromInvite} />
           </View>
+        )}
 
-          {/* الخط الفاصل الذهبي */}
-          <View style={{ width: 2, backgroundColor: '#c8860a', marginHorizontal: 4, borderRadius: 2, opacity: 0.7 }} />
-
-          {/* العمود الأيمن - TOP 10 */}
-          <View style={{ flex: 1, paddingHorizontal: 4 }}>
-            <View style={{ alignItems: 'center', marginBottom: 6, marginTop: 6 }}>
-              <Text style={{ fontWeight: 'bold', fontSize: 18, color: '#d4af37', textShadowColor: 'rgba(200,134,10,0.5)', textShadowOffset: { width: 0, height: 2 }, textShadowRadius: 4 }}>
-                ⭐ TOP 10 ⭐
-              </Text>
-            </View>
-            {roomsLoading ? (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#c8860a" />
-              </View>
-            ) : rooms && rooms.length > 0 ? (
-              <FlatList
-                data={rooms}
-                keyExtractor={(item) => item.id.toString()}
-                numColumns={2}
-                columnWrapperStyle={{ gap: 6, marginBottom: 6 }}
-                renderItem={({ item, index }) => (
-                  <View style={{ flex: 1, maxWidth: '50%' }}>
-                    <RoomCard
-                      room={item}
-                      currentUserId={userId}
-                      onJoinAsViewer={() => handleJoinAsViewer(item.id)}
-                      onDirectEnter={() => router.push(`/room/${item.id}`)}
-                      showGoldStar={item.hasGoldStar === "true"}
-                      rank={index + 1}
-                    />
-                  </View>
-                )}
-                refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={refetch} tintColor="#c8860a" />}
-                contentContainerStyle={{ paddingBottom: 20 }}
-              />
-            ) : (
-              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <Text style={{ color: 'rgba(212,175,55,0.6)', textAlign: 'center' }}>لا توجد ساحات متاحة</Text>
-                <Text style={{ color: 'rgba(212,175,55,0.4)', textAlign: 'center', marginTop: 6 }}>قم بإنشاء ساحة جديدة!</Text>
-              </View>
-            )}
+        {/* ══ الساحات: شبكة بعرض كامل (عمودان) ══ */}
+        <View style={{ flex: 1, paddingHorizontal: 12, marginTop: 12 }}>
+          <View style={{ alignItems: 'center', marginBottom: 8 }}>
+            <BlinkingTitle text="الساحات" color="#c8860a" />
           </View>
+          {roomsLoading ? (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <ActivityIndicator size="large" color="#c8860a" />
+            </View>
+          ) : rooms && rooms.length > 0 ? (
+            <FlatList
+              data={rooms}
+              keyExtractor={(item) => item.id.toString()}
+              numColumns={2}
+              columnWrapperStyle={{ gap: 8, marginBottom: 8 }}
+              renderItem={({ item }) => (
+                <View style={{ flex: 1, maxWidth: '50%' }}>
+                  <RoomCard
+                    room={item}
+                    currentUserId={userId}
+                    onJoinAsViewer={() => handleJoinAsViewer(item.id)}
+                    onDirectEnter={() => router.push(`/room/${item.id}`)}
+                    showGoldStar={item.hasGoldStar === "true"}
+                  />
+                </View>
+              )}
+              refreshControl={<RefreshControl refreshing={roomsLoading} onRefresh={() => { refetch(); refetchInvites(); }} tintColor="#c8860a" />}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            />
+          ) : (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: 'rgba(212,175,55,0.6)', textAlign: 'center' }}>لا توجد ساحات متاحة</Text>
+              <Text style={{ color: 'rgba(212,175,55,0.4)', textAlign: 'center', marginTop: 6 }}>كن أوّل من يفتح ساحة الليلة!</Text>
+            </View>
+          )}
         </View>
 
       </ImageBackground>
