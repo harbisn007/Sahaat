@@ -1,6 +1,6 @@
 import { Server as HttpServer } from "http";
 import { Server, Socket } from "socket.io";
-import { getUserActiveRoom, removeParticipant, getRoomById, addTextMessage } from "../db";
+import { getUserActiveRoom, removeParticipant, getRoomById, addTextMessage, getSessionTokenByAppUserId } from "../db";
 import { deleteRoomCompletely } from "./room-cleanup";
 
 // نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
@@ -231,7 +231,7 @@ export interface ClientToServerEvents {
   leaveCreatorChannel: (userId: string) => void;
   
   // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
-  joinUserChannel: (userId: string) => void;
+  joinUserChannel: (userId: string, sessionToken?: string) => void;
   leaveUserChannel: (userId: string) => void;
 
   // بث أمر تشغيل الشيلوها لجميع المشاركين
@@ -353,10 +353,40 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
     });
 
     // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
-    socket.on("joinUserChannel", (userId: string) => {
+    socket.on("joinUserChannel", async (userId: string, sessionToken?: string) => {
+      socket.data.userId = userId;
+      if (sessionToken) (socket.data as any).sessionToken = sessionToken;
       socket.join(`user:${userId}`);
-      if (!socket.data.userId) socket.data.userId = userId;
       console.log(`[Socket.io] Client ${socket.id} joined user channel for ${userId}`);
+
+      // فرض جلسة واحدة نشطة — بالاعتماد على رمز الجلسة (سوكِتا الجهاز الواحد يحملان نفس الرمز)
+      if (!sessionToken) return;
+      try {
+        const currentToken = await getSessionTokenByAppUserId(userId);
+        if (!currentToken) return; // لا رمز مخزّن (عميل قديم) → لا نفرض
+        // (أ) هذا السوكِت بجلسة قديمة (سُجّل دخول أحدث على جهاز آخر) → اطرده
+        if (sessionToken !== currentToken) {
+          console.log(`[Socket.io] Stale session for ${userId} on ${socket.id} → forceLogout`);
+          io?.to(socket.id).emit("forceLogout");
+          socket.disconnect(true);
+          return;
+        }
+        // (ب) الرمز هو الأحدث → اطرد كل سوكِت آخر لنفس المستخدم يحمل رمزاً مختلفاً (أجهزة/جلسات أقدم)
+        const userSockets = await io?.in(`user:${userId}`).fetchSockets();
+        if (userSockets) {
+          for (const s of userSockets) {
+            const sToken = (s.data as any)?.sessionToken;
+            if (s.id !== socket.id && sToken && sToken !== currentToken) {
+              console.log(`[Socket.io] Kicking old-session socket ${s.id} for ${userId}`);
+              io?.to(s.id).emit("forceLogout");
+              s.disconnect(true);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[Socket.io] session enforcement failed:", e);
+        // عند الفشل لا نطرد (تفادي قطع خاطئ)
+      }
     });
 
     // مغادرة قناة المستخدم الشخصية
@@ -373,11 +403,19 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       
       // حذف المشارك غير المنشئ من الساحة عند قطع الاتصال
       const { userId, currentRoomId } = socket.data;
+      // هل بقي للمستخدم أي سوكِت آخر متّصل؟ (سوكِت آخر لنفس الجهاز، أو لم يُطرد) → لا نحذف مشاركته
+      let stillConnected = false;
+      if (userId) {
+        try {
+          const remaining = await io?.in(`user:${userId}`).fetchSockets();
+          stillConnected = !!remaining && remaining.some(s => s.id !== socket.id);
+        } catch { stillConnected = false; }
+      }
       // حذف بيانات الإعجاب عند قطع الاتصال
       if (userId && currentRoomId) {
         clearUserRoomLikes(currentRoomId, userId);
       }
-      if (userId && currentRoomId) {
+      if (userId && currentRoomId && !stillConnected) {
         try {
           const room = await getRoomById(currentRoomId);
           // إذا لم يكن المستخدم هو منشئ الساحة → احذفه

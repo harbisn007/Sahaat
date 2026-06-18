@@ -32,7 +32,6 @@ import {
   emitReactionCreated,
   emitUserBanned,
   emitTextMessageCreated,
-  emitForceLogout,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -95,13 +94,10 @@ export const appRouter = router({
         appUserId: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
-        await db.upsertUserByPhone(input);
-        // إخراج الجلسات القديمة
-        const existingUser = await db.getUserByPhone(input.phoneNumber);
-        if (existingUser?.appUserId && existingUser.appUserId !== input.appUserId) {
-          emitForceLogout(existingUser.appUserId);
-        }
-        return { success: true };
+        const { sessionToken } = await db.upsertUserByPhone(input);
+        // طرد الجلسات الأقدم يتمّ في طبقة السوكِت عبر التحقّق من sessionToken (طرد دقيق للسوكِت القديم).
+        // الطريقة القديمة (المعتمدة على اختلاف appUserId والبثّ للقناة) كانت تطرد الجهازين معاً — أُزيلت.
+        return { success: true, sessionToken };
       }),
   }),
 

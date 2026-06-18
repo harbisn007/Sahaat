@@ -109,6 +109,17 @@ export async function getUserByAppUserId(appUserId: string) {
   return result.length > 0 ? result[0] : null;
 }
 
+export async function getSessionTokenByAppUserId(appUserId: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({ sessionToken: users.sessionToken })
+    .from(users)
+    .where(eq(users.appUserId, appUserId))
+    .limit(1);
+  return result.length > 0 ? (result[0].sessionToken ?? null) : null;
+}
+
 export async function upsertUserByPhone(data: {
   phoneNumber: string;
   name: string;
@@ -118,6 +129,8 @@ export async function upsertUserByPhone(data: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  // رمز جلسة جديد لكل تسجيل دخول — يُبطل أي جلسة أقدم (جلسة واحدة نشطة لكل مستخدم)
+  const sessionToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
   await db.insert(users).values({
     openId: data.openId,
     phoneNumber: data.phoneNumber,
@@ -125,14 +138,17 @@ export async function upsertUserByPhone(data: {
     avatar: data.avatar,
     appUserId: data.appUserId || null,
     loginMethod: "phone",
+    sessionToken,
     lastSignedIn: new Date(),
   }).onDuplicateKeyUpdate({
     set: {
       name: data.name,
       avatar: data.avatar,
+      sessionToken,
       lastSignedIn: new Date(),
     }
   });
+  return { sessionToken };
 }
 
 // ============ Rooms ============
