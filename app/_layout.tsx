@@ -130,6 +130,11 @@ export default function RootLayout() {
             refetchOnWindowFocus: false,
             retry: 1,
           },
+          mutations: {
+            // إعادة محاولة الطفرات عند فشل الشبكة العابر (يحلّ فشل أول نقرة: دخول/طلب انضمام/حفظ صوت)
+            retry: 2,
+            retryDelay: (attempt) => Math.min(800 * 2 ** attempt, 3000),
+          },
         },
       }),
   );

@@ -1,6 +1,7 @@
 import { ScrollView, Text, View, TouchableOpacity, ActivityIndicator, FlatList, RefreshControl, Alert, Animated, Easing, Dimensions } from "react-native";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ImageBackground, Image } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
@@ -453,7 +454,11 @@ export default function HomeScreen() {
     socketRef.current = socket;
     socket.on("connect", () => {
       socket.emit("joinPublicInvites");
-      if (userId) { socket.emit("joinCreatorChannel", userId); socket.emit("joinUserChannel", userId); }
+      if (userId) {
+        socket.emit("joinCreatorChannel", userId);
+        // إرسال رمز الجلسة (لفرض جلسة واحدة نشطة)
+        AsyncStorage.getItem('@sahaat_muhawara:sessionToken').then((t) => socket.emit("joinUserChannel", userId, t || undefined));
+      }
     });
     socket.on("publicInviteCreated", () => { refetch(); refetchInvites(); });
     socket.on("publicInviteExpired", () => { refetch(); refetchInvites(); });

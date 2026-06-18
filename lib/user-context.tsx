@@ -276,6 +276,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
       await AsyncStorage.removeItem(USER_ROLE_KEY);
+      // حذف رمز الجلسة (جلسة واحدة نشطة)
+      await AsyncStorage.removeItem('@sahaat_muhawara:sessionToken');
       // مفاتيح welcome.tsx (Firebase phone auth) - بدون user_uuid
       await AsyncStorage.removeItem('user_name');
       await AsyncStorage.removeItem('user_avatar');
@@ -305,6 +307,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
       await AsyncStorage.removeItem(USER_ROLE_KEY);
+      await AsyncStorage.removeItem('@sahaat_muhawara:sessionToken');
       // مفاتيح welcome.tsx (Firebase phone auth)
       await AsyncStorage.removeItem('user_uuid');
       await AsyncStorage.removeItem('user_name');

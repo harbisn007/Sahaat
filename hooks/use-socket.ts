@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import { Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { getApiBaseUrl } from "@/constants/oauth";
 
 // أنواع الأحداث من الخادم
@@ -104,7 +105,7 @@ interface ClientToServerEvents {
   leaveRoom: (roomId: number) => void;
   requestRoomData: (roomId: number) => void;
   setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
-  joinUserChannel: (userId: string) => void;
+  joinUserChannel: (userId: string, sessionToken?: string) => void;
   leaveUserChannel: (userId: string) => void;
   joinCreatorChannel: (userId: string) => void;
   leaveCreatorChannel: (userId: string) => void;
@@ -352,7 +353,10 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       
       // الانضمام لقناة المستخدم الشخصية لاستقبال إشعارات طلبات الانضمام
       if (userId) {
-        socket.emit("joinUserChannel", userId);
+        // إرسال رمز الجلسة مع الانضمام (لفرض جلسة واحدة نشطة وطرد الأجهزة الأقدم)
+        AsyncStorage.getItem('@sahaat_muhawara:sessionToken').then((token) => {
+          socket.emit("joinUserChannel", userId, token || undefined);
+        });
         // الانضمام لقناة المنشئ لاستقبال إشعارات دخول الساحة
         socket.emit("joinCreatorChannel", userId);
       }
