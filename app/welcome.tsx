@@ -49,7 +49,7 @@ type Screen = "choice" | "register" | "otp";
 export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const colors = useColors();
-  const { loginAsGuest } = useUser();
+  const { loginAsGuest, setUserId } = useUser();
   const scrollViewRef = useRef<ScrollView>(null);
   const trpcUtils = trpc.useUtils();
   const upsertUserByPhone = trpc.auth.upsertUserByPhone.useMutation();
@@ -244,7 +244,7 @@ export default function WelcomeScreen() {
         const existingUser = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
         if (existingUser?.appUserId) {
           finalUserId = existingUser.appUserId;
-          await AsyncStorage.setItem('@sahaat_muhawara:userId', existingUser.appUserId);
+          await setUserId(existingUser.appUserId);
         }
       } catch (_) {}
       const upsertRes = await upsertUserByPhone.mutateAsync({
@@ -291,7 +291,7 @@ export default function WelcomeScreen() {
               const existingUser2 = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
               if (existingUser2?.appUserId) {
                 finalUserId2 = existingUser2.appUserId;
-                await AsyncStorage.setItem('@sahaat_muhawara:userId', existingUser2.appUserId);
+                await setUserId(existingUser2.appUserId);
               }
             } catch (_) {}
             const upsertRes2 = await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid, appUserId: finalUserId2 });

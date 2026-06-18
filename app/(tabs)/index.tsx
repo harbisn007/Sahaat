@@ -456,8 +456,11 @@ export default function HomeScreen() {
       socket.emit("joinPublicInvites");
       if (userId) {
         socket.emit("joinCreatorChannel", userId);
-        // إرسال رمز الجلسة (لفرض جلسة واحدة نشطة)
-        AsyncStorage.getItem('@sahaat_muhawara:sessionToken').then((t) => socket.emit("joinUserChannel", userId, t || undefined));
+        // المعرّف الثابت + الرمز من التخزين (يطابق appUserId في القاعدة) لفرض الجلسة الواحدة
+        Promise.all([
+          AsyncStorage.getItem('@sahaat_muhawara:userId'),
+          AsyncStorage.getItem('@sahaat_muhawara:sessionToken'),
+        ]).then(([uid, t]) => socket.emit("joinUserChannel", uid || userId, t || undefined));
       }
     });
     socket.on("publicInviteCreated", () => { refetch(); refetchInvites(); });

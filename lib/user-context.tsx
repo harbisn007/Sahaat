@@ -25,6 +25,7 @@ interface UserContextType {
   setAvatar: (avatar: AvatarType) => Promise<void>;
   setUserData: (name: string, avatar: AvatarType) => Promise<void>;
   setRole: (role: UserRole) => Promise<void>;
+  setUserId: (id: string) => Promise<void>;
   loginAsGuest: (name: string, avatar: AvatarType) => Promise<void>;
   loginWithGoogle: (googleId: string, name: string, avatar: AvatarType) => Promise<void>;
   loginWithApple: (appleId: string, name: string, avatar: AvatarType) => Promise<void>;
@@ -328,6 +329,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // تحديث المعرّف في الحالة والتخزين معاً — يُستخدم بعد تبنّي appUserId الثابت عند تسجيل الدخول
+  const setUserId = async (id: string) => {
+    if (!id) return;
+    try {
+      await AsyncStorage.setItem(USER_ID_STORAGE_KEY, id);
+      setUserIdState(id);
+    } catch (error) {
+      console.error("Failed to set userId:", error);
+    }
+  };
+
   return (
     <UserContext.Provider value={{ 
       username, 
@@ -343,6 +355,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setAvatar, 
       setUserData,
       setRole,
+      setUserId,
       loginAsGuest,
       loginWithGoogle,
       loginWithApple,

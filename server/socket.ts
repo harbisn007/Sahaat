@@ -1,0 +1,882 @@
+import { Server as HttpServer } from "http";
+import { Server, Socket } from "socket.io";
+import { getUserActiveRoom, removeParticipant, getRoomById, addTextMessage, getSessionTokenByAppUserId } from "../db";
+import { deleteRoomCompletely } from "./room-cleanup";
+
+// نظام تتبع المستخدمين النشطين (آخر نشاط خلال 60 ثانية)
+const activeUsers = new Map<string, number>(); // userId -> lastActivityTimestamp
+
+// ============ In-Memory Store للإعجاب وعدم الإعجاب ============
+// roomLikes: roomId -> (toUserId -> { likes, dislikes })
+const roomLikes = new Map<number, Map<string, { likes: number; dislikes: number }>>();
+
+export function addRoomLikeDislike(roomId: number, toUserId: string, type: "like" | "dislike"): { likes: number; dislikes: number } {
+  if (!roomLikes.has(roomId)) {
+    roomLikes.set(roomId, new Map());
+  }
+  const roomMap = roomLikes.get(roomId)!;
+  if (!roomMap.has(toUserId)) {
+    roomMap.set(toUserId, { likes: 0, dislikes: 0 });
+  }
+  const counts = roomMap.get(toUserId)!;
+  if (type === "like") {
+    counts.likes += 1;
+  } else {
+    counts.dislikes += 1;
+  }
+  return { ...counts };
+}
+
+export function getRoomLikeDislike(roomId: number, toUserId: string): { likes: number; dislikes: number } {
+  const roomMap = roomLikes.get(roomId);
+  if (!roomMap) return { likes: 0, dislikes: 0 };
+  return roomMap.get(toUserId) ?? { likes: 0, dislikes: 0 };
+}
+
+export function clearRoomLikes(roomId: number): void {
+  roomLikes.delete(roomId);
+  console.log(`[RoomLikes] Cleared likes for room ${roomId}`);
+}
+
+export function clearUserRoomLikes(roomId: number, userId: string): void {
+  const roomMap = roomLikes.get(roomId);
+  if (roomMap) {
+    roomMap.delete(userId);
+    console.log(`[RoomLikes] Cleared likes for user ${userId} in room ${roomId}`);
+  }
+}
+
+const ACTIVE_TIMEOUT = 60 * 1000; // 60 ثانية
+
+// تسجيل نشاط مستخدم
+export function recordUserActivity(userId: string): void {
+  activeUsers.set(userId, Date.now());
+}
+
+// الحصول على قائمة IDs المستخدمين النشطين (خلال 60 ثانية)
+export function getActiveUserIds(): Set<string> {
+  const now = Date.now();
+  const active = new Set<string>();
+  for (const [userId, lastActivity] of activeUsers.entries()) {
+    if (now - lastActivity > ACTIVE_TIMEOUT) {
+      activeUsers.delete(userId);
+    } else {
+      active.add(userId);
+    }
+  }
+  return active;
+}
+
+// حساب عدد المستخدمين النشطين
+export function getActiveUsersCount(): number {
+  const now = Date.now();
+  let count = 0;
+  
+  // حذف المستخدمين غير النشطين وحساب العدد
+  for (const [userId, lastActivity] of activeUsers.entries()) {
+    if (now - lastActivity > ACTIVE_TIMEOUT) {
+      activeUsers.delete(userId);
+    } else {
+      count++;
+    }
+  }
+  
+  return count;
+}
+
+// أنواع الأحداث المدعومة
+export interface ServerToClientEvents {
+  // أحداث الساحة
+  roomUpdated: (data: { roomId: number }) => void;
+  roomDeleted: (data: { roomId: number; roomName: string; reason: "manual" | "auto" }) => void;
+  
+  // أحداث المشاركين
+  participantJoined: (data: { roomId: number; userId: string; username: string; role: string }) => void;
+  participantLeft: (data: { roomId: number; userId: string }) => void;
+  
+  // أحداث طلبات الانضمام
+  joinRequestCreated: (data: { roomId: number; requestId: number; userId: string; username: string; avatar: string }) => void;
+  joinRequestResponded: (data: { roomId: number; requestId: number; accepted: boolean; userId: string }) => void;
+  
+  // أحداث الدعوات العامة
+  publicInviteCreated: (data: { 
+    invitationId: number;
+    roomId: number; 
+    creatorId: string; 
+    creatorName: string; 
+    creatorAvatar: string;
+    roomName: string;
+  }) => void;
+  publicInviteExpired: (data: { invitationId: number }) => void;
+  
+  // أحداث الرسائل الصوتية
+  audioMessageCreated: (data: { 
+    roomId: number; 
+    messageId: number; 
+    userId: string; 
+    username: string; 
+    messageType: string;
+    audioUrl: string;
+    duration: number;
+    createdAt: string;
+  }) => void;
+  
+  // أحداث التفاعلات
+  reactionCreated: (data: { 
+    roomId: number; 
+    reactionId: number; 
+    userId: string; 
+    username: string; 
+    reactionType: string;
+    createdAt: string;
+  }) => void;
+  
+  // أحداث حالة التسجيل
+  recordingStatusChanged: (data: { 
+    roomId: number; 
+    userId: string; 
+    username: string;
+    isRecording: boolean; 
+    recordingType: string;
+  }) => void;
+  
+  // حدث خلوها
+  khaloohaCommand: (data: { 
+    roomId: number; 
+    userId: string; 
+    username: string;
+    createdAt: string;
+  }) => void;
+  
+  // حدث تحديث عدد المتواجدين
+  onlineCountUpdated: (data: { count: number }) => void;
+  
+  // حدث تحديث عدادات التفاعلات
+  interactionUpdated: (data: { toUserId: string; likes: number; dislikes: number; follows: number }) => void;
+  
+  // حدث تغيير المتحكم بالطاروق
+  taroukControllerChanged: (data: { 
+    roomId: number; 
+    controller: "creator" | "player1" | "player2" | null;
+    changedBy: string;
+  }) => void;
+  
+  // حدث تحديث صوت الصفوف (Choir Effect)
+  sufoofSoundUpdated: (data: {
+    roomId: number;
+    audioUrl: string; // رابط الصوت الأصلي
+    choirAudioUrl: string; // رابط الصوت المعالج بتأثير الجوقة
+    userId: string;
+    username: string;
+    createdAt: string;
+  }) => void;
+  
+  // حدث تشغيل رسالة صوتية عند الجميع (من الخادم)
+  playAudioMessage: (data: {
+    roomId: number;
+    messageId: number;
+    audioUrl: string;
+    messageType: string; // "tarouk" | "comment"
+    userId: string;
+    username: string;
+    startTime: number; // timestamp وقت بدء التشغيل
+    duration: number; // مدة الصوت بالثواني
+  }) => void;
+  
+  // حدث تشغيل الشيلوها عند الجميع بعد الطاروق
+  playSheeloha: (data: {
+    roomId: number;
+    sheelohaUrl: string;
+    taroukDuration: number;
+    userId: string;
+    username: string;
+  }) => void;
+  creatorJoinRequest: (data: {
+    roomId: number;
+    creatorId: string;
+    requestType: string; // "player" | "viewer" | "invite"
+    requesterId: string;
+    requesterName: string;
+  }) => void;
+  // حدث حظر المستخدم من الإدارة
+  userBanned: (data: { userId: string; banType: string }) => void;
+  // حدث تحديث النص المثبت في الساحة
+  pinnedTextUpdated: (data: { roomId: number; text: string }) => void;
+  // حدث رسالة كتابية جديدة
+  textMessageCreated: (data: { roomId: number; id: number; userId: string; username: string; text: string; createdAt: string }) => void;
+  // حدث تحديث دور المستخدم من الإدارة
+  userRoleUpdated: (data: { userId: string; newRole: 'user' | 'moderator' | 'admin' }) => void;
+}
+
+export interface ClientToServerEvents {
+  // الانضمام لساحة
+  joinRoom: (roomId: number) => void;
+  leaveRoom: (roomId: number) => void;
+  
+  // طلب تحديث البيانات (fallback)
+  requestRoomData: (roomId: number) => void;
+  
+  // الانضمام لقناة الدعوات العامة
+  joinPublicInvites: () => void;
+  leavePublicInvites: () => void;
+  
+  // طلب عدد المتواجدين
+  requestOnlineCount: () => void;
+  
+  // تغيير المتحكم بالطاروق
+  setTaroukController: (data: { roomId: number; controller: "creator" | "player1" | "player2" | null }) => void;
+  
+  // الانضمام لقناة المنشئ (لاستلام إشعارات طلبات الانضمام)
+  joinCreatorChannel: (userId: string) => void;
+  leaveCreatorChannel: (userId: string) => void;
+  
+  // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
+  joinUserChannel: (userId: string, sessionToken?: string) => void;
+  leaveUserChannel: (userId: string) => void;
+
+  // بث أمر تشغيل الشيلوها لجميع المشاركين
+  playSheeloha: (data: { roomId: number; sheelohaUrl: string; taroukDuration: number; userId: string; username: string; }) => void;
+  // تثبيت نص في الساحة (من المنشئ)
+  pinText: (data: { roomId: number; text: string }) => void;
+  // إرسال رسالة كتابية
+  textMessage: (data: { roomId: number; userId: string; username: string; text: string }) => void;
+}
+
+export interface InterServerEvents {
+  ping: () => void;
+}
+
+export interface SocketData {
+  userId?: string;
+  username?: string;
+  currentRoomId?: number;
+}
+
+// المتغير العام للـ Socket.io server
+let io: Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> | null = null;
+
+/**
+ * تهيئة Socket.io server
+ */
+export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> {
+  io = new Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>(httpServer, {
+    cors: {
+      origin: "*", // السماح لجميع المصادر (للتطوير)
+      methods: ["GET", "POST"],
+      credentials: true,
+    },
+    // تحسينات الأداء
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ["websocket", "polling"],
+  });
+
+  // دالة بث عدد المتواجدين للجميع
+  const broadcastOnlineCount = () => {
+    const actualCount = io!.sockets.sockets.size;
+    const displayCount = Math.floor(actualCount * 1.5);
+    io!.emit("onlineCountUpdated", { count: displayCount });
+    console.log(`[Socket.io] Online count updated: ${displayCount} (actual: ${actualCount})`);
+  };
+
+  io.on("connection", (socket: Socket<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData>) => {
+    console.log(`[Socket.io] Client connected: ${socket.id}`);
+    
+    // بث عدد المتواجدين عند الاتصال
+    broadcastOnlineCount();
+
+    // الانضمام لساحة
+    socket.on("joinRoom", (roomId: number) => {
+      const roomName = `room:${roomId}`;
+      socket.join(roomName);
+      socket.data.currentRoomId = roomId;
+      console.log(`[Socket.io] Client ${socket.id} joined room ${roomId}`);
+    });
+
+    // مغادرة ساحة
+    socket.on("leaveRoom", (roomId: number) => {
+      const roomName = `room:${roomId}`;
+      socket.leave(roomName);
+      // حذف بيانات الإعجاب لهذا المستخدم من الغرفة
+      if (socket.data.userId) {
+        clearUserRoomLikes(roomId, socket.data.userId);
+      }
+      if (socket.data.currentRoomId === roomId) {
+        socket.data.currentRoomId = undefined;
+      }
+      console.log(`[Socket.io] Client ${socket.id} left room ${roomId}`);
+    });
+
+    // الانضمام لقناة الدعوات العامة
+    socket.on("joinPublicInvites", () => {
+      socket.join("public-invites");
+      console.log(`[Socket.io] Client ${socket.id} joined public-invites channel`);
+    });
+
+    // مغادرة قناة الدعوات العامة
+    socket.on("leavePublicInvites", () => {
+      socket.leave("public-invites");
+      console.log(`[Socket.io] Client ${socket.id} left public-invites channel`);
+    });
+
+    // طلب عدد المتواجدين
+    socket.on("requestOnlineCount", () => {
+      const actualCount = io!.sockets.sockets.size;
+      const displayCount = Math.floor(actualCount * 1.5);
+      socket.emit("onlineCountUpdated", { count: displayCount });
+      console.log(`[Socket.io] Sent online count to ${socket.id}: ${displayCount}`);
+    });
+
+    // تغيير المتحكم بالطاروق
+    socket.on("setTaroukController", (data) => {
+      const { roomId, controller } = data;
+      console.log(`[Socket.io] Tarouk controller changed in room ${roomId} to: ${controller}`);
+      // بث التغيير لجميع المتواجدين في الساحة
+      io!.to(`room:${roomId}`).emit("taroukControllerChanged", {
+        roomId,
+        controller,
+        changedBy: socket.id,
+      });
+    });
+
+    // الانضمام لقناة المنشئ (لاستلام إشعارات طلبات الانضمام)
+    socket.on("joinCreatorChannel", (userId: string) => {
+      socket.join(`creator:${userId}`);
+      socket.data.userId = userId;
+      console.log(`[Socket.io] Client ${socket.id} joined creator channel for user ${userId}`);
+    });
+
+    // مغادرة قناة المنشئ
+    socket.on("leaveCreatorChannel", (userId: string) => {
+      socket.leave(`creator:${userId}`);
+      console.log(`[Socket.io] Client ${socket.id} left creator channel for user ${userId}`);
+    });
+
+    // الانضمام لقناة المستخدم الشخصية (لاستقبال ردود طلبات الانضمام)
+    socket.on("joinUserChannel", async (userId: string, sessionToken?: string) => {
+      socket.data.userId = userId;
+      if (sessionToken) (socket.data as any).sessionToken = sessionToken;
+      socket.join(`user:${userId}`);
+      console.log(`[Socket.io] Client ${socket.id} joined user channel for ${userId}`);
+
+      // فرض جلسة واحدة نشطة — بالاعتماد على رمز الجلسة (سوكِتا الجهاز الواحد يحملان نفس الرمز)
+      if (!sessionToken) { console.log(`[Session] uid=${userId} sentToken=NONE → no enforce`); return; }
+      try {
+        const currentToken = await getSessionTokenByAppUserId(userId);
+        console.log(`[Session] uid=${userId} sent=${sessionToken.slice(0,10)} db=${currentToken ? currentToken.slice(0,10) : 'NULL'}`);
+        if (!currentToken) return; // لا رمز مخزّن (عميل قديم) → لا نفرض
+        // (أ) هذا السوكِت بجلسة قديمة (سُجّل دخول أحدث على جهاز آخر) → اطرده
+        if (sessionToken !== currentToken) {
+          console.log(`[Socket.io] Stale session for ${userId} on ${socket.id} → forceLogout`);
+          io?.to(socket.id).emit("forceLogout");
+          socket.disconnect(true);
+          return;
+        }
+        // (ب) الرمز هو الأحدث → اطرد كل سوكِت آخر لنفس المستخدم يحمل رمزاً مختلفاً (أجهزة/جلسات أقدم)
+        const userSockets = await io?.in(`user:${userId}`).fetchSockets();
+        if (userSockets) {
+          for (const s of userSockets) {
+            const sToken = (s.data as any)?.sessionToken;
+            if (s.id !== socket.id && sToken && sToken !== currentToken) {
+              console.log(`[Socket.io] Kicking old-session socket ${s.id} for ${userId}`);
+              io?.to(s.id).emit("forceLogout");
+              s.disconnect(true);
+            }
+          }
+        }
+      } catch (e) {
+        console.error("[Socket.io] session enforcement failed:", e);
+        // عند الفشل لا نطرد (تفادي قطع خاطئ)
+      }
+    });
+
+    // مغادرة قناة المستخدم الشخصية
+    socket.on("leaveUserChannel", (userId: string) => {
+      socket.leave(`user:${userId}`);
+      console.log(`[Socket.io] Client ${socket.id} left user channel for ${userId}`);
+    });
+
+    // قطع الاتصال
+    socket.on("disconnect", async (reason) => {
+      console.log(`[Socket.io] Client disconnected: ${socket.id}, reason: ${reason}`);
+      // بث عدد المتواجدين عند قطع الاتصال
+      broadcastOnlineCount();
+      
+      // حذف المشارك غير المنشئ من الساحة عند قطع الاتصال
+      const { userId, currentRoomId } = socket.data;
+      // هل بقي للمستخدم أي سوكِت آخر متّصل؟ (سوكِت آخر لنفس الجهاز، أو لم يُطرد) → لا نحذف مشاركته
+      let stillConnected = false;
+      if (userId) {
+        try {
+          const remaining = await io?.in(`user:${userId}`).fetchSockets();
+          stillConnected = !!remaining && remaining.some(s => s.id !== socket.id);
+        } catch { stillConnected = false; }
+      }
+      // حذف بيانات الإعجاب عند قطع الاتصال
+      if (userId && currentRoomId) {
+        clearUserRoomLikes(currentRoomId, userId);
+      }
+      if (userId && currentRoomId && !stillConnected) {
+        try {
+          const room = await getRoomById(currentRoomId);
+          // إذا لم يكن المستخدم هو منشئ الساحة → احذفه
+          if (room && room.creatorId !== userId) {
+            console.log(`[Socket.io] Auto-removing non-creator ${userId} from room ${currentRoomId} on disconnect`);
+            await removeParticipant(currentRoomId, userId);
+            emitParticipantLeft(currentRoomId, userId);
+            emitRoomUpdated(currentRoomId);
+          }
+        } catch (e) {
+          console.error(`[Socket.io] Failed to auto-remove participant on disconnect:`, e);
+        }
+      }
+      // حذف الساحة يتم عبر نظام الفحص الدوري في room-cleanup.ts
+      // الذي يتحقق من جميع قنوات Socket قبل الحذف
+    });
+
+    // استقبال أمر تشغيل الشيلوها من العميل وبثه لجميع المشاركين
+    socket.on("playSheeloha", (data: { roomId: number; sheelohaUrl: string; taroukDuration: number; userId: string; username: string; }) => {
+      io!.to(`room:${data.roomId}`).emit("playSheeloha", {
+        roomId: data.roomId,
+        sheelohaUrl: data.sheelohaUrl,
+        taroukDuration: data.taroukDuration,
+        userId: data.userId,
+        username: data.username,
+      });
+    });
+
+    // استقبال تثبيت نص من المنشئ وبثه لجميع مشاركي الساحة
+    socket.on("pinText", (data: { roomId: number; text: string }) => {
+      console.log(`[Socket.io] pinText in room ${data.roomId}: "${data.text}"`);
+      io!.to(`room:${data.roomId}`).emit("pinnedTextUpdated", {
+        roomId: data.roomId,
+        text: data.text,
+      });
+    });
+
+    // استقبال رسالة كتابية وحفظها في قاعدة البيانات وبثها لجميع مشاركي الساحة
+    socket.on("textMessage", async (data: { roomId: number; userId: string; username: string; text: string }) => {
+      const { roomId, userId, username, text } = data;
+      try {
+        await addTextMessage({ roomId, userId, username, text });
+        console.log(`[Socket.io] textMessage saved in room ${roomId} from ${username}`);
+      } catch (err) {
+        console.error("[Socket.io] textMessage DB error:", err);
+      }
+      const id = Date.now();
+      const createdAt = new Date().toISOString();
+      io!.to(`room:${roomId}`).emit("textMessageCreated", {
+        roomId,
+        id,
+        userId,
+        username,
+        text,
+        createdAt,
+      });
+    });
+  });
+
+  console.log("[Socket.io] Server initialized");
+  return io;
+}
+
+/**
+ * الحصول على instance الـ Socket.io
+ */
+export function getIO(): Server<ClientToServerEvents, ServerToClientEvents, InterServerEvents, SocketData> | null {
+  return io;
+}
+
+// ============ دوال البث للأحداث ============
+
+/**
+ * بث تحديث عدادات التفاعلات لجميع مشاركي الساحة
+ */
+export function emitInteractionUpdated(roomId: number, toUserId: string, likes: number, dislikes: number, follows: number): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("interactionUpdated", { toUserId, likes, dislikes, follows });
+}
+
+/**
+ * بث تحديث الساحة لجميع المشاركين
+ */
+export function emitRoomUpdated(roomId: number): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("roomUpdated", { roomId });
+  // إشعار اللوبي فوراً بتغيّر القائمة (ظهور/اختفاء "مباشر" وأسماء الشعراء)
+  io.to("public-invites").emit("lobbyRoomsUpdated", { roomId });
+}
+
+/**
+ * بث حذف الساحة لجميع المشاركين
+ */
+export function emitRoomDeleted(roomId: number, roomName: string, reason: "manual" | "auto" = "manual"): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName, reason });
+}
+
+/**
+ * بث إغلاق الساحة من قبل الإدارة
+ */
+export function emitRoomClosedByAdmin(roomId: number): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: 'تم إغلاق الساحة من قبل الادارة', reason: "manual", message: 'تم إغلاق الساحة من قبل الادارة' });
+}
+
+/**
+ * بث انضمام مشارك جديد
+ */
+export function emitParticipantJoined(roomId: number, userId: string, username: string, role: string): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("participantJoined", { roomId, userId, username, role });
+}
+
+/**
+ * بث مغادرة مشارك
+ */
+export function emitParticipantLeft(roomId: number, userId: string): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("participantLeft", { roomId, userId });
+}
+
+/**
+ * بث طلب انضمام جديد
+ */
+export function emitJoinRequestCreated(roomId: number, requestId: number, userId: string, username: string, avatar: string): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("joinRequestCreated", { roomId, requestId, userId, username, avatar });
+}
+
+/**
+ * بث الرد على طلب انضمام
+ */
+export function emitJoinRequestResponded(roomId: number, requestId: number, accepted: boolean, userId: string): void {
+  if (!io) return;
+  // بث للمتواجدين في الساحة (للمستمعين داخل الساحة)
+  io.to(`room:${roomId}`).emit("joinRequestResponded", { roomId, requestId, accepted, userId });
+  // بث إضافي لقناة المستخدم الشخصية (لمن أرسل طلب من صفحة الساحات عبر الدعوة العامة)
+  io.to(`user:${userId}`).emit("joinRequestResponded", { roomId, requestId, accepted, userId });
+}
+
+/**
+ * بث رسالة صوتية جديدة
+ */
+export function emitAudioMessageCreated(
+  roomId: number, 
+  messageId: number, 
+  userId: string, 
+  username: string, 
+  messageType: string,
+  audioUrl: string,
+  duration: number,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("audioMessageCreated", { 
+    roomId, 
+    messageId, 
+    userId, 
+    username, 
+    messageType,
+    audioUrl,
+    duration,
+    createdAt: createdAt.toISOString(),
+  });
+}
+
+/**
+ * بث تفاعل جديد
+ */
+export function emitReactionCreated(
+  roomId: number, 
+  reactionId: number, 
+  userId: string, 
+  username: string, 
+  reactionType: string,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("reactionCreated", { 
+    roomId, 
+    reactionId, 
+    userId, 
+    username, 
+    reactionType,
+    createdAt: createdAt.toISOString(),
+  });
+}
+
+/**
+ * بث تغيير حالة التسجيل
+ */
+export function emitRecordingStatusChanged(
+  roomId: number, 
+  userId: string, 
+  username: string,
+  isRecording: boolean, 
+  recordingType: string
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("recordingStatusChanged", { 
+    roomId, 
+    userId, 
+    username,
+    isRecording, 
+    recordingType,
+  });
+}
+
+
+/**
+ * بث خلوها
+ */
+export function emitKhaloohaCommand(
+  roomId: number, 
+  userId: string, 
+  username: string,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("khaloohaCommand", { 
+    roomId, 
+    userId, 
+    username,
+    createdAt: createdAt.toISOString(),
+  });
+}
+
+
+/**
+ * بث حذف الساحة لجميع المتصلين (للتنظيف التلقائي)
+ */
+export function broadcastRoomDeleted(roomId: number): void {
+  if (!io) return;
+  // بث لجميع المتصلين في الساحة (حذف تلقائي بعد 15 دقيقة)
+  io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "", reason: "auto" });
+  console.log(`[Socket.io] Broadcasted room deletion (auto): ${roomId}`);
+}
+
+/**
+ * بث دعوة عامة جديدة لجميع المستخدمين
+ */
+export function emitPublicInviteCreated(
+  invitationId: number,
+  roomId: number,
+  creatorId: string,
+  creatorName: string,
+  creatorAvatar: string,
+  roomName: string
+): void {
+  if (!io) return;
+  io.to("public-invites").emit("publicInviteCreated", {
+    invitationId,
+    roomId,
+    creatorId,
+    creatorName,
+    creatorAvatar,
+    roomName,
+  });
+  console.log(`[Socket.io] Public invite created: ${invitationId}`);
+}
+
+/**
+ * بث انتهاء صلاحية دعوة عامة
+ */
+export function emitPublicInviteExpired(invitationId: number): void {
+  if (!io) return;
+  io.to("public-invites").emit("publicInviteExpired", { invitationId });
+  console.log(`[Socket.io] Public invite expired: ${invitationId}`);
+}
+
+/**
+ * الحصول على عدد المتصلين الحاليين بالتطبيق
+ */
+export function getOnlineUsersCount(): number {
+  if (!io) return 0;
+  return io.sockets.sockets.size;
+}
+
+/**
+ * الحصول على قائمة userId للمستخدمين المتصلين حالياً
+ */
+export function getOnlineUserIds(): Set<string> {
+  if (!io) return new Set();
+  const onlineIds = new Set<string>();
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.userId) {
+      onlineIds.add(socket.data.userId);
+    }
+  }
+  return onlineIds;
+}
+
+/**
+ * الحصول على roomId الذي يتواجد فيه المستخدم حالياً
+ */
+export function getUserCurrentRoomId(userId: string): number | null {
+  if (!io) return null;
+  for (const socket of io.sockets.sockets.values()) {
+    if (socket.data.userId === userId && socket.data.currentRoomId) {
+      return socket.data.currentRoomId;
+    }
+  }
+  return null;
+}
+
+
+/**
+ * بث تحديث صوت الصفوف (Choir Effect)
+ */
+export function emitSufoofSoundUpdated(
+  roomId: number,
+  audioUrl: string,
+  choirAudioUrl: string,
+  userId: string,
+  username: string,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("sufoofSoundUpdated", {
+    roomId,
+    audioUrl,
+    choirAudioUrl,
+    userId,
+    username,
+    createdAt: createdAt.toISOString(),
+  });
+  console.log(`[Socket.io] Sufoof sound updated in room ${roomId}`);
+}
+
+
+
+/**
+ * بث تشغيل رسالة صوتية عند الجميع في الساحة
+ */
+export function emitPlayAudioMessage(
+  roomId: number,
+  messageId: number,
+  audioUrl: string,
+  messageType: string,
+  userId: string,
+  username: string,
+  startTime: number,
+  duration: number
+): void {
+  if (!io) {
+    console.error("[Socket.io] ERROR: io is null, cannot emit playAudioMessage");
+    return;
+  }
+  
+  const roomName = `room:${roomId}`;
+  const room = io.sockets.adapter.rooms.get(roomName);
+  const socketsInRoom = room ? room.size : 0;
+  
+  console.log(`[Socket.io] playAudioMessage: ${messageType} to room ${roomName} (${socketsInRoom} sockets, excluding sender ${userId})`);
+  
+  // الطاروق/التعليق: بث للجميع ما عدا المرسل (يشغل محلياً)
+  io.to(roomName).except(`user:${userId}`).emit("playAudioMessage", {
+    roomId,
+    messageId,
+    audioUrl,
+    messageType,
+    userId,
+    username,
+    startTime,
+    duration,
+  });
+}
+
+
+/**
+ * بث أمر تشغيل الشيلوها لجميع المتصلين في الساحة
+ * يُبث بعد انتهاء مدة الطاروق الأصلي
+ */
+export function emitPlaySheeloha(
+  roomId: number,
+  sheelohaUrl: string,
+  taroukDuration: number,
+  userId: string,
+  username: string
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("playSheeloha", {
+    roomId,
+    sheelohaUrl,
+    taroukDuration,
+    userId,
+    username,
+  });
+  console.log(`[Socket.io] playSheeloha command broadcast to room ${roomId}`);
+}
+
+/**
+ * بث إشعار طلب انضمام جديد للمنشئ عبر قناته الخاصة
+ */
+export function emitCreatorJoinRequest(
+  roomId: number,
+  creatorId: string,
+  requestType: string,
+  requesterId: string,
+  requesterName: string
+): void {
+  if (!io) return;
+  io.to(`creator:${creatorId}`).emit("creatorJoinRequest", {
+    roomId,
+    creatorId,
+    requestType,
+    requesterId,
+    requesterName,
+  });
+  console.log(`[Socket.io] Creator join request notification sent to creator:${creatorId} (type: ${requestType}, requester: ${requesterName})`);
+}
+
+/**
+ * بث رسالة كتابية جديدة لجميع المشاركين في الساحة
+ */
+export function emitTextMessageCreated(
+  roomId: number,
+  id: number,
+  userId: string,
+  username: string,
+  text: string,
+  createdAt: Date
+): void {
+  if (!io) return;
+  io.to(`room:${roomId}`).emit("textMessageCreated", {
+    roomId,
+    id,
+    userId,
+    username,
+    text,
+    createdAt: createdAt.toISOString(),
+  });
+}
+/**
+ * إرسال حدث حظر للمستخدم المحظور مباشرة
+ */
+export function emitUserBanned(userId: string, banType: string): void {
+  if (!io) return;
+  io.to(`user:${userId}`).emit("userBanned", { userId, banType });
+  console.log(`[Socket.io] userBanned sent to user:${userId} (type: ${banType})`);
+}
+
+/**
+ * إرسال حدث تحديث دور المستخدم من الإدارة
+ */
+export function emitUserRoleUpdated(userId: string, newRole: 'user' | 'moderator' | 'admin'): void {
+  if (!io) return;
+  io.to(`user:${userId}`).emit("userRoleUpdated", { userId, newRole });
+  console.log(`[Socket.io] userRoleUpdated sent to user:${userId} (newRole: ${newRole})`);
+}
+
+export function emitNotification(userId: string, notification: { title: string; message: string; type: string }): void {
+  if (!io) return;
+  io.to(`user:${userId}`).emit("notification", notification);
+  console.log(`[Socket.io] notification sent to user:${userId} (type: ${notification.type})`);
+}
+
+export function emitForceLogout(appUserId: string): void {
+  if (!io) return;
+  io.to(`user:${appUserId}`).emit('forceLogout');
+  console.log(`[Socket.io] forceLogout sent to user:${appUserId}`);
+}

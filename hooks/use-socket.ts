@@ -353,9 +353,12 @@ export function useSocket(roomId: number | null, userId?: string | null) {
       
       // الانضمام لقناة المستخدم الشخصية لاستقبال إشعارات طلبات الانضمام
       if (userId) {
-        // إرسال رمز الجلسة مع الانضمام (لفرض جلسة واحدة نشطة وطرد الأجهزة الأقدم)
-        AsyncStorage.getItem('@sahaat_muhawara:sessionToken').then((token) => {
-          socket.emit("joinUserChannel", userId, token || undefined);
+        // المعرّف الثابت + الرمز من التخزين (يطابق appUserId في القاعدة) لفرض الجلسة الواحدة وطرد الأجهزة الأقدم
+        Promise.all([
+          AsyncStorage.getItem('@sahaat_muhawara:userId'),
+          AsyncStorage.getItem('@sahaat_muhawara:sessionToken'),
+        ]).then(([uid, token]) => {
+          socket.emit("joinUserChannel", uid || userId, token || undefined);
         });
         // الانضمام لقناة المنشئ لاستقبال إشعارات دخول الساحة
         socket.emit("joinCreatorChannel", userId);
