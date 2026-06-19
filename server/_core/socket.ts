@@ -360,9 +360,10 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
       console.log(`[Socket.io] Client ${socket.id} joined user channel for ${userId}`);
 
       // فرض جلسة واحدة نشطة — بالاعتماد على رمز الجلسة (سوكِتا الجهاز الواحد يحملان نفس الرمز)
-      if (!sessionToken) return;
+      if (!sessionToken) { console.log(`[Session] uid=${userId} sentToken=NONE → no enforce`); return; }
       try {
         const currentToken = await getSessionTokenByAppUserId(userId);
+        console.log(`[Session] uid=${userId} sent=${sessionToken.slice(0,10)} db=${currentToken ? currentToken.slice(0,10) : 'NULL'}`);
         if (!currentToken) return; // لا رمز مخزّن (عميل قديم) → لا نفرض
         // (أ) هذا السوكِت بجلسة قديمة (سُجّل دخول أحدث على جهاز آخر) → اطرده
         if (sessionToken !== currentToken) {
