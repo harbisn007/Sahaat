@@ -25,6 +25,7 @@ interface UserContextType {
   setAvatar: (avatar: AvatarType) => Promise<void>;
   setUserData: (name: string, avatar: AvatarType) => Promise<void>;
   setRole: (role: UserRole) => Promise<void>;
+  setUserId: (id: string) => Promise<void>;
   loginAsGuest: (name: string, avatar: AvatarType) => Promise<void>;
   loginWithGoogle: (googleId: string, name: string, avatar: AvatarType) => Promise<void>;
   loginWithApple: (appleId: string, name: string, avatar: AvatarType) => Promise<void>;
@@ -204,16 +205,6 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setGoogleIdState(null);
       setAppleIdState(null);
       
-      // Fetch user role from Railway
-      try {
-        const res = await fetch(`https://sahaat-production.up.railway.app/mod/user-role?userId=${newUserId}`);
-        const data = await res.json();
-        if (data.role) {
-          await AsyncStorage.setItem(USER_ROLE_KEY, data.role);
-          setRoleState(data.role as UserRole);
-        }
-      } catch (_) {}
-      
       console.log("[UserContext] Logged in as guest successfully:", { userId: newUserId, name });
     } catch (error: any) {
       console.error("[UserContext] Failed to login as guest:", error?.message || error);
@@ -286,6 +277,8 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
       await AsyncStorage.removeItem(USER_ROLE_KEY);
+      // حذف رمز الجلسة (جلسة واحدة نشطة)
+      await AsyncStorage.removeItem('@sahaat_muhawara:sessionToken');
       // مفاتيح welcome.tsx (Firebase phone auth) - بدون user_uuid
       await AsyncStorage.removeItem('user_name');
       await AsyncStorage.removeItem('user_avatar');
@@ -315,6 +308,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.removeItem(USER_GOOGLE_ID_KEY);
       await AsyncStorage.removeItem(USER_APPLE_ID_KEY);
       await AsyncStorage.removeItem(USER_ROLE_KEY);
+      await AsyncStorage.removeItem('@sahaat_muhawara:sessionToken');
       // مفاتيح welcome.tsx (Firebase phone auth)
       await AsyncStorage.removeItem('user_uuid');
       await AsyncStorage.removeItem('user_name');
@@ -335,6 +329,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // تحديث المعرّف في الحالة والتخزين معاً — يُستخدم بعد تبنّي appUserId الثابت عند تسجيل الدخول
+  const setUserId = async (id: string) => {
+    if (!id) return;
+    try {
+      await AsyncStorage.setItem(USER_ID_STORAGE_KEY, id);
+      setUserIdState(id);
+    } catch (error) {
+      console.error("Failed to set userId:", error);
+    }
+  };
+
   return (
     <UserContext.Provider value={{ 
       username, 
@@ -350,6 +355,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setAvatar, 
       setUserData,
       setRole,
+      setUserId,
       loginAsGuest,
       loginWithGoogle,
       loginWithApple,

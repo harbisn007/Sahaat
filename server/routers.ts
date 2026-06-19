@@ -32,9 +32,30 @@ import {
   emitReactionCreated,
   emitUserBanned,
   emitTextMessageCreated,
-  emitForceLogout,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
+
+// ============ Sheeloha (ملف الصفّ الممزوج) ============
+// نُولّد ملفّ صفّ واحداً ممزوجاً لكل طاروق عبر ffmpeg، ونخزّنه مؤقتاً بمفتاح رابط الطاروق.
+// فيشغّله الجميع كملفّ واحد متطابق يُكرَّر — بلا عدم اتساق بين الأصوات.
+const sheelohaCache = new Map<string, string>();
+const sheelohaInflight = new Map<string, Promise<string>>();
+
+function ensureSheeloha(taroukUrl: string, taroukDuration: number): Promise<string> {
+  const cached = sheelohaCache.get(taroukUrl);
+  if (cached) return Promise.resolve(cached);
+  let inflight = sheelohaInflight.get(taroukUrl);
+  if (!inflight) {
+    inflight = (async () => {
+      const { generateSheelohaFromUrl } = await import("./sheeloha-generator");
+      const url = await generateSheelohaFromUrl(taroukUrl, taroukDuration);
+      sheelohaCache.set(taroukUrl, url);
+      return url;
+    })().finally(() => { sheelohaInflight.delete(taroukUrl); });
+    sheelohaInflight.set(taroukUrl, inflight);
+  }
+  return inflight;
+}
 
 export const appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -56,6 +77,7 @@ export const appRouter = router({
         const user = await db.getUserByPhone(input.phoneNumber);
         if (!user) return null;
         return {
+          appUserId: user.appUserId,
           openId: user.openId,
           name: user.name,
           avatar: user.avatar,
@@ -73,13 +95,10 @@ export const appRouter = router({
         appUserId: z.string().optional(),
       }))
       .mutation(async ({ input }) => {
-        await db.upsertUserByPhone(input);
-        // إخراج الجلسات القديمة
-        const existingUser = await db.getUserByPhone(input.phoneNumber);
-        if (existingUser?.appUserId && existingUser.appUserId !== input.appUserId) {
-          emitForceLogout(existingUser.appUserId);
-        }
-        return { success: true };
+        const { sessionToken } = await db.upsertUserByPhone(input);
+        // طرد الجلسات الأقدم يتمّ في طبقة السوكِت عبر التحقّق من sessionToken (طرد دقيق للسوكِت القديم).
+        // الطريقة القديمة (المعتمدة على اختلاف appUserId والبثّ للقناة) كانت تطرد الجهازين معاً — أُزيلت.
+        return { success: true, sessionToken };
       }),
   }),
 
@@ -245,6 +264,19 @@ export const appRouter = router({
         // Remove any existing participant record for this user in this room
         await db.removeParticipant(input.roomId, input.userId);
 
+        // تنظيف أي طلب انضمام معلّق قديم لهذا المستخدم في هذه الساحة
+        // (يمنع ظهور أيقونة اليد كـ"شبح" عند إعادة دخول المستخدم)
+        try {
+          const pendingOld = await db.getPendingJoinRequests(input.roomId);
+          const stale = pendingOld.filter((x: any) => x.userId === input.userId);
+          for (const r of stale) {
+            await db.expireJoinRequest(r.id);
+          }
+          if (stale.length) emitRoomUpdated(input.roomId);
+        } catch (e) {
+          console.warn("[joinAsViewer] Error expiring stale join requests:", e);
+        }
+
         const participantId = await db.addParticipant({
           roomId: input.roomId,
           userId: input.userId,
@@ -343,6 +375,16 @@ export const appRouter = router({
       )
       .mutation(async ({ input }) => {
         await db.removeParticipant(input.roomId, input.userId);
+
+        // إنهاء أي طلبات انضمام معلّقة لهذا المستخدم (لتختفي فوراً من قائمة المنشئ)
+        try {
+          const pending = await db.getPendingJoinRequests(input.roomId);
+          for (const r of pending.filter((x: any) => x.userId === input.userId)) {
+            await db.expireJoinRequest(r.id);
+          }
+        } catch (e) {
+          console.warn("[leaveRoom] Error expiring pending join requests:", e);
+        }
         
         // تحديث وقت خروج آخر لاعب (لحساب مدة الحذف التلقائي)
         if (input.role === "player") {
@@ -374,6 +416,10 @@ export const appRouter = router({
         clearRoomLikes(input.roomId);
         
         await db.deleteRoom(input.roomId);
+
+        // إعلام صفحة الساحات بتحديث قائمة الدعوات (تختفي دعوة الساحة المغلقة فوراً)
+        emitPublicInviteExpired(0);
+
         return { success: true, roomName };
       }),
 
@@ -478,7 +524,12 @@ export const appRouter = router({
           input.duration
         );
         
-        // الشيلوها تُولَّد فقط عند ضغط زر شيلوها - لا توليد تلقائي
+        // توليد ملف الصفّ (شيلوها) مسبقاً في الخلفية لكل طاروق — فتكون ضغطة شيلوها فورية
+        if (input.messageType === "tarouk" && input.audioUrl) {
+          void ensureSheeloha(input.audioUrl, input.duration).catch((e) => {
+            console.warn("[audio.create] sheeloha prefetch failed:", e?.message);
+          });
+        }
         
         return { messageId };
       }),
@@ -516,6 +567,24 @@ export const appRouter = router({
           console.error(`[audio.generateSheeloha] Error message:`, error.message);
           console.error(`[audio.generateSheeloha] Error stack:`, error.stack);
           throw new Error(`Failed to generate sheeloha: ${error.message}`);
+        }
+      }),
+
+    // جلب/توليد ملفّ الصفّ الممزوج (شيلوها) لطاروق، مع cache بمفتاح رابط الطاروق — النظام المعتمد
+    getSheeloha: publicProcedure
+      .input(
+        z.object({
+          taroukUrl: z.string(),
+          taroukDuration: z.number().default(3),
+        })
+      )
+      .mutation(async ({ input }) => {
+        try {
+          const sheelohaUrl = await ensureSheeloha(input.taroukUrl, input.taroukDuration);
+          return { sheelohaUrl };
+        } catch (error: any) {
+          console.error(`[audio.getSheeloha] Failed:`, error?.message);
+          throw new Error(`Failed to get sheeloha: ${error?.message}`);
         }
       }),
   }),
@@ -758,32 +827,10 @@ export const appRouter = router({
             input.avatar
           );
           
-          // إرسال إشعار للمنشئ عبر قناته الخاصة (خارج الساحة)
-          const room = await db.getRoomById(input.roomId);
-          if (room) {
-            emitCreatorJoinRequest(
-              input.roomId,
-              room.creatorId,
-              "player",
-              input.userId,
-              input.username
-            );
-          }
-          
-          // حذف تلقائي بعد 15 ثانية من الإنشاء
-          setTimeout(async () => {
-            try {
-              const requests = await db.getPendingJoinRequests(input.roomId);
-              const req = requests.find((r: any) => r.id === requestId);
-              if (req) {
-                console.log(`[AutoExpire] Auto-expiring join request ${requestId} after 15s`);
-                await db.expireJoinRequest(requestId);
-                emitRoomUpdated(input.roomId);
-              }
-            } catch (e) {
-              console.warn(`[AutoExpire] Error expiring join request ${requestId}:`, e);
-            }
-          }, 15000);
+          // (أُزيل بثّ "دخول فلان" عند الطلب — يبقى الإشعار للدخول الفعلي في joinAsViewer فقط،
+          //  واليد المرفوعة تكفي للدلالة على الطلب)
+
+          // (أُزيل الإنهاء التلقائي بعد 15 ثانية — الطلب يبقى حتى يردّ المنشئ أو يغادر صاحبه)
 
           return { success: true, requestId };
         } catch (error: any) {
@@ -796,15 +843,6 @@ export const appRouter = router({
       .input(z.object({ roomId: z.number() }))
       .query(async ({ input }) => {
         return db.getPendingJoinRequests(input.roomId);
-      }),
-
-    // Check if current user has a pending request
-    checkMyRequest: publicProcedure
-      .input(z.object({ roomId: z.number(), userId: z.string() }))
-      .query(async ({ input }) => {
-        const requests = await db.getPendingJoinRequests(input.roomId);
-        const myRequest = requests?.find((r: any) => r.userId === input.userId);
-        return { hasPending: !!myRequest, requestId: myRequest?.id || null };
       }),
 
     // Respond to a join request (creator only)
@@ -987,6 +1025,13 @@ export const appRouter = router({
       .input(z.object({ limit: z.number().default(10) }))
       .query(async ({ input }) => {
         return db.getDisplayedPublicInvitations(input.limit);
+      }),
+
+    // Get active invitations (دعوة واحدة لكل ساحة مفتوحة، الأحدث أعلى) — النظام الجديد
+    getActive: publicProcedure
+      .input(z.object({ limit: z.number().default(30) }))
+      .query(async ({ input }) => {
+        return db.getActivePublicInvitations(input.limit);
       }),
 
     // Mark invitation as displayed

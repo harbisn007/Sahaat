@@ -109,6 +109,17 @@ export async function getUserByAppUserId(appUserId: string) {
   return result.length > 0 ? result[0] : null;
 }
 
+export async function getSessionTokenByAppUserId(appUserId: string): Promise<string | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db
+    .select({ sessionToken: users.sessionToken })
+    .from(users)
+    .where(eq(users.appUserId, appUserId))
+    .limit(1);
+  return result.length > 0 ? (result[0].sessionToken ?? null) : null;
+}
+
 export async function upsertUserByPhone(data: {
   phoneNumber: string;
   name: string;
@@ -118,6 +129,8 @@ export async function upsertUserByPhone(data: {
 }) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
+  // رمز جلسة جديد لكل تسجيل دخول — يُبطل أي جلسة أقدم (جلسة واحدة نشطة لكل مستخدم)
+  const sessionToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
   await db.insert(users).values({
     openId: data.openId,
     phoneNumber: data.phoneNumber,
@@ -125,14 +138,17 @@ export async function upsertUserByPhone(data: {
     avatar: data.avatar,
     appUserId: data.appUserId || null,
     loginMethod: "phone",
+    sessionToken,
     lastSignedIn: new Date(),
   }).onDuplicateKeyUpdate({
     set: {
       name: data.name,
       avatar: data.avatar,
+      sessionToken,
       lastSignedIn: new Date(),
     }
   });
+  return { sessionToken };
 }
 
 // ============ Rooms ============
@@ -355,8 +371,15 @@ export async function deleteRoom(roomId: number) {
   // 3. Delete sheeloha broadcasts
   await db.delete(sheelohaBroadcasts).where(eq(sheelohaBroadcasts.roomId, roomId));
   
+  // 3b. Delete khalooha commands + recording status (توحيداً مع الحذف التلقائي)
+  await db.delete(khaloohaCommands).where(eq(khaloohaCommands.roomId, roomId));
+  await db.delete(recordingStatus).where(eq(recordingStatus.roomId, roomId));
+  
   // 4. Delete join requests
   await db.delete(joinRequests).where(eq(joinRequests.roomId, roomId));
+  
+  // 4b. Delete public invitations (لتختفي دعوة الساحة فور إغلاقها)
+  await db.delete(publicInvitations).where(eq(publicInvitations.roomId, roomId));
   
   // 5. Delete participants
   await db.delete(roomParticipants).where(eq(roomParticipants.roomId, roomId));
@@ -937,22 +960,6 @@ export async function expireJoinRequest(requestId: number) {
     .where(eq(joinRequests.id, requestId));
 }
 
-export async function getPendingJoinRequestsByUser(userId: string, roomId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db.select().from(joinRequests)
-    .where(and(eq(joinRequests.userId, userId), eq(joinRequests.roomId, roomId), eq(joinRequests.status, 'pending')))
-    .limit(5);
-}
-
-export async function expireAllPendingRequestsForUser(userId: string) {
-  const db = await getDb();
-  if (!db) return;
-  await db.update(joinRequests)
-    .set({ status: 'expired' })
-    .where(and(eq(joinRequests.userId, userId), eq(joinRequests.status, 'pending')));
-}
-
 export async function promoteViewerToPlayer(roomId: number, userId: string, username: string, avatar: string) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -1068,8 +1075,39 @@ export async function createPublicInvitation(data: {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  const result = await db.insert(publicInvitations).values(data);
+  // دعوة واحدة لكل ساحة: احذف دعوات الساحة السابقة قبل إنشاء الجديدة
+  await db.delete(publicInvitations).where(eq(publicInvitations.roomId, data.roomId));
+
+  // الدعوة فعّالة فوراً (بلا طابور ولا مرحلة "pending")، وتبقى حتى تُغلق الساحة أو تُستبدل
+  const result = await db.insert(publicInvitations).values({
+    ...data,
+    status: "displayed",
+    displayedAt: new Date(),
+  });
   return Number(result[0].insertId);
+}
+
+// الدعوات الفعّالة: دعوة واحدة لكل ساحة مفتوحة (INNER JOIN يضمن استبعاد ساحات مغلقة)، الأحدث أعلى
+export async function getActivePublicInvitations(limit: number = 30) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select({
+      id: publicInvitations.id,
+      roomId: publicInvitations.roomId,
+      creatorId: publicInvitations.creatorId,
+      creatorName: publicInvitations.creatorName,
+      creatorAvatar: publicInvitations.creatorAvatar,
+      roomName: publicInvitations.roomName,
+      message: publicInvitations.message,
+      createdAt: publicInvitations.createdAt,
+    })
+    .from(publicInvitations)
+    .innerJoin(rooms, eq(publicInvitations.roomId, rooms.id))
+    .where(eq(publicInvitations.status, "displayed"))
+    .orderBy(desc(publicInvitations.createdAt))
+    .limit(limit);
 }
 
 export async function getPendingPublicInvitations(limit: number = 50) {
@@ -1266,7 +1304,9 @@ export async function getTop10Rooms() {
     const viewerCount = roomParticipantsList.filter(p => p.role === "viewer").length;
     const playerCount = roomParticipantsList.filter(p => p.role === "player" || p.role === "creator").length;
     const pendingRequestsCount = roomPendingRequests.length;
-    const acceptedPlayersCount = roomParticipantsList.filter(p => p.role === "player").length;
+    const poets = roomParticipantsList.filter(p => p.role === "player");
+    const acceptedPlayersCount = poets.length;
+    const poetNames = poets.map(p => p.username);
 
     return {
       ...room,
@@ -1274,6 +1314,7 @@ export async function getTop10Rooms() {
       playerCount,
       pendingRequestsCount,
       acceptedPlayersCount,
+      poetNames,
       isRoomFull: acceptedPlayersCount >= 2,
     };
   });
@@ -1300,8 +1341,8 @@ export async function getTop10Rooms() {
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
 
-  // إرجاع أفضل 10 ساحات فقط
-  return sortedRooms.slice(0, 10);
+  // إرجاع جميع الساحات النشطة مرتّبة (بلا حدّ). كانت سابقاً محدودة بـ10 (top 10).
+  return sortedRooms;
 }
 
 // دالة للتحقق من منح النجمة الذهبية

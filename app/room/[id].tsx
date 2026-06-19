@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated, ToastAndroid } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ScreenContainer } from "@/components/screen-container";
 import { useUser, type UserRole } from "@/lib/user-context";
 import { trpc } from "@/lib/trpc";
+import JoinRequestsPanel from "@/components/room/JoinRequestsPanel";
 import { useColors } from "@/hooks/use-colors";
 import { useAudioRecorder } from "@/hooks/use-audio-recorder";
 import { useAudioPlayerHook } from "@/hooks/use-audio-player";
@@ -34,6 +35,13 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
 import { InteractionButtons } from "@/components/interaction-buttons";
 import { ReportModal } from "@/components/report-modal";
+
+// إشعار تلقائي الاختفاء (لا يتطلّب نقراً من المستخدم) — بديل Alert الحاجب
+function showAutoToast(message: string) {
+  if (Platform.OS === "android") {
+    ToastAndroid.show(message, ToastAndroid.LONG);
+  }
+}
 
 // مكون مستقل للرسائل النصية مع نافذة البلاغ
 function TextMessageWithReport({ item, userId }: { item: any; userId: string | null }) {
@@ -278,13 +286,8 @@ export default function RoomScreen() {
   const [socketJoinRequests, setSocketJoinRequests] = useState<any[]>([]);
   const [joinRequestResponse, setJoinRequestResponse] = useState<{ accepted: boolean; requestId: number } | null>(null);
   
-  // نظام الطابور الموحد: الطلبات المعروضة حالياً (أول 2) والطلبات المنتظرة
-  // يدمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
-  const [displayedRequests, setDisplayedRequests] = useState<any[]>([]);
-  const [queuedRequests, setQueuedRequests] = useState<any[]>([]);
-  // تتبع الطلبات التي تم التعامل معها (قبول/رفض) لمنع إعادة ظهورها
-  const handledRequestIdsRef = useRef<Set<string>>(new Set());
-  
+  // (أُزيل نظام الطابور القديم: لوحة الطلبات الآن في مكوّن JoinRequestsPanel)
+
   // الاستماع لأحداث Socket.io (فوري - بديل كامل للـ polling)
   useEffect(() => {
     if (!roomId || roomId <= 0) return;
@@ -300,15 +303,15 @@ export default function RoomScreen() {
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
           
-          // رسالة مختلفة حسب سبب الحذف
+          // رسالة مختلفة حسب سبب الحذف — إشعار تلقائي الاختفاء (لا ينتظر نقراً)
           if (reason === "auto") {
-            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)");
+            showAutoToast("تم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها");
           } else if (roomName === 'تم إغلاق الساحة من قبل الادارة') {
-            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
+            showAutoToast("تم إغلاق الساحة من قبل الإدارة");
           } else if (userId === roomData?.creatorId) {
-            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة بنجاح");
+            showAutoToast("تم إغلاق الساحة بنجاح");
           } else {
-            Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
+            showAutoToast("المنشئ يستأذنكم، تم إغلاق الساحة");
           }
         }
       },
@@ -393,7 +396,6 @@ export default function RoomScreen() {
         setSocketJoinRequests(prev => prev.filter(r => r.id !== data.requestId));
         // حفظ الرد لعرضه للمستخدم المعني فقط (الذي أرسل الطلب)
         if (data.userId === userId) {
-          setHasPendingRequest(false);
           setJoinRequestResponse({ accepted: data.accepted, requestId: data.requestId });
         }
         // تحديث البيانات يتم عبر onRoomUpdated -> refetch
@@ -488,10 +490,7 @@ export default function RoomScreen() {
         setRoomClosedAlertShown(true);
         router.replace("/");
         if (savedRoomName) {
-          Alert.alert(
-            "تم حذف الساحة",
-            "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
-          );
+          showAutoToast("تم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها");
         }
       })();
     }
@@ -535,13 +534,7 @@ export default function RoomScreen() {
     performAutoJoin();
   }, [autoJoin, username, userId, roomData, avatar, roomId, joinAsViewerMutation, refetch]);
 
-  // جلب طلبات الانضمام - polling كل 3 ثواني + Socket.io للتحديثات الفورية
-  const { data: pendingRequests, refetch: refetchRequests } = trpc.rooms.getPendingRequests.useQuery(
-    { roomId },
-    { enabled: roomId > 0, refetchInterval: 3000 } // polling كل 3 ثواني كـ fallback
-  );
-
-  const respondToRequestMutation = trpc.rooms.respondToRequest.useMutation();
+  // (أُزيل استعلام rooms.getPendingRequests و respondToRequestMutation — لم يعودا مستخدمين)
   const leaveRoomMutation = trpc.rooms.leaveRoom.useMutation();
 
   // حذف المستخدم غير المنشئ تلقائياً عند مغادرة صفحة الساحة (بأي طريقة)
@@ -595,6 +588,7 @@ export default function RoomScreen() {
 
   const createKhaloohaCommandMutation = trpc.khalooha.stop.useMutation();
   const generateSheelohaMutation = trpc.audio.generateSheeloha.useMutation();
+  const getSheelohaMutation = trpc.audio.getSheeloha.useMutation();
   const updateProfileMutation = trpc.profile.update.useMutation();
   const createTextMessageMutation = trpc.text.create.useMutation();
   const trpcUtils = trpc.useUtils();
@@ -715,7 +709,6 @@ export default function RoomScreen() {
             const taroukPlayer = createAudioPlayer(data.audioUrl);
             taroukPlayer.volume = 1.0;
             taroukPlayer.play();
-            sheelohaPlayerRef.current.prepare(data.audioUrl);
             activePlayersRef.current.push(taroukPlayer);
             setTimeout(() => {
               try { taroukPlayer.release(); } catch (_) {}
@@ -734,7 +727,7 @@ export default function RoomScreen() {
         if (isRecordingRef.current) return; // لا شيلوها أثناء التسجيل
         sheelohaPlayerRef.current.stop();
         sheelohaPlayerRef.current.play({
-          taroukUrl: data.sheelohaUrl,
+          sheelohaUrl: data.sheelohaUrl,
           taroukDuration: data.taroukDuration,
         }).then(() => {
           // تحقق من الأخطاء بعد التشغيل
@@ -987,7 +980,16 @@ export default function RoomScreen() {
   
   useEffect(() => {
     if (!latestKhaloohaCommand) return;
-    
+
+    // أمر خلوها الأوّلي (الموجود قبل دخولنا، من الجلب الأوّلي): علّمه "مُعالَجاً" فقط دون تشغيل الأصوات الختامية
+    // (يمنع اشتغال التصفيق/الصوت الختامي بمجرد دخول ساحة فيها أمر خلوها قديم)
+    if (latestKhaloohaCommand === initialKhaloohaCommand && !socketKhaloohaCommand) {
+      if (lastProcessedKhaloohaId !== latestKhaloohaCommand.id) {
+        setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
+      }
+      return;
+    }
+
     // Check if this is a new khalooha command that hasn't been processed
     if (
       latestKhaloohaCommand.id !== lastProcessedKhaloohaId &&
@@ -1024,7 +1026,7 @@ export default function RoomScreen() {
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
     }
-  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, userId]);
+  }, [latestKhaloohaCommand, initialKhaloohaCommand, socketKhaloohaCommand, lastProcessedKhaloohaId, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1133,181 +1135,21 @@ export default function RoomScreen() {
   // Join request state (for viewers)
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [lastRequestTime, setLastRequestTime] = useState<number>(0);
-  
-  // Track appearances of each request for smart queue
-  const requestAppearanceRef = useRef<Map<string, number>>(new Map());
-
-  // Check if user has a pending request on mount or when userId/roomId changes
-  useEffect(() => {
-    if (!userId || !roomId) return;
-    const checkPending = async () => {
-      try {
-        const result = await trpcUtils.joinRequests.checkMyRequest.fetch({ roomId, userId });
-        setHasPendingRequest(result.hasPending);
-      } catch (_) {}
-    };
-    checkPending();
-  }, [userId, roomId]);
 
   // Join requests query (for creator) - enabled when user is the room creator
   // Use roomData.creatorId instead of userRole to avoid timing issues
   const isRoomCreator = roomData?.creatorId === userId;
   console.log("[RoomScreen] isRoomCreator check:", { creatorId: roomData?.creatorId, userId, isRoomCreator, roomId });
   
-  // جلب طلبات الانضمام - polling كل 3 ثواني + Socket.io للتحديثات الفورية
-  const { data: serverJoinRequests, refetch: refetchJoinRequests } = trpc.joinRequests.getPending.useQuery(
-    { roomId },
-    { enabled: isRoomCreator && roomId > 0, refetchInterval: 3000 } // polling كل 3 ثواني كـ fallback
-  );
-  
-  // دمج طلبات الانضمام من الخادم وSocket.io (بدون تكرار)
-  const joinRequests = useMemo(() => {
-    const serverData = serverJoinRequests || [];
-    const socketData = socketJoinRequests || [];
-    // دمج بدون تكرار
-    const merged = [...socketData];
-    serverData.forEach((req: any) => {
-      if (!merged.some(r => r.id === req.id)) {
-        merged.push(req);
-      }
-    });
-    return merged;
-  }, [serverJoinRequests, socketJoinRequests]);
-  
-  // Log join requests for debugging
-  useEffect(() => {
-    if (isRoomCreator) {
-      console.log("[RoomScreen] Join requests updated (Socket.io + Server):", joinRequests?.length || 0, joinRequests);
-    }
-  }, [joinRequests, isRoomCreator]);
-  
-  // نظام الطابور الموحد: دمج طلبات المشاهدين وطلبات الدخول كلاعب في طابور واحد
-  // عرض 2 طلبات فقط لمدة 10 ثواني ثم التالية
-  const allRequests = useMemo(() => {
-    // دمج الطلبات من النوعين مع تحديد النوع
-    const viewerReqs = (joinRequests || []).map((req: any) => ({ ...req, requestType: 'viewer' }));
-    const playerReqs = (pendingRequests || []).map((req: any) => ({ ...req, requestType: 'player' }));
-    // ترتيب حسب وقت الإنشاء (الأقدم أولاً) مع إزالة التكرار
-    const combined = [...viewerReqs, ...playerReqs];
-    const unique = combined.filter((req, idx) => 
-      combined.findIndex(r => (r.requesterId === req.requesterId || r.userId === req.userId) && r.requestType === req.requestType) === idx
-    );
-    return unique.sort((a, b) => {
-      const timeA = new Date(a.createdAt || 0).getTime();
-      const timeB = new Date(b.createdAt || 0).getTime();
-      return timeA - timeB;
-    });
-  }, [joinRequests, pendingRequests]);
-  
-  useEffect(() => {
-    if (!isRoomCreator || allRequests.length === 0) {
-      setDisplayedRequests([]);
-      setQueuedRequests([]);
-      return;
-    }
-    
-    // تصفية الطلبات المحذوفة من الخادم
-    setDisplayedRequests(prev => 
-      prev.filter(d => allRequests.some(r => r.id === d.id && r.requestType === d.requestType))
-    );
-    setQueuedRequests(prev => 
-      prev.filter(q => allRequests.some(r => r.id === q.id && r.requestType === q.requestType))
-    );
-    
-    // إضافة الطلبات الجديدة للطابور (مع منع التكرار بناء على userId + requestType)
-    const newRequests = allRequests.filter((req: any) => {
-      const key = `${req.requestType}-${req.id}`;
-      // تجاهل الطلبات التي تم التعامل معها سابقاً
-      if (handledRequestIdsRef.current.has(key)) return false;
-      return (
-        !displayedRequests.some(d => (d.id === req.id || d.requesterId === req.requesterId) && d.requestType === req.requestType) && 
-        !queuedRequests.some(q => (q.id === req.id || q.requesterId === req.requesterId) && q.requestType === req.requestType)
-      );
-    });
-    
-    if (newRequests.length > 0) {
-      // إذا كان هناك مكان في العرض (أقل من 1)
-      if (displayedRequests.length < 1) {
-        const slotsAvailable = 1 - displayedRequests.length;
-        const toDisplay = newRequests.slice(0, slotsAvailable);
-        const toQueue = newRequests.slice(slotsAvailable);
-        setDisplayedRequests(prev => [...prev, ...toDisplay]);
-        setQueuedRequests(prev => [...prev, ...toQueue]);
-      } else {
-        // إضافة للطابور
-        setQueuedRequests(prev => [...prev, ...newRequests]);
-      }
-    }
-  }, [allRequests, isRoomCreator]);
-  
-  // مؤقت 10 ثواني لإدارة الطابور الذكي - كل طلب يظهر مرتين قبل الحذف
-  useEffect(() => {
-    if (displayedRequests.length === 0) return;
-    
-    const timer = setTimeout(() => {
-      setDisplayedRequests(prev => {
-        const current = prev[0];
-        if (!current) return prev;
-        const key = `${current.requestType}-${current.id}`;
-        const appearances = (requestAppearanceRef.current.get(key) || 0) + 1;
-        if (appearances >= 2) {
-          requestAppearanceRef.current.delete(key);
-          if (current.requestType === 'viewer') {
-            expireJoinRequestMutation.mutate({ requestId: current.id });
-          }
-        } else {
-          requestAppearanceRef.current.set(key, appearances);
-          setQueuedRequests(q => [...q, current]);
-        }
-        return queuedRequests.length > 0 ? [queuedRequests[0]] : [];
-      });
-      setQueuedRequests(prev => prev.slice(1));
-    }, 10000);
-    
-    return () => clearTimeout(timer);
-  }, [displayedRequests, queuedRequests]);
+  // (أُزيلت منطقة دمج الطلبات/الطابور/المؤقتات القديمة — أصبحت داخل JoinRequestsPanel)
 
-  // Expire join request mutation
-  const expireJoinRequestMutation = trpc.joinRequests.expire.useMutation();
-  
-  // Create join request mutation (for viewers)
+  // Create join request mutation (for viewers) — خاص بزر "طلب الانضمام كشاعر"
   const createJoinRequestMutation = trpc.joinRequests.create.useMutation({
     onSuccess: (data) => {
       console.log("[RoomScreen] Join request created successfully:", data);
-      // الحالة تم تحديثها فوراً في handleRequestJoinAsPlayer
-      // Immediately refetch to show request to creator
+      // الحالة حُدّثت فوراً في handleRequestJoinAsPlayer.
+      // تصفير الزر عند رد المنشئ يتمّ عبر السوكِت (joinRequestResponse).
       refetch();
-      // Auto-expire after 10 seconds
-      setTimeout(async () => {
-        try {
-          const requests = await trpcUtils.joinRequests.getPending.fetch({ roomId });
-          const myRequest = requests?.find((r: any) => r.userId === userId);
-          setHasPendingRequest(!!myRequest);
-        } catch (_) {
-          setHasPendingRequest(false);
-        }
-        // Also expire in database
-        if (data.requestId) {
-          expireJoinRequestMutation.mutate({ requestId: data.requestId });
-        }
-      }, 10000);
-    },
-    onError: (error) => {
-      Alert.alert("خطأ", error.message);
-    },
-  });
-
-  // Respond to join request mutation (for creator)
-  const respondToJoinRequestMutation = trpc.joinRequests.respond.useMutation({
-    onSuccess: async (data, variables) => {
-      // Immediately refetch all data for instant update
-      await Promise.all([
-        refetchJoinRequests(),
-        refetch(),
-      ]);
-      if (variables.accept) {
-        // لا إشعار عند قبول الشاعر
-      }
     },
     onError: (error) => {
       Alert.alert("خطأ", error.message);
@@ -1339,15 +1181,7 @@ export default function RoomScreen() {
     });
   };
 
-  // Handle creator response to join request
-  const handleRespondToJoinRequest = (requestId: number, requestUserId: string, accept: boolean) => {
-    respondToJoinRequestMutation.mutate({
-      requestId,
-      accept,
-      roomId,
-      userId: requestUserId,
-    });
-  };
+  // (أُزيل handleRespondToJoinRequest — أصبح القبول/الرفض داخل JoinRequestsPanel)
 
 
   // Mutation لإرسال الدعوة العامة
@@ -1475,7 +1309,7 @@ export default function RoomScreen() {
         `انضم الآن كشاعر أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
-        message: message + '\n' + inviteUrl,
+        message: message,
         title: `دعوة للانضمام إلى ${roomName}`,
       });
     } catch (error) {
@@ -1483,39 +1317,7 @@ export default function RoomScreen() {
     }
   };
 
-  const handleAcceptRequest = async (participantId: number) => {
-    try {
-      await respondToRequestMutation.mutateAsync({
-        participantId,
-        accept: true,
-      });
-      await refetch();
-      await refetchRequests();
-      // لا إشعار عند قبول الشاعر
-    } catch (error) {
-      Alert.alert("خطأ", "حدث خطأ أثناء قبول الطلب");
-    }
-  };
-
-  const handleRejectRequest = async (participantId: number) => {
-    try {
-      console.log("[RoomScreen] Rejecting request for participant:", participantId);
-      
-      // Reject the request - this will convert the player to a viewer
-      await respondToRequestMutation.mutateAsync({
-        participantId,
-        accept: false,
-      });
-      console.log("[RoomScreen] Request rejected, participant converted to viewer");
-      
-      await refetch();
-      await refetchRequests();
-      Alert.alert("تم الرفض", "تم رفض الطلب. المستخدم الآن مستمع");
-    } catch (error) {
-      console.error("[RoomScreen] Error rejecting request:", error);
-      Alert.alert("خطأ", "حدث خطأ أثناء رفض الطلب");
-    }
-  };
+  // (أُزيل handleAcceptRequest و handleRejectRequest — مسار الطلبات الموازي لم يعد مستخدماً)
 
   // Handle saving profile changes
   const handleSaveProfile = async (newName: string, newAvatar: string) => {
@@ -2358,68 +2160,7 @@ export default function RoomScreen() {
         </Pressable>
       </Modal>
 
-      {/* طلبات الانضمام الموحدة - نظام الطابور: 1 طلب */}
-      {isRoomCreator && displayedRequests && displayedRequests.length > 0 && (
-        <View className="px-6 py-3 border-b border-warning/30" style={{ backgroundColor: 'rgba(30, 20, 5, 0.95)', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 999 }}>
-          {displayedRequests.map((request: any) => (
-            <View key={`${request.requestType}-${request.id}`} className="flex-row items-center justify-between mb-2" style={{ backgroundColor: 'rgba(50, 35, 5, 0.95)', borderRadius: 8, padding: 10 }}>
-              <View className="flex-row items-center flex-1">
-                {request.avatar && (
-                  <Image
-                    source={getAvatarSource(request.avatar)}
-                    style={{ width: 36, height: 36, borderRadius: 18, marginLeft: 8 }}
-                  />
-                )}
-                <Text style={{ color: '#000', fontWeight: '600' }}>
-                  {request.username} يريد الانضمام كشاعر
-                </Text>
-              </View>
-              <View className="flex-row gap-2">
-                <TouchableOpacity
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: '#22C55E' }}
-                  onPress={() => {
-                    const key = `${request.requestType}-${request.id}`;
-                    handledRequestIdsRef.current.add(key);
-                    if (request.requestType === 'viewer') {
-                      handleRespondToJoinRequest(request.id, request.userId, true);
-                    } else {
-                      handleAcceptRequest(request.id);
-                    }
-                    // إزالة الطلب من العرض فوراً
-                    setDisplayedRequests(prev => prev.filter(r => !(r.id === request.id && r.requestType === request.requestType)));
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>قبول</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="px-4 py-2 rounded-lg"
-                  style={{ backgroundColor: '#EF4444' }}
-                  onPress={() => {
-                    const key = `${request.requestType}-${request.id}`;
-                    handledRequestIdsRef.current.add(key);
-                    if (request.requestType === 'viewer') {
-                      handleRespondToJoinRequest(request.id, request.userId, false);
-                    } else {
-                      handleRejectRequest(request.id);
-                    }
-                    // إزالة الطلب من العرض فوراً
-                    setDisplayedRequests(prev => prev.filter(r => !(r.id === request.id && r.requestType === request.requestType)));
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>رفض</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          {/* عداد الطلبات المنتظرة */}
-          {queuedRequests.length > 0 && (
-            <Text style={{ color: colors.muted, fontSize: 12, textAlign: 'center', marginTop: 4 }}>
-              + {queuedRequests.length} طلبات في الانتظار
-            </Text>
-          )}
-        </View>
-      )}
+      {/* (أُزيلت كتلة الطلبات القديمة — لوحة الطلبات الآن داخل JoinRequestsPanel في حاوية الساحة) */}
 
       {/* Messages Feed + حقل الكتابة + الأزرار */}
       <KeyboardAvoidingView
@@ -2468,6 +2209,14 @@ export default function RoomScreen() {
             <MaterialIcons name="push-pin" size={18} color="#FFD700" />
           </TouchableOpacity>
         )}
+        {/* لوحة طلبات الانضمام (نمط رفع اليد) — للمنشئ فقط، حبّة أعلى يمين الساحة */}
+        <JoinRequestsPanel
+          roomId={roomId}
+          userId={userId}
+          isRoomCreator={isRoomCreator}
+          isRoomFull={roomData?.isRoomFull ?? ((roomData?.acceptedPlayersCount ?? 0) >= 2)}
+          getAvatarSource={getAvatarSource}
+        />
         {/* النص المثبت يظهر للجميع فوق صور اللاعبين — لا يحجز مساحة عند الفراغ */}
         {pinnedText.trim().length > 0 && (
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginHorizontal: 4 }}>
@@ -2805,17 +2554,23 @@ export default function RoomScreen() {
                   }
 
                   try {
-                    console.log("[RoomScreen] Starting Sheeloha locally for:", lastTarouk.audioUrl);
-
-                    // منع التداخل — إذا شيلوها تعمل عند أي أحد نمنع الضغط
+                    // منع التداخل — إذا شيلوها تعمل نمنع الضغط
                     if (sheelohaPlayer.isPlaying) {
                       Alert.alert("تنبيه", "شيلوها تعمل الآن، انتظر حتى تنتهي");
                       return;
                     }
 
-                    // تشغيل محلي مباشرة - بدون خادم
-                    await sheelohaPlayer.play({
+                    console.log("[RoomScreen] Sheeloha for tarouk:", lastTarouk.audioUrl);
+
+                    // 1) جلب/توليد ملفّ الصفّ الممزوج (مرّة واحدة لكل طاروق، مخزَّن مؤقتاً على الخادم — غالباً جاهز مسبقاً)
+                    const { sheelohaUrl } = await getSheelohaMutation.mutateAsync({
                       taroukUrl: lastTarouk.audioUrl,
+                      taroukDuration: lastTarouk.duration || 3,
+                    });
+
+                    // 2) تشغيل محلي: ملفّ واحد يُكرَّر بسلاسة
+                    await sheelohaPlayer.play({
+                      sheelohaUrl,
                       taroukDuration: lastTarouk.duration || 3,
                     });
 
@@ -2825,11 +2580,11 @@ export default function RoomScreen() {
                       return;
                     }
 
-                    // بث للجميع عبر Socket.io
+                    // 3) بث للجميع عبر Socket.io (نفس ملفّ الصفّ)
                     const socket = await getSocket();
                     socket.emit("playSheeloha", {
                       roomId,
-                      sheelohaUrl: lastTarouk.audioUrl,
+                      sheelohaUrl,
                       taroukDuration: lastTarouk.duration || 3,
                       userId,
                       username: username || "",
@@ -3033,7 +2788,6 @@ export default function RoomScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
-
             </View>
           )}
         </View>
