@@ -131,12 +131,23 @@ export async function upsertUserByPhone(data: {
   if (!db) throw new Error("Database not available");
   // رمز جلسة جديد لكل تسجيل دخول — يُبطل أي جلسة أقدم (جلسة واحدة نشطة لكل مستخدم)
   const sessionToken = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
+  // المعرّف الثابت: نُبقي الموجود في القاعدة إن وُجد، وإلا نستخدم المُرسَل من العميل.
+  // نكتبه دائماً (حتى في onDuplicateKeyUpdate) لتعبئة أي صفّ قديم فارغ (appUserId=NULL) — وهو ما كان يكسر فرض الجلسة الواحدة.
+  const existingRows = await db
+    .select({ appUserId: users.appUserId })
+    .from(users)
+    .where(eq(users.phoneNumber, data.phoneNumber))
+    .limit(1);
+  const stableAppUserId =
+    (existingRows.length > 0 && existingRows[0].appUserId)
+      ? existingRows[0].appUserId
+      : (data.appUserId || null);
   await db.insert(users).values({
     openId: data.openId,
     phoneNumber: data.phoneNumber,
     name: data.name,
     avatar: data.avatar,
-    appUserId: data.appUserId || null,
+    appUserId: stableAppUserId,
     loginMethod: "phone",
     sessionToken,
     lastSignedIn: new Date(),
@@ -144,11 +155,12 @@ export async function upsertUserByPhone(data: {
     set: {
       name: data.name,
       avatar: data.avatar,
+      appUserId: stableAppUserId,
       sessionToken,
       lastSignedIn: new Date(),
     }
   });
-  return { sessionToken };
+  return { sessionToken, appUserId: stableAppUserId };
 }
 
 // ============ Rooms ============
