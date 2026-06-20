@@ -241,7 +241,7 @@ export default function WelcomeScreen() {
       // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
       let finalUserId = guestUserId;
       try {
-        const existingUser = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
+        const existingUser = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
         if (existingUser?.appUserId) {
           finalUserId = existingUser.appUserId;
           await setUserId(existingUser.appUserId);
@@ -288,7 +288,7 @@ export default function WelcomeScreen() {
             // جلب UUID القديم من السيرفر إذا كان الرقم مسجّلاً
             let finalUserId2 = guestUserId2;
             try {
-              const existingUser2 = await trpc.auth.getUserByPhone.query({ phoneNumber: fullPhone });
+              const existingUser2 = await trpcUtils.auth.getUserByPhone.fetch({ phoneNumber: fullPhone });
               if (existingUser2?.appUserId) {
                 finalUserId2 = existingUser2.appUserId;
                 await setUserId(existingUser2.appUserId);
