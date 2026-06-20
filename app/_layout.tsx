@@ -1,6 +1,6 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -23,11 +23,36 @@ import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { GlobalCreatorNotifier } from "@/components/global-creator-notifier";
 import { useCreatorBell } from "@/hooks/use-creator-bell";
+import { getSocket } from "@/hooks/use-socket";
+import { useUser } from "@/lib/user-context";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SplashScreen } from "@/components/splash-screen";
 
 function CreatorBellListener() {
   useCreatorBell();
+  return null;
+}
+
+// مستمع عام لأمر الطرد (جلسة واحدة نشطة) — يعمل في كل الشاشات، حتى داخل الساحة
+// (معالج index.tsx لا يعمل داخل الساحة لأن سوكِته غير محمَّل هناك)
+function GlobalForceLogoutListener() {
+  const { logout } = useUser();
+  useEffect(() => {
+    let socket: any = null;
+    const handler = async () => {
+      try { await logout(); } catch {}
+      router.replace("/welcome");
+    };
+    getSocket()
+      .then((s) => {
+        socket = s;
+        s.on("forceLogout", handler);
+      })
+      .catch(() => {});
+    return () => {
+      if (socket) socket.off("forceLogout", handler);
+    };
+  }, [logout]);
   return null;
 }
 
@@ -94,6 +119,7 @@ function RootLayoutInner() {
         </Stack>
         <GlobalCreatorNotifier />
         <CreatorBellListener />
+        <GlobalForceLogoutListener />
         <StatusBar style="auto" />
       </GestureHandlerRootView>
     </KeyboardProvider>

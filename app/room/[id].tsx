@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated, ToastAndroid } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, ScrollView, Alert, FlatList, Platform, useWindowDimensions, Modal, Pressable, TextInput, Animated } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 
 import { AudioModule, RecordingPresets, createAudioPlayer } from "expo-audio";
@@ -35,13 +35,6 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { getAvatarSourceById } from "@/lib/avatars";
 import { InteractionButtons } from "@/components/interaction-buttons";
 import { ReportModal } from "@/components/report-modal";
-
-// إشعار تلقائي الاختفاء (لا يتطلّب نقراً من المستخدم) — بديل Alert الحاجب
-function showAutoToast(message: string) {
-  if (Platform.OS === "android") {
-    ToastAndroid.show(message, ToastAndroid.LONG);
-  }
-}
 
 // مكون مستقل للرسائل النصية مع نافذة البلاغ
 function TextMessageWithReport({ item, userId }: { item: any; userId: string | null }) {
@@ -303,15 +296,15 @@ export default function RoomScreen() {
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
           
-          // رسالة مختلفة حسب سبب الحذف — إشعار تلقائي الاختفاء (لا ينتظر نقراً)
+          // رسالة مختلفة حسب سبب الحذف
           if (reason === "auto") {
-            showAutoToast("تم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها");
+            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)");
           } else if (roomName === 'تم إغلاق الساحة من قبل الادارة') {
-            showAutoToast("تم إغلاق الساحة من قبل الإدارة");
+            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
           } else if (userId === roomData?.creatorId) {
-            showAutoToast("تم إغلاق الساحة بنجاح");
+            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة بنجاح");
           } else {
-            showAutoToast("المنشئ يستأذنكم، تم إغلاق الساحة");
+            Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
           }
         }
       },
@@ -490,7 +483,10 @@ export default function RoomScreen() {
         setRoomClosedAlertShown(true);
         router.replace("/");
         if (savedRoomName) {
-          showAutoToast("تم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها");
+          Alert.alert(
+            "تم حذف الساحة",
+            "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
+          );
         }
       })();
     }
@@ -980,16 +976,7 @@ export default function RoomScreen() {
   
   useEffect(() => {
     if (!latestKhaloohaCommand) return;
-
-    // أمر خلوها الأوّلي (الموجود قبل دخولنا، من الجلب الأوّلي): علّمه "مُعالَجاً" فقط دون تشغيل الأصوات الختامية
-    // (يمنع اشتغال التصفيق/الصوت الختامي بمجرد دخول ساحة فيها أمر خلوها قديم)
-    if (latestKhaloohaCommand === initialKhaloohaCommand && !socketKhaloohaCommand) {
-      if (lastProcessedKhaloohaId !== latestKhaloohaCommand.id) {
-        setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
-      }
-      return;
-    }
-
+    
     // Check if this is a new khalooha command that hasn't been processed
     if (
       latestKhaloohaCommand.id !== lastProcessedKhaloohaId &&
@@ -1026,7 +1013,7 @@ export default function RoomScreen() {
     } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
       setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
     }
-  }, [latestKhaloohaCommand, initialKhaloohaCommand, socketKhaloohaCommand, lastProcessedKhaloohaId, userId]);
+  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -1039,7 +1026,9 @@ export default function RoomScreen() {
 
   useEffect(() => {
     if (roomData && username) {
-      const participant = roomData.participants.find((p) => p.username === username);
+      const participant =
+        roomData.participants.find((p) => p.userId === userId) ||
+        roomData.participants.find((p) => p.username === username);
       if (participant) {
         console.log("[RoomScreen] Participant found:", participant);
         // Update role and approval status immediately
@@ -1078,7 +1067,7 @@ export default function RoomScreen() {
         }
       }
     }
-  }, [roomData, username, userRole, isApproved]);
+  }, [roomData, username, userId, userRole, isApproved]);
 
   // عرض إشعار التعليمات للمنشئ عند إنشاء أول ساحة (مرة واحدة فقط)
   useEffect(() => {
@@ -1309,7 +1298,7 @@ export default function RoomScreen() {
         `انضم الآن كشاعر أو مستمع:\n${inviteUrl}`;
       
       await Share.share({
-        message: message,
+        message: message + '\n' + inviteUrl,
         title: `دعوة للانضمام إلى ${roomName}`,
       });
     } catch (error) {
@@ -2788,6 +2777,11 @@ export default function RoomScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
+              {hasPendingRequest && (
+                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, textAlign: 'center' }}>
+                  سيتم حذف الطلب تلقائياً بعد 10 ثواني
+                </Text>
+              )}
             </View>
           )}
         </View>
