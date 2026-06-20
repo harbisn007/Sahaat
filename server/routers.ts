@@ -82,6 +82,7 @@ export const appRouter = router({
           name: user.name,
           avatar: user.avatar,
           phoneNumber: user.phoneNumber,
+          role: user.role,
         };
       }),
 

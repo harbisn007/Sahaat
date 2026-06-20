@@ -49,7 +49,7 @@ type Screen = "choice" | "register" | "otp";
 export default function WelcomeScreen() {
   const { redirect } = useLocalSearchParams<{ redirect?: string }>();
   const colors = useColors();
-  const { loginAsGuest, setUserId } = useUser();
+  const { loginAsGuest, setUserId, setRole } = useUser();
   const scrollViewRef = useRef<ScrollView>(null);
   const trpcUtils = trpc.useUtils();
   const upsertUserByPhone = trpc.auth.upsertUserByPhone.useMutation();
@@ -246,6 +246,9 @@ export default function WelcomeScreen() {
           finalUserId = existingUser.appUserId;
           await setUserId(existingUser.appUserId);
         }
+        if (existingUser?.role) {
+          await setRole(existingUser.role as any);
+        }
       } catch (_) {}
       const upsertRes = await upsertUserByPhone.mutateAsync({
         phoneNumber: fullPhone,
@@ -292,6 +295,9 @@ export default function WelcomeScreen() {
               if (existingUser2?.appUserId) {
                 finalUserId2 = existingUser2.appUserId;
                 await setUserId(existingUser2.appUserId);
+              }
+              if (existingUser2?.role) {
+                await setRole(existingUser2.role as any);
               }
             } catch (_) {}
             const upsertRes2 = await upsertUserByPhone.mutateAsync({ phoneNumber: fullPhone, name: displayName, avatar: avatar as string, openId: firebaseUid, appUserId: finalUserId2 });

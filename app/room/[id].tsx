@@ -1052,14 +1052,22 @@ export default function RoomScreen() {
         // المستخدم لم يعد موجوداً في الساحة - ربما تم استبعاده
         // إذا كان لديه دور سابق (ليس null) وليس المنشئ وكان مقبولاً، فهذا يعني أنه تم استبعاده
         // إذا لم يكن مقبولاً (طلب معلق)، فهذا يعني أنه خرج بنفسه أو رُفض طلبه
-        if (userRole && userRole === "player" && isApproved) {
-          console.log("[RoomScreen] User was kicked from the room");
+        if (userRole === "player" && isApproved) {
+          console.log("[RoomScreen] Player was kicked from the room");
           // إعادة ضبط الحالة لمنع التكرار
           setUserRole(null);
           setIsApproved(false);
           // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
           router.replace("/");
           setNotification({ title: 'رسالة', message: 'اعتذر منك تم سحب المايك ، وشكرا', type: 'info' });
+          setShowNotification(true);
+          setTimeout(() => setShowNotification(false), 4000);
+        } else if (userRole === "viewer") {
+          // المستمع أُزيل من الساحة (حظر/إخراج) — يُخرَج مثل الشاعر تماماً
+          console.log("[RoomScreen] Viewer was removed/banned from the room");
+          setUserRole(null);
+          router.replace("/");
+          setNotification({ title: 'رسالة', message: 'تم إخراجك من الساحة', type: 'info' });
           setShowNotification(true);
           setTimeout(() => setShowNotification(false), 4000);
         } else {
