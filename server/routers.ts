@@ -1231,7 +1231,8 @@ export const appRouter = router({
         const activeRoom = await db.getUserActiveRoom(input.userId);
         if (activeRoom) {
           console.log(`[Ban] Closing room ${activeRoom.id} for banned user ${input.userId}`);
-          emitRoomDeleted(activeRoom.id, activeRoom.name);
+          // حظر المنشئ: نمرّر نص الإدارة كاسم للساحة، فيعرض العميل "تم إغلاق الساحة من قبل الادارة" للجميع
+          emitRoomDeleted(activeRoom.id, 'تم إغلاق الساحة من قبل الادارة');
           await db.deleteRoom(activeRoom.id);
         }
         emitUserBanned(input.userId, input.banType);

@@ -286,26 +286,25 @@ export default function RoomScreen() {
     if (!roomId || roomId <= 0) return;
     
     setCallbacks({
-      onRoomDeleted: (data: any) => {
-        const roomName = data.roomName || '';
-        const reason = data.reason;
-        const message = data.message;
-        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason, "message:", message);
-        if (!roomClosedAlertShown) {
-          setRoomClosedAlertShown(true);
-          // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
-          router.replace("/");
-          
-          // رسالة مختلفة حسب سبب الحذف
-          if (reason === "auto") {
-            Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)");
-          } else if (roomName === 'تم إغلاق الساحة من قبل الادارة') {
-            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
-          } else if (userId === roomData?.creatorId) {
-            Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة بنجاح");
-          } else {
-            Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
-          }
+      onRoomDeleted: (roomName: string, reason?: "manual" | "auto") => {
+        console.log("[RoomScreen] Room deleted via Socket.io:", roomName, "reason:", reason);
+        if (roomClosedAlertShown) return;
+        setRoomClosedAlertShown(true);
+        // تنفيذ الخروج فوراً بدون انتظار تفاعل المستخدم
+        router.replace("/");
+        const isCreator = userId === roomData?.creatorId;
+        if (roomName === 'تم إغلاق الساحة من قبل الادارة') {
+          // حظر المنشئ أو إغلاق الإدارة — للجميع بمن فيهم المنشئ
+          Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة من قبل الادارة");
+        } else if (isCreator && reason === "auto") {
+          // الحذف التلقائي — رسالة الـ١٥ دقيقة تظهر للمنشئ فقط
+          Alert.alert("تم حذف الساحة", "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)");
+        } else if (isCreator) {
+          // المنشئ أغلق ساحته بنفسه — تأكيد له
+          Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة بنجاح");
+        } else {
+          // كل الآخرين — في الإغلاق اليدوي والتلقائي معاً
+          Alert.alert("تم إغلاق الساحة", "المنشئ يستأذنكم، تم إغلاق الساحة");
         }
       },
       // استماع للرسالل الصوتية الجديدة - إضافة مباشرة للحالة المحلية
@@ -472,21 +471,22 @@ export default function RoomScreen() {
     // نتحقق فقط إذا:
     // 1. رأينا roomData مرة سابقاً ثم اختفى (حُذفت الساحة)
     // 2. أو وصل خطأ صريح من الخادم
-    const roomDisappeared = hasSeenRoomDataRef.current && !roomData;
-    const serverError = !!error;
+    // نُطلق هذا الاحتياط فقط حين تكون الساحة غير موجودة فعلاً (حُذفت)،
+    // لا عند انقطاع اتصال عابر (خطأ شبكة) — حتى لا يُطرَد المشارك أو يُنبَّه خطأً عند فقد الاتصال.
+    // السبب الحقيقي للإغلاق يأتي دائماً من حدث roomDeleted (السوكِت)؛ هذا مجرد احتياط.
+    const errMsg = error?.message || '';
+    const roomNotFound = !!error && /not found|notfound|room not found|غير موجودة/i.test(errMsg);
 
-    if (roomDisappeared || serverError) {
+    if (roomNotFound) {
       (async () => {
         await new Promise(r => setTimeout(r, 1500));
         if (roomClosedAlertShown) return;
-        console.log("[RoomScreen] Room not found - redirecting. disappeared:", roomDisappeared, "error:", error?.message);
+        console.log("[RoomScreen] Room confirmed not found - redirecting. error:", errMsg);
         setRoomClosedAlertShown(true);
         router.replace("/");
         if (savedRoomName) {
-          Alert.alert(
-            "تم حذف الساحة",
-            "يتم حذف الساحة تلقائياً لمرور ١٥ دقيقة بدون دخول شعراء بها، لكن لا مشكلة يمكنك إنشاء أخرى دائماً :)"
-          );
+          // رسالة محايدة — لا نعرف السبب الدقيق هنا
+          Alert.alert("تم إغلاق الساحة", "تم إغلاق الساحة");
         }
       })();
     }
@@ -737,8 +737,16 @@ export default function RoomScreen() {
       // حدث حظر المستخدم - إخراجه فوراً من الساحة
       onUserBanned: (data: { userId: string; banType: string }) => {
         if (data.userId === userId) {
-          const msg = 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
-          Alert.alert('تم حظرك', msg, [
+          if (roomClosedAlertShown) return;
+          // امنع الإشعار المزدوج (حدث roomDeleted يصل أيضاً للمنشئ)
+          setRoomClosedAlertShown(true);
+          const isCreator = userId === roomData?.creatorId;
+          // المنشئ المحظور يرى رسالة إغلاق الساحة من الإدارة (كبقية الحاضرين)؛ غيره يرى رسالة الحظر
+          const title = isCreator ? 'تم إغلاق الساحة' : 'تم حظرك';
+          const msg = isCreator
+            ? 'تم إغلاق الساحة من قبل الادارة'
+            : 'تم حظرك مؤقتاً. العملية تحت المراجعة.';
+          Alert.alert(title, msg, [
             { text: 'حسناً', onPress: () => router.replace('/(tabs)') }
           ]);
         }
