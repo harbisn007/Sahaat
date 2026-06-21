@@ -10,6 +10,24 @@ const activeUsers = new Map<string, number>(); // userId -> lastActivityTimestam
 // roomLikes: roomId -> (toUserId -> { likes, dislikes })
 const roomLikes = new Map<number, Map<string, { likes: number; dislikes: number }>>();
 
+// ============ شيلوها النشطة لكل ساحة (لإسماعها للمنضمّ الجديد) ============
+// roomId -> بيانات الشيلوها الجارية الآن (تُضبط عند playSheeloha، وتُمسح عند khalooha/حذف الساحة)
+const activeSheeloha = new Map<number, { sheelohaUrl: string; taroukDuration: number; userId: string; username: string; startedAt: number }>();
+
+/**
+ * جلب الشيلوها النشطة حالياً لساحة (للمنضمّ الجديد). ترجع null إن لم توجد،
+ * أو إن تقادمت كثيراً (>120 ثانية) — احتياط ضد بقاء حالة قديمة عالقة.
+ */
+export function getActiveSheeloha(roomId: number): { sheelohaUrl: string; taroukDuration: number; userId: string; username: string } | null {
+  const s = activeSheeloha.get(roomId);
+  if (!s) return null;
+  if (Date.now() - s.startedAt > 120000) {
+    activeSheeloha.delete(roomId);
+    return null;
+  }
+  return { sheelohaUrl: s.sheelohaUrl, taroukDuration: s.taroukDuration, userId: s.userId, username: s.username };
+}
+
 export function addRoomLikeDislike(roomId: number, toUserId: string, type: "like" | "dislike"): { likes: number; dislikes: number } {
   if (!roomLikes.has(roomId)) {
     roomLikes.set(roomId, new Map());
@@ -443,6 +461,14 @@ export function initializeSocketIO(httpServer: HttpServer): Server<ClientToServe
         userId: data.userId,
         username: data.username,
       });
+      // خزّن الشيلوها الجارية ليسمعها أي منضمّ جديد حتى يصل أمر "خلوها"
+      activeSheeloha.set(data.roomId, {
+        sheelohaUrl: data.sheelohaUrl,
+        taroukDuration: data.taroukDuration,
+        userId: data.userId,
+        username: data.username,
+        startedAt: Date.now(),
+      });
     });
 
     // استقبال تثبيت نص من المنشئ وبثه لجميع مشاركي الساحة
@@ -512,6 +538,7 @@ export function emitRoomUpdated(roomId: number): void {
  */
 export function emitRoomDeleted(roomId: number, roomName: string, reason: "manual" | "auto" = "manual"): void {
   if (!io) return;
+  activeSheeloha.delete(roomId);
   io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName, reason });
 }
 
@@ -637,6 +664,8 @@ export function emitKhaloohaCommand(
   createdAt: Date
 ): void {
   if (!io) return;
+  // "خلوها" يوقف الشيلوها — امسح الحالة النشطة فلا يسمعها منضمّ جديد بعد التوقف
+  activeSheeloha.delete(roomId);
   io.to(`room:${roomId}`).emit("khaloohaCommand", { 
     roomId, 
     userId, 
@@ -651,6 +680,7 @@ export function emitKhaloohaCommand(
  */
 export function broadcastRoomDeleted(roomId: number): void {
   if (!io) return;
+  activeSheeloha.delete(roomId);
   // بث لجميع المتصلين في الساحة (حذف تلقائي بعد 15 دقيقة)
   io.to(`room:${roomId}`).emit("roomDeleted", { roomId, roomName: "", reason: "auto" });
   console.log(`[Socket.io] Broadcasted room deletion (auto): ${roomId}`);

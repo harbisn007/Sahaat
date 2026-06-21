@@ -32,6 +32,7 @@ import {
   emitReactionCreated,
   emitUserBanned,
   emitTextMessageCreated,
+  getActiveSheeloha,
 } from "./_core/socket";
 // تم إلغاء معالجة الجوقة - الصوت الأصلي يُستخدم دائماً
 
@@ -587,6 +588,12 @@ export const appRouter = router({
           console.error(`[audio.getSheeloha] Failed:`, error?.message);
           throw new Error(`Failed to get sheeloha: ${error?.message}`);
         }
+      }),
+    // جلب الشيلوها النشطة حالياً في الساحة (ليشغّلها المنضمّ الجديد عند دخوله)
+    getActiveSheeloha: publicProcedure
+      .input(z.object({ roomId: z.number() }))
+      .query(({ input }) => {
+        return getActiveSheeloha(input.roomId);
       }),
   }),
 

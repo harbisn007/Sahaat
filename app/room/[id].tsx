@@ -840,6 +840,29 @@ export default function RoomScreen() {
     return initialKhaloohaCommand;
   }, [initialKhaloohaCommand, socketKhaloohaCommand]);
 
+  // جلب الشيلوها النشطة حالياً عند الدخول (ليسمعها المنضمّ الجديد إن كانت تعمل الآن)
+  const { data: activeSheelohaOnJoin } = trpc.audio.getActiveSheeloha.useQuery(
+    { roomId },
+    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة عند الدخول فقط
+  );
+
+  // عند الدخول: إن كانت شيلوها تعمل الآن شغّلها مرّة واحدة. تتوقف لاحقاً مع "خلوها" كالمعتاد
+  // لأنّ المستخدم أصبح داخل الساحة فيستقبل أمر الإيقاف. كل شيء آخر دون تغيير.
+  const sheelohaJoinPlayedRef = useRef(false);
+  useEffect(() => {
+    if (sheelohaJoinPlayedRef.current) return;
+    const s = activeSheelohaOnJoin as any;
+    if (!s || !s.sheelohaUrl) return;
+    if (s.userId === userId) return;           // أنا من أرسلها أصلاً
+    if (isRecordingRef.current) return;         // لا شيلوها أثناء التسجيل
+    sheelohaJoinPlayedRef.current = true;
+    sheelohaPlayerRef.current.stop();
+    sheelohaPlayerRef.current.play({
+      sheelohaUrl: s.sheelohaUrl,
+      taroukDuration: s.taroukDuration,
+    }).catch((e: any) => console.warn("[RoomScreen] join-sheeloha play failed:", e));
+  }, [activeSheelohaOnJoin, userId]);
+
   // جلب أولي لحالة التسجيل (بدون polling - التحديثات عبر Socket.io)
   const { data: initialActiveRecordings } = trpc.recording.getActive.useQuery(
     { roomId },
