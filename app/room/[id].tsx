@@ -840,17 +840,20 @@ export default function RoomScreen() {
     return initialKhaloohaCommand;
   }, [initialKhaloohaCommand, socketKhaloohaCommand]);
 
-  // جلب الشيلوها النشطة حالياً عند الدخول (ليسمعها المنضمّ الجديد إن كانت تعمل الآن)
-  const { data: activeSheelohaOnJoin } = trpc.audio.getActiveSheeloha.useQuery(
+  // جلب الشيلوها النشطة حالياً — جلب جديد عند كل دخول (بلا تخزين قديم)
+  const { data: activeSheelohaOnJoin, dataUpdatedAt: sheelohaFetchedAt } = trpc.audio.getActiveSheeloha.useQuery(
     { roomId },
-    { enabled: roomId > 0, staleTime: Infinity } // جلب مرة واحدة عند الدخول فقط
+    { enabled: roomId > 0, staleTime: 0, refetchOnMount: "always" }
   );
 
   // عند الدخول: إن كانت شيلوها تعمل الآن شغّلها مرّة واحدة. تتوقف لاحقاً مع "خلوها" كالمعتاد
   // لأنّ المستخدم أصبح داخل الساحة فيستقبل أمر الإيقاف. كل شيء آخر دون تغيير.
+  const sheelohaMountTimeRef = useRef(Date.now());
   const sheelohaJoinPlayedRef = useRef(false);
   useEffect(() => {
     if (sheelohaJoinPlayedRef.current) return;
+    // تجاهل أي نتيجة مخزّنة من دخول سابق — لا نشغّل إلا نتيجة جلبٍ حديث بعد دخولنا الحالي
+    if (!sheelohaFetchedAt || sheelohaFetchedAt < sheelohaMountTimeRef.current) return;
     const s = activeSheelohaOnJoin as any;
     if (!s || !s.sheelohaUrl) return;
     if (s.userId === userId) return;           // أنا من أرسلها أصلاً
@@ -861,7 +864,7 @@ export default function RoomScreen() {
       sheelohaUrl: s.sheelohaUrl,
       taroukDuration: s.taroukDuration,
     }).catch((e: any) => console.warn("[RoomScreen] join-sheeloha play failed:", e));
-  }, [activeSheelohaOnJoin, userId]);
+  }, [activeSheelohaOnJoin, sheelohaFetchedAt, userId]);
 
   // جلب أولي لحالة التسجيل (بدون polling - التحديثات عبر Socket.io)
   const { data: initialActiveRecordings } = trpc.recording.getActive.useQuery(
@@ -1006,24 +1009,27 @@ export default function RoomScreen() {
   const [lastProcessedKhaloohaId, setLastProcessedKhaloohaId] = useState<number | null>(null);
   
   useEffect(() => {
-    if (!latestKhaloohaCommand) return;
-    
+    // نتفاعل فقط مع أوامر "خلوها" الحيّة الواردة عبر السوكِت بعد الدخول.
+    // أمر "خلوها" الأولي (التاريخي المجلوب من قاعدة البيانات) لا يُشغّل صوتاً ولا يوقف الشيلوها،
+    // وإلا اشتغل صوت خلوها وأوقف الشيلوها الجارية فور الدخول.
+    if (!socketKhaloohaCommand) return;
+
     // Check if this is a new khalooha command that hasn't been processed
     if (
-      latestKhaloohaCommand.id !== lastProcessedKhaloohaId &&
-      latestKhaloohaCommand.userId !== userId // Don't stop for own command (already stopped locally)
+      socketKhaloohaCommand.id !== lastProcessedKhaloohaId &&
+      socketKhaloohaCommand.userId !== userId // Don't stop for own command (already stopped locally)
     ) {
       console.log("[RoomScreen] Received khalooha command from other user:", {
-        id: latestKhaloohaCommand.id,
-        username: latestKhaloohaCommand.username,
-        commandUserId: latestKhaloohaCommand.userId,
+        id: socketKhaloohaCommand.id,
+        username: socketKhaloohaCommand.username,
+        commandUserId: socketKhaloohaCommand.userId,
         currentUserId: userId
       });
       
       // Mark as processed
-      setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
+      setLastProcessedKhaloohaId(socketKhaloohaCommand.id);
       
-      console.log("[RoomScreen] Khalooha command from:", latestKhaloohaCommand.username);
+      console.log("[RoomScreen] Khalooha command from:", socketKhaloohaCommand.username);
       // إيقاف الشيلوها وتشغيل التصفيق الختامي
       sheelohaPlayer.stop();
       stop();
@@ -1041,10 +1047,10 @@ export default function RoomScreen() {
         khalwaSoundPlayer.loop = false;
         khalwaSoundPlayer.play();
       } catch (_) {}
-    } else if (latestKhaloohaCommand.id !== lastProcessedKhaloohaId && latestKhaloohaCommand.userId === userId) {
-      setLastProcessedKhaloohaId(latestKhaloohaCommand.id);
+    } else if (socketKhaloohaCommand.id !== lastProcessedKhaloohaId && socketKhaloohaCommand.userId === userId) {
+      setLastProcessedKhaloohaId(socketKhaloohaCommand.id);
     }
-  }, [latestKhaloohaCommand, lastProcessedKhaloohaId, userId]);
+  }, [socketKhaloohaCommand, lastProcessedKhaloohaId, userId]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
