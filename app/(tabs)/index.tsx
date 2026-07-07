@@ -560,7 +560,7 @@ export default function HomeScreen() {
         Alert.alert('الحساب محظور', msg);
         return;
       }
-      await createJoinRequestMutation.mutateAsync({ roomId: invite.roomId, userId, username, avatar: avatar || "male" });
+      // الضغط على الدعوة العامّة = دخول كمستمع فقط (لا طلب انضمام كشاعر)
       await joinAsViewerMutation.mutateAsync({ roomId: invite.roomId, userId, username, avatar: avatar || "male" });
       router.push(`/room/${invite.roomId}`);
     } catch (error: any) { Alert.alert("خطأ", error.message || "حدث خطأ أثناء الانضمام"); }

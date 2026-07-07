@@ -2822,11 +2822,6 @@ export default function RoomScreen() {
                   </Text>
                 </View>
               </TouchableOpacity>
-              {hasPendingRequest && (
-                <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, textAlign: 'center' }}>
-                  سيتم حذف الطلب تلقائياً بعد 10 ثواني
-                </Text>
-              )}
             </View>
           )}
         </View>
